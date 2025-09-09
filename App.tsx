@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { UploadScreen } from './src/screens/upload/UploadScreen';
 import { ProcessingScreen } from './src/screens/upload/ProcessingScreen';
 import { ResultsScreen } from './src/screens/upload/ResultsScreen';
+import { JobFormDemo } from './src/components/ui/JobFormDemo';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -79,6 +80,13 @@ function RootNavigator() {
       <Stack.Screen 
         name="UploadFlow" 
         component={UploadFlow}
+        options={{
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen 
+        name="JobFormDemo" 
+        component={JobFormDemo}
         options={{
           presentation: 'modal',
         }}

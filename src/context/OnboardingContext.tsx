@@ -34,17 +34,11 @@ const defaultOnboardingData: OnboardingData = {
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
 export const businessTypes = [
-  { id: 'plumber', label: 'Plumber', emoji: '🔧' },
-  { id: 'electrician', label: 'Electrician', emoji: '⚡' },
-  { id: 'carpenter', label: 'Carpenter', emoji: '🔨' },
-  { id: 'landscaper', label: 'Landscaper', emoji: '🌱' },
-  { id: 'cleaner', label: 'Cleaner', emoji: '🧽' },
-  { id: 'painter', label: 'Painter', emoji: '🎨' },
-  { id: 'hvac', label: 'HVAC Technician', emoji: '❄️' },
-  { id: 'handyman', label: 'Handyman', emoji: '🛠️' },
-  { id: 'roofer', label: 'Roofer', emoji: '🏠' },
-  { id: 'mechanic', label: 'Mechanic', emoji: '🚗' },
-  { id: 'other', label: 'Other', emoji: '💼' },
+  { id: 'home_property', label: 'Home & Property Services', emoji: '🏠' },
+  { id: 'personal_beauty', label: 'Personal & Beauty Services', emoji: '👤' },
+  { id: 'automotive', label: 'Automotive Services', emoji: '🚗' },
+  { id: 'business_professional', label: 'Business & Professional Services', emoji: '💼' },
+  { id: 'other', label: 'Other', emoji: '📋' },
 ];
 
 export const businessGoals: BusinessGoal[] = [

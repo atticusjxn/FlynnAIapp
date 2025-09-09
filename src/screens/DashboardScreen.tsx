@@ -103,9 +103,13 @@ export const DashboardScreen = () => {
             <MaterialIcons name="file-upload" size={24} color={colors.primary} />
             <Text style={styles.quickActionText}>Upload Screenshot</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionButton} activeOpacity={0.7}>
-            <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
-            <Text style={styles.quickActionText}>Quick Add Event</Text>
+          <TouchableOpacity 
+            style={styles.quickActionButton} 
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('JobFormDemo')}
+          >
+            <Ionicons name="construct-outline" size={24} color={colors.primary} />
+            <Text style={styles.quickActionText}>Form Demo</Text>
           </TouchableOpacity>
         </View>
       </View>

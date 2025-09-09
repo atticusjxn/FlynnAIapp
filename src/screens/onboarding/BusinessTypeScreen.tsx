@@ -7,9 +7,19 @@ import {
   SafeAreaView,
   ScrollView,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { businessTypes, useOnboarding } from '../../context/OnboardingContext';
+
+const categoryDescriptions: { [key: string]: string } = {
+  home_property: 'Plumbing, Electrical, Carpentry, Landscaping, Cleaning, HVAC, Roofing',
+  personal_beauty: 'Hair Styling, Makeup, Massage, Personal Training, Wellness',
+  automotive: 'Mechanics, Auto Detailing, Towing, Mobile Repair',
+  business_professional: 'Consulting, Marketing, Accounting, Legal, IT Services',
+  other: 'Any other service type',
+};
 
 interface BusinessTypeScreenProps {
   onNext: () => void;
@@ -44,85 +54,105 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#3B82F6" />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={styles.progressBar} />
-          <View style={styles.progressBar} />
-          <View style={styles.progressBar} />
-        </View>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>What type of business do you run?</Text>
-          <Text style={styles.subtitle}>
-            This helps us customize FlynnAI for your specific needs
-          </Text>
-        </View>
-
-        <View style={styles.optionsContainer}>
-          {businessTypes.map((type) => (
-            <TouchableOpacity
-              key={type.id}
-              style={[
-                styles.option,
-                selectedType === type.id && styles.selectedOption,
-              ]}
-              onPress={() => handleTypeSelect(type.id)}
-            >
-              <View style={styles.optionContent}>
-                <Text style={styles.emoji}>{type.emoji}</Text>
-                <Text
-                  style={[
-                    styles.optionText,
-                    selectedType === type.id && styles.selectedOptionText,
-                  ]}
-                >
-                  {type.label}
-                </Text>
-              </View>
-              {selectedType === type.id && (
-                <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {showCustomInput && (
-          <View style={styles.customInputContainer}>
-            <Text style={styles.customInputLabel}>Please specify your business type:</Text>
-            <TextInput
-              style={styles.customInput}
-              placeholder="e.g., Pool Maintenance, Window Cleaning, etc."
-              value={customType}
-              onChangeText={setCustomType}
-              autoCapitalize="words"
-              autoFocus
-            />
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoidingContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+          </TouchableOpacity>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={styles.progressBar} />
+            <View style={styles.progressBar} />
+            <View style={styles.progressBar} />
           </View>
-        )}
-      </ScrollView>
+        </View>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.nextButton, !canProceed && styles.disabledButton]}
-          onPress={handleNext}
-          disabled={!canProceed}
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={[styles.nextButtonText, !canProceed && styles.disabledButtonText]}>
-            Continue
-          </Text>
-          <Ionicons 
-            name="arrow-forward" 
-            size={20} 
-            color={canProceed ? "white" : "#9ca3af"} 
-          />
-        </TouchableOpacity>
-      </View>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>What type of services do you provide?</Text>
+            <Text style={styles.subtitle}>
+              Choose the category that best fits your business
+            </Text>
+          </View>
+
+          <View style={styles.optionsContainer}>
+            {businessTypes.map((type) => (
+              <TouchableOpacity
+                key={type.id}
+                style={[
+                  styles.option,
+                  selectedType === type.id && styles.selectedOption,
+                ]}
+                onPress={() => handleTypeSelect(type.id)}
+              >
+                <View style={styles.optionContent}>
+                  <Text style={styles.emoji}>{type.emoji}</Text>
+                  <View style={styles.textContainer}>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        selectedType === type.id && styles.selectedOptionText,
+                      ]}
+                    >
+                      {type.label}
+                    </Text>
+                    {categoryDescriptions[type.id] && (
+                      <Text style={styles.optionDescription}>
+                        {categoryDescriptions[type.id]}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                {selectedType === type.id && (
+                  <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {showCustomInput && (
+            <View style={styles.customInputContainer}>
+              <Text style={styles.customInputLabel}>Please specify your service type:</Text>
+              <TextInput
+                style={styles.customInput}
+                placeholder="e.g., Photography, Event Planning, Pet Services"
+                value={customType}
+                onChangeText={setCustomType}
+                autoCapitalize="words"
+                autoFocus
+              />
+            </View>
+          )}
+          
+          {/* Add extra padding at bottom when keyboard is shown */}
+          {showCustomInput && <View style={{ height: 100 }} />}
+        </ScrollView>
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.nextButton, !canProceed && styles.disabledButton]}
+            onPress={handleNext}
+            disabled={!canProceed}
+          >
+            <Text style={[styles.nextButtonText, !canProceed && styles.disabledButtonText]}>
+              Continue
+            </Text>
+            <Ionicons 
+              name="arrow-forward" 
+              size={20} 
+              color={canProceed ? "white" : "#9ca3af"} 
+            />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -131,6 +161,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardAvoidingContainer: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -200,13 +233,22 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginRight: 16,
   },
+  textContainer: {
+    flex: 1,
+  },
   optionText: {
     fontSize: 16,
     color: '#1f2937',
-    fontWeight: '500',
+    fontWeight: '600',
+    marginBottom: 4,
   },
   selectedOptionText: {
     color: '#3B82F6',
+  },
+  optionDescription: {
+    fontSize: 13,
+    color: '#6b7280',
+    lineHeight: 18,
   },
   customInputContainer: {
     marginTop: 24,

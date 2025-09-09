@@ -13,37 +13,67 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, shadows } from '../../theme';
-import { FlynnInput } from '../../components/ui/FlynnInput';
+import { FlynnJobForm, JobFormData } from '../../components/ui/FlynnJobForm';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useOnboarding } from '../../context/OnboardingContext';
 
 export const ResultsScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { imageUri, extractedData } = route.params;
+  const { onboardingData } = useOnboarding();
 
-  const [formData, setFormData] = useState({
+  const [jobData, setJobData] = useState<JobFormData>({
     clientName: extractedData.clientName || '',
-    serviceType: extractedData.serviceType || '',
+    phone: extractedData.phone || '',
     date: extractedData.date || '',
     time: extractedData.time || '',
-    location: extractedData.location || '',
-    phone: extractedData.phone || '',
-    estimatedDuration: extractedData.estimatedDuration || '',
     notes: extractedData.notes || '',
+    // Map legacy fields to new structure based on business type
+    ...(onboardingData.businessType === 'home_property' && {
+      propertyAddress: extractedData.location || '',
+      homeServiceType: extractedData.serviceType || '',
+      estimatedDuration: extractedData.estimatedDuration || '',
+    }),
+    ...(onboardingData.businessType === 'personal_beauty' && {
+      beautyServiceType: extractedData.serviceType || '',
+      appointmentDuration: extractedData.estimatedDuration || '',
+    }),
+    ...(onboardingData.businessType === 'automotive' && {
+      serviceLocation: extractedData.location || '',
+    }),
+    ...(onboardingData.businessType === 'business_professional' && {
+      meetingLocation: extractedData.location || '',
+      projectTitle: extractedData.serviceType || '',
+      estimatedHours: extractedData.estimatedDuration || '',
+    }),
+    ...(onboardingData.businessType === 'moving_delivery' && {
+      pickupAddress: extractedData.location || '',
+    }),
   });
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isFormValid, setIsFormValid] = useState(false);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleJobDataChange = (data: JobFormData) => {
+    setJobData(data);
     if (!isEditing) setIsEditing(true);
   };
 
+  const handleValidationChange = (isValid: boolean) => {
+    setIsFormValid(isValid);
+  };
+
   const handleCreateJob = () => {
+    if (!isFormValid) {
+      Alert.alert('Missing Information', 'Please fill in all required fields.');
+      return;
+    }
+
     Alert.alert(
       'Job Created! 🎉',
-      'The job has been added to your calendar and a confirmation has been sent to the client.',
+      `The job has been added to your calendar and a confirmation has been sent to ${jobData.clientName}.`,
       [
         {
           text: 'View Job',
@@ -104,76 +134,11 @@ export const ResultsScreen = () => {
             Review and edit the extracted details if needed
           </Text>
 
-          <FlynnInput
-            label="Client Name"
-            value={formData.clientName}
-            onChangeText={(text) => handleInputChange('clientName', text)}
-            placeholder="Enter client name"
-            leftIcon="person-outline"
-          />
-
-          <FlynnInput
-            label="Service Type"
-            value={formData.serviceType}
-            onChangeText={(text) => handleInputChange('serviceType', text)}
-            placeholder="e.g., Plumbing, Electrical, Cleaning"
-            leftIcon="briefcase-outline"
-          />
-
-          <View style={styles.row}>
-            <View style={styles.halfInput}>
-              <FlynnInput
-                label="Date"
-                value={formData.date}
-                onChangeText={(text) => handleInputChange('date', text)}
-                placeholder="Select date"
-                leftIcon="calendar-outline"
-              />
-            </View>
-            <View style={styles.halfInput}>
-              <FlynnInput
-                label="Time"
-                value={formData.time}
-                onChangeText={(text) => handleInputChange('time', text)}
-                placeholder="Select time"
-                leftIcon="time-outline"
-              />
-            </View>
-          </View>
-
-          <FlynnInput
-            label="Location"
-            value={formData.location}
-            onChangeText={(text) => handleInputChange('location', text)}
-            placeholder="Enter job location"
-            leftIcon="location-outline"
-          />
-
-          <FlynnInput
-            label="Phone Number"
-            value={formData.phone}
-            onChangeText={(text) => handleInputChange('phone', text)}
-            placeholder="+1 (555) 123-4567"
-            leftIcon="call-outline"
-            keyboardType="phone-pad"
-          />
-
-          <FlynnInput
-            label="Estimated Duration"
-            value={formData.estimatedDuration}
-            onChangeText={(text) => handleInputChange('estimatedDuration', text)}
-            placeholder="e.g., 2 hours"
-            leftIcon="timer-outline"
-          />
-
-          <FlynnInput
-            label="Notes"
-            value={formData.notes}
-            onChangeText={(text) => handleInputChange('notes', text)}
-            placeholder="Additional notes about the job"
-            leftIcon="document-text-outline"
-            multiline
-            numberOfLines={4}
+          <FlynnJobForm
+            businessType={onboardingData.businessType || 'other'}
+            initialData={jobData}
+            onDataChange={handleJobDataChange}
+            onValidationChange={handleValidationChange}
           />
 
           {isEditing && (
@@ -187,7 +152,7 @@ export const ResultsScreen = () => {
         <View style={styles.actionContainer}>
           <Text style={styles.confirmTitle}>Looks good?</Text>
           <Text style={styles.confirmSubtitle}>
-            We'll create the job and send a confirmation to {formData.clientName || 'the client'}
+            We'll create the job and send a confirmation to {jobData.clientName || 'the client'}
           </Text>
 
           <FlynnButton
@@ -195,8 +160,9 @@ export const ResultsScreen = () => {
             onPress={handleCreateJob}
             variant="primary"
             size="large"
-            icon="checkmark-circle"
-            style={styles.primaryButton}
+            icon={<Ionicons name="checkmark-circle" size={20} color="white" />}
+            style={[styles.primaryButton, !isFormValid && styles.disabledButton]}
+            disabled={!isFormValid}
           />
 
           <FlynnButton
@@ -204,7 +170,7 @@ export const ResultsScreen = () => {
             onPress={() => Alert.alert('Saved', 'Job saved as draft')}
             variant="secondary"
             size="large"
-            icon="save-outline"
+            icon={<Ionicons name="save-outline" size={20} color={colors.primary} />}
           />
         </View>
       </KeyboardAwareScrollView>
@@ -346,5 +312,9 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     marginBottom: spacing.sm,
+  },
+  
+  disabledButton: {
+    opacity: 0.5,
   },
 });
