@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, shadows } from '../../theme';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { AuroraBorder } from '../../components/ui/AuroraBorder';
 
 export const ProcessingScreen = () => {
   const navigation = useNavigation<any>();
@@ -17,7 +18,6 @@ export const ProcessingScreen = () => {
   const { imageUri } = route.params;
   
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
 
@@ -41,13 +41,6 @@ export const ProcessingScreen = () => {
             useNativeDriver: true,
           }),
         ])
-      ),
-      Animated.loop(
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: true,
-        })
       ),
       Animated.timing(progressAnim, {
         toValue: 1,
@@ -75,11 +68,6 @@ export const ProcessingScreen = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
   const progressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0%', '100%'],
@@ -106,26 +94,19 @@ export const ProcessingScreen = () => {
               },
             ]}
           >
-            <View style={styles.scanLines}>
-              <Animated.View
-                style={[
-                  styles.scanLine,
-                  { transform: [{ rotate: spin }] },
-                ]}
-              />
-            </View>
+            <AuroraBorder
+              width={220}
+              height={270}
+              borderRadius={12}
+              borderWidth={3}
+              animationDuration={3000}
+            />
           </Animated.View>
         </View>
 
         <Animated.View style={[styles.aiContainer, { opacity: fadeAnim }]}>
           <View style={styles.aiIconContainer}>
-            <Animated.View
-              style={{
-                transform: [{ rotate: spin }],
-              }}
-            >
-              <Ionicons name="sparkles" size={32} color={colors.primary} />
-            </Animated.View>
+            <Ionicons name="sparkles" size={32} color={colors.primary} />
           </View>
           
           <Text style={styles.title}>AI is reading your screenshot</Text>
@@ -206,21 +187,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  scanLines: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanLine: {
-    width: 220,
-    height: 270,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 12,
-    borderStyle: 'dashed',
   },
   aiContainer: {
     alignItems: 'center',

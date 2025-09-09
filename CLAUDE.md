@@ -673,3 +673,22 @@ export default FlynnJobCard;
 ---
 
 **Note**: This design system should be the single source of truth for all UI decisions in the FlynnAI application. Any deviations should be discussed and documented.
+
+## 🚫 Development Rules
+
+### NEVER Run Development Servers
+- **DO NOT** use `npm start`, `npm run dev`, `expo start`, or any similar commands
+- **DO NOT** attempt to start development servers or preview environments
+- The user will handle all server/preview management themselves
+- Focus only on code implementation and file changes
+
+### Why This Rule Exists
+- Development servers are managed by the user in their local environment
+- Starting servers can interfere with the user's existing development setup
+- The app preview is handled separately by the user
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

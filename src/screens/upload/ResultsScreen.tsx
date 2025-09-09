@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, shadows } from '../../theme';
 import { FlynnInput } from '../../components/ui/FlynnInput';
@@ -61,21 +62,25 @@ export const ResultsScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.gray700} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Review Details</Text>
-          <TouchableOpacity onPress={handleEditAgain}>
-            <Ionicons name="refresh" size={24} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.gray700} />
+        </TouchableOpacity>
+        <Text style={styles.title}>Review Details</Text>
+        <TouchableOpacity onPress={handleEditAgain}>
+          <Ionicons name="refresh" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
 
+      <KeyboardAwareScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        extraScrollHeight={20}
+        enableOnAndroid={true}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.successBanner}>
           <View style={styles.successIcon}>
             <Ionicons name="sparkles" size={24} color={colors.white} />
@@ -202,8 +207,8 @@ export const ResultsScreen = () => {
             icon="save-outline"
           />
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 };
 
@@ -211,6 +216,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.gray50,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',

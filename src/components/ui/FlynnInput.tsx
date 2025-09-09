@@ -132,11 +132,13 @@ const styles = StyleSheet.create({
   
   input: {
     flex: 1,
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.sm + 0,
+    paddingBottom: spacing.sm + 4,
     paddingHorizontal: spacing.md,
     ...typography.bodyMedium,
     color: colors.textPrimary,
-    textAlignVertical: 'top',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   
   inputWithLeftIcon: {
