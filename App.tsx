@@ -11,9 +11,28 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { OnboardingNavigator } from './src/screens/onboarding/OnboardingNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Ionicons } from '@expo/vector-icons';
+import { UploadScreen } from './src/screens/upload/UploadScreen';
+import { ProcessingScreen } from './src/screens/upload/ProcessingScreen';
+import { ResultsScreen } from './src/screens/upload/ResultsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const UploadStack = createStackNavigator();
+
+function UploadFlow() {
+  return (
+    <UploadStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        presentation: 'modal',
+      }}
+    >
+      <UploadStack.Screen name="Upload" component={UploadScreen} />
+      <UploadStack.Screen name="Processing" component={ProcessingScreen} />
+      <UploadStack.Screen name="Results" component={ResultsScreen} />
+    </UploadStack.Navigator>
+  );
+}
 
 function MainTabs() {
   return (
@@ -49,6 +68,25 @@ function MainTabs() {
   );
 }
 
+function RootNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="MainTabs" component={MainTabs} />
+      <Stack.Screen 
+        name="UploadFlow" 
+        component={UploadFlow}
+        options={{
+          presentation: 'modal',
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 function AppNavigator() {
   const { user, loading } = useAuth();
   const { isOnboardingComplete, loading: onboardingLoading } = useOnboarding();
@@ -65,7 +103,7 @@ function AppNavigator() {
     <NavigationContainer>
       {user ? (
         isOnboardingComplete ? (
-          <MainTabs />
+          <RootNavigator />
         ) : (
           <OnboardingNavigator />
         )

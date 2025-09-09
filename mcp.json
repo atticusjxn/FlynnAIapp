@@ -11,6 +11,14 @@
         "env": {
           "SUPABASE_ACCESS_TOKEN": "sbp_c36d0b7c773ed6695fce151613ed32a7d18d0bd3"
         }
+      },
+      "context7": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@upstash/context7-mcp",
+          "--ctx7sk-8cd161ed-adcd-4b58-9470-e901d006ec92"
+        ]
       }
     }
   }

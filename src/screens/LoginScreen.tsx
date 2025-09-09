@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Alert,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { FlynnButton, FlynnInput, colors, typography, spacing } from '../components/ui';
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -42,8 +41,7 @@ export const LoginScreen = () => {
         </Text>
 
         {isSignUp && (
-          <TextInput
-            style={styles.input}
+          <FlynnInput
             placeholder="Business Name"
             value={businessName}
             onChangeText={setBusinessName}
@@ -51,8 +49,7 @@ export const LoginScreen = () => {
           />
         )}
 
-        <TextInput
-          style={styles.input}
+        <FlynnInput
           placeholder="Email"
           value={email}
           onChangeText={setEmail}
@@ -60,30 +57,31 @@ export const LoginScreen = () => {
           keyboardType="email-address"
         />
 
-        <TextInput
-          style={styles.input}
+        <FlynnInput
           placeholder="Password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>
-            {isSignUp ? 'Sign Up' : 'Sign In'}
-          </Text>
-        </TouchableOpacity>
+        <FlynnButton
+          title={isSignUp ? 'Sign Up' : 'Sign In'}
+          onPress={handleSubmit}
+          variant="primary"
+          fullWidth
+          style={styles.submitButton}
+        />
 
-        <TouchableOpacity
-          style={styles.switchButton}
-          onPress={() => setIsSignUp(!isSignUp)}
-        >
-          <Text style={styles.switchText}>
-            {isSignUp
+        <FlynnButton
+          title={
+            isSignUp
               ? 'Already have an account? Sign In'
-              : "Don't have an account? Sign Up"}
-          </Text>
-        </TouchableOpacity>
+              : "Don't have an account? Sign Up"
+          }
+          onPress={() => setIsSignUp(!isSignUp)}
+          variant="ghost"
+          style={styles.switchButton}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -92,54 +90,29 @@ export const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.backgroundSecondary,
   },
   formContainer: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 30,
+    paddingHorizontal: spacing.xl,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
+    ...typography.displayLarge,
+    color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#666',
+    ...typography.bodyLarge,
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: spacing.xl,
   },
-  input: {
-    backgroundColor: 'white',
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  button: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 15,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: '600',
+  submitButton: {
+    marginTop: spacing.md,
   },
   switchButton: {
-    marginTop: 20,
-  },
-  switchText: {
-    color: '#3B82F6',
-    textAlign: 'center',
-    fontSize: 14,
+    marginTop: spacing.lg,
   },
 });

@@ -10,9 +10,11 @@ import {
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { useNavigation } from '@react-navigation/native';
 
 export const DashboardScreen = () => {
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
 
   // Mock data for the planned layout
@@ -93,7 +95,11 @@ export const DashboardScreen = () => {
       {/* Quick Actions Section */}
       <View style={styles.section}>
         <View style={styles.quickActionsContainer}>
-          <TouchableOpacity style={styles.quickActionButton} activeOpacity={0.7}>
+          <TouchableOpacity 
+            style={styles.quickActionButton} 
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('UploadFlow')}
+          >
             <MaterialIcons name="file-upload" size={24} color={colors.primary} />
             <Text style={styles.quickActionText}>Upload Screenshot</Text>
           </TouchableOpacity>
