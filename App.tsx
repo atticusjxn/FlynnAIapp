@@ -9,6 +9,7 @@ import { OnboardingProvider, useOnboarding } from './src/context/OnboardingConte
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { JobsScreen } from './src/screens/JobsScreen';
+import { CalendarScreen } from './src/screens/CalendarScreen';
 import { OnboardingNavigator } from './src/screens/onboarding/OnboardingNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Ionicons } from '@expo/vector-icons';
@@ -63,7 +64,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Jobs" component={JobsScreen} />
-      <Tab.Screen name="Calendar" component={DashboardScreen} />
+      <Tab.Screen name="Calendar" component={CalendarScreen} />
       <Tab.Screen name="Clients" component={DashboardScreen} />
       <Tab.Screen name="Settings" component={DashboardScreen} />
     </Tab.Navigator>

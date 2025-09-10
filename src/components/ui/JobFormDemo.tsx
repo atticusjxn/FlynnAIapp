@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from 'react-native';
+import { useRoute } from '@react-navigation/native';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnJobForm, JobFormData } from './FlynnJobForm';
 
@@ -26,61 +27,125 @@ const mockData: Partial<JobFormData> = {
   notes: 'Client prefers afternoon appointments',
 };
 
+interface RouteParams {
+  prefilledData?: {
+    date?: string;
+    time?: string;
+    clientName?: string;
+    phone?: string;
+    notes?: string;
+    serviceType?: string;
+    location?: string;
+    description?: string;
+    estimatedDuration?: string;
+    businessType?: string;
+    jobId?: string;
+  };
+  isEditing?: boolean;
+}
+
 export const JobFormDemo: React.FC = () => {
-  const [selectedBusinessType, setSelectedBusinessType] = useState('home_property');
+  const route = useRoute();
+  const routeParams = route.params as RouteParams;
+  
+  // Set initial business type based on prefilled data or default
+  const initialBusinessType = routeParams?.prefilledData?.businessType || 'home_property';
+  const [selectedBusinessType, setSelectedBusinessType] = useState(initialBusinessType);
   const [formData, setFormData] = useState<JobFormData>(mockData as JobFormData);
   const [isValid, setIsValid] = useState(false);
 
+  // Update form data with pre-filled data from route params
+  useEffect(() => {
+    if (routeParams?.prefilledData) {
+      const prefilled = routeParams.prefilledData;
+      // If editing, use prefilled data; if creating new, use mock data for missing fields
+      setFormData(prevData => ({
+        ...prevData,
+        clientName: prefilled.clientName || (routeParams.isEditing ? '' : mockData.clientName || ''),
+        phone: prefilled.phone || (routeParams.isEditing ? '' : mockData.phone || ''),
+        date: prefilled.date || prevData.date || '',
+        time: prefilled.time || prevData.time || '',
+        notes: prefilled.notes || (routeParams.isEditing ? '' : mockData.notes || ''),
+        // Add additional fields for editing
+        ...(routeParams.isEditing && {
+          // Only include these fields when editing
+          propertyAddress: prefilled.location || '',
+          homeServiceType: prefilled.serviceType || '',
+          issueDescription: prefilled.description || '',
+          estimatedDuration: prefilled.estimatedDuration || '',
+        }),
+      }));
+    }
+  }, [routeParams]);
+
   const handleBusinessTypeChange = (businessType: string) => {
     setSelectedBusinessType(businessType);
-    // Reset form data when business type changes
-    setFormData(mockData as JobFormData);
+    // Reset form data when business type changes, but preserve pre-filled data
+    if (routeParams?.prefilledData) {
+      setFormData({
+        clientName: mockData.clientName || '',
+        phone: mockData.phone || '',
+        date: routeParams.prefilledData.date || '',
+        time: routeParams.prefilledData.time || '',
+        notes: mockData.notes || '',
+      } as JobFormData);
+    } else {
+      setFormData(mockData as JobFormData);
+    }
   };
 
-  const handleDataChange = (data: JobFormData) => {
-    setFormData(data);
-  };
+  const handleDataChange = useCallback((data: JobFormData) => {
+    // Update state but prevent the circular dependency
+    console.log('Form data changed:', data);
+  }, []);
 
-  const handleValidationChange = (valid: boolean) => {
+  const handleValidationChange = useCallback((valid: boolean) => {
     setIsValid(valid);
-  };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Dynamic Job Forms Demo</Text>
+        <Text style={styles.title}>
+          {routeParams?.isEditing ? 'Edit Job Details' : 'Dynamic Job Forms Demo'}
+        </Text>
         <Text style={styles.subtitle}>
-          Select a business type to see how the form adapts
+          {routeParams?.isEditing 
+            ? 'Update the job information below' 
+            : 'Select a business type to see how the form adapts'
+          }
         </Text>
       </View>
 
-      {/* Business Type Selector */}
-      <View style={styles.selectorContainer}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.selectorContent}
-        >
-          {businessTypes.map((type) => (
-            <TouchableOpacity
-              key={type.id}
-              style={[
-                styles.businessTypeCard,
-                selectedBusinessType === type.id && styles.selectedCard
-              ]}
-              onPress={() => handleBusinessTypeChange(type.id)}
-            >
-              <Text style={styles.businessEmoji}>{type.emoji}</Text>
-              <Text style={[
-                styles.businessLabel,
-                selectedBusinessType === type.id && styles.selectedLabel
-              ]}>
-                {type.label.split(' ').slice(1).join(' ')}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+      {/* Business Type Selector - Hidden when editing */}
+      {!routeParams?.isEditing && (
+        <View style={styles.selectorContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.selectorContent}
+          >
+            {businessTypes.map((type) => (
+              <TouchableOpacity
+                key={type.id}
+                style={[
+                  styles.businessTypeCard,
+                  selectedBusinessType === type.id && styles.selectedCard
+                ]}
+                onPress={() => handleBusinessTypeChange(type.id)}
+              >
+                <Text style={styles.businessEmoji}>{type.emoji}</Text>
+                <Text style={[
+                  styles.businessLabel,
+                  selectedBusinessType === type.id && styles.selectedLabel
+                ]}>
+                  {type.label.split(' ').slice(1).join(' ')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Form Status Indicator */}
       <View style={styles.statusContainer}>
@@ -92,7 +157,10 @@ export const JobFormDemo: React.FC = () => {
             styles.statusText,
             isValid ? styles.validText : styles.invalidText
           ]}>
-            Form Status: {isValid ? 'Valid' : 'Missing Required Fields'}
+            {routeParams?.isEditing 
+              ? `Update Status: ${isValid ? 'Ready to Save' : 'Missing Required Fields'}`
+              : `Form Status: ${isValid ? 'Valid' : 'Missing Required Fields'}`
+            }
           </Text>
         </View>
       </View>
@@ -100,6 +168,7 @@ export const JobFormDemo: React.FC = () => {
       {/* Dynamic Form */}
       <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
         <FlynnJobForm
+          key={`${formData.date}-${formData.time}-${selectedBusinessType}`}
           businessType={selectedBusinessType}
           initialData={formData}
           onDataChange={handleDataChange}

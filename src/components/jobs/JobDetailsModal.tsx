@@ -8,6 +8,7 @@ import {
   ScrollView,
   Linking,
   Alert,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
@@ -24,6 +25,7 @@ interface JobDetailsModalProps {
   onReschedule: (job: Job) => void;
   onEditDetails: (job: Job) => void;
   onDeleteJob: (job: Job) => void;
+  onUpdateJob: (updatedJob: Job) => void;
 }
 
 const getStatusColor = (status: Job['status']) => {
@@ -93,8 +95,88 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   onReschedule,
   onEditDetails,
   onDeleteJob,
+  onUpdateJob,
 }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedJob, setEditedJob] = useState<Job | null>(null);
+
+  // Initialize edited job when job changes or modal visibility changes
+  React.useEffect(() => {
+    if (job) {
+      setEditedJob({ ...job });
+      setIsEditing(false); // Reset editing state when job changes
+    }
+  }, [job, visible]);
+
+  // Early return after hooks
   if (!job) return null;
+
+  const handleStartEditing = () => {
+    setEditedJob({ ...job });
+    setIsEditing(true);
+  };
+
+  const handleCancelEditing = () => {
+    setEditedJob({ ...job });
+    setIsEditing(false);
+  };
+
+  const handleConfirmEdits = () => {
+    if (editedJob) {
+      onUpdateJob(editedJob);
+      setIsEditing(false);
+      Alert.alert('Success', 'Job details updated successfully!');
+    }
+  };
+
+  const updateEditedField = (field: keyof Job, value: string) => {
+    if (editedJob) {
+      setEditedJob({ ...editedJob, [field]: value });
+    }
+  };
+
+  const currentJob = isEditing ? editedJob : job;
+  if (!currentJob) return null;
+
+  // Editable field component
+  const EditableField: React.FC<{
+    label: string;
+    value: string;
+    field: keyof Job;
+    multiline?: boolean;
+    icon?: any;
+  }> = ({ label, value, field, multiline = false, icon }) => {
+    if (isEditing) {
+      return (
+        <View style={styles.detailRow}>
+          {icon && icon}
+          <View style={styles.detailContent}>
+            <Text style={styles.detailLabel}>{label}</Text>
+            <TextInput
+              style={[
+                styles.editInput,
+                multiline && styles.editInputMultiline
+              ]}
+              value={value}
+              onChangeText={(text) => updateEditedField(field, text)}
+              multiline={multiline}
+              placeholder={`Enter ${label.toLowerCase()}`}
+            />
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.detailRow}>
+        {icon && icon}
+        <View style={styles.detailContent}>
+          <Text style={styles.detailLabel}>{label}</Text>
+          <Text style={styles.detailValue}>{value}</Text>
+        </View>
+      </View>
+    );
+  };
 
   const handleCallClient = () => {
     const phoneUrl = `tel:${job.clientPhone}`;
@@ -148,19 +230,38 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           {/* Client Information */}
           <View style={styles.section}>
             <View style={styles.clientHeader}>
-              <View>
-                <Text style={styles.clientName}>{job.clientName}</Text>
-                <Text style={styles.serviceType}>{job.serviceType}</Text>
+              <View style={{ flex: 1 }}>
+                {isEditing ? (
+                  <>
+                    <TextInput
+                      style={[styles.editInput, { fontSize: 18, fontWeight: '600' }]}
+                      value={currentJob.clientName}
+                      onChangeText={(text) => updateEditedField('clientName', text)}
+                      placeholder="Enter client name"
+                    />
+                    <TextInput
+                      style={[styles.editInput, { marginTop: spacing.xs }]}
+                      value={currentJob.serviceType}
+                      onChangeText={(text) => updateEditedField('serviceType', text)}
+                      placeholder="Enter service type"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.clientName}>{currentJob.clientName}</Text>
+                    <Text style={styles.serviceType}>{currentJob.serviceType}</Text>
+                  </>
+                )}
               </View>
               <View style={[
                 styles.statusBadge,
-                { backgroundColor: getStatusColor(job.status) + '20' }
+                { backgroundColor: getStatusColor(currentJob.status) + '20' }
               ]}>
                 <Text style={[
                   styles.statusText,
-                  { color: getStatusColor(job.status) }
+                  { color: getStatusColor(currentJob.status) }
                 ]}>
-                  {getStatusLabel(job.status)}
+                  {getStatusLabel(currentJob.status)}
                 </Text>
               </View>
             </View>
@@ -169,34 +270,41 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           {/* Job Details */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Service Details</Text>
-            <Text style={styles.description}>{job.description}</Text>
+            {isEditing ? (
+              <TextInput
+                style={[styles.editInput, styles.editInputMultiline]}
+                value={currentJob.description}
+                onChangeText={(text) => updateEditedField('description', text)}
+                multiline
+                placeholder="Enter service description"
+              />
+            ) : (
+              <Text style={styles.description}>{currentJob.description}</Text>
+            )}
           </View>
 
           {/* Date & Time */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Appointment</Text>
-            <View style={styles.detailRow}>
-              <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Date</Text>
-                <Text style={styles.detailValue}>{formatDate(job.date)}</Text>
-              </View>
-            </View>
-            <View style={styles.detailRow}>
-              <Ionicons name="time-outline" size={20} color={colors.primary} />
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Time</Text>
-                <Text style={styles.detailValue}>{formatTime(job.time)}</Text>
-              </View>
-            </View>
-            {job.estimatedDuration && (
-              <View style={styles.detailRow}>
-                <Ionicons name="timer-outline" size={20} color={colors.primary} />
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Duration</Text>
-                  <Text style={styles.detailValue}>{job.estimatedDuration}</Text>
-                </View>
-              </View>
+            <EditableField
+              label="Date"
+              value={isEditing ? currentJob.date : formatDate(currentJob.date)}
+              field="date"
+              icon={<Ionicons name="calendar-outline" size={20} color={colors.primary} />}
+            />
+            <EditableField
+              label="Time"
+              value={isEditing ? currentJob.time : formatTime(currentJob.time)}
+              field="time"
+              icon={<Ionicons name="time-outline" size={20} color={colors.primary} />}
+            />
+            {(currentJob.estimatedDuration || isEditing) && (
+              <EditableField
+                label="Duration"
+                value={currentJob.estimatedDuration || ''}
+                field="estimatedDuration"
+                icon={<Ionicons name="timer-outline" size={20} color={colors.primary} />}
+              />
             )}
           </View>
 
@@ -207,97 +315,137 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               <Ionicons name="call-outline" size={20} color={colors.primary} />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Phone</Text>
-                <TouchableOpacity onPress={handleCallClient}>
-                  <Text style={[styles.detailValue, styles.phoneLink]}>
-                    {job.clientPhone}
-                  </Text>
-                </TouchableOpacity>
+                {isEditing ? (
+                  <TextInput
+                    style={styles.editInput}
+                    value={currentJob.clientPhone}
+                    onChangeText={(text) => updateEditedField('clientPhone', text)}
+                    placeholder="Enter phone number"
+                    keyboardType="phone-pad"
+                  />
+                ) : (
+                  <TouchableOpacity onPress={handleCallClient}>
+                    <Text style={[styles.detailValue, styles.phoneLink]}>
+                      {currentJob.clientPhone}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
-            {job.clientEmail && (
-              <View style={styles.detailRow}>
-                <Ionicons name="mail-outline" size={20} color={colors.primary} />
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Email</Text>
-                  <Text style={styles.detailValue}>{job.clientEmail}</Text>
-                </View>
-              </View>
+            {(currentJob.clientEmail || isEditing) && (
+              <EditableField
+                label="Email"
+                value={currentJob.clientEmail || ''}
+                field="clientEmail"
+                icon={<Ionicons name="mail-outline" size={20} color={colors.primary} />}
+              />
             )}
-            <View style={styles.detailRow}>
-              <Ionicons name="location-outline" size={20} color={colors.primary} />
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>{job.location}</Text>
-              </View>
-            </View>
+            <EditableField
+              label="Location"
+              value={currentJob.location}
+              field="location"
+              icon={<Ionicons name="location-outline" size={20} color={colors.primary} />}
+            />
           </View>
 
           {/* Notes */}
-          {job.notes && (
+          {(currentJob.notes || isEditing) && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Notes</Text>
-              <Text style={styles.notes}>{job.notes}</Text>
+              {isEditing ? (
+                <TextInput
+                  style={[styles.editInput, styles.editInputMultiline]}
+                  value={currentJob.notes || ''}
+                  onChangeText={(text) => updateEditedField('notes', text)}
+                  multiline
+                  placeholder="Enter additional notes"
+                />
+              ) : (
+                <Text style={styles.notes}>{currentJob.notes}</Text>
+              )}
             </View>
           )}
         </ScrollView>
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
-          {/* Primary Communication Actions */}
-          <View style={styles.primaryActions}>
-            <FlynnButton
-              title="Send Text"
-              onPress={() => onSendTextConfirmation(job)}
-              variant="primary"
-              size="medium"
-              icon={<Ionicons name="chatbubble-outline" size={18} color={colors.white} />}
-              style={styles.communicationButton}
-            />
-            
-            <FlynnButton
-              title="Email"
-              onPress={() => onSendEmailConfirmation(job)}
-              variant="secondary"
-              size="medium"
-              icon={<Ionicons name="mail-outline" size={18} color={colors.primary} />}
-              style={styles.communicationButton}
-            />
-            
-            <FlynnButton
-              title="Call"
-              onPress={handleCallClient}
-              variant="success"
-              size="medium"
-              icon={<Ionicons name="call-outline" size={18} color={colors.white} />}
-              style={styles.communicationButton}
-            />
-          </View>
+          {isEditing ? (
+            /* Edit Mode Actions */
+            <View style={styles.editActions}>
+              <FlynnButton
+                title="Cancel"
+                onPress={handleCancelEditing}
+                variant="secondary"
+                size="medium"
+                icon={<Ionicons name="close-outline" size={18} color={colors.primary} />}
+                style={styles.editButton}
+              />
+              
+              <FlynnButton
+                title="Confirm Edits"
+                onPress={handleConfirmEdits}
+                variant="primary"
+                size="medium"
+                icon={<Ionicons name="checkmark-outline" size={18} color={colors.white} />}
+                style={styles.editButton}
+              />
+            </View>
+          ) : (
+            <>
+              {/* Primary Communication Actions */}
+              <View style={styles.primaryActions}>
+                <FlynnButton
+                  title="Send Text"
+                  onPress={() => onSendTextConfirmation(currentJob)}
+                  variant="primary"
+                  size="medium"
+                  icon={<Ionicons name="chatbubble-outline" size={18} color={colors.white} />}
+                  style={styles.communicationButton}
+                />
+                
+                <FlynnButton
+                  title="Email"
+                  onPress={() => onSendEmailConfirmation(currentJob)}
+                  variant="secondary"
+                  size="medium"
+                  icon={<Ionicons name="mail-outline" size={18} color={colors.primary} />}
+                  style={styles.communicationButton}
+                />
+                
+                <FlynnButton
+                  title="Call"
+                  onPress={handleCallClient}
+                  variant="success"
+                  size="medium"
+                  icon={<Ionicons name="call-outline" size={18} color={colors.white} />}
+                  style={styles.communicationButton}
+                />
+              </View>
 
-          {/* Secondary Actions */}
-          <View style={styles.secondaryActions}>
-            <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => {
-                onEditDetails(job);
-                onClose();
-              }}
-            >
-              <Ionicons name="create-outline" size={20} color={colors.primary} />
-              <Text style={[styles.secondaryActionText, { color: colors.primary }]}>
-                Edit Details
-              </Text>
-            </TouchableOpacity>
+              {/* Secondary Actions */}
+              <View style={styles.secondaryActions}>
+                <TouchableOpacity
+                  style={styles.secondaryAction}
+                  onPress={handleStartEditing}
+                >
+                  <Ionicons name="create-outline" size={20} color={colors.primary} />
+                  <Text style={[styles.secondaryActionText, { color: colors.primary }]}>
+                    Edit Details
+                  </Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={handleDeleteJob}
-            >
-              <Ionicons name="trash-outline" size={20} color={colors.error} />
-              <Text style={[styles.secondaryActionText, { color: colors.error }]}>
-                Delete Job
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={styles.secondaryAction}
+                  onPress={handleDeleteJob}
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.error} />
+                  <Text style={[styles.secondaryActionText, { color: colors.error }]}>
+                    Delete Job
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </View>
     </Modal>
@@ -464,5 +612,34 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     marginLeft: spacing.xs,
     fontWeight: '500',
+  },
+  
+  // Edit Mode Styles
+  editInput: {
+    borderWidth: 1,
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    fontSize: 14,
+    color: colors.textPrimary,
+    backgroundColor: colors.white,
+    marginTop: spacing.xxxs,
+  },
+  
+  editInputMultiline: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  
+  editActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  
+  editButton: {
+    flex: 1,
   },
 });

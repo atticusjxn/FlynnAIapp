@@ -197,13 +197,14 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
     ...initialData,
   });
 
+
   useEffect(() => {
     onDataChange(formData);
     
     // Basic validation - check required fields
     const isValid = validateForm();
     onValidationChange?.(isValid);
-  }, [formData, onDataChange, onValidationChange]);
+  }, [formData]); // Remove function dependencies to prevent infinite loops
 
   const validateForm = (): boolean => {
     return !!(formData.clientName && formData.phone && formData.date && formData.time);

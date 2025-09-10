@@ -112,7 +112,18 @@ export const JobsScreen = () => {
   };
 
   const handleEditDetails = (job: Job) => {
-    Alert.alert('Edit Job', 'Job editing feature coming soon!');
+    console.log('Edit details for job:', job.id);
+    // This is now handled inline in the modal
+  };
+
+  const handleUpdateJob = (updatedJob: Job) => {
+    // Update the job in the jobs array
+    setJobs(prevJobs => 
+      prevJobs.map(job => 
+        job.id === updatedJob.id ? updatedJob : job
+      )
+    );
+    console.log('Updated job:', updatedJob);
   };
 
   const handleDeleteJob = (job: Job) => {
@@ -181,6 +192,7 @@ export const JobsScreen = () => {
         onReschedule={handleReschedule}
         onEditDetails={handleEditDetails}
         onDeleteJob={handleDeleteJob}
+        onUpdateJob={handleUpdateJob}
       />
 
       {/* Communication Modal */}

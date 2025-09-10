@@ -19,7 +19,11 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>🐨</Text>
+            <Image
+              source={require('../../../assets/images/onboardinglogo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.title}>Welcome to FlynnAI!</Text>
           <Text style={styles.subtitle}>
@@ -104,26 +108,23 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingTop: 40,
+    paddingTop: 24,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 8,
   },
-  logoText: {
-    fontSize: 40,
+  logoImage: {
+    width: 120,
+    height: 120,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#1f2937',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
@@ -135,7 +136,8 @@ const styles = StyleSheet.create({
   featuresContainer: {
     flex: 1,
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingTop: 48,
+    paddingBottom: 32,
   },
   feature: {
     flexDirection: 'row',
@@ -174,7 +176,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   buttonContainer: {
-    paddingBottom: 40,
+    paddingTop: 24,
+    paddingBottom: 32,
   },
   primaryButton: {
     backgroundColor: '#3B82F6',
