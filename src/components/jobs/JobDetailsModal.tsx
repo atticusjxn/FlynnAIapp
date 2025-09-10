@@ -75,6 +75,14 @@ const formatTime = (timeString: string) => {
   }
 };
 
+const getModalTitle = (businessType: string) => {
+  const personalCareTypes = ['personal care', 'beauty', 'wellness', 'health', 'fitness', 'spa', 'salon'];
+  const isPersonalCare = personalCareTypes.some(type => 
+    businessType.toLowerCase().includes(type)
+  );
+  return isPersonalCare ? 'Booking Details' : 'Job Details';
+};
+
 export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   job,
   visible,
@@ -96,9 +104,14 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   };
 
   const handleDeleteJob = () => {
+    const deleteText = getModalTitle(job.businessType).includes('Booking') ? 'Delete Booking' : 'Delete Job';
+    const confirmText = getModalTitle(job.businessType).includes('Booking') 
+      ? 'Are you sure you want to delete this booking? This action cannot be undone.'
+      : 'Are you sure you want to delete this job? This action cannot be undone.';
+    
     Alert.alert(
-      'Delete Job',
-      'Are you sure you want to delete this job? This action cannot be undone.',
+      deleteText,
+      confirmText,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
@@ -122,7 +135,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     >
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.modalTitle}>Job Details</Text>
+          <Text style={styles.modalTitle}>{getModalTitle(job.businessType)}</Text>
           <TouchableOpacity
             onPress={onClose}
             style={styles.closeButton}
@@ -242,7 +255,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
             />
             
             <FlynnButton
-              title="Send Email"
+              title="Email"
               onPress={() => onSendEmailConfirmation(job)}
               variant="secondary"
               size="medium"
@@ -262,32 +275,6 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 
           {/* Secondary Actions */}
           <View style={styles.secondaryActions}>
-            <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => {
-                onMarkComplete(job);
-                onClose();
-              }}
-            >
-              <Ionicons name="checkmark-circle-outline" size={20} color={colors.success} />
-              <Text style={[styles.secondaryActionText, { color: colors.success }]}>
-                Mark Complete
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => {
-                onReschedule(job);
-                onClose();
-              }}
-            >
-              <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-              <Text style={[styles.secondaryActionText, { color: colors.primary }]}>
-                Reschedule
-              </Text>
-            </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.secondaryAction}
               onPress={() => {
@@ -446,6 +433,8 @@ const styles = StyleSheet.create({
   
   primaryActions: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },
@@ -458,6 +447,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
+    justifyContent: 'center',
   },
   
   secondaryAction: {
