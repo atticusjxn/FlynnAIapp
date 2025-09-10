@@ -18,13 +18,21 @@ import { mockJobs } from '../data/mockJobs';
 import { mockActivities, getRecentActivity, formatActivityTime, Activity } from '../data/mockActivities';
 import { Job } from '../components/jobs/JobCard';
 import { ActivityHistoryModal } from '../components/dashboard/ActivityHistoryModal';
+import { ActivityDetailsModal } from '../components/dashboard/ActivityDetailsModal';
+import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
+import { useJobs } from '../context/JobsContext';
 
 export const DashboardScreen = () => {
   const { user } = useAuth();
   const { colors } = useTheme();
+  const { updateJob, deleteJob, markJobComplete } = useJobs();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [showActivityHistory, setShowActivityHistory] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [jobModalVisible, setJobModalVisible] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [activityModalVisible, setActivityModalVisible] = useState(false);
   const styles = createStyles(colors);
 
   // Get real data
@@ -61,25 +69,77 @@ export const DashboardScreen = () => {
   };
 
   const handleViewJobDetails = (job: Job) => {
-    // Navigate to job details or open modal
-    Alert.alert('Job Details', `View details for ${job.clientName}'s ${job.serviceType}`);
+    setSelectedJob(job);
+    setJobModalVisible(true);
+  };
+
+  const handleCloseJobModal = () => {
+    setJobModalVisible(false);
+    setSelectedJob(null);
+  };
+
+  const handleSendTextConfirmation = (job: Job) => {
+    Alert.alert('Text Sent', `Confirmation text sent to ${job.clientName}`);
+  };
+
+  const handleSendEmailConfirmation = (job: Job) => {
+    Alert.alert('Email Sent', `Confirmation email sent to ${job.clientName}`);
+  };
+
+  const handleMarkComplete = (job: Job) => {
+    markJobComplete(job.id);
+    handleCloseJobModal();
+    Alert.alert('Job Complete', `${job.clientName}'s ${job.serviceType} marked as complete`);
+  };
+
+  const handleReschedule = (job: Job) => {
+    Alert.alert('Reschedule', `Reschedule ${job.clientName}'s ${job.serviceType}`);
+  };
+
+  const handleEditDetails = (job: Job) => {
+    Alert.alert('Edit Details', `Edit details for ${job.clientName}'s ${job.serviceType}`);
+  };
+
+  const handleUpdateJob = (updatedJob: Job) => {
+    updateJob(updatedJob);
+  };
+
+  const handleDeleteJob = (job: Job) => {
+    deleteJob(job.id);
+    handleCloseJobModal();
+    Alert.alert('Job Deleted', `${job.clientName}'s ${job.serviceType} has been deleted`);
   };
 
   const handleActivityAction = (activity: Activity) => {
-    switch (activity.type) {
-      case 'call_recorded':
-        Alert.alert('Call Details', `Review recorded call with ${activity.metadata?.clientName}`);
-        break;
-      case 'screenshot_processed':
-        navigation.navigate('UploadFlow');
-        break;
-      case 'job_created':
-      case 'job_completed':
-        Alert.alert('Job Action', `View job details for ${activity.metadata?.clientName}`);
-        break;
-      default:
-        Alert.alert('Activity', 'Review activity details');
+    setSelectedActivity(activity);
+    setActivityModalVisible(true);
+  };
+
+  const handleCloseActivityModal = () => {
+    setActivityModalVisible(false);
+    setSelectedActivity(null);
+  };
+
+  const handleCallClientFromActivity = (phone: string) => {
+    handleCallClient(phone);
+    handleCloseActivityModal();
+  };
+
+  const handleNavigateToJobFromActivity = (jobId: string) => {
+    // Find the job by ID and open the job details modal
+    const job = mockJobs.find(j => j.id === jobId);
+    if (job) {
+      setSelectedJob(job);
+      setJobModalVisible(true);
     }
+  };
+
+  const handleActivityHistoryPress = (activity: Activity) => {
+    // Close activity history modal first
+    setShowActivityHistory(false);
+    // Then show activity details modal
+    setSelectedActivity(activity);
+    setActivityModalVisible(true);
   };
 
   const formatJobDateTime = (date: string, time: string) => {
@@ -251,6 +311,30 @@ export const DashboardScreen = () => {
       <ActivityHistoryModal 
         visible={showActivityHistory}
         onClose={() => setShowActivityHistory(false)}
+        onActivityPress={handleActivityHistoryPress}
+      />
+
+      {/* Activity Details Modal */}
+      <ActivityDetailsModal
+        visible={activityModalVisible}
+        activity={selectedActivity}
+        onClose={handleCloseActivityModal}
+        onNavigateToJob={handleNavigateToJobFromActivity}
+        onCallClient={handleCallClientFromActivity}
+      />
+
+      {/* Job Details Modal */}
+      <JobDetailsModal
+        job={selectedJob}
+        visible={jobModalVisible}
+        onClose={handleCloseJobModal}
+        onSendTextConfirmation={handleSendTextConfirmation}
+        onSendEmailConfirmation={handleSendEmailConfirmation}
+        onMarkComplete={handleMarkComplete}
+        onReschedule={handleReschedule}
+        onEditDetails={handleEditDetails}
+        onDeleteJob={handleDeleteJob}
+        onUpdateJob={handleUpdateJob}
       />
     </>
   );

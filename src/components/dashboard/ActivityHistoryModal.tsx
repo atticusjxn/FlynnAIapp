@@ -17,11 +17,13 @@ import { Activity, mockActivities, formatActivityTime } from '../../data/mockAct
 interface ActivityHistoryModalProps {
   visible: boolean;
   onClose: () => void;
+  onActivityPress?: (activity: Activity) => void;
 }
 
 export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
   visible,
   onClose,
+  onActivityPress,
 }) => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
@@ -72,7 +74,12 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
     const iconConfig = getActivityIcon(activity);
     
     return (
-      <View key={activity.id} style={styles.activityItem}>
+      <TouchableOpacity 
+        key={activity.id} 
+        style={styles.activityItem}
+        onPress={() => onActivityPress?.(activity)}
+        activeOpacity={0.7}
+      >
         <View style={[styles.activityIconContainer, { backgroundColor: iconConfig.color + '20' }]}>
           <Ionicons name={iconConfig.name} size={20} color={iconConfig.color} />
         </View>
@@ -122,7 +129,12 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
             </View>
           )}
         </View>
-      </View>
+        
+        {/* Chevron indicator for clickable items */}
+        <View style={styles.chevronContainer}>
+          <Ionicons name="chevron-forward" size={16} color={colors.gray400} />
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -267,6 +279,11 @@ const createStyles = (colors: any) => StyleSheet.create({
   
   activityContent: {
     flex: 1,
+  },
+  
+  chevronContainer: {
+    justifyContent: 'center',
+    paddingLeft: spacing.sm,
   },
   
   activityHeader: {
