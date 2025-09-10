@@ -22,7 +22,25 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
+    // Enhanced logging for production debugging
+    console.error('===== FlynnAI Error Boundary =====');
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('Component Stack:', errorInfo.componentStack);
+    console.error('Error Info:', JSON.stringify(errorInfo, null, 2));
+    console.error('==================================');
+    
+    // Log to production error tracking service if available
+    if (!__DEV__) {
+      // Could add Sentry, Bugsnag, etc. here
+      console.log('[Production Error]', {
+        message: error.message,
+        stack: error.stack,
+        componentStack: errorInfo.componentStack,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
     this.setState({
       error,
       errorInfo,
@@ -43,7 +61,7 @@ export class ErrorBoundary extends Component<Props, State> {
               We're sorry for the inconvenience. Please try restarting the app.
             </Text>
             
-            {__DEV__ && (
+            {(__DEV__ || true) && ( // Show errors in production for debugging
               <>
                 <View style={styles.errorContainer}>
                   <Text style={styles.errorTitle}>Error Details (Development Only):</Text>

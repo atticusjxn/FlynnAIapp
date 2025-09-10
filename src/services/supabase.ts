@@ -7,7 +7,13 @@ import Constants from 'expo-constants';
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+console.log('[Supabase] Initializing with URL:', supabaseUrl ? 'PROVIDED' : 'MISSING');
+console.log('[Supabase] Anon key:', supabaseAnonKey ? 'PROVIDED' : 'MISSING');
+
 if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('[CRITICAL] Missing Supabase environment variables!');
+  console.error('supabaseUrl:', supabaseUrl);
+  console.error('supabaseAnonKey:', supabaseAnonKey ? 'present' : 'missing');
   throw new Error('Missing Supabase environment variables. Please check your app.json configuration.');
 }
 

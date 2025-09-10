@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, shadows } from '../../theme';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { AuroraBorder } from '../../components/ui/AuroraBorder';
+import { AuroraBorder } from '../../components/ui/SafeAuroraBorder';
 
 export const ProcessingScreen = () => {
   const navigation = useNavigation<any>();

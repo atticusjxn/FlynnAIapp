@@ -15,6 +15,8 @@ import { ClientsScreen } from './src/screens/ClientsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { OnboardingNavigator } from './src/screens/onboarding/OnboardingNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { AppInitLogger } from './src/utils/AppInitLogger';
+import { useNavigationLogger } from './src/utils/NavigationLogger';
 import { Ionicons } from '@expo/vector-icons';
 import { UploadScreen } from './src/screens/upload/UploadScreen';
 import { ProcessingScreen } from './src/screens/upload/ProcessingScreen';
@@ -117,8 +119,12 @@ function AppNavigator() {
   const { user, loading } = useAuth();
   const { isOnboardingComplete, loading: onboardingLoading } = useOnboarding();
   const { isDark, colors } = useTheme();
+  const navigationLogger = useNavigationLogger();
+
+  console.log('[AppNavigator] Render - user:', !!user, 'loading:', loading, 'onboardingLoading:', onboardingLoading);
 
   if (loading || onboardingLoading) {
+    console.log('[AppNavigator] Showing loading screen');
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -127,7 +133,10 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      onReady={navigationLogger.onReady}
+      onStateChange={navigationLogger.onStateChange}
+    >
       <StatusBar style={isDark ? "light" : "dark"} />
       {user ? (
         isOnboardingComplete ? (
@@ -145,15 +154,19 @@ function AppNavigator() {
 }
 
 export default function App() {
+  console.log('[App] Root component rendering');
+  
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <OnboardingProvider>
-            <AppNavigator />
-          </OnboardingProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <AppInitLogger>
+        <ThemeProvider>
+          <AuthProvider>
+            <OnboardingProvider>
+              <AppNavigator />
+            </OnboardingProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </AppInitLogger>
     </ErrorBoundary>
   );
 }
