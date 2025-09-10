@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import { spacing, typography, borderRadius, shadows } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export interface Job {
   id: string;
@@ -30,7 +31,7 @@ interface JobCardProps {
   onPress: (job: Job) => void;
 }
 
-const getStatusColor = (status: Job['status']) => {
+const getStatusColor = (status: Job['status'], colors: any) => {
   switch (status) {
     case 'pending':
       return {
@@ -106,7 +107,9 @@ const formatTime = (timeString: string) => {
 };
 
 export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
-  const statusColors = getStatusColor(job.status);
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+  const statusColors = getStatusColor(job.status, colors);
 
   return (
     <TouchableOpacity
@@ -164,16 +167,16 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
     ...shadows.sm,
     borderWidth: 1,
-    borderColor: colors.gray100,
+    borderColor: colors.border,
   },
   
   header: {

@@ -6,34 +6,112 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Linking,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { colors, typography, spacing, borderRadius, shadows } from '../theme';
+import { typography, spacing, borderRadius, shadows } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
+import { mockJobs } from '../data/mockJobs';
+import { mockActivities, getRecentActivity, formatActivityTime, Activity } from '../data/mockActivities';
+import { Job } from '../components/jobs/JobCard';
+import { ActivityHistoryModal } from '../components/dashboard/ActivityHistoryModal';
 
 export const DashboardScreen = () => {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
+  const [showActivityHistory, setShowActivityHistory] = useState(false);
+  const styles = createStyles(colors);
 
-  // Mock data for the planned layout
-  const upcomingEvent = {
-    time: 'Today, 3:30 PM',
-    title: 'Site Visit - Johnson Plumbing',
-    location: '123 Oak Street',
+  // Get real data
+  const getUpcomingJob = (): Job | null => {
+    const now = new Date();
+    const upcomingJobs = mockJobs
+      .filter(job => {
+        const jobDate = new Date(job.date + 'T' + job.time);
+        return jobDate > now && (job.status === 'pending' || job.status === 'in-progress');
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.date + 'T' + a.time);
+        const dateB = new Date(b.date + 'T' + b.time);
+        return dateA.getTime() - dateB.getTime();
+      });
+    
+    return upcomingJobs.length > 0 ? upcomingJobs[0] : null;
   };
 
-  const recentActivity = {
-    caller: 'Sarah',
-    time: '1:45 PM',
-    message: '"Can you come Friday at 9 AM?"',
-  };
+  const recentActivity = getRecentActivity();
+  const upcomingJob = getUpcomingJob();
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate refresh
+    // In real app, this would fetch fresh data from API
     setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  const handleCallClient = (phone: string) => {
+    const phoneUrl = `tel:${phone}`;
+    Linking.openURL(phoneUrl).catch(() => {
+      Alert.alert('Error', 'Unable to make phone call');
+    });
+  };
+
+  const handleViewJobDetails = (job: Job) => {
+    // Navigate to job details or open modal
+    Alert.alert('Job Details', `View details for ${job.clientName}'s ${job.serviceType}`);
+  };
+
+  const handleActivityAction = (activity: Activity) => {
+    switch (activity.type) {
+      case 'call_recorded':
+        Alert.alert('Call Details', `Review recorded call with ${activity.metadata?.clientName}`);
+        break;
+      case 'screenshot_processed':
+        navigation.navigate('UploadFlow');
+        break;
+      case 'job_created':
+      case 'job_completed':
+        Alert.alert('Job Action', `View job details for ${activity.metadata?.clientName}`);
+        break;
+      default:
+        Alert.alert('Activity', 'Review activity details');
+    }
+  };
+
+  const formatJobDateTime = (date: string, time: string) => {
+    const jobDate = new Date(date);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    let dayText = '';
+    if (jobDate.toDateString() === today.toDateString()) {
+      dayText = 'Today';
+    } else if (jobDate.toDateString() === tomorrow.toDateString()) {
+      dayText = 'Tomorrow';
+    } else {
+      dayText = jobDate.toLocaleDateString('en-US', { 
+        weekday: 'short',
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+    
+    // Format time
+    const [hours, minutes] = time.split(':');
+    const timeObj = new Date();
+    timeObj.setHours(parseInt(hours), parseInt(minutes));
+    const timeText = timeObj.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    return `${dayText}, ${timeText}`;
   };
 
   const getUserName = () => {
@@ -45,12 +123,13 @@ export const DashboardScreen = () => {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <>
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
       {/* Welcome Section */}
       <View style={styles.welcomeSection}>
         <Text style={styles.welcomeText}>Welcome back, {getUserName()} 👋</Text>
@@ -62,34 +141,87 @@ export const DashboardScreen = () => {
           <Ionicons name="calendar-outline" size={20} color={colors.primary} />
           <Text style={styles.sectionTitle}>Upcoming Event</Text>
         </View>
-        <View style={styles.upcomingEventCard}>
-          <Text style={styles.eventTime}>{upcomingEvent.time}</Text>
-          <Text style={styles.eventTitle}>{upcomingEvent.title}</Text>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.eventLocation}>{upcomingEvent.location}</Text>
-          </View>
-          <TouchableOpacity style={styles.callClientButton} activeOpacity={0.7}>
-            <Ionicons name="call-outline" size={16} color={colors.primary} />
-            <Text style={styles.callClientText}>Call client</Text>
+        {upcomingJob ? (
+          <TouchableOpacity 
+            style={styles.upcomingEventCard} 
+            activeOpacity={0.7}
+            onPress={() => handleViewJobDetails(upcomingJob)}
+          >
+            <Text style={styles.eventTime}>{formatJobDateTime(upcomingJob.date, upcomingJob.time)}</Text>
+            <Text style={styles.eventTitle}>{upcomingJob.serviceType} - {upcomingJob.clientName}</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.eventLocation}>{upcomingJob.location}</Text>
+            </View>
+            {upcomingJob.estimatedDuration && (
+              <View style={styles.durationRow}>
+                <Ionicons name="timer-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.eventDuration}>{upcomingJob.estimatedDuration}</Text>
+              </View>
+            )}
+            <TouchableOpacity 
+              style={styles.callClientButton} 
+              activeOpacity={0.7}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleCallClient(upcomingJob.clientPhone);
+              }}
+            >
+              <Ionicons name="call-outline" size={16} color={colors.primary} />
+              <Text style={styles.callClientText}>Call {upcomingJob.clientName.split(' ')[0]}</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
-        </View>
+        ) : (
+          <View style={styles.emptyEventCard}>
+            <Ionicons name="calendar-outline" size={32} color={colors.gray400} />
+            <Text style={styles.emptyEventTitle}>No upcoming events</Text>
+            <Text style={styles.emptyEventDescription}>Your next scheduled job will appear here</Text>
+          </View>
+        )}
       </View>
 
       {/* Most Recent Activity Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="call-outline" size={20} color={colors.primary} />
+          <Ionicons name={recentActivity?.icon as any || 'time-outline'} size={20} color={colors.primary} />
           <Text style={styles.sectionTitle}>Most Recent Activity</Text>
-        </View>
-        <TouchableOpacity style={styles.activityCard} activeOpacity={0.7}>
-          <Text style={styles.activityHeader}>Call from {recentActivity.caller} - {recentActivity.time}</Text>
-          <Text style={styles.activityMessage}>{recentActivity.message}</Text>
-          <View style={styles.activityFooter}>
-            <Text style={styles.reviewButton}>Review & Add to Calendar</Text>
+          <TouchableOpacity 
+            style={styles.viewAllButton}
+            onPress={() => setShowActivityHistory(true)}
+          >
+            <Text style={styles.viewAllText}>View All</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+        {recentActivity ? (
+          <TouchableOpacity 
+            style={styles.activityCard} 
+            activeOpacity={0.7}
+            onPress={() => handleActivityAction(recentActivity)}
+          >
+            <View style={styles.activityTypeRow}>
+              <View style={[
+                styles.activityTypeIcon,
+                { backgroundColor: colors.primary + '20' }
+              ]}>
+                <Ionicons name={recentActivity.icon as any} size={16} color={colors.primary} />
+              </View>
+              <Text style={styles.activityTime}>{formatActivityTime(recentActivity.timestamp)}</Text>
+            </View>
+            <Text style={styles.activityTitle}>{recentActivity.title}</Text>
+            <Text style={styles.activityMessage}>{recentActivity.description}</Text>
+            <View style={styles.activityFooter}>
+              <Text style={styles.reviewButton}>Review & Take Action</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.emptyActivityCard}>
+            <Ionicons name="time-outline" size={32} color={colors.gray400} />
+            <Text style={styles.emptyActivityTitle}>No recent activity</Text>
+            <Text style={styles.emptyActivityDescription}>Your business activity will appear here</Text>
           </View>
-        </TouchableOpacity>
+        )}
       </View>
 
       {/* Quick Actions Section */}
@@ -113,17 +245,24 @@ export const DashboardScreen = () => {
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+      
+      {/* Activity History Modal */}
+      <ActivityHistoryModal 
+        visible={showActivityHistory}
+        onClose={() => setShowActivityHistory(false)}
+      />
+    </>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.background,
   },
   welcomeSection: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
     marginBottom: spacing.md,
@@ -147,7 +286,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   upcomingEventCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     ...shadows.md,
@@ -187,7 +326,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xxs,
   },
   activityCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     ...shadows.md,
@@ -221,7 +360,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   quickActionButton: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     ...shadows.sm,
@@ -233,5 +372,94 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.primary,
     marginLeft: spacing.xs,
+  },
+  
+  // View All button
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  viewAllText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '600',
+    marginRight: spacing.xxs,
+  },
+  
+  // Duration row
+  durationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  eventDuration: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+    marginLeft: spacing.xxs,
+  },
+  
+  // Empty states
+  emptyEventCard: {
+    backgroundColor: colors.card,
+    padding: spacing.xl,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
+    alignItems: 'center',
+  },
+  emptyEventTitle: {
+    ...typography.h4,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  emptyEventDescription: {
+    ...typography.bodyMedium,
+    color: colors.textTertiary,
+    textAlign: 'center',
+  },
+  
+  emptyActivityCard: {
+    backgroundColor: colors.card,
+    padding: spacing.xl,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
+    alignItems: 'center',
+  },
+  emptyActivityTitle: {
+    ...typography.h4,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  emptyActivityDescription: {
+    ...typography.bodyMedium,
+    color: colors.textTertiary,
+    textAlign: 'center',
+  },
+  
+  // Activity type row
+  activityTypeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  activityTypeIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityTime: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  activityTitle: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
   },
 });

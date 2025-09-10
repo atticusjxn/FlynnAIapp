@@ -422,6 +422,53 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 />
               </View>
 
+              {/* Accounting Actions - Show for completed jobs when accounting software is connected */}
+              {currentJob.status === 'complete' && (
+                <View style={styles.accountingActions}>
+                  <Text style={styles.accountingSectionTitle}>Accounting Actions</Text>
+                  <View style={styles.accountingButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.accountingAction}
+                      onPress={() => Alert.alert('Send Invoice', 'Invoice will be sent to MYOB for processing')}
+                    >
+                      <View style={styles.accountingActionIcon}>
+                        <Ionicons name="receipt-outline" size={20} color={colors.success} />
+                      </View>
+                      <Text style={[styles.accountingActionText, { color: colors.success }]}>
+                        Send Invoice
+                      </Text>
+                      <Text style={styles.accountingActionSubtext}>MYOB</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.accountingAction}
+                      onPress={() => Alert.alert('Create Quote', 'Quote template will be created in MYOB')}
+                    >
+                      <View style={styles.accountingActionIcon}>
+                        <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+                      </View>
+                      <Text style={[styles.accountingActionText, { color: colors.primary }]}>
+                        Create Quote
+                      </Text>
+                      <Text style={styles.accountingActionSubtext}>MYOB</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.accountingAction}
+                      onPress={() => Alert.alert('Log Expenses', 'Expense tracking for this job will be logged in MYOB')}
+                    >
+                      <View style={styles.accountingActionIcon}>
+                        <Ionicons name="calculator-outline" size={20} color={colors.warning} />
+                      </View>
+                      <Text style={[styles.accountingActionText, { color: colors.warning }]}>
+                        Log Expenses
+                      </Text>
+                      <Text style={styles.accountingActionSubtext}>MYOB</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
               {/* Secondary Actions */}
               <View style={styles.secondaryActions}>
                 <TouchableOpacity
@@ -641,5 +688,63 @@ const styles = StyleSheet.create({
   
   editButton: {
     flex: 1,
+  },
+
+  // Accounting Actions Styles
+  accountingActions: {
+    backgroundColor: colors.white,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
+  },
+
+  accountingSectionTitle: {
+    ...typography.h4,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+
+  accountingButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+
+  accountingAction: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.gray50,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+  },
+
+  accountingActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    ...shadows.sm,
+  },
+
+  accountingActionText: {
+    ...typography.caption,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: spacing.xxxs,
+  },
+
+  accountingActionSubtext: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    fontSize: 10,
+    textAlign: 'center',
   },
 });

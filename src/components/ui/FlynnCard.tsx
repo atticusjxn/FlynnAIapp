@@ -5,7 +5,8 @@ import {
   ViewStyle,
   TouchableOpacity,
 } from 'react-native';
-import { colors, spacing, borderRadius, shadows } from '../../theme';
+import { spacing, borderRadius, shadows } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 
 interface FlynnCardProps {
   children: React.ReactNode;
@@ -24,6 +25,8 @@ export const FlynnCard: React.FC<FlynnCardProps> = ({
   style,
   contentStyle,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const Component = onPress ? TouchableOpacity : View;
   
   return (
@@ -44,7 +47,7 @@ export const FlynnCard: React.FC<FlynnCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   base: {
     borderRadius: borderRadius.lg,
     backgroundColor: colors.white,
@@ -88,8 +91,10 @@ export const FlynnCardHeader: React.FC<FlynnCardHeaderProps> = ({
   children,
   style,
 }) => {
+  const { colors } = useTheme();
+  const cardStyles = createCardStyles(colors);
   return (
-    <View style={[styles.header, style]}>
+    <View style={[cardStyles.header, style]}>
       {children}
     </View>
   );
@@ -105,8 +110,10 @@ export const FlynnCardContent: React.FC<FlynnCardContentProps> = ({
   children,
   style,
 }) => {
+  const { colors } = useTheme();
+  const cardStyles = createCardStyles(colors);
   return (
-    <View style={[styles.content, style]}>
+    <View style={[cardStyles.content, style]}>
       {children}
     </View>
   );
@@ -122,14 +129,16 @@ export const FlynnCardFooter: React.FC<FlynnCardFooterProps> = ({
   children,
   style,
 }) => {
+  const { colors } = useTheme();
+  const cardStyles = createCardStyles(colors);
   return (
-    <View style={[styles.footer, style]}>
+    <View style={[cardStyles.footer, style]}>
       {children}
     </View>
   );
 };
 
-const cardStyles = StyleSheet.create({
+const createCardStyles = (colors: any) => StyleSheet.create({
   header: {
     marginBottom: spacing.sm,
   },
@@ -144,5 +153,3 @@ const cardStyles = StyleSheet.create({
   },
 });
 
-// Merge styles
-Object.assign(styles, cardStyles);

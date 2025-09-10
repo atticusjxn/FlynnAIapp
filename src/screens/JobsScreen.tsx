@@ -7,7 +7,8 @@ import {
   Alert,
   SafeAreaView,
 } from 'react-native';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { JobCard, Job } from '../components/jobs/JobCard';
 import { JobFilterBar, FilterType } from '../components/jobs/JobFilterBar';
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
@@ -17,7 +18,9 @@ import { mockJobs } from '../data/mockJobs';
 import { useNavigation } from '@react-navigation/native';
 
 export const JobsScreen = () => {
+  const { colors } = useTheme();
   const navigation = useNavigation<any>();
+  const styles = createStyles(colors);
   
   // State management
   const [jobs, setJobs] = useState<Job[]>(mockJobs);
@@ -210,10 +213,10 @@ export const JobsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.background,
   },
   
   listContent: {

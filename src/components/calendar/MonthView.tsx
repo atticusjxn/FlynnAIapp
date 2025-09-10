@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../../theme';
+import { spacing, typography, borderRadius } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import { Job } from '../jobs/JobCard';
 
 interface MonthViewProps {
@@ -29,6 +30,8 @@ export const MonthView: React.FC<MonthViewProps> = ({
   onDatePress,
   onJobPress,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const generateCalendarDays = (): CalendarDay[] => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -195,17 +198,17 @@ export const MonthView: React.FC<MonthViewProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
   
   weekHeader: {
     flexDirection: 'row',
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: colors.border,
   },
   
   weekDayHeader: {
@@ -238,7 +241,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xxxs,
     borderRightWidth: 1,
-    borderRightColor: colors.gray100,
+    borderRightColor: colors.border,
     alignItems: 'center',
   },
   
@@ -247,12 +250,12 @@ const styles = StyleSheet.create({
   },
   
   otherMonthCell: {
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.gray100,
   },
   
   dayNumber: {
     ...typography.bodyMedium,
-    color: colors.gray800,
+    color: colors.textPrimary,
     fontWeight: '500',
     marginBottom: spacing.xxxs,
   },

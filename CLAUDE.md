@@ -8,6 +8,7 @@ Flynn AI is a mobile app for busy service providers (plumbers, electricians, cle
 - **Call recording**: Call forwarding with press-0 to record → AI processes recordings → creates job cards
 - **Job confirmations**: Automatically send SMS confirmations to clients
 - **Calendar integration**: Google Calendar, Outlook, Apple Calendar sync
+- **Accounting integration**: MYOB, QuickBooks, Xero integration for invoicing and expense tracking
 
 ### Target Users:
 Busy sole traders and small service businesses who get scheduling requests via calls and texts. They need quick, reliable ways to capture job details without manual data entry.
@@ -673,6 +674,39 @@ export default FlynnJobCard;
 ---
 
 **Note**: This design system should be the single source of truth for all UI decisions in the FlynnAI application. Any deviations should be discussed and documented.
+
+## 💼 Accounting Integration
+
+### Overview
+Flynn AI integrates with major accounting software platforms to streamline financial management for service providers. Users can connect their preferred accounting software to automate invoicing, expense tracking, and financial reporting directly from completed job cards.
+
+### Supported Platforms:
+- **MYOB**: Complete accounting suite popular in Australia and New Zealand
+- **QuickBooks**: Widely used small business accounting platform
+- **Xero**: Cloud-based accounting software for small to medium businesses
+
+### Integration Features:
+- **Send Invoice**: Automatically create and send invoices for completed jobs to the connected accounting platform
+- **Create Quote**: Generate professional quotes and estimates that can be converted to invoices
+- **Log Expenses**: Track job-related expenses and materials costs for accurate profit calculations
+- **Sync Client Data**: Two-way sync of client information between Flynn AI and accounting software
+- **Financial Reporting**: Access to job profitability and revenue analytics
+
+### Business Benefits:
+- **Time Savings**: Eliminate double data entry between job management and accounting
+- **Professional Invoicing**: Branded invoices sent directly from accounting software
+- **Accurate Tracking**: Real-time expense tracking tied to specific jobs
+- **Tax Compliance**: Proper categorization and record keeping for tax purposes
+- **Cash Flow Management**: Faster invoicing leads to improved cash flow
+
+### User Experience:
+- Clear connection status indicators (green=connected, gray=disconnected)
+- One-click accounting actions available on completed job cards
+- Simple setup flow with OAuth authentication
+- Integration management through Settings tab
+- Automatic fallback gracefully handles disconnections
+
+Focus on making business financial management seamless and professional while maintaining the Flynn AI design system's principles of simplicity and efficiency.
 
 ## 🚫 Development Rules
 

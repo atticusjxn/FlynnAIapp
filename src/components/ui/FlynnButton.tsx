@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   View,
 } from 'react-native';
-import { colors, spacing, typography, borderRadius, shadows, opacity } from '../../theme';
+import { spacing, typography, borderRadius, shadows, opacity } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 
 interface FlynnButtonProps {
   title: string;
@@ -37,6 +38,9 @@ export const FlynnButton: React.FC<FlynnButtonProps> = ({
   style,
   textStyle,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+  
   const handlePress = () => {
     if (!disabled && !loading) {
       onPress();
@@ -63,7 +67,7 @@ export const FlynnButton: React.FC<FlynnButtonProps> = ({
         {loading ? (
           <ActivityIndicator
             size="small"
-            color={getTextColor(variant)}
+            color={getTextColor(variant, colors)}
             style={styles.loader}
           />
         ) : (
@@ -92,7 +96,7 @@ export const FlynnButton: React.FC<FlynnButtonProps> = ({
   );
 };
 
-const getTextColor = (variant: string): string => {
+const getTextColor = (variant: string, colors: any): string => {
   switch (variant) {
     case 'secondary':
     case 'ghost':
@@ -102,7 +106,7 @@ const getTextColor = (variant: string): string => {
   }
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   base: {
     borderRadius: borderRadius.md,
     flexDirection: 'row',

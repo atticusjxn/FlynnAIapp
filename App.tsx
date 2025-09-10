@@ -6,11 +6,13 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OnboardingProvider, useOnboarding } from './src/context/OnboardingContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { JobsScreen } from './src/screens/JobsScreen';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { ClientsScreen } from './src/screens/ClientsScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { OnboardingNavigator } from './src/screens/onboarding/OnboardingNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +41,8 @@ function UploadFlow() {
 }
 
 function MainTabs() {
+  const { colors } = useTheme();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -59,15 +63,26 @@ function MainTabs() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#3B82F6',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.gray400,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+        },
+        headerStyle: {
+          backgroundColor: colors.surface,
+        },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: {
+          color: colors.textPrimary,
+        },
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Jobs" component={JobsScreen} />
       <Tab.Screen name="Calendar" component={CalendarScreen} />
       <Tab.Screen name="Clients" component={ClientsScreen} />
-      <Tab.Screen name="Settings" component={DashboardScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
@@ -101,17 +116,19 @@ function RootNavigator() {
 function AppNavigator() {
   const { user, loading } = useAuth();
   const { isOnboardingComplete, loading: onboardingLoading } = useOnboarding();
+  const { isDark, colors } = useTheme();
 
   if (loading || onboardingLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#3B82F6" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <NavigationContainer>
+      <StatusBar style={isDark ? "light" : "dark"} />
       {user ? (
         isOnboardingComplete ? (
           <RootNavigator />
@@ -130,12 +147,13 @@ function AppNavigator() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <OnboardingProvider>
-          <StatusBar style="auto" />
-          <AppNavigator />
-        </OnboardingProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <OnboardingProvider>
+            <AppNavigator />
+          </OnboardingProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

@@ -10,7 +10,8 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import { spacing, typography, borderRadius, shadows } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import { FlynnButton } from '../ui/FlynnButton';
 import { Client } from '../../data/mockClients';
 
@@ -60,7 +61,7 @@ const getCommunicationIcon = (type: string) => {
   }
 };
 
-const getCommunicationColor = (type: string) => {
+const getCommunicationColor = (type: string, colors: any) => {
   switch (type) {
     case 'call':
       return colors.success;
@@ -82,6 +83,8 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
   onSendText,
   onSendEmail,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [activeTab, setActiveTab] = useState<'jobs' | 'communication'>('jobs');
 
   if (!client) return null;
@@ -244,12 +247,12 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
                 <View key={comm.id} style={styles.commItem}>
                   <View style={[
                     styles.commIcon,
-                    { backgroundColor: getCommunicationColor(comm.type) + '20' }
+                    { backgroundColor: getCommunicationColor(comm.type, colors) + '20' }
                   ]}>
                     <Ionicons 
                       name={getCommunicationIcon(comm.type) as any} 
                       size={16} 
-                      color={getCommunicationColor(comm.type)} 
+                      color={getCommunicationColor(comm.type, colors)} 
                     />
                   </View>
                   <View style={styles.commContent}>
@@ -333,10 +336,10 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.background,
   },
   
   header: {
@@ -345,9 +348,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: colors.border,
   },
   
   modalTitle: {
@@ -365,7 +368,7 @@ const styles = StyleSheet.create({
   },
   
   section: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     padding: spacing.md,

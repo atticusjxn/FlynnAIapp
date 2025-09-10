@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../../theme';
+import { spacing, typography, borderRadius } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import { Job } from './JobCard';
 
 export type FilterType = 'all' | 'today' | 'this-week' | 'pending' | 'complete';
@@ -58,6 +59,8 @@ export const JobFilterBar: React.FC<JobFilterBarProps> = ({
   activeFilter,
   onFilterChange,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const jobCounts = calculateJobCounts(jobs);
   
   const filters: Filter[] = [
@@ -117,11 +120,11 @@ export const JobFilterBar: React.FC<JobFilterBarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: colors.border,
     paddingVertical: spacing.sm,
   },
   

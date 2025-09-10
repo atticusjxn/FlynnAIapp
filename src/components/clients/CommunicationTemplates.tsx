@@ -8,7 +8,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import { spacing, typography, borderRadius, shadows } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import { FlynnButton } from '../ui/FlynnButton';
 import { Client } from '../../data/mockClients';
 
@@ -78,6 +79,8 @@ export const CommunicationTemplates: React.FC<CommunicationTemplatesProps> = ({
   type,
   onSendTemplate,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const templates = type === 'text' ? textTemplates : emailTemplates;
 
   const replaceVariables = (template: string) => {
@@ -153,10 +156,10 @@ export const CommunicationTemplates: React.FC<CommunicationTemplatesProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.background,
   },
 
   header: {
@@ -165,9 +168,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: colors.border,
   },
 
   title: {
@@ -180,11 +183,11 @@ const styles = StyleSheet.create({
   },
 
   clientInfo: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: colors.border,
   },
 
   clientName: {
@@ -205,7 +208,7 @@ const styles = StyleSheet.create({
   },
 
   templateCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
     padding: spacing.md,
@@ -232,11 +235,11 @@ const styles = StyleSheet.create({
   },
 
   footer: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
     borderTopWidth: 1,
-    borderTopColor: colors.gray200,
+    borderTopColor: colors.border,
   },
 });

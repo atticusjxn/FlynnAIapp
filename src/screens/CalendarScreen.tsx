@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { colors, spacing, typography, borderRadius, shadows } from '../theme';
+import { spacing, typography, borderRadius, shadows } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { Job } from '../components/jobs/JobCard';
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { MonthView } from '../components/calendar/MonthView';
@@ -100,7 +101,9 @@ const mockCalendarJobs: Job[] = [
 ];
 
 export const CalendarScreen: React.FC = () => {
+  const { colors } = useTheme();
   const navigation = useNavigation();
+  const styles = createStyles(colors);
   const [currentView, setCurrentView] = useState<CalendarView>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -408,18 +411,18 @@ const getStatusColor = (status: Job['status']) => {
   }
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.background,
   },
   
   header: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: colors.border,
   },
   
   viewToggle: {

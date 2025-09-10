@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { colors, spacing, typography, borderRadius, shadows } from '../theme';
+import { spacing, typography, borderRadius, shadows } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { ClientCard } from '../components/clients/ClientCard';
 import { ClientDetailsModal } from '../components/clients/ClientDetailsModal';
 import { CommunicationTemplates } from '../components/clients/CommunicationTemplates';
@@ -19,7 +20,9 @@ import { FlynnButton } from '../components/ui/FlynnButton';
 import { Client, mockClients } from '../data/mockClients';
 
 export const ClientsScreen: React.FC = () => {
+  const { colors } = useTheme();
   const navigation = useNavigation();
+  const styles = createStyles(colors);
   const [clients, setClients] = useState<Client[]>(mockClients);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -242,18 +245,18 @@ export const ClientsScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.background,
   },
 
   header: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomColor: colors.border,
   },
 
   headerTop: {

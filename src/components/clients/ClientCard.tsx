@@ -8,7 +8,8 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import { spacing, typography, borderRadius, shadows } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import { Client } from '../../data/mockClients';
 
 interface ClientCardProps {
@@ -31,7 +32,7 @@ const formatLastJobDate = (dateString: string) => {
   return `${Math.ceil(diffDays / 365)} years ago`;
 };
 
-const getBusinessTypeColor = (businessType: string) => {
+const getBusinessTypeColor = (businessType: string, colors: any) => {
   switch (businessType) {
     case 'home_property':
       return colors.primary;
@@ -71,6 +72,8 @@ export const ClientCard: React.FC<ClientCardProps> = ({
   onSendText,
   onSendEmail,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const handleCall = () => {
     const phoneUrl = `tel:${client.phone}`;
     Linking.openURL(phoneUrl).catch(() => {
@@ -97,12 +100,12 @@ export const ClientCard: React.FC<ClientCardProps> = ({
           <View style={styles.nameRow}>
             <View style={[
               styles.businessIcon,
-              { backgroundColor: getBusinessTypeColor(client.businessType) + '20' }
+              { backgroundColor: getBusinessTypeColor(client.businessType, colors) + '20' }
             ]}>
               <Ionicons 
                 name={getBusinessTypeIcon(client.businessType) as any} 
                 size={16} 
-                color={getBusinessTypeColor(client.businessType)} 
+                color={getBusinessTypeColor(client.businessType, colors)} 
               />
             </View>
             <Text style={styles.clientName}>{client.name}</Text>
@@ -171,9 +174,9 @@ export const ClientCard: React.FC<ClientCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.lg,
