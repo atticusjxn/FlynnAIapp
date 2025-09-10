@@ -51,7 +51,23 @@ export const JobFormDemo: React.FC = () => {
   // Set initial business type based on prefilled data or default
   const initialBusinessType = routeParams?.prefilledData?.businessType || 'home_property';
   const [selectedBusinessType, setSelectedBusinessType] = useState(initialBusinessType);
-  const [formData, setFormData] = useState<JobFormData>(mockData as JobFormData);
+  
+  // Initialize form data with prefilled data if available, otherwise use mock data
+  const getInitialFormData = (): JobFormData => {
+    if (routeParams?.prefilledData) {
+      const prefilled = routeParams.prefilledData;
+      return {
+        clientName: prefilled.clientName || '',
+        phone: prefilled.phone || '',
+        date: prefilled.date || '',
+        time: prefilled.time || '',
+        notes: prefilled.notes || '',
+      } as JobFormData;
+    }
+    return mockData as JobFormData;
+  };
+  
+  const [formData, setFormData] = useState<JobFormData>(getInitialFormData());
   const [isValid, setIsValid] = useState(false);
 
   // Update form data with pre-filled data from route params
@@ -61,15 +77,18 @@ export const JobFormDemo: React.FC = () => {
       // If editing, use prefilled data; if creating new, use mock data for missing fields
       setFormData(prevData => ({
         ...prevData,
-        clientName: prefilled.clientName || (routeParams.isEditing ? '' : mockData.clientName || ''),
-        phone: prefilled.phone || (routeParams.isEditing ? '' : mockData.phone || ''),
+        clientName: prefilled.clientName || (routeParams.isEditing ? '' : ''),
+        phone: prefilled.phone || (routeParams.isEditing ? '' : ''),
         date: prefilled.date || prevData.date || '',
         time: prefilled.time || prevData.time || '',
-        notes: prefilled.notes || (routeParams.isEditing ? '' : mockData.notes || ''),
+        notes: prefilled.notes || (routeParams.isEditing ? '' : ''),
+        // Add service location if provided
+        ...(prefilled.location && {
+          propertyAddress: prefilled.location,
+        }),
         // Add additional fields for editing
         ...(routeParams.isEditing && {
           // Only include these fields when editing
-          propertyAddress: prefilled.location || '',
           homeServiceType: prefilled.serviceType || '',
           issueDescription: prefilled.description || '',
           estimatedDuration: prefilled.estimatedDuration || '',
@@ -82,12 +101,13 @@ export const JobFormDemo: React.FC = () => {
     setSelectedBusinessType(businessType);
     // Reset form data when business type changes, but preserve pre-filled data
     if (routeParams?.prefilledData) {
+      const prefilled = routeParams.prefilledData;
       setFormData({
-        clientName: mockData.clientName || '',
-        phone: mockData.phone || '',
-        date: routeParams.prefilledData.date || '',
-        time: routeParams.prefilledData.time || '',
-        notes: mockData.notes || '',
+        clientName: prefilled.clientName || mockData.clientName || '',
+        phone: prefilled.phone || mockData.phone || '',
+        date: prefilled.date || '',
+        time: prefilled.time || '',
+        notes: prefilled.notes || mockData.notes || '',
       } as JobFormData);
     } else {
       setFormData(mockData as JobFormData);
