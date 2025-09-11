@@ -174,7 +174,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="fade"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >

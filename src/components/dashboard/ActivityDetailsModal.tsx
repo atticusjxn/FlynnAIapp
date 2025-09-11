@@ -197,7 +197,7 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="fade"
       transparent={true}
       onRequestClose={onClose}
     >
@@ -283,7 +283,7 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
 const createStyles = (colors: any) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'flex-end',
   },
   
