@@ -8,7 +8,7 @@ export const mockJobs: Job[] = [
     clientEmail: 'sarah.johnson@email.com',
     serviceType: 'Plumbing',
     description: 'Kitchen sink is leaking and needs immediate repair. Water is pooling under the cabinet.',
-    date: new Date().toISOString().split('T')[0], // Today
+    date: '2025-09-10', // Today (September 10, 2025)
     time: '14:30',
     location: '123 Oak Street, Springfield, IL 62701',
     status: 'pending',
@@ -24,7 +24,7 @@ export const mockJobs: Job[] = [
     clientEmail: 'mchen@techcorp.com',
     serviceType: 'Color & Cut',
     description: 'Full color treatment with highlights and a modern cut. Client wants to go from brown to blonde.',
-    date: new Date().toISOString().split('T')[0], // Today
+    date: '2025-09-10', // Today (September 10, 2025)
     time: '10:00',
     location: 'Flynn Beauty Studio, 456 Maple Ave, Springfield, IL 62702',
     status: 'in-progress',
@@ -39,7 +39,7 @@ export const mockJobs: Job[] = [
     clientPhone: '+1 (555) 345-6789',
     serviceType: 'Oil Change & Inspection',
     description: '2019 Honda Accord needs oil change and general inspection. 45,000 miles.',
-    date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Tomorrow
+    date: '2025-09-11', // Tomorrow (September 11, 2025)
     time: '09:00',
     location: 'Martinez Auto Shop, 789 Pine St, Springfield, IL 62703',
     status: 'pending',
@@ -54,7 +54,7 @@ export const mockJobs: Job[] = [
     clientEmail: 'emily.rodriguez@startup.com',
     serviceType: 'Marketing Consultation',
     description: 'Strategic marketing consultation for new product launch. Need help with digital marketing strategy.',
-    date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Day after tomorrow
+    date: '2025-09-12', // September 12, 2025
     time: '15:00',
     location: 'Virtual Meeting (Zoom)',
     status: 'pending',
@@ -70,7 +70,7 @@ export const mockJobs: Job[] = [
     clientEmail: 'rthompson@gmail.com',
     serviceType: 'Electrical Repair',
     description: 'Multiple outlets in living room not working. Possibly a circuit breaker issue.',
-    date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Yesterday
+    date: '2025-09-09', // Yesterday (September 9, 2025)
     time: '11:30',
     location: '321 Elm Drive, Springfield, IL 62704',
     status: 'complete',
@@ -86,7 +86,7 @@ export const mockJobs: Job[] = [
     clientEmail: 'lisa.park@design.co',
     serviceType: 'Manicure & Pedicure',
     description: 'Full spa manicure and pedicure with gel polish. Client prefers neutral colors.',
-    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 2 days ago
+    date: '2025-09-08', // September 8, 2025
     time: '13:00',
     location: 'Flynn Beauty Studio, 456 Maple Ave, Springfield, IL 62702',
     status: 'complete',
@@ -100,7 +100,7 @@ export const mockJobs: Job[] = [
     clientPhone: '+1 (555) 789-0123',
     serviceType: 'Brake Service',
     description: 'Brake pads making squealing noise. Needs inspection and possible replacement.',
-    date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 days from now
+    date: '2025-09-13', // September 13, 2025
     time: '16:00',
     location: 'Wilson Auto Center, 654 Cedar Blvd, Springfield, IL 62705',
     status: 'pending',
@@ -116,7 +116,7 @@ export const mockJobs: Job[] = [
     clientEmail: 'amanda.foster@lawfirm.com',
     serviceType: 'Website Redesign',
     description: 'Complete website redesign for law firm. Modern, professional look with client portal integration.',
-    date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Next week
+    date: '2025-09-17', // September 17, 2025
     time: '10:30',
     location: 'Foster & Associates, 987 Business Plaza, Springfield, IL 62706',
     status: 'pending',
@@ -124,5 +124,63 @@ export const mockJobs: Job[] = [
     estimatedDuration: '4 hours',
     notes: 'Initial consultation meeting. Bring portfolio and pricing sheets.',
     createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
+  },
+  {
+    id: '9',
+    clientName: 'Tom Bradley',
+    clientPhone: '+1 (555) 321-4567',
+    clientEmail: 'tom.bradley@home.com',
+    serviceType: 'HVAC Maintenance',
+    description: 'Annual AC unit maintenance and filter replacement.',
+    date: '2025-09-10', // Today (September 10, 2025)
+    time: '16:30',
+    location: '567 Birch Lane, Springfield, IL 62707',
+    status: 'pending',
+    businessType: 'home_property',
+    estimatedDuration: '1 hour',
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: '10',
+    clientName: 'Jennifer Lee',
+    clientPhone: '+1 (555) 432-5678',
+    serviceType: 'Hair Color',
+    description: 'Root touch-up and toner application.',
+    date: '2025-09-11', // Tomorrow (September 11, 2025)
+    time: '11:00',
+    location: 'Flynn Beauty Studio, 456 Maple Ave, Springfield, IL 62702',
+    status: 'pending',
+    businessType: 'personal_beauty',
+    estimatedDuration: '2 hours',
+    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: '11',
+    clientName: 'Mark Stevens',
+    clientPhone: '+1 (555) 543-6789',
+    clientEmail: 'mark.stevens@tech.com',
+    serviceType: 'IT Consultation',
+    description: 'Network security audit and recommendations.',
+    date: '2025-09-12', // September 12, 2025
+    time: '09:30',
+    location: 'Stevens Tech Solutions, 890 Tech Park, Springfield, IL 62708',
+    status: 'pending',
+    businessType: 'business_professional',
+    estimatedDuration: '3 hours',
+    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: '12',
+    clientName: 'Carol White',
+    clientPhone: '+1 (555) 654-7890',
+    serviceType: 'Business Meeting',
+    description: 'Quarterly review meeting with stakeholders.',
+    date: '2025-09-10', // Today (September 10, 2025) - overlaps with Michael Chen at 10:00
+    time: '10:30',
+    location: 'Conference Room B, Downtown Office',
+    status: 'pending',
+    businessType: 'business_professional',
+    estimatedDuration: '2 hours',
+    createdAt: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
   },
 ];

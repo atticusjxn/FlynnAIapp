@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { PinchGestureHandler, State } from 'react-native-gesture-handler';
 import { spacing, typography, borderRadius } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Job } from '../jobs/JobCard';
@@ -15,6 +16,8 @@ interface MonthViewProps {
   jobs: Job[];
   onDatePress: (date: Date) => void;
   onJobPress: (job: Job) => void;
+  onZoomToWeek?: (startDate: Date) => void;
+  onZoomToDay?: (date: Date) => void;
 }
 
 interface CalendarDay {
@@ -29,9 +32,47 @@ export const MonthView: React.FC<MonthViewProps> = ({
   jobs,
   onDatePress,
   onJobPress,
+  onZoomToWeek,
+  onZoomToDay,
 }) => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
+
+  const handlePinchGesture = (event: any) => {
+    const { scale, focalX, focalY, state } = event.nativeEvent;
+    
+    // Only handle when gesture ends
+    if (state !== State.END) return;
+    
+    // Calculate which part of the calendar was pinched
+    const calendarWidth = 350; // Approximate width of calendar
+    const calendarHeight = 300; // Approximate height of calendar
+    
+    // Convert focal point to calendar grid coordinates
+    const dayWidth = calendarWidth / 7;
+    const weekHeight = calendarHeight / 6;
+    
+    const dayCol = Math.floor(focalX / dayWidth);
+    const weekRow = Math.floor(focalY / weekHeight);
+    
+    // Calculate which date was pinched
+    const calendarDays = generateCalendarDays();
+    const dayIndex = weekRow * 7 + dayCol;
+    const targetDay = calendarDays[dayIndex];
+    
+    if (!targetDay) return;
+    
+    // Determine zoom level based on scale
+    if (scale > 1.5) {
+      // Zoom to day view
+      onZoomToDay?.(targetDay.date);
+    } else if (scale > 1.2) {
+      // Zoom to week view - find the start of the week containing this day
+      const weekStart = new Date(targetDay.date);
+      weekStart.setDate(targetDay.date.getDate() - targetDay.date.getDay());
+      onZoomToWeek?.(weekStart);
+    }
+  };
   const generateCalendarDays = (): CalendarDay[] => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -122,79 +163,101 @@ export const MonthView: React.FC<MonthViewProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Week Day Headers */}
-      <View style={styles.weekHeader}>
-        {weekDays.map((day) => (
-          <View key={day} style={styles.weekDayHeader}>
-            <Text style={styles.weekDayText}>{day}</Text>
-          </View>
-        ))}
-      </View>
+    <PinchGestureHandler onGestureEvent={handlePinchGesture} onHandlerStateChange={handlePinchGesture}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Week Day Headers */}
+        <View style={styles.weekHeader}>
+          {weekDays.map((day, index) => (
+            <View 
+              key={day} 
+              style={[
+                styles.weekDayHeader,
+                index === weekDays.length - 1 && { borderRightWidth: 0 } // Remove border from last item
+              ]}
+            >
+              <Text style={styles.weekDayText}>{day}</Text>
+            </View>
+          ))}
+        </View>
 
-      {/* Calendar Grid */}
-      <View style={styles.calendarGrid}>
-        {Array.from({ length: 6 }, (_, weekIndex) => (
-          <View key={weekIndex} style={styles.weekRow}>
-            {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => (
-              <TouchableOpacity
-                key={dayIndex}
-                style={[
-                  styles.dayCell,
-                  day.isToday && styles.todayCell,
-                  !day.isCurrentMonth && styles.otherMonthCell,
-                ]}
-                onPress={() => onDatePress(day.date)}
-                activeOpacity={0.7}
-              >
-                <Text
+        {/* Calendar Grid */}
+        <View style={styles.calendarGrid}>
+          {Array.from({ length: 6 }, (_, weekIndex) => (
+            <View key={weekIndex} style={styles.weekRow}>
+              {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => (
+                <TouchableOpacity
+                  key={dayIndex}
                   style={[
-                    styles.dayNumber,
-                    day.isToday && styles.todayText,
-                    !day.isCurrentMonth && styles.otherMonthText,
+                    styles.dayCell,
+                    day.isToday && styles.todayCell,
+                    !day.isCurrentMonth && styles.otherMonthCell,
+                    dayIndex === 6 && { borderRightWidth: 0 } // Remove border from last item in row
                   ]}
+                  onPress={() => onDatePress(day.date)}
+                  activeOpacity={0.7}
                 >
-                  {day.date.getDate()}
-                </Text>
-                
-                {renderJobDots(day.jobs)}
-                
-                {/* Job list for days with jobs */}
-                {day.jobs.length > 0 && (
-                  <View style={styles.dayJobsList}>
-                    {day.jobs.slice(0, 2).map((job) => (
-                      <TouchableOpacity
-                        key={job.id}
-                        style={[
-                          styles.jobBar,
-                          { backgroundColor: getStatusColor(job.status) + '20' }
-                        ]}
-                        onPress={() => onJobPress(job)}
-                      >
-                        <Text
-                          style={[
-                            styles.jobBarText,
-                            { color: getStatusColor(job.status) }
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {job.time} {job.clientName}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                    {day.jobs.length > 2 && (
-                      <Text style={styles.moreJobsText}>
-                        +{day.jobs.length - 2} more
-                      </Text>
-                    )}
+                  <View style={styles.dayHeader}>
+                    <Text
+                      style={[
+                        styles.dayNumber,
+                        day.isToday && styles.todayText,
+                        !day.isCurrentMonth && styles.otherMonthText,
+                      ]}
+                    >
+                      {day.date.getDate()}
+                    </Text>
+                    {day.jobs.length > 0 && renderJobDots(day.jobs)}
                   </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+                  
+                  {/* Job list for days with jobs */}
+                  {day.jobs.length > 0 && (
+                    <View style={styles.dayJobsList}>
+                      {day.jobs.slice(0, 2).map((job) => (
+                        <TouchableOpacity
+                          key={job.id}
+                          style={[
+                            styles.jobBar,
+                            {
+                              backgroundColor: getStatusColor(job.status) + '15',
+                              borderLeftColor: getStatusColor(job.status),
+                            }
+                          ]}
+                          onPress={() => onJobPress(job)}
+                        >
+                          <Text
+                            style={[
+                              styles.jobBarText,
+                              { color: getStatusColor(job.status) }
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {job.time}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.jobBarText,
+                              { color: colors.gray700, fontSize: 9 }
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {job.clientName.split(' ')[0]}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                      {day.jobs.length > 2 && (
+                        <Text style={styles.moreJobsText}>
+                          +{day.jobs.length - 2} more
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </PinchGestureHandler>
   );
 };
 
@@ -215,6 +278,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     paddingVertical: spacing.sm,
     alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
   },
   
   weekDayText: {
@@ -237,9 +302,9 @@ const createStyles = (colors: any) => StyleSheet.create({
   
   dayCell: {
     flex: 1,
-    minHeight: 80,
+    minHeight: 90,
     paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.xxxs,
+    paddingHorizontal: spacing.xs,
     borderRightWidth: 1,
     borderRightColor: colors.border,
     alignItems: 'center',
@@ -269,10 +334,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.gray400,
   },
   
+  dayHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xxxs,
+  },
+  
   jobDotsContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: spacing.xxxs,
+    alignItems: 'center',
     minHeight: 8,
   },
   
@@ -303,15 +375,18 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   
   jobBar: {
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-    borderRadius: 3,
+    paddingVertical: 3,
+    paddingHorizontal: 5,
+    borderRadius: 4,
     marginBottom: 2,
+    borderLeftWidth: 2,
+    borderLeftColor: 'transparent',
   },
   
   jobBarText: {
     fontSize: 10,
-    fontWeight: '500',
+    fontWeight: '600',
+    lineHeight: 12,
   },
   
   moreJobsText: {

@@ -9,21 +9,21 @@ import {
 } from 'react-native';
 import { spacing } from '../theme';
 import { useTheme } from '../context/ThemeContext';
+import { useJobs } from '../context/JobsContext';
 import { JobCard, Job } from '../components/jobs/JobCard';
 import { JobFilterBar, FilterType } from '../components/jobs/JobFilterBar';
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { CommunicationModal } from '../components/jobs/CommunicationModal';
 import { EmptyState } from '../components/jobs/EmptyState';
-import { mockJobs } from '../data/mockJobs';
 import { useNavigation } from '@react-navigation/native';
 
 export const JobsScreen = () => {
   const { colors } = useTheme();
+  const { jobs, updateJob, deleteJob, markJobComplete } = useJobs();
   const navigation = useNavigation<any>();
   const styles = createStyles(colors);
   
   // State management
-  const [jobs, setJobs] = useState<Job[]>(mockJobs);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState(false);
@@ -102,11 +102,7 @@ export const JobsScreen = () => {
   };
 
   const handleMarkComplete = (job: Job) => {
-    setJobs(prevJobs =>
-      prevJobs.map(j =>
-        j.id === job.id ? { ...j, status: 'complete' as const } : j
-      )
-    );
+    markJobComplete(job.id);
     Alert.alert('Success', `Job for ${job.clientName} marked as complete!`);
   };
 
@@ -120,17 +116,12 @@ export const JobsScreen = () => {
   };
 
   const handleUpdateJob = (updatedJob: Job) => {
-    // Update the job in the jobs array
-    setJobs(prevJobs => 
-      prevJobs.map(job => 
-        job.id === updatedJob.id ? updatedJob : job
-      )
-    );
+    updateJob(updatedJob);
     console.log('Updated job:', updatedJob);
   };
 
   const handleDeleteJob = (job: Job) => {
-    setJobs(prevJobs => prevJobs.filter(j => j.id !== job.id));
+    deleteJob(job.id);
     Alert.alert('Success', `Job for ${job.clientName} has been deleted.`);
   };
 

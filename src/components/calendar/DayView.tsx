@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,17 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import { spacing, typography, borderRadius, shadows } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import { Job } from '../jobs/JobCard';
+import { ConflictResolutionModal } from './ConflictResolutionModal';
 
 interface DayViewProps {
   currentDate: Date;
   jobs: Job[];
   onJobPress: (job: Job) => void;
   onTimeSlotPress?: (date: Date, hour: number) => void;
+  onUpdateJob?: (updatedJob: Job) => void;
 }
 
 export const DayView: React.FC<DayViewProps> = ({
@@ -22,7 +25,12 @@ export const DayView: React.FC<DayViewProps> = ({
   jobs,
   onJobPress,
   onTimeSlotPress,
+  onUpdateJob,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+  const [conflictModalVisible, setConflictModalVisible] = useState(false);
+  const [selectedConflictJob, setSelectedConflictJob] = useState<Job | null>(null);
   const hours = Array.from({ length: 17 }, (_, i) => i + 6); // 6 AM - 10 PM
   const dateString = currentDate.toISOString().split('T')[0];
   const dayJobs = jobs.filter(job => job.date === dateString);
@@ -60,10 +68,22 @@ export const DayView: React.FC<DayViewProps> = ({
   };
 
   const getJobHeight = (job: Job) => {
-    if (!job.estimatedDuration) return 80; // Default 1 hour
+    const baseDuration = job.estimatedDuration 
+      ? parseFloat(job.estimatedDuration.replace(/[^\d.]/g, ''))
+      : 1; // Default 1 hour
     
-    const duration = parseFloat(job.estimatedDuration.replace(/[^\d.]/g, ''));
-    return Math.max(40, duration * 80); // Minimum 40px, 80px per hour
+    const durationBasedHeight = baseDuration * 80; // 80px per hour
+    
+    // Calculate minimum height to show all content
+    // Header (time + duration + status): ~20px
+    // Title (client name): ~16px  
+    // Service type: ~14px
+    // Location: ~13px
+    // Footer margins: ~4px
+    // Padding (top/bottom): ~24px
+    const minContentHeight = 95; // Increased to ensure location is visible
+    
+    return Math.max(minContentHeight, durationBasedHeight);
   };
 
   const getCurrentTimePosition = () => {
@@ -81,9 +101,127 @@ export const DayView: React.FC<DayViewProps> = ({
 
   const currentTimePosition = getCurrentTimePosition();
 
-  const renderJobBlock = (job: Job) => {
-    const top = getJobPosition(job);
-    const height = getJobHeight(job);
+  // Detect overlapping jobs
+  const getJobTimeRange = (job: Job) => {
+    const [hours, minutes] = job.time.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const duration = job.estimatedDuration 
+      ? parseFloat(job.estimatedDuration.replace(/[^\d.]/g, '')) * 60 
+      : 60; // Default 1 hour in minutes
+    
+    return {
+      start: startMinutes,
+      end: startMinutes + duration,
+    };
+  };
+
+  const getOverlappingJobs = (targetJob: Job) => {
+    const targetRange = getJobTimeRange(targetJob);
+    return dayJobs.filter(job => {
+      if (job.id === targetJob.id) return false;
+      const jobRange = getJobTimeRange(job);
+      return targetRange.start < jobRange.end && targetRange.end > jobRange.start;
+    });
+  };
+
+  const hasConflict = (job: Job) => {
+    return getOverlappingJobs(job).length > 0;
+  };
+
+  // Determine which job should show the conflict warning (the later/overlapping one)
+  const shouldShowConflictWarning = (job: Job) => {
+    const overlappingJobs = getOverlappingJobs(job);
+    if (overlappingJobs.length === 0) return false;
+    
+    // Show warning on the job that starts later
+    const jobStartMinutes = getJobTimeRange(job).start;
+    const hasEarlierJob = overlappingJobs.some(overlappingJob => {
+      const overlappingStartMinutes = getJobTimeRange(overlappingJob).start;
+      return overlappingStartMinutes < jobStartMinutes;
+    });
+    
+    return hasEarlierJob; // Show warning if there's an earlier overlapping job
+  };
+
+  // Add column layout system for overlapping jobs
+  const getJobsWithLayout = () => {
+    const sortedJobs = [...dayJobs].sort((a, b) => {
+      const aPos = getJobPosition(a);
+      const bPos = getJobPosition(b);
+      return aPos - bPos;
+    });
+
+    const jobsWithLayout: Array<{
+      job: Job;
+      top: number;
+      height: number;
+      column: number;
+      width: number;
+      left: number;
+    }> = [];
+
+    sortedJobs.forEach((job, index) => {
+      const top = getJobPosition(job);
+      const height = getJobHeight(job);
+      
+      // Find overlapping jobs that have already been processed
+      const overlappingJobs = [];
+      for (let i = 0; i < index; i++) {
+        const prevJob = sortedJobs[i];
+        const prevTop = getJobPosition(prevJob);
+        const prevHeight = getJobHeight(prevJob);
+        
+        // Check if jobs overlap in time
+        if (top < prevTop + prevHeight && top + height > prevTop) {
+          overlappingJobs.push(i);
+        }
+      }
+      
+      // Find the first available column
+      let column = 0;
+      const maxColumns = 2; // Limit to 2 columns for readability
+      const usedColumns = new Set<number>();
+      
+      // Check which columns are already used by overlapping jobs
+      overlappingJobs.forEach(prevIndex => {
+        const prevLayout = jobsWithLayout[prevIndex];
+        if (prevLayout) {
+          usedColumns.add(prevLayout.column);
+        }
+      });
+      
+      // Find first available column
+      while (usedColumns.has(column) && column < maxColumns) {
+        column++;
+      }
+      
+      // If no column available, force into last column
+      if (column >= maxColumns) {
+        column = maxColumns - 1;
+      }
+      
+      const totalOverlappingJobs = overlappingJobs.length + 1;
+      const maxColumnsForThisGroup = Math.min(totalOverlappingJobs, maxColumns);
+      const columnWidth = 100 / Math.max(maxColumnsForThisGroup, 1);
+      const leftPosition = (column * columnWidth);
+      
+      jobsWithLayout.push({
+        job,
+        top,
+        height,
+        column,
+        width: columnWidth - 2, // -2% for spacing
+        left: leftPosition,
+      });
+    });
+
+    return jobsWithLayout;
+  };
+
+  const renderJobBlock = (jobLayout: any) => {
+    const { job, top, height, left, width } = jobLayout;
+    const isConflicted = hasConflict(job);
+    const showConflictWarning = shouldShowConflictWarning(job);
     
     return (
       <TouchableOpacity
@@ -93,22 +231,44 @@ export const DayView: React.FC<DayViewProps> = ({
           {
             top,
             height,
-            backgroundColor: getStatusColor(job.status) + '20',
-            borderLeftColor: getStatusColor(job.status),
+            left: `${left}%`,
+            width: `${width}%`,
+            backgroundColor: isConflicted 
+              ? colors.errorLight 
+              : getStatusColor(job.status) + '20',
+            borderLeftColor: isConflicted 
+              ? colors.error 
+              : getStatusColor(job.status),
+            borderWidth: isConflicted ? 2 : 1,
           },
+          isConflicted && styles.conflictedJob,
         ]}
-        onPress={() => onJobPress(job)}
+        onPress={() => {
+          if (isConflicted) {
+            setSelectedConflictJob(job);
+            setConflictModalVisible(true);
+          } else {
+            onJobPress(job);
+          }
+        }}
         activeOpacity={0.7}
       >
         <View style={styles.jobHeader}>
-          <Text style={[styles.jobTime, { color: getStatusColor(job.status) }]}>
+          <Text style={[styles.jobTime, { color: isConflicted ? colors.error : getStatusColor(job.status) }]}>
             {job.time}
+            {job.estimatedDuration && (
+              <Text style={styles.jobDurationInline}> • {job.estimatedDuration}</Text>
+            )}
           </Text>
           <View style={styles.jobStatusBadge}>
-            <View style={[
-              styles.statusDot,
-              { backgroundColor: getStatusColor(job.status) }
-            ]} />
+            {isConflicted ? (
+              <Ionicons name="warning" size={16} color={colors.error} />
+            ) : (
+              <View style={[
+                styles.statusDot,
+                { backgroundColor: getStatusColor(job.status) }
+              ]} />
+            )}
           </View>
         </View>
         
@@ -121,21 +281,27 @@ export const DayView: React.FC<DayViewProps> = ({
         </Text>
         
         <View style={styles.jobFooter}>
+          {showConflictWarning && (
+            <TouchableOpacity 
+              style={styles.conflictWarning}
+              onPress={() => {
+                setSelectedConflictJob(job);
+                setConflictModalVisible(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="warning-outline" size={12} color={colors.white} />
+              <Text style={styles.conflictText}>
+                Scheduling conflict - tap to resolve
+              </Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.jobLocation}>
             <Ionicons name="location-outline" size={12} color={colors.gray500} />
             <Text style={styles.jobLocationText} numberOfLines={1}>
               {job.location}
             </Text>
           </View>
-          
-          {job.estimatedDuration && (
-            <View style={styles.jobDuration}>
-              <Ionicons name="timer-outline" size={12} color={colors.gray500} />
-              <Text style={styles.jobDurationText}>
-                {job.estimatedDuration}
-              </Text>
-            </View>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -158,7 +324,19 @@ export const DayView: React.FC<DayViewProps> = ({
   const hasJobAtHour = (hour: number) => {
     return dayJobs.some(job => {
       const jobHour = parseInt(job.time.split(':')[0]);
-      return jobHour === hour;
+      const jobMinutes = parseInt(job.time.split(':')[1]);
+      const jobStartTime = jobHour * 60 + jobMinutes;
+      const hourStartTime = hour * 60;
+      const hourEndTime = (hour + 1) * 60;
+      
+      // Get job duration in minutes
+      const duration = job.estimatedDuration 
+        ? parseFloat(job.estimatedDuration.replace(/[^\d.]/g, '')) * 60 
+        : 60; // Default 1 hour
+      const jobEndTime = jobStartTime + duration;
+      
+      // Check if job overlaps with this hour slot
+      return jobStartTime < hourEndTime && jobEndTime > hourStartTime;
     });
   };
 
@@ -186,7 +364,7 @@ export const DayView: React.FC<DayViewProps> = ({
           
           {/* Jobs Container */}
           <View style={styles.jobsContainer}>
-            {dayJobs.map(renderJobBlock)}
+            {getJobsWithLayout().map((jobLayout) => renderJobBlock(jobLayout))}
           </View>
           
           {/* Time Grid */}
@@ -203,11 +381,34 @@ export const DayView: React.FC<DayViewProps> = ({
           ))}
         </View>
       </ScrollView>
+
+      {/* Conflict Resolution Modal */}
+      <ConflictResolutionModal
+        visible={conflictModalVisible}
+        conflictedJob={selectedConflictJob}
+        overlappingJobs={selectedConflictJob ? getOverlappingJobs(selectedConflictJob) : []}
+        onClose={() => {
+          setConflictModalVisible(false);
+          setSelectedConflictJob(null);
+        }}
+        onRescheduleJob={(job, newTime) => {
+          if (onUpdateJob) {
+            onUpdateJob({ ...job, time: newTime });
+          }
+          setConflictModalVisible(false);
+          setSelectedConflictJob(null);
+        }}
+        onKeepBothJobs={() => {
+          // User decided to keep both - just close modal
+          setConflictModalVisible(false);
+          setSelectedConflictJob(null);
+        }}
+      />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.white,
@@ -276,6 +477,7 @@ const styles = StyleSheet.create({
     left: 80,
     right: 0,
     height: '100%',
+    zIndex: 10, // Ensure jobs appear above grid lines
   },
   
   jobBlock: {
@@ -286,7 +488,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.sm,
     backgroundColor: colors.white,
-    ...shadows.md,
+    ...shadows.sm,
+    overflow: 'hidden',
+    zIndex: 15, // Ensure job cards appear above everything
+    borderWidth: 1,
+    borderColor: colors.white, // Ensure solid border to cover grid lines
   },
   
   jobHeader: {
@@ -299,6 +505,13 @@ const styles = StyleSheet.create({
   jobTime: {
     ...typography.bodyMedium,
     fontWeight: '700',
+    flex: 1,
+  },
+  
+  jobDurationInline: {
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.8,
   },
   
   jobStatusBadge: {
@@ -312,20 +525,26 @@ const styles = StyleSheet.create({
   },
   
   jobTitle: {
-    ...typography.h4,
+    ...typography.bodyMedium,
     color: colors.gray800,
-    marginBottom: spacing.xs,
+    fontWeight: '700',
+    marginBottom: spacing.xxxs,
+    fontSize: 14,
+    lineHeight: 16,
   },
   
   jobService: {
-    ...typography.bodyMedium,
+    ...typography.bodySmall,
     color: colors.primary,
     fontWeight: '600',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
+    fontSize: 12,
+    lineHeight: 14,
   },
   
   jobFooter: {
-    gap: spacing.xs,
+    gap: spacing.xxxs,
+    marginTop: spacing.xxxs,
   },
   
   jobLocation: {
@@ -335,20 +554,35 @@ const styles = StyleSheet.create({
   },
   
   jobLocationText: {
-    ...typography.bodySmall,
+    fontSize: 11,
     color: colors.gray600,
     flex: 1,
+    lineHeight: 13,
   },
   
-  jobDuration: {
+  conflictedJob: {
+    shadowColor: colors.error,
+    shadowOpacity: 0.3,
+    elevation: 6,
+  },
+  
+  conflictWarning: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xxxs,
+    backgroundColor: colors.error,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 6,
+    marginBottom: spacing.xs,
+    minHeight: 32, // Larger touch target
   },
   
-  jobDurationText: {
-    ...typography.bodySmall,
-    color: colors.gray600,
+  conflictText: {
+    fontSize: 11,
+    color: colors.white,
+    fontWeight: '700',
+    flex: 1,
   },
   
   currentTimeLine: {

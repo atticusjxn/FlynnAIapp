@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../../theme';
+import { spacing, typography, borderRadius } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import { Job } from '../jobs/JobCard';
 
 interface WeekViewProps {
@@ -14,6 +15,10 @@ interface WeekViewProps {
   jobs: Job[];
   onJobPress: (job: Job) => void;
   onTimeSlotPress?: (date: Date, hour: number) => void;
+  dayCount?: number; // New prop to support 3-day or 7-day view
+  allDates?: Date[]; // All dates for continuous scrolling
+  isContinuous?: boolean; // Whether this is a continuous timeline
+  containerWidth?: number; // Width of the scroll container
 }
 
 interface WeekDay {
@@ -27,18 +32,39 @@ export const WeekView: React.FC<WeekViewProps> = ({
   jobs,
   onJobPress,
   onTimeSlotPress,
+  dayCount = 7, // Default to 7 days for backward compatibility
+  allDates,
+  isContinuous = false,
+  containerWidth = 350,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
+  
   const generateWeekDays = (): WeekDay[] => {
-    const startOfWeek = new Date(currentDate);
-    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
-    
     const today = new Date();
     const weekDays: WeekDay[] = [];
     
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(startOfWeek);
-      day.setDate(startOfWeek.getDate() + i);
+    // Use allDates for continuous mode, or generate normally
+    const datesToProcess = allDates || (() => {
+      const dates = [];
+      // For 3-day view, start from current date. For 7-day view, start from beginning of week
+      const startDate = dayCount === 3 
+        ? new Date(currentDate) 
+        : (() => {
+            const startOfWeek = new Date(currentDate);
+            startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+            return startOfWeek;
+          })();
       
+      for (let i = 0; i < dayCount; i++) {
+        const day = new Date(startDate);
+        day.setDate(startDate.getDate() + i);
+        dates.push(day);
+      }
+      return dates;
+    })();
+    
+    datesToProcess.forEach(day => {
       const dateString = day.toISOString().split('T')[0];
       const dayJobs = jobs.filter(job => job.date === dateString);
       
@@ -50,7 +76,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
           day.getMonth() === today.getMonth() &&
           day.getFullYear() === today.getFullYear(),
       });
-    }
+    });
     
     return weekDays;
   };
@@ -81,7 +107,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
   const getJobPosition = (job: Job) => {
     const [hours, minutes] = job.time.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes - 6 * 60; // Offset from 6 AM
-    const position = (totalMinutes / 60) * 60; // 60px per hour
+    const position = (totalMinutes / 60) * 60; // 60px per hour (updated to match new height)
     return Math.max(0, position);
   };
 
@@ -89,12 +115,82 @@ export const WeekView: React.FC<WeekViewProps> = ({
     if (!job.estimatedDuration) return 60; // Default 1 hour
     
     const duration = parseFloat(job.estimatedDuration.replace(/[^\d.]/g, ''));
-    return Math.max(30, duration * 60); // Minimum 30px, 60px per hour
+    return Math.max(50, duration * 60); // Minimum 50px, 60px per hour for better text visibility
   };
 
-  const renderJobBlock = (job: Job, dayIndex: number) => {
-    const top = getJobPosition(job);
-    const height = getJobHeight(job);
+  const getJobsWithOverlapInfo = (dayJobs: Job[]) => {
+    const sortedJobs = [...dayJobs].sort((a, b) => {
+      const aPos = getJobPosition(a);
+      const bPos = getJobPosition(b);
+      return aPos - bPos;
+    });
+
+    const jobsWithLayout: Array<{
+      job: Job;
+      top: number;
+      height: number;
+      column: number;
+      maxColumns: number;
+    }> = [];
+
+    sortedJobs.forEach((job, index) => {
+      const top = getJobPosition(job);
+      const height = getJobHeight(job);
+      
+      // Find overlapping jobs that have already been processed
+      const overlappingJobs = [];
+      for (let i = 0; i < index; i++) {
+        const prevJob = sortedJobs[i];
+        const prevTop = getJobPosition(prevJob);
+        const prevHeight = getJobHeight(prevJob);
+        
+        // Check if jobs overlap in time
+        if (top < prevTop + prevHeight && top + height > prevTop) {
+          overlappingJobs.push(i);
+        }
+      }
+      
+      // Find the first available column
+      let column = 0;
+      const maxColumns = 2; // Limit to 2 columns for better readability
+      const usedColumns = new Set<number>();
+      
+      // Check which columns are already used by overlapping jobs
+      overlappingJobs.forEach(prevIndex => {
+        const prevLayout = jobsWithLayout[prevIndex];
+        if (prevLayout) {
+          usedColumns.add(prevLayout.column);
+        }
+      });
+      
+      // Find first available column
+      while (usedColumns.has(column) && column < maxColumns) {
+        column++;
+      }
+      
+      // If no column available, force into last column
+      if (column >= maxColumns) {
+        column = maxColumns - 1;
+      }
+      
+      const totalOverlappingJobs = overlappingJobs.length + 1;
+      const maxColumnsForThisGroup = Math.min(totalOverlappingJobs, maxColumns);
+      
+      jobsWithLayout.push({
+        job,
+        top,
+        height,
+        column,
+        maxColumns: maxColumnsForThisGroup,
+      });
+    });
+
+    return jobsWithLayout;
+  };
+
+  const renderJobBlock = (jobLayout: any, dayIndex: number) => {
+    const { job, top, height, column, maxColumns } = jobLayout;
+    const columnWidth = 100 / Math.max(maxColumns, 1);
     
     return (
       <TouchableOpacity
@@ -104,6 +200,8 @@ export const WeekView: React.FC<WeekViewProps> = ({
           {
             top,
             height,
+            left: `${column * columnWidth}%`,
+            width: `${columnWidth - 2}%`, // -2% for better spacing
             backgroundColor: getStatusColor(job.status) + '20',
             borderLeftColor: getStatusColor(job.status),
           },
@@ -115,15 +213,86 @@ export const WeekView: React.FC<WeekViewProps> = ({
           {job.time}
         </Text>
         <Text style={styles.jobTitle} numberOfLines={1}>
-          {job.clientName}
+          {job.clientName.split(' ')[0]}
         </Text>
-        <Text style={styles.jobService} numberOfLines={1}>
-          {job.serviceType}
-        </Text>
+        {height > 50 && maxColumns === 1 && (
+          <Text style={styles.jobService} numberOfLines={1}>
+            {job.serviceType}
+          </Text>
+        )}
       </TouchableOpacity>
     );
   };
 
+  if (isContinuous) {
+    // For continuous mode, create a wide timeline
+    const dayWidth = containerWidth / 3; // Each visible frame shows 3 days
+    const totalWidth = weekDays.length * dayWidth;
+    
+    return (
+      <View style={[styles.container, { width: totalWidth, flex: 1 }]}>
+        {/* Continuous Week Header */}
+        <View style={[styles.weekHeader, { width: totalWidth }]}>
+          <View style={styles.timeColumnHeader} />
+          {weekDays.map((day, index) => (
+            <View key={index} style={[styles.dayHeader, { width: dayWidth }]}>
+              <Text style={styles.dayName}>
+                {day.date.toLocaleDateString('en-US', { weekday: 'short' })}
+              </Text>
+              <Text
+                style={[
+                  styles.dayNumber,
+                  day.isToday && styles.todayNumber,
+                ]}
+              >
+                {day.date.getDate()}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Continuous Scrollable Time Grid */}
+        <ScrollView 
+          style={[styles.timeGrid, { flex: 1 }]} 
+          showsVerticalScrollIndicator={false}
+          contentOffset={{ x: 0, y: 360 }} // Start at 8 AM
+        >
+          <View style={[styles.gridContent, { width: totalWidth }]}>
+            {hours.map((hour) => (
+              <View key={hour} style={[styles.hourRow, { width: totalWidth }]}>
+                <View style={styles.timeColumn}>
+                  <Text style={styles.timeLabel}>{formatTime(hour)}</Text>
+                </View>
+                
+                {weekDays.map((day, dayIndex) => (
+                  <TouchableOpacity
+                    key={dayIndex}
+                    style={[
+                      styles.timeSlot,
+                      { width: dayWidth },
+                      day.isToday && styles.todayTimeSlot,
+                    ]}
+                    onPress={() => onTimeSlotPress?.(day.date, hour)}
+                    activeOpacity={0.5}
+                  >
+                    {hour === 6 && day.jobs.length > 0 && (
+                      <View style={[styles.dayJobsContainer, { width: dayWidth }]}>
+                        {getJobsWithOverlapInfo(day.jobs).map((jobLayout) => 
+                          renderJobBlock(jobLayout, dayIndex)
+                        )}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // Regular mode (non-continuous)
   return (
     <View style={styles.container}>
       {/* Week Header */}
@@ -146,11 +315,11 @@ export const WeekView: React.FC<WeekViewProps> = ({
         ))}
       </View>
 
-      {/* Scrollable Time Grid */}
+      {/* Scrollable Time Grid - Back to original simple structure */}
       <ScrollView 
         style={styles.timeGrid} 
         showsVerticalScrollIndicator={false}
-        contentOffset={{ x: 0, y: 480 }} // Start at 8 AM
+        contentOffset={{ x: 0, y: 360 }} // Start at 8 AM with updated height (6 * 60px)
       >
         <View style={styles.gridContent}>
           {hours.map((hour) => (
@@ -171,7 +340,9 @@ export const WeekView: React.FC<WeekViewProps> = ({
                 >
                   {hour === 6 && day.jobs.length > 0 && (
                     <View style={styles.dayJobsContainer}>
-                      {day.jobs.map((job) => renderJobBlock(job, dayIndex))}
+                      {getJobsWithOverlapInfo(day.jobs).map((jobLayout) => 
+                        renderJobBlock(jobLayout, dayIndex)
+                      )}
                     </View>
                   )}
                 </TouchableOpacity>
@@ -184,7 +355,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.white,
@@ -243,7 +414,7 @@ const styles = StyleSheet.create({
   
   hourRow: {
     flexDirection: 'row',
-    height: 60,
+    height: 60, // Increased height for better text visibility
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,
   },
@@ -281,39 +452,45 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 60 * 17, // Full day height
+    height: 60 * 17, // Full day height - updated to match new height
   },
   
   jobBlock: {
     position: 'absolute',
-    left: 4,
-    right: 4,
-    borderLeftWidth: 4,
+    borderLeftWidth: 3,
     borderRadius: borderRadius.sm,
-    padding: spacing.xs,
+    padding: 6, // Slightly larger padding for better readability
     backgroundColor: colors.white,
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+    overflow: 'hidden',
+    marginHorizontal: 1,
+    zIndex: 20, // Ensure jobs appear above grid lines
+    borderWidth: 1,
+    borderColor: colors.white, // Solid border to cover grid lines
   },
   
   jobTime: {
-    ...typography.caption,
-    fontWeight: '600',
-    marginBottom: spacing.xxxs,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 2,
   },
   
   jobTitle: {
-    ...typography.bodySmall,
+    fontSize: 12,
     color: colors.gray800,
     fontWeight: '600',
-    marginBottom: spacing.xxxs,
+    marginBottom: 2,
+    lineHeight: 14,
   },
   
   jobService: {
-    ...typography.caption,
+    fontSize: 11,
     color: colors.gray600,
+    fontWeight: '500',
+    lineHeight: 13,
   },
 });

@@ -7,6 +7,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OnboardingProvider, useOnboarding } from './src/context/OnboardingContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { JobsProvider } from './src/context/JobsContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { JobsScreen } from './src/screens/JobsScreen';
@@ -162,7 +163,9 @@ export default function App() {
         <ThemeProvider>
           <AuthProvider>
             <OnboardingProvider>
-              <AppNavigator />
+              <JobsProvider>
+                <AppNavigator />
+              </JobsProvider>
             </OnboardingProvider>
           </AuthProvider>
         </ThemeProvider>

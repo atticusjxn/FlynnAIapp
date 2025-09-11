@@ -21,6 +21,7 @@ import { ActivityHistoryModal } from '../components/dashboard/ActivityHistoryMod
 import { ActivityDetailsModal } from '../components/dashboard/ActivityDetailsModal';
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { useJobs } from '../context/JobsContext';
+import { FloatingActionButton } from '../components/common/FloatingActionButton';
 
 export const DashboardScreen = () => {
   const { user } = useAuth();
@@ -52,7 +53,11 @@ export const DashboardScreen = () => {
     return upcomingJobs.length > 0 ? upcomingJobs[0] : null;
   };
 
-  const recentActivity = getRecentActivity();
+  const getRecentActivities = (limit: number = 5): Activity[] => {
+    return mockActivities.slice(0, limit);
+  };
+
+  const recentActivities = getRecentActivities(5);
   const upcomingJob = getUpcomingJob();
 
   const onRefresh = async () => {
@@ -240,11 +245,11 @@ export const DashboardScreen = () => {
         )}
       </View>
 
-      {/* Most Recent Activity Section */}
+      {/* Recent Activity Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name={recentActivity?.icon as any || 'time-outline'} size={20} color={colors.primary} />
-          <Text style={styles.sectionTitle}>Most Recent Activity</Text>
+          <Ionicons name="time-outline" size={20} color={colors.primary} />
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
           <TouchableOpacity 
             style={styles.viewAllButton}
             onPress={() => setShowActivityHistory(true)}
@@ -253,28 +258,39 @@ export const DashboardScreen = () => {
             <Ionicons name="chevron-forward" size={16} color={colors.primary} />
           </TouchableOpacity>
         </View>
-        {recentActivity ? (
-          <TouchableOpacity 
-            style={styles.activityCard} 
-            activeOpacity={0.7}
-            onPress={() => handleActivityAction(recentActivity)}
-          >
-            <View style={styles.activityTypeRow}>
-              <View style={[
-                styles.activityTypeIcon,
-                { backgroundColor: colors.primary + '20' }
-              ]}>
-                <Ionicons name={recentActivity.icon as any} size={16} color={colors.primary} />
-              </View>
-              <Text style={styles.activityTime}>{formatActivityTime(recentActivity.timestamp)}</Text>
-            </View>
-            <Text style={styles.activityTitle}>{recentActivity.title}</Text>
-            <Text style={styles.activityMessage}>{recentActivity.description}</Text>
-            <View style={styles.activityFooter}>
-              <Text style={styles.reviewButton}>Review & Take Action</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-            </View>
-          </TouchableOpacity>
+        {recentActivities.length > 0 ? (
+          <View style={styles.activitiesContainer}>
+            {recentActivities.map((activity, index) => (
+              <TouchableOpacity 
+                key={activity.id}
+                style={[
+                  styles.activityCard,
+                  index === recentActivities.length - 1 && { marginBottom: 0 }
+                ]} 
+                activeOpacity={0.7}
+                onPress={() => handleActivityAction(activity)}
+              >
+                <View style={styles.activityContent}>
+                  <View style={[
+                    styles.activityTypeIcon,
+                    { backgroundColor: colors.primary + '20' }
+                  ]}>
+                    <Ionicons name={activity.icon as any} size={16} color={colors.primary} />
+                  </View>
+                  <View style={styles.activityDetails}>
+                    <View style={styles.activityHeader}>
+                      <Text style={styles.activityTitle}>{activity.title}</Text>
+                      <Text style={styles.activityTime}>{formatActivityTime(activity.timestamp)}</Text>
+                    </View>
+                    <Text style={styles.activityDescription} numberOfLines={2}>
+                      {activity.description}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         ) : (
           <View style={styles.emptyActivityCard}>
             <Ionicons name="time-outline" size={32} color={colors.gray400} />
@@ -284,29 +300,14 @@ export const DashboardScreen = () => {
         )}
       </View>
 
-      {/* Quick Actions Section */}
-      <View style={styles.section}>
-        <View style={styles.quickActionsContainer}>
-          <TouchableOpacity 
-            style={styles.quickActionButton} 
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('UploadFlow')}
-          >
-            <MaterialIcons name="file-upload" size={24} color={colors.primary} />
-            <Text style={styles.quickActionText}>Upload Screenshot</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.quickActionButton} 
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('JobFormDemo')}
-          >
-            <Ionicons name="construct-outline" size={24} color={colors.primary} />
-            <Text style={styles.quickActionText}>Form Demo</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
       </ScrollView>
       
+      {/* Floating Action Button */}
+      <FloatingActionButton
+        onUploadScreenshot={() => navigation.navigate('UploadFlow')}
+        onQuickAddJob={() => navigation.navigate('JobFormDemo')}
+      />
+
       {/* Activity History Modal */}
       <ActivityHistoryModal 
         visible={showActivityHistory}
@@ -411,51 +412,32 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   activityCard: {
     backgroundColor: colors.card,
-    padding: spacing.lg,
+    padding: spacing.md,
     borderRadius: borderRadius.lg,
-    ...shadows.md,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
+  },
+  activitiesContainer: {
+    gap: 0,
+  },
+  activityContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activityDetails: {
+    flex: 1,
+    marginLeft: spacing.sm,
   },
   activityHeader: {
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-  },
-  activityMessage: {
-    ...typography.bodyLarge,
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-    fontStyle: 'italic',
-  },
-  activityFooter: {
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  reviewButton: {
-    ...typography.label,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  quickActionsContainer: {
-    gap: spacing.md,
-  },
-  quickActionButton: {
-    backgroundColor: colors.card,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    ...shadows.sm,
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
+    marginBottom: spacing.xxs,
   },
-  quickActionText: {
-    ...typography.button,
-    color: colors.primary,
-    marginLeft: spacing.xs,
+  activityDescription: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   
   // View All button
@@ -530,9 +512,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.sm,
   },
   activityTypeIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -544,6 +526,5 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.textPrimary,
     fontWeight: '600',
-    marginBottom: spacing.xs,
   },
 });

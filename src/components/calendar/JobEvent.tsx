@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import { spacing, typography, borderRadius, shadows } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import { Job } from '../jobs/JobCard';
 
 interface JobEventProps {
@@ -22,6 +23,8 @@ export const JobEvent: React.FC<JobEventProps> = ({
   variant = 'medium',
   style,
 }) => {
+  const { colors } = useTheme();
+  const styles = createStyles(colors);
   const getStatusColor = (status: Job['status']) => {
     switch (status) {
       case 'pending':
@@ -181,7 +184,7 @@ export const JobEvent: React.FC<JobEventProps> = ({
   }
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   // Compact View Styles
   compactContainer: {
     marginBottom: 2,
