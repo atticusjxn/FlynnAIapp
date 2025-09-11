@@ -52,6 +52,11 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   };
 
   const handleActionPress = (action: () => void) => {
+    handleClose();
+    action();
+  };
+
+  const handleClose = () => {
     setIsOpen(false);
     Animated.parallel([
       Animated.spring(rotateAnimation, {
@@ -67,7 +72,6 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
         friction: 7,
       }),
     ]).start();
-    action();
   };
 
   const spin = rotateAnimation.interpolate({
@@ -82,9 +86,9 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
         visible={isOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsOpen(false)}
+        onRequestClose={handleClose}
       >
-        <TouchableWithoutFeedback onPress={() => setIsOpen(false)}>
+        <TouchableWithoutFeedback onPress={handleClose}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={styles.actionSheet}>
