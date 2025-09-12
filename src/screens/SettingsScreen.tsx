@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
+import { useNavigation } from '@react-navigation/native';
 
 interface IntegrationStatus {
   id: string;
@@ -32,6 +33,7 @@ interface UserProfile {
 
 export const SettingsScreen: React.FC = () => {
   const { isDark, colors, toggleTheme } = useTheme();
+  const navigation = useNavigation<any>();
   const styles = createStyles(colors);
   const [user] = useState<UserProfile>({
     name: 'John Smith',
@@ -139,6 +141,10 @@ export const SettingsScreen: React.FC = () => {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: () => Alert.alert('Signed Out') },
     ]);
+  };
+
+  const handleShortcutSetup = () => {
+    navigation.navigate('ShortcutSetup');
   };
 
   const renderSection = (title: string, children: React.ReactNode) => (
@@ -348,6 +354,13 @@ export const SettingsScreen: React.FC = () => {
         {/* App Settings */}
         {renderSection('App Settings', (
           <View>
+            {renderSettingRow(
+              'flash-outline',
+              'iOS Shortcuts',
+              'Set up Control Center shortcut',
+              undefined,
+              handleShortcutSetup
+            )}
             {renderSettingRow(
               'moon-outline',
               'Dark Mode',

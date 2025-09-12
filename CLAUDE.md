@@ -5,6 +5,7 @@ Flynn AI is a mobile app for busy service providers (plumbers, electricians, cle
 
 ### Core Features:
 - **Screenshot upload**: Users upload screenshots of text conversations → AI extracts job details → creates job cards/calendar events
+- **iOS Shortcuts integration**: Control Center shortcut for instant screenshot processing → AI extraction → job creation
 - **Call recording**: Call forwarding with press-0 to record → AI processes recordings → creates job cards
 - **Job confirmations**: Automatically send SMS confirmations to clients
 - **Calendar integration**: Google Calendar, Outlook, Apple Calendar sync
@@ -707,6 +708,94 @@ Flynn AI integrates with major accounting software platforms to streamline finan
 - Automatic fallback gracefully handles disconnections
 
 Focus on making business financial management seamless and professional while maintaining the Flynn AI design system's principles of simplicity and efficiency.
+
+## 📱 iOS Shortcuts Integration
+
+### Overview
+Flynn AI includes a powerful iOS Shortcuts integration that allows users to capture and process screenshots directly from Control Center, making job creation incredibly fast and seamless.
+
+### Features:
+- **Control Center Access**: One-tap screenshot processing from Control Center
+- **Automatic AI Processing**: Screenshots are automatically processed using OpenAI GPT-4 Vision
+- **Smart Job Extraction**: AI identifies client details, job requirements, dates, times, and locations
+- **Business Type Detection**: Automatically detects service type and uses appropriate job forms
+- **Instant Job Creation**: Extracted data pre-populates job forms for quick confirmation
+
+### How It Works:
+1. **User swipes down** to open Control Center
+2. **Taps Flynn AI Shortcut** button
+3. **Screenshot is captured** automatically
+4. **Flynn AI opens** and shows processing animation
+5. **AI extracts job details** using OpenAI GPT-4 Vision
+6. **Job form pre-populates** with extracted information
+7. **User reviews and confirms** job creation
+
+### Technical Implementation:
+
+#### URL Scheme: `flynn-ai://process-screenshot`
+The shortcut uses Flynn AI's custom URL scheme to pass screenshot data:
+```
+flynn-ai://process-screenshot?imageData=[base64_encoded_image]
+```
+
+#### Core Services:
+- **ShortcutHandler**: Manages URL scheme processing and navigation
+- **OpenAIService**: Handles AI-powered text extraction and job data parsing  
+- **Deep Linking**: Automatically routes shortcut requests to processing flow
+
+#### File Structure:
+```
+src/
+├── services/
+│   ├── ShortcutHandler.ts        # URL scheme handling
+│   ├── OpenAIService.ts          # AI processing
+│   └── OpenAIService.ts          # Image analysis
+├── screens/
+│   └── shortcuts/
+│       └── ShortcutSetupScreen.tsx # Setup instructions
+└── utils/
+    └── shortcutDefinition.ts      # Shortcut configuration
+```
+
+### Setup Process:
+Users can access shortcut setup through **Settings > App Settings > iOS Shortcuts**:
+
+1. **Open Shortcuts App** (guided from Flynn AI)
+2. **Create New Shortcut** with specific actions:
+   - Take Screenshot
+   - Base64 Encode 
+   - Open URL: `flynn-ai://process-screenshot?imageData=[encoded_image]`
+3. **Add to Control Center** for quick access
+4. **Test functionality** through Flynn AI settings
+
+### AI Processing:
+- **Primary**: OpenAI GPT-4 Vision analyzes screenshots directly
+- **Business Context**: Uses business-type-specific prompts for better accuracy
+- **Data Extraction**: Identifies client name, phone, date, time, location, service type
+- **Confidence Scoring**: Returns accuracy confidence for extracted data
+- **Error Handling**: Graceful fallback with manual entry options
+
+### Supported Text Sources:
+- SMS/iMessage conversations
+- WhatsApp screenshots  
+- Email screenshots
+- Social media messages
+- Any text-based communication
+
+### Configuration:
+Environment variables needed:
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+Add to `.env` file and ensure proper babel configuration for `react-native-dotenv`.
+
+### Troubleshooting:
+- **Shortcut not appearing**: Check "Use with Control Center" is enabled
+- **Flynn AI not opening**: Verify URL scheme: `flynn-ai://process-screenshot`
+- **Processing fails**: Ensure OpenAI API key is configured
+- **Poor extraction**: Use screenshots with clear, readable text
+- **Network issues**: Check internet connection for AI processing
 
 ## 🚫 Development Rules
 

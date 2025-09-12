@@ -7,6 +7,25 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "plugins": [
+      [
+        "@config-plugins/react-native-siri-shortcut",
+        {
+          "shortcuts": [
+            {
+              "activityType": "com.flynnai.screenshot-processing",
+              "title": "Process Screenshot with Flynn AI",
+              "userInfo": {
+                "action": "process-screenshot"
+              },
+              "eligibleForSearch": true,
+              "eligibleForPrediction": true,
+              "suggestedInvocationPhrase": "Process screenshot with Flynn"
+            }
+          ]
+        }
+      ]
+    ],
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",

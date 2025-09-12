@@ -49,23 +49,31 @@ export const ProcessingScreen = () => {
       }),
     ]).start();
 
-    const timer = setTimeout(() => {
-      navigation.replace('Results', {
-        imageUri,
-        extractedData: {
-          clientName: 'John Smith',
-          serviceType: 'Plumbing - Leak Repair',
-          date: 'Tomorrow, Dec 15',
-          time: '2:00 PM',
-          location: '123 Main St, Springfield',
-          notes: 'Kitchen sink is leaking, needs urgent repair. Client mentioned water damage starting to show.',
-          phone: '+1 (555) 123-4567',
-          estimatedDuration: '2 hours',
-        },
-      });
-    }, 3500);
+    // Check if this was triggered from a shortcut (will be handled by ShortcutHandler)
+    const isFromShortcut = route.params?.isFromShortcut;
+    
+    if (!isFromShortcut) {
+      // For manual uploads, use the original flow with mock data
+      const timer = setTimeout(() => {
+        navigation.replace('Results', {
+          imageUri,
+          extractedData: {
+            clientName: 'John Smith',
+            serviceType: 'Plumbing - Leak Repair',
+            date: 'Tomorrow, Dec 15',
+            time: '2:00 PM',
+            location: '123 Main St, Springfield',
+            notes: 'Kitchen sink is leaking, needs urgent repair. Client mentioned water damage starting to show.',
+            phone: '+1 (555) 123-4567',
+            estimatedDuration: '2 hours',
+          },
+        });
+      }, 3500);
 
-    return () => clearTimeout(timer);
+      return () => clearTimeout(timer);
+    }
+    
+    // For shortcut processing, the ShortcutHandler will navigate automatically
   }, []);
 
   const progressWidth = progressAnim.interpolate({
