@@ -140,11 +140,8 @@ export const DashboardScreen = () => {
   };
 
   const handleActivityHistoryPress = (activity: Activity) => {
-    // Close activity history modal first
-    setShowActivityHistory(false);
-    // Then show activity details modal
-    setSelectedActivity(activity);
-    setActivityModalVisible(true);
+    // Keep activity history modal open and let it handle the details internally
+    // The ActivityHistoryModal now handles showing details within itself
   };
 
   const formatJobDateTime = (date: string, time: string) => {
@@ -313,6 +310,8 @@ export const DashboardScreen = () => {
         visible={showActivityHistory}
         onClose={() => setShowActivityHistory(false)}
         onActivityPress={handleActivityHistoryPress}
+        onNavigateToJob={handleNavigateToJobFromActivity}
+        onCallClient={handleCallClientFromActivity}
       />
 
       {/* Activity Details Modal */}
