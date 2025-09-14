@@ -1,3 +1,4 @@
+import 'react-native-url-polyfill/auto';
 import React, { useEffect, useRef } from 'react';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -236,7 +237,7 @@ function AppNavigator() {
 }
 
 export default function App() {
-  console.log('[App] Root component rendering');
+  console.log('[App] Root component rendering - React 19 compatible');
   
   return (
     <ErrorBoundary>

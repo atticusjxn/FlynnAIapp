@@ -1,12 +1,16 @@
 export default {
   expo: {
+    plugins: [
+      // Temporarily disabled for debugging
+      // "@config-plugins/react-native-siri-shortcut"
+    ],
     name: "FlynnAI",
     slug: "FlynnAI",
     version: "1.0.1",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     userInterfaceStyle: "light",
-    newArchEnabled: true,
+    newArchEnabled: false,
     splash: {
       image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
@@ -15,6 +19,7 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.flynnai.app",
+      deploymentTarget: "13.4",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSCameraUsageDescription: "FlynnAI uses the camera to capture screenshots of job details, quotes, and work orders. This helps automatically extract information and create calendar events for your business.",
@@ -34,9 +39,9 @@ export default {
       favicon: "./assets/images/favicon.png"
     },
     extra: {
-      // Add Supabase environment variables for production builds
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || "https://zvfeafmmtfplzpnocyjw.supabase.co",
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2ZmVhZm1tdGZwbHpwbm9jeWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMDE1NDMsImV4cCI6MjA3MTc3NzU0M30.PnSY6rFvczDiDucsyN0nr-luR_Jb6a6O2uAeZxgBiRI",
+      // Hardcode for production builds to avoid undefined env vars
+      supabaseUrl: "https://zvfeafmmtfplzpnocyjw.supabase.co",
+      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2ZmVhZm1tdGZwbHpwbm9jeWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMDE1NDMsImV4cCI6MjA3MTc3NzU0M30.PnSY6rFvczDiDucsyN0nr-luR_Jb6a6O2uAeZxgBiRI",
       eas: {
         projectId: "799dd441-a3f1-4b18-a45d-bea10b3f9dc8"
       }
