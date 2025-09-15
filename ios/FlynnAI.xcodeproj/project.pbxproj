@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0CCF38B32A233D273872CDA6 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903BB6C25D046B5A0A2DC336 /* ExpoModulesProvider.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		16B89A225A0F05A133353FA5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C82B18BE4F94281448C70933 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		592205C7C3AB5BCB833E47DE /* libPods-FlynnAI.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A55019D00094A1DE3A58B10B /* libPods-FlynnAI.a */; };
+		7731EC20EDD6CAEAA68A81E9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 323C811E33EAA96B7EBCACB2 /* PrivacyInfo.xcprivacy */; };
+		7E9BEE495D658A23192A1601 /* libPods-FlynnAI.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 52BFC24DC46FC0B669A51402 /* libPods-FlynnAI.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		DB34A62EFC8C300879EE2130 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A6C7A47CA7797F0ED5DAD27 /* ExpoModulesProvider.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -20,13 +20,13 @@
 		13B07F961A680F5B00A75B9A /* FlynnAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FlynnAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = FlynnAI/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = FlynnAI/Info.plist; sourceTree = "<group>"; };
-		4A6C7A47CA7797F0ED5DAD27 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-FlynnAI/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		A55019D00094A1DE3A58B10B /* libPods-FlynnAI.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FlynnAI.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		323C811E33EAA96B7EBCACB2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = FlynnAI/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		52BFC24DC46FC0B669A51402 /* libPods-FlynnAI.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FlynnAI.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		6288D9279E37C83F19628E61 /* Pods-FlynnAI.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FlynnAI.debug.xcconfig"; path = "Target Support Files/Pods-FlynnAI/Pods-FlynnAI.debug.xcconfig"; sourceTree = "<group>"; };
+		903BB6C25D046B5A0A2DC336 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-FlynnAI/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		A7C643B9FE19FB0D89E9DF12 /* Pods-FlynnAI.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FlynnAI.release.xcconfig"; path = "Target Support Files/Pods-FlynnAI/Pods-FlynnAI.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = FlynnAI/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		BC0B08C73C23A9F01E5B32E4 /* Pods-FlynnAI.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FlynnAI.release.xcconfig"; path = "Target Support Files/Pods-FlynnAI/Pods-FlynnAI.release.xcconfig"; sourceTree = "<group>"; };
-		C82B18BE4F94281448C70933 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = FlynnAI/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		CDE510790702C40A3405CEA5 /* Pods-FlynnAI.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FlynnAI.debug.xcconfig"; path = "Target Support Files/Pods-FlynnAI/Pods-FlynnAI.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = FlynnAI/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* FlynnAI-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "FlynnAI-Bridging-Header.h"; path = "FlynnAI/FlynnAI-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -37,21 +37,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				592205C7C3AB5BCB833E47DE /* libPods-FlynnAI.a in Frameworks */,
+				7E9BEE495D658A23192A1601 /* libPods-FlynnAI.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		021C832AA91832193F13ABA4 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				A112EE885B77F31321CB7493 /* FlynnAI */,
-			);
-			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
 		13B07FAE1A68108700A75B9A /* FlynnAI */ = {
 			isa = PBXGroup;
 			children = (
@@ -61,27 +53,36 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				C82B18BE4F94281448C70933 /* PrivacyInfo.xcprivacy */,
+				323C811E33EAA96B7EBCACB2 /* PrivacyInfo.xcprivacy */,
 			);
 			name = FlynnAI;
-			sourceTree = "<group>";
-		};
-		2564DBE5B6A3C6F4521DBC15 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				CDE510790702C40A3405CEA5 /* Pods-FlynnAI.debug.xcconfig */,
-				BC0B08C73C23A9F01E5B32E4 /* Pods-FlynnAI.release.xcconfig */,
-			);
-			path = Pods;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				A55019D00094A1DE3A58B10B /* libPods-FlynnAI.a */,
+				52BFC24DC46FC0B669A51402 /* libPods-FlynnAI.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		436C48E97D02301509DCB8A7 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				6288D9279E37C83F19628E61 /* Pods-FlynnAI.debug.xcconfig */,
+				A7C643B9FE19FB0D89E9DF12 /* Pods-FlynnAI.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		520AC4C72B17D0B1A0161508 /* FlynnAI */ = {
+			isa = PBXGroup;
+			children = (
+				903BB6C25D046B5A0A2DC336 /* ExpoModulesProvider.swift */,
+			);
+			name = FlynnAI;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -98,8 +99,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				2564DBE5B6A3C6F4521DBC15 /* Pods */,
-				021C832AA91832193F13ABA4 /* ExpoModulesProviders */,
+				436C48E97D02301509DCB8A7 /* Pods */,
+				A01C36D22C021F20B949035F /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -114,12 +115,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A112EE885B77F31321CB7493 /* FlynnAI */ = {
+		A01C36D22C021F20B949035F /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				4A6C7A47CA7797F0ED5DAD27 /* ExpoModulesProvider.swift */,
+				520AC4C72B17D0B1A0161508 /* FlynnAI */,
 			);
-			name = FlynnAI;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -139,13 +140,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "FlynnAI" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				B309D47E60E1EBDDF25DD96B /* [Expo] Configure project */,
+				15A840B779056BFFA9458AB8 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				BF7B31432842BD68F0B49476 /* [CP] Embed Pods Frameworks */,
+				36B2AA40E551C7A179161662 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -195,7 +196,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				16B89A225A0F05A133353FA5 /* PrivacyInfo.xcprivacy in Resources */,
+				7731EC20EDD6CAEAA68A81E9 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -209,8 +210,6 @@
 			files = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/.xcode.env",
-				"$(SRCROOT)/.xcode.env.local",
 			);
 			name = "Bundle React Native code and images";
 			outputPaths = (
@@ -239,6 +238,43 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		15A840B779056BFFA9458AB8 /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-FlynnAI/expo-configure-project.sh\"\n";
+		};
+		36B2AA40E551C7A179161662 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-FlynnAI/Pods-FlynnAI-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-FlynnAI/Pods-FlynnAI-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
@@ -278,6 +314,8 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/SDWebImage/SDWebImage.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-launcher/EXDevLauncher.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/expo-dev-menu/EXDevMenu.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/glog/glog_privacy.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
@@ -312,53 +350,13 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SDWebImage.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevLauncher.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXDevMenu.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/glog_privacy.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-FlynnAI/Pods-FlynnAI-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		B309D47E60E1EBDDF25DD96B /* [Expo] Configure project */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/.xcode.env",
-				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/FlynnAI/FlynnAI.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-FlynnAI/expo-configure-project.sh",
-			);
-			name = "[Expo] Configure project";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-FlynnAI/ExpoModulesProvider.swift",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-FlynnAI/expo-configure-project.sh\"\n";
-		};
-		BF7B31432842BD68F0B49476 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-FlynnAI/Pods-FlynnAI-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-FlynnAI/Pods-FlynnAI-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -369,7 +367,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				DB34A62EFC8C300879EE2130 /* ExpoModulesProvider.swift in Sources */,
+				0CCF38B32A233D273872CDA6 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -378,13 +376,12 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = CDE510790702C40A3405CEA5 /* Pods-FlynnAI.debug.xcconfig */;
+			baseConfigurationReference = 6288D9279E37C83F19628E61 /* Pods-FlynnAI.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -415,13 +412,12 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BC0B08C73C23A9F01E5B32E4 /* Pods-FlynnAI.release.xcconfig */;
+			baseConfigurationReference = A7C643B9FE19FB0D89E9DF12 /* Pods-FlynnAI.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 69T5H7R46N;
 				INFOPLIST_FILE = FlynnAI/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -506,7 +502,6 @@
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
-				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
 			};
 			name = Debug;
@@ -564,7 +559,6 @@
 				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
-				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};

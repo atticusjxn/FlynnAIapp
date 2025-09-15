@@ -16,6 +16,7 @@ import { FlynnButton } from '../../components/ui/FlynnButton';
 import { useNavigation } from '@react-navigation/native';
 import shortcutHandler from '../../services/ShortcutHandler';
 import SiriShortcutService from '../../services/SiriShortcutService';
+import ShortcutSharingService from '../../services/ShortcutSharingService';
 
 export const ShortcutSetupScreen = () => {
   const navigation = useNavigation<any>();
@@ -35,44 +36,44 @@ export const ShortcutSetupScreen = () => {
     setIsAddingShortcut(true);
     
     try {
-      await SiriShortcutService.presentShortcut(({ status }) => {
-        if (status === 'added') {
+      // First try the iCloud sharing approach (most reliable)
+      const success = await ShortcutSharingService.installShortcut();
+      
+      if (success) {
+        // Show success message after a delay (user will be in Shortcuts app)
+        setTimeout(() => {
           Alert.alert(
-            'Success! 🎉',
-            'Flynn AI shortcut has been added successfully!\n\nYou can now:\n• Use it from Control Center\n• Say "Process screenshot with Flynn" to Siri\n• Find it in the Shortcuts app',
-            [{ text: 'Awesome!' }]
+            'Almost Done! ✨',
+            'Just tap "Add Shortcut" in the Shortcuts app to complete setup.\n\nThen you can use it from Control Center or say "Hey Siri, process screenshot with Flynn"',
+            [{ text: 'Great!' }]
           );
-        } else if (status === 'cancelled') {
-          // User cancelled - no alert needed
-        } else if (status === 'failed' || status === 'error') {
-          Alert.alert(
-            'Setup Failed',
-            'Could not add the shortcut. This might be because the shortcut already exists or there was a system error.',
-            [
-              { text: 'Try Manual Setup', onPress: handleManualSetup },
-              { text: 'OK', style: 'cancel' }
-            ]
-          );
-        } else if (status === 'unsupported') {
-          Alert.alert(
-            'Setup Error',
-            'Siri Shortcuts are not supported in this environment. Would you like to try manual setup instead?',
-            [
-              { text: 'Manual Setup', onPress: handleManualSetup },
-              { text: 'Cancel', style: 'cancel' }
-            ]
-          );
-        } else if (status === 'development_mode') {
-          Alert.alert(
-            'Development Mode',
-            'You\'re running in development mode. The one-tap shortcut installation will work when you build the app natively with Xcode.\n\nFor now, would you like to set up the shortcut manually?',
-            [
-              { text: 'Manual Setup', onPress: handleManualSetup },
-              { text: 'Got It', style: 'cancel' }
-            ]
-          );
-        }
-      });
+        }, 1000);
+      } else {
+        // Fallback to native module approach
+        await SiriShortcutService.presentShortcut(({ status }) => {
+          if (status === 'added') {
+            Alert.alert(
+              'Success! 🎉',
+              'Flynn AI shortcut has been added successfully!\n\nYou can now:\n• Use it from Control Center\n• Say "Process screenshot with Flynn" to Siri\n• Find it in the Shortcuts app',
+              [{ text: 'Awesome!' }]
+            );
+          } else if (status === 'cancelled') {
+            // User cancelled - no alert needed
+          } else if (status === 'unsupported' || status === 'guided_setup') {
+            // Use the improved manual setup
+            handleManualSetup();
+          } else if (status === 'development_mode') {
+            Alert.alert(
+              'Development Mode',
+              'You\'re running in development mode. The one-tap shortcut installation will work when you build the app natively with Xcode.\n\nFor now, would you like to set up the shortcut manually?',
+              [
+                { text: 'Manual Setup', onPress: handleManualSetup },
+                { text: 'Got It', style: 'cancel' }
+              ]
+            );
+          }
+        });
+      }
     } catch (error) {
       console.error('Error adding shortcut to Siri:', error);
       Alert.alert(

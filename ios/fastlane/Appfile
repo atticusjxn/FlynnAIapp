@@ -1,6 +1,0 @@
-app_identifier("com.flynnai.app")
-apple_id("admin@mates-rates.app")
-
-# Uncomment the lines below if you want to use a specific team
-# team_id("YOUR_TEAM_ID") # Developer Portal Team ID
-# itunes_connect_team_id("YOUR_TEAM_ID") # App Store Connect Team ID
