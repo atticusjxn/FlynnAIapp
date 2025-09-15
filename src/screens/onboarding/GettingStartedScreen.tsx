@@ -6,6 +6,8 @@ import {
   StyleSheet,
   SafeAreaView,
   Image,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -14,14 +16,25 @@ interface GettingStartedScreenProps {
 }
 
 export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onStartOnboarding }) => {
+  const screenHeight = Dimensions.get('window').height;
+  const isSmallScreen = screenHeight < 700;
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={[
+          styles.content,
+          isSmallScreen && styles.contentSmallScreen
+        ]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <Image
               source={require('../../../assets/images/onboardinglogo.png')}
-              style={styles.logoImage}
+              style={[styles.logoImage, isSmallScreen && styles.logoImageSmall]}
               resizeMode="contain"
             />
           </View>
@@ -31,7 +44,7 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
           </Text>
         </View>
 
-        <View style={styles.featuresContainer}>
+        <View style={[styles.featuresContainer, isSmallScreen && styles.featuresContainerSmall]}>
           <View style={styles.feature}>
             <View style={styles.featureIcon}>
               <Ionicons name="camera-outline" size={24} color="#3B82F6" />
@@ -81,7 +94,7 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
           </View>
         </View>
 
-        <View style={styles.buttonContainer}>
+        <View style={[styles.buttonContainer, isSmallScreen && styles.buttonContainerSmall]}>
           <TouchableOpacity style={styles.primaryButton} onPress={onStartOnboarding}>
             <Text style={styles.primaryButtonText}>Set Up Your Business</Text>
             <Ionicons name="arrow-forward" size={20} color="white" />
@@ -91,7 +104,7 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
             Takes less than 2 minutes to get started
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -101,30 +114,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  content: {
+  scrollContainer: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     paddingHorizontal: 24,
-    justifyContent: 'space-between',
+    minHeight: Dimensions.get('window').height - 100, // Ensure minimum height
+  },
+  contentSmallScreen: {
+    minHeight: 'auto', // Remove minimum height constraint on small screens
   },
   header: {
     alignItems: 'center',
     paddingTop: 24,
+    marginBottom: 32,
   },
   logoContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   logoImage: {
     width: 120,
     height: 120,
+  },
+  logoImageSmall: {
+    width: 80,
+    height: 80,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#1f2937',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
@@ -134,10 +158,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   featuresContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingTop: 48,
-    paddingBottom: 32,
+    paddingVertical: 16,
+    marginBottom: 32,
+  },
+  featuresContainerSmall: {
+    paddingVertical: 8,
+    marginBottom: 16,
   },
   feature: {
     flexDirection: 'row',
@@ -176,8 +202,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   buttonContainer: {
-    paddingTop: 24,
+    paddingTop: 16,
     paddingBottom: 32,
+  },
+  buttonContainerSmall: {
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   primaryButton: {
     backgroundColor: '#3B82F6',
