@@ -1,10 +1,20 @@
 import OpenAI from 'openai';
 import { OPENAI_API_KEY } from '@env';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-});
+// Lazy initialization of OpenAI client
+let openai: OpenAI | null = null;
+
+const getOpenAIClient = (): OpenAI => {
+  if (!openai) {
+    if (!OPENAI_API_KEY) {
+      throw new Error('Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.');
+    }
+    openai = new OpenAI({
+      apiKey: OPENAI_API_KEY,
+    });
+  }
+  return openai;
+};
 
 export interface ExtractedJobData {
   clientName: string;
@@ -56,7 +66,8 @@ Respond only with valid JSON, no additional text.
 
   async extractJobFromImage(imageBase64: string, businessType?: string): Promise<ExtractedJobData> {
     try {
-      const response = await openai.chat.completions.create({
+      const client = getOpenAIClient();
+      const response = await client.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -136,7 +147,8 @@ Please fill in missing information and improve the data quality. Respond with co
 If information cannot be reasonably inferred, use empty strings. Do not make up information.
       `;
 
-      const response = await openai.chat.completions.create({
+      const client = getOpenAIClient();
+      const response = await client.chat.completions.create({
         model: "gpt-4",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 500,
