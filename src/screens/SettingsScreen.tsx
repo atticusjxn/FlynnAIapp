@@ -311,16 +311,24 @@ export const SettingsScreen: React.FC = () => {
           <View>
             {renderSettingRow(
               'call-outline',
-              'Call Forwarding',
-              callForwarding ? 'Active' : 'Inactive',
-              <Switch
-                value={callForwarding}
-                onValueChange={setCallForwarding}
-                trackColor={{ false: colors.gray300, true: colors.primaryLight }}
-                thumbColor={callForwarding ? colors.primary : colors.gray400}
-              />,
+              'Call Recording & Forwarding',
+              'Automatic job extraction from calls',
               undefined,
-              false
+              () => navigation.navigate('CallSetup')
+            )}
+            {renderSettingRow(
+              'time-outline',
+              'Call History',
+              'View processed calls and jobs',
+              undefined,
+              () => navigation.navigate('CallHistory')
+            )}
+            {renderSettingRow(
+              'settings-outline',
+              'Call Settings',
+              'Recording preferences',
+              undefined,
+              () => navigation.navigate('CallSettings')
             )}
             {renderSettingRow(
               'chatbubble-outline',

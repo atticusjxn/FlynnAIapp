@@ -28,6 +28,9 @@ import { JobFormDemo } from './src/components/ui/JobFormDemo';
 import { ShortcutSetupScreen } from './src/screens/shortcuts/ShortcutSetupScreen';
 import shortcutHandler from './src/services/ShortcutHandler';
 import SiriShortcutService from './src/services/SiriShortcutService';
+import CallSetupScreen from './src/screens/calls/CallSetupScreen';
+import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
+import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -122,6 +125,31 @@ function RootNavigator() {
         component={ShortcutSetupScreen}
         options={{
           presentation: 'modal',
+        }}
+      />
+      <Stack.Screen 
+        name="CallSetup" 
+        component={CallSetupScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: 'Call Recording Setup',
+        }}
+      />
+      <Stack.Screen 
+        name="CallHistory" 
+        component={CallHistoryScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="CallSettings" 
+        component={CallSettingsScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
