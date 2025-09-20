@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,44 +8,194 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Linking,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useOnboarding } from '../../context/OnboardingContext';
+import {
+  callForwardingGuides,
+  CallForwardingGuide,
+  CarrierForwardingCode,
+} from '../../data/callForwardingGuides';
+import { TwilioService } from '../../services/TwilioService';
 
 interface PhoneSetupScreenProps {
   onNext: () => void;
   onBack: () => void;
 }
 
-export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({ onNext, onBack }) => {
-  const { onboardingData, updateOnboardingData } = useOnboarding();
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [isSettingUp, setIsSettingUp] = useState(false);
+const DEFAULT_CARRIER_COUNT = 3;
 
-  const handleSetupPhone = async () => {
-    if (!phoneNumber.trim()) {
-      Alert.alert('Error', 'Please enter your phone number');
+const sanitizeDigits = (value: string) => value.replace(/[^0-9]/g, '');
+
+const replaceForwardingPlaceholder = (
+  code: string,
+  forwardingNumber: string | null
+) => {
+  if (!forwardingNumber) {
+    return code.replace('{forwarding}', 'your Flynn number');
+  }
+
+  const digits = sanitizeDigits(forwardingNumber);
+  return code.replace('{forwarding}', digits || forwardingNumber);
+};
+
+const getDialableCode = (code: string, forwardingNumber: string | null) => {
+  if (!forwardingNumber) return null;
+  const digits = sanitizeDigits(forwardingNumber);
+  if (!digits) return null;
+
+  const replaced = code.replace('{forwarding}', digits);
+  // Encode # for tel URLs while keeping * characters intact
+  return replaced.replace(/#/g, '%23');
+};
+
+export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
+  onNext,
+  onBack,
+}) => {
+  const { updateOnboardingData } = useOnboarding();
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [selectedCarrierId, setSelectedCarrierId] = useState(
+    callForwardingGuides[0]?.id || ''
+  );
+  const [forwardingNumber, setForwardingNumber] = useState<string | null>(null);
+  const [isLoadingForwarding, setIsLoadingForwarding] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [showAllCarriers, setShowAllCarriers] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchForwardingNumber = async () => {
+      try {
+        const status = await TwilioService.getUserTwilioStatus();
+        if (!isMounted) return;
+        setForwardingNumber(
+          status.twilioPhoneNumber || status.phoneNumber || null
+        );
+      } catch (error) {
+        if (isMounted) {
+          setForwardingNumber(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingForwarding(false);
+        }
+      }
+    };
+
+    fetchForwardingNumber();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const selectedCarrier = useMemo<CallForwardingGuide | undefined>(
+    () => callForwardingGuides.find((carrier) => carrier.id === selectedCarrierId),
+    [selectedCarrierId]
+  );
+
+  const handleDialCode = async (code: CarrierForwardingCode) => {
+    const dialable = getDialableCode(code.code, forwardingNumber);
+
+    if (!forwardingNumber || !dialable) {
+      Alert.alert(
+        'Flynn number unavailable',
+        'Provision your Flynn voicemail number first in Call Settings, then return to forward your calls.'
+      );
       return;
     }
 
-    setIsSettingUp(true);
-    
-    // Simulate phone setup process
+    const url = Platform.select({
+      ios: `tel://${dialable}`,
+      default: `tel:${dialable}`,
+    });
+
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) {
+        throw new Error('Device cannot open dialer');
+      }
+
+      await Linking.openURL(url);
+    } catch (error) {
+      const fallback = replaceForwardingPlaceholder(code.code, forwardingNumber);
+      Alert.alert(
+        'Dial this code manually',
+        `${fallback}\n\nOpen the phone app, enter the code, then press call.`,
+        [{ text: 'Got it' }]
+      );
+    }
+  };
+
+  const handleMarkVerified = () => {
+    if (!phoneNumber.trim()) {
+      Alert.alert('Add your number', 'Enter the business number you forward.');
+      return;
+    }
+
+    setIsVerifying(true);
     setTimeout(() => {
-      setIsSettingUp(false);
+      setIsVerifying(false);
       updateOnboardingData({ phoneSetupComplete: true });
       Alert.alert(
-        'Phone Setup Complete!',
-        'Your phone is now configured to forward calls to FlynnAI. You\'ll receive notifications when new jobs are captured.',
+        'Forwarding verified',
+        'Great! Flynn will intake your voicemails and convert them to job cards. You can update this any time from Settings.',
         [{ text: 'Continue', onPress: onNext }]
       );
-    }, 2000);
+    }, 1000);
   };
 
   const handleSkip = () => {
     updateOnboardingData({ phoneSetupComplete: false });
     onNext();
   };
+
+  const carriersToShow = useMemo(() => {
+    if (showAllCarriers) {
+      return callForwardingGuides;
+    }
+    return callForwardingGuides.slice(0, DEFAULT_CARRIER_COUNT);
+  }, [showAllCarriers]);
+
+  const formattedForwardingNumber = useMemo(() => {
+    if (isLoadingForwarding) {
+      return 'Fetching your Flynn number…';
+    }
+
+    if (!forwardingNumber) {
+      return 'Provision a Flynn number to unlock forwarding instructions.';
+    }
+
+    return forwardingNumber;
+  }, [forwardingNumber, isLoadingForwarding]);
+
+  const steps = [
+    {
+      title: 'Forward missed calls',
+      description:
+        selectedCarrier
+          ? `Dial the ${selectedCarrier.name} code below to forward no-answer calls to Flynn.`
+          : 'Choose your carrier to view the correct forwarding code.',
+      icon: 'call-outline' as const,
+    },
+    {
+      title: 'Leave a quick voicemail',
+      description:
+        'Call your business number and let it go to voicemail. Flynn will transcribe and build a job card.',
+      icon: 'mic-outline' as const,
+    },
+    {
+      title: 'Review and confirm',
+      description:
+        'Approve the drafted follow-up message and schedule items from the new job card.',
+      icon: 'checkmark-done-outline' as const,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,44 +216,40 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({ onNext, onBa
           <View style={styles.iconContainer}>
             <Ionicons name="call" size={32} color="#3B82F6" />
           </View>
-          <Text style={styles.title}>Set up Call Forwarding</Text>
+          <Text style={styles.title}>Forward missed calls to Flynn</Text>
           <Text style={styles.subtitle}>
-            Forward your business calls to FlynnAI to automatically capture job details and create bookings
+            Route unanswered calls to your Flynn voicemail box so every lead becomes a job card with AI summaries and suggested follow-ups.
           </Text>
         </View>
 
-        <View style={styles.featuresContainer}>
-          <View style={styles.feature}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="mic" size={20} color="#10b981" />
+        <View style={styles.infoCard}>
+          <View style={styles.infoCardHeader}>
+            <View style={styles.infoCardIcon}>
+              <Ionicons name="shield-checkmark" size={20} color="#2563eb" />
             </View>
-            <Text style={styles.featureText}>Record and transcribe calls</Text>
+            <Text style={styles.infoCardTitle}>Your Flynn voicemail number</Text>
           </View>
-          
-          <View style={styles.feature}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="calendar" size={20} color="#10b981" />
-            </View>
-            <Text style={styles.featureText}>Auto-create calendar events</Text>
-          </View>
-          
-          <View style={styles.feature}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="people" size={20} color="#10b981" />
-            </View>
-            <Text style={styles.featureText}>Extract client information</Text>
-          </View>
-          
-          <View style={styles.feature}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="mail" size={20} color="#10b981" />
-            </View>
-            <Text style={styles.featureText}>Send automatic confirmations</Text>
+          <View style={styles.infoCardBody}>
+            {isLoadingForwarding ? (
+              <ActivityIndicator color="#2563eb" />
+            ) : (
+              <Text
+                style={[
+                  styles.forwardingNumber,
+                  !forwardingNumber && styles.forwardingNumberPlaceholder,
+                ]}
+              >
+                {formattedForwardingNumber}
+              </Text>
+            )}
+            <Text style={styles.infoCardHint}>
+              Use this value when dialing your carrier code. Flynn captures voicemails from this number, transcribes them, and creates job cards automatically.
+            </Text>
           </View>
         </View>
 
         <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Your Business Phone Number</Text>
+          <Text style={styles.sectionLabel}>Your business phone number</Text>
           <TextInput
             style={styles.input}
             placeholder="(555) 123-4567"
@@ -111,53 +257,157 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({ onNext, onBa
             onChangeText={setPhoneNumber}
             keyboardType="phone-pad"
             autoCorrect={false}
+            placeholderTextColor="#9ca3af"
           />
           <Text style={styles.inputHelper}>
-            We'll provide instructions to forward calls from this number to FlynnAI
+            We’ll reference this when helping you verify forwarding later.
           </Text>
         </View>
 
-        <View style={styles.infoContainer}>
-          <View style={styles.infoIcon}>
-            <Ionicons name="information-circle" size={20} color="#3B82F6" />
-          </View>
-          <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>How it works</Text>
-            <Text style={styles.infoText}>
-              1. We'll provide a FlynnAI phone number{'\n'}
-              2. Set up call forwarding from your business line{'\n'}
-              3. FlynnAI answers, records, and processes calls{'\n'}
-              4. You get notified about new bookings instantly
+        <View style={styles.carrierContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Choose your carrier</Text>
+            <Text style={styles.sectionSubtext}>
+              Flynn provides step-by-step instructions for popular networks. Pick the one that matches your business phone.
             </Text>
           </View>
+
+          <View style={styles.carrierList}>
+            {carriersToShow.map((carrier) => (
+              <TouchableOpacity
+                key={carrier.id}
+                style={[
+                  styles.carrierChip,
+                  carrier.id === selectedCarrierId && styles.carrierChipSelected,
+                ]}
+                onPress={() => setSelectedCarrierId(carrier.id)}
+              >
+                <Text style={styles.carrierName}>{carrier.name}</Text>
+                <Text style={styles.carrierRegion}>{carrier.region}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {!showAllCarriers && callForwardingGuides.length > DEFAULT_CARRIER_COUNT && (
+            <TouchableOpacity
+              style={styles.showMoreButton}
+              onPress={() => setShowAllCarriers(true)}
+            >
+              <Ionicons name="add-circle-outline" size={18} color="#2563eb" />
+              <Text style={styles.showMoreText}>Show more carriers</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        <View style={styles.stepsCard}>
+          <View style={styles.stepsHeader}>
+            <Ionicons name="trail-sign-outline" size={20} color="#2563eb" />
+            <Text style={styles.sectionLabel}>Forwarding checklist</Text>
+          </View>
+
+          {steps.map((step, index) => (
+            <View key={step.title} style={styles.stepRow}>
+              <View style={styles.stepBadge}>
+                <Text style={styles.stepBadgeText}>{index + 1}</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <View style={styles.stepTitleRow}>
+                  <Ionicons name={step.icon} size={18} color="#2563eb" />
+                  <Text style={styles.stepTitle}>{step.title}</Text>
+                </View>
+                <Text style={styles.stepDescription}>{step.description}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {selectedCarrier && (
+          <View style={styles.codesCard}>
+            <View style={styles.codesHeader}>
+              <Ionicons name="keypad-outline" size={20} color="#2563eb" />
+              <Text style={styles.sectionLabel}>
+                Dial codes for {selectedCarrier.name}
+              </Text>
+            </View>
+            <Text style={styles.sectionSubtext}>
+              Enter these in your phone app, then press call. Replace {`'{forwarding}'`} with your Flynn number digits.
+            </Text>
+
+            {selectedCarrier.codes.map((carrierCode) => {
+              const displayCode = replaceForwardingPlaceholder(
+                carrierCode.code,
+                forwardingNumber
+              );
+
+              return (
+                <View key={carrierCode.label} style={styles.codeRow}>
+                  <View style={styles.codeInfo}>
+                    <Text style={styles.codeLabel}>{carrierCode.label}</Text>
+                    <Text style={styles.codeValue}>{displayCode}</Text>
+                    {carrierCode.description && (
+                      <Text style={styles.codeDescription}>
+                        {carrierCode.description}
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.codeAction,
+                      (!forwardingNumber || carrierCode.type === 'all') &&
+                        styles.codeActionDisabled,
+                    ]}
+                    disabled={!forwardingNumber || carrierCode.type === 'all'}
+                    onPress={() => handleDialCode(carrierCode)}
+                  >
+                    <Ionicons name="call" size={18} color="white" />
+                    <Text style={styles.codeActionText}>Dial</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+
+            {selectedCarrier.notes && (
+              <View style={styles.notesContainer}>
+                <Ionicons name="sparkles-outline" size={16} color="#2563eb" />
+                <Text style={styles.notesText}>{selectedCarrier.notes}</Text>
+              </View>
+            )}
+
+            {selectedCarrier.supportUrl && (
+              <TouchableOpacity
+                style={styles.supportLink}
+                onPress={() => Linking.openURL(selectedCarrier.supportUrl!)}
+              >
+                <Text style={styles.supportLinkText}>View official carrier help</Text>
+                <Ionicons name="open-outline" size={16} color="#2563eb" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={[styles.primaryButton, isSettingUp && styles.loadingButton]}
-          onPress={handleSetupPhone}
-          disabled={isSettingUp}
+          style={[styles.primaryButton, isVerifying && styles.disabledButton]}
+          onPress={handleMarkVerified}
+          disabled={isVerifying}
         >
-          {isSettingUp ? (
-            <>
-              <Text style={styles.primaryButtonText}>Setting up...</Text>
-              <View style={styles.spinner} />
-            </>
+          {isVerifying ? (
+            <ActivityIndicator color="white" />
           ) : (
             <>
-              <Text style={styles.primaryButtonText}>Set Up Phone</Text>
-              <Ionicons name="call" size={20} color="white" />
+              <Text style={styles.primaryButtonText}>Mark forwarding verified</Text>
+              <Ionicons name="checkmark-circle" size={20} color="white" />
             </>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.secondaryButton} onPress={handleSkip}>
-          <Text style={styles.secondaryButtonText}>Skip for now</Text>
+          <Text style={styles.secondaryButtonText}>Set this up later</Text>
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          You can set this up later in Settings
+          You can reopen these instructions under Settings → Calls & Voicemail.
         </Text>
       </View>
     </SafeAreaView>
@@ -198,132 +448,318 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   titleContainer: {
+    paddingBottom: 24,
     alignItems: 'center',
-    marginBottom: 32,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#eff6ff',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#e0f2fe',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontWeight: '700',
+    color: '#0f172a',
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: '#475569',
     lineHeight: 22,
     textAlign: 'center',
   },
-  featuresContainer: {
+  infoCard: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
     marginBottom: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 3,
   },
-  feature: {
+  infoCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  featureIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#d1fae5',
+  infoCardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#dbeafe',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  featureText: {
-    fontSize: 14,
-    color: '#1f2937',
-    flex: 1,
-  },
-  inputContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-  },
-  inputLabel: {
+  infoCardTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1f2937',
-    marginBottom: 8,
+  },
+  infoCardBody: {
+    gap: 8,
+  },
+  forwardingNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  forwardingNumberPlaceholder: {
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  infoCardHint: {
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 20,
+  },
+  inputContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  sectionSubtext: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 20,
   },
   input: {
     borderWidth: 1,
     borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 10,
+    padding: 14,
     fontSize: 16,
     color: '#1f2937',
+    marginTop: 12,
     marginBottom: 8,
   },
   inputHelper: {
     fontSize: 14,
     color: '#6b7280',
   },
-  infoContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#eff6ff',
-    borderRadius: 12,
-    padding: 16,
+  carrierContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 24,
   },
-  infoIcon: {
-    marginRight: 12,
-    marginTop: 2,
+  sectionHeader: {
+    marginBottom: 16,
   },
-  infoContent: {
-    flex: 1,
+  carrierList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  infoTitle: {
-    fontSize: 14,
+  carrierChip: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minWidth: '45%',
+  },
+  carrierChipSelected: {
+    backgroundColor: '#dbeafe',
+    borderWidth: 1,
+    borderColor: '#2563eb',
+  },
+  carrierName: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#1f2937',
+  },
+  carrierRegion: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  showMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    gap: 6,
+  },
+  showMoreText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2563eb',
+  },
+  stepsCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+  },
+  stepsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  stepBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#dbeafe',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  stepBadgeText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 4,
   },
-  infoText: {
+  stepTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  stepDescription: {
     fontSize: 14,
     color: '#6b7280',
     lineHeight: 20,
   },
+  codesCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 32,
+  },
+  codesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  codeInfo: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  codeLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  codeValue: {
+    fontSize: 16,
+    fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+    color: '#111827',
+    marginBottom: 4,
+  },
+  codeDescription: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  codeAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#2563eb',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+  },
+  codeActionDisabled: {
+    backgroundColor: '#cbd5f5',
+  },
+  codeActionText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  notesContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#f8fafc',
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  notesText: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+    flex: 1,
+  },
+  supportLink: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  supportLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
   buttonContainer: {
     padding: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
   },
   primaryButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#2563eb',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 16,
     borderRadius: 12,
     marginBottom: 12,
+    gap: 8,
   },
-  loadingButton: {
-    opacity: 0.7,
+  disabledButton: {
+    opacity: 0.6,
   },
   primaryButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-    marginRight: 8,
   },
   secondaryButton: {
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
-    marginBottom: 8,
   },
   secondaryButtonText: {
     color: '#6b7280',
@@ -334,13 +770,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9ca3af',
     textAlign: 'center',
-  },
-  spinner: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderTopColor: 'white',
+    marginTop: 8,
   },
 });
