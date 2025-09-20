@@ -95,23 +95,30 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         .from('users')
         .select('business_type, onboarding_complete, business_goals, phone_setup_complete, calendar_integration_complete')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        console.error('Error checking onboarding status:', error);
-        setLoading(false);
+        if ((error as { code?: string }).code !== 'PGRST116') {
+          console.error('Error checking onboarding status:', error);
+        }
+        setIsOnboardingComplete(false);
+        setOnboardingData(defaultOnboardingData);
         return;
       }
 
-      if (data) {
-        setIsOnboardingComplete(data.onboarding_complete || false);
-        setOnboardingData({
-          businessType: data.business_type || '',
-          goals: data.business_goals || [],
-          phoneSetupComplete: data.phone_setup_complete || false,
-          calendarIntegrationComplete: data.calendar_integration_complete || false,
-        });
+      if (!data) {
+        setIsOnboardingComplete(false);
+        setOnboardingData(defaultOnboardingData);
+        return;
       }
+
+      setIsOnboardingComplete(data.onboarding_complete || false);
+      setOnboardingData({
+        businessType: data.business_type || '',
+        goals: data.business_goals || [],
+        phoneSetupComplete: data.phone_setup_complete || false,
+        calendarIntegrationComplete: data.calendar_integration_complete || false,
+      });
     } catch (error) {
       console.error('Error in checkOnboardingStatus:', error);
     } finally {

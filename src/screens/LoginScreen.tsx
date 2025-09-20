@@ -3,10 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useAuth } from '../context/AuthContext';
 import { FlynnButton, FlynnInput, colors, typography, spacing } from '../components/ui';
 
@@ -30,60 +29,68 @@ export const LoginScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <KeyboardAwareScrollView
       style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      extraScrollHeight={24}
+      enableOnAndroid
+      keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.formContainer}>
-        <Text style={styles.title}>FlynnAI</Text>
-        <Text style={styles.subtitle}>
-          {isSignUp ? 'Create your account' : 'Welcome back'}
-        </Text>
+      <View style={styles.formWrapper}>
+        <View style={styles.formContainer}>
+          <Text style={styles.title}>FlynnAI</Text>
+          <Text style={styles.subtitle}>
+            {isSignUp ? 'Create your account' : 'Welcome back'}
+          </Text>
 
-        {isSignUp && (
+          {isSignUp && (
+            <FlynnInput
+              placeholder="Business Name"
+              value={businessName}
+              onChangeText={setBusinessName}
+              autoCapitalize="words"
+            />
+          )}
+
           <FlynnInput
-            placeholder="Business Name"
-            value={businessName}
-            onChangeText={setBusinessName}
-            autoCapitalize="words"
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            autoComplete="email"
           />
-        )}
 
-        <FlynnInput
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+          <FlynnInput
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-        <FlynnInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+          <FlynnButton
+            title={isSignUp ? 'Sign Up' : 'Sign In'}
+            onPress={handleSubmit}
+            variant="primary"
+            fullWidth
+            style={styles.submitButton}
+          />
 
-        <FlynnButton
-          title={isSignUp ? 'Sign Up' : 'Sign In'}
-          onPress={handleSubmit}
-          variant="primary"
-          fullWidth
-          style={styles.submitButton}
-        />
-
-        <FlynnButton
-          title={
-            isSignUp
-              ? 'Already have an account? Sign In'
-              : "Don't have an account? Sign Up"
-          }
-          onPress={() => setIsSignUp(!isSignUp)}
-          variant="ghost"
-          style={styles.switchButton}
-        />
+          <FlynnButton
+            title={
+              isSignUp
+                ? 'Already have an account? Sign In'
+                : "Don't have an account? Sign Up"
+            }
+            onPress={() => setIsSignUp(!isSignUp)}
+            variant="ghost"
+            style={styles.switchButton}
+          />
+        </View>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   );
 };
 
@@ -92,8 +99,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backgroundSecondary,
   },
-  formContainer: {
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+  },
+  formWrapper: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  formContainer: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
   },
