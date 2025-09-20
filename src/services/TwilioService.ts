@@ -410,6 +410,7 @@ class TwilioServiceClass {
       if (updates.status) updateData.status = updates.status;
       if (updates.duration !== undefined) updateData.duration = updates.duration;
       if (updates.recordingUrl) updateData.recording_url = updates.recordingUrl;
+      if (updates.recordingSid) updateData.recording_sid = updates.recordingSid;
       if (updates.transcriptionText) updateData.transcription_text = updates.transcriptionText;
       if (updates.jobExtracted) updateData.job_extracted = updates.jobExtracted;
       if (updates.jobId) updateData.job_id = updates.jobId;

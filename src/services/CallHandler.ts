@@ -6,6 +6,8 @@ import {
   JobExtraction,
   CallProcessingError as CallError
 } from '../types/calls.types';
+import { VoicemailPipeline } from './voicemail/pipeline';
+import { SupabaseVoicemailRepository } from './voicemail/SupabaseVoicemailRepository';
 
 // Use the standardized webhook payload type
 export type TwilioWebhookData = TwilioWebhookPayload;
@@ -53,7 +55,7 @@ class CallHandlerClass {
       // Find existing call record
       const { data: existingCall, error: findError } = await supabase
         .from('calls')
-        .select('id')
+        .select('id, call_sid, from_number, to_number, recording_url, recording_sid')
         .eq('call_sid', webhookData.CallSid)
         .eq('user_id', userId)
         .single();
@@ -76,7 +78,19 @@ class CallHandlerClass {
 
       // If call is completed, trigger processing if we have transcription
       if (webhookData.CallStatus === 'completed' && webhookData.TranscriptionText) {
-        await this.processCallTranscription(existingCall.id, webhookData.TranscriptionText, userId);
+        await this.processCallTranscription(
+          {
+            id: existingCall.id,
+            callSid: existingCall.call_sid,
+            fromNumber: existingCall.from_number || webhookData.From,
+            toNumber: existingCall.to_number || webhookData.To,
+            recordingUrl: webhookData.RecordingUrl || existingCall.recording_url,
+            recordingSid: webhookData.RecordingSid || existingCall.recording_sid,
+          },
+          webhookData.TranscriptionText,
+          userId,
+          webhookData
+        );
       }
     } catch (error) {
       console.error('Error handling status webhook:', error);
@@ -93,7 +107,7 @@ class CallHandlerClass {
       // Find the call record
       const { data: existingCall, error: findError } = await supabase
         .from('calls')
-        .select('id')
+        .select('id, call_sid, from_number, to_number, recording_url, recording_sid')
         .eq('call_sid', webhookData.CallSid)
         .eq('user_id', userId)
         .single();
@@ -105,14 +119,23 @@ class CallHandlerClass {
       // Update call record with transcription
       await TwilioService.updateCallRecord(existingCall.id, {
         transcriptionText: webhookData.TranscriptionText || '',
-        recordingUrl: webhookData.RecordingUrl
+        recordingUrl: webhookData.RecordingUrl,
+        recordingSid: webhookData.RecordingSid,
       });
 
       // Process the transcription for job extraction
       const result = await this.processCallTranscription(
-        existingCall.id, 
-        webhookData.TranscriptionText || '', 
-        userId
+        {
+          id: existingCall.id,
+          callSid: existingCall.call_sid,
+          fromNumber: existingCall.from_number || webhookData.From,
+          toNumber: existingCall.to_number || webhookData.To,
+          recordingUrl: webhookData.RecordingUrl || existingCall.recording_url,
+          recordingSid: webhookData.RecordingSid || existingCall.recording_sid,
+        },
+        webhookData.TranscriptionText || '',
+        userId,
+        webhookData
       );
 
       return result;
@@ -130,36 +153,80 @@ class CallHandlerClass {
    * Process call transcription and extract job details
    */
   private async processCallTranscription(
-    callId: string, 
-    transcriptionText: string, 
-    userId: string
+    callRecord: {
+      id: string;
+      callSid: string;
+      fromNumber?: string;
+      toNumber?: string;
+      recordingUrl?: string;
+      recordingSid?: string;
+    },
+    transcriptionText: string,
+    userId: string,
+    webhookData: TwilioWebhookData
   ): Promise<CallProcessingResult> {
+    const callId = callRecord.id;
+
     try {
       if (!transcriptionText.trim()) {
         return { callId, jobCreated: false, error: 'No transcription text available' };
       }
 
-      // Get user's business type for better job extraction
+      const recordingUrl =
+        webhookData.RecordingUrl || callRecord.recordingUrl || '';
+
+      if (!recordingUrl) {
+        return {
+          callId,
+          jobCreated: false,
+          error: 'Recording URL missing; cannot process voicemail',
+        };
+      }
+
       const { data: userData } = await supabase
         .from('users')
         .select('business_type')
         .eq('id', userId)
         .single();
 
-      // Extract job details using AI
-      const jobExtraction = await TwilioService.extractJobFromTranscript(
-        transcriptionText,
-        userData?.business_type
-      );
+      const businessType = userData?.business_type;
 
-      // Update call record with extracted job data
-      await TwilioService.updateCallRecord(callId, {
-        jobExtracted: jobExtraction
+      const repository = new SupabaseVoicemailRepository(supabase);
+      const pipeline = new VoicemailPipeline({
+        repository,
+        transcription: {
+          async transcribe() {
+            throw new Error('No transcription adapter configured for raw recordings.');
+          },
+        },
+        extraction: {
+          async extract(transcript) {
+            return TwilioService.extractJobFromTranscript(
+              transcript.text,
+              businessType
+            );
+          },
+        },
       });
 
-      // Create job if confidence is high enough
+      const pipelineResult = await pipeline.process({
+        callSid: callRecord.callSid,
+        userId,
+        from: callRecord.fromNumber || webhookData.From || '',
+        to: callRecord.toNumber || webhookData.To || '',
+        recordingUrl,
+        recordingSid: callRecord.recordingSid || webhookData.RecordingSid,
+        recordingDuration: webhookData.RecordingDuration
+          ? parseInt(webhookData.RecordingDuration)
+          : undefined,
+        transcriptionText,
+        transcriptionStatus: 'completed',
+      });
+
+      const jobExtraction = pipelineResult.jobDraft;
+
       let jobId: string | undefined;
-      if (jobExtraction.confidence > 0.7) {
+      if (jobExtraction && jobExtraction.confidence > 0.7) {
         jobId = await this.createJobFromExtraction(jobExtraction, userId, callId);
         
         if (jobId) {
@@ -170,7 +237,7 @@ class CallHandlerClass {
       return {
         callId,
         jobCreated: !!jobId,
-        jobId
+        jobId,
       };
     } catch (error) {
       console.error('Error processing call transcription:', error);
