@@ -24,6 +24,11 @@ export interface Job {
   notes?: string;
   estimatedDuration?: string;
   createdAt: string;
+  source?: 'voicemail' | 'upload' | 'manual' | 'call';
+  voicemailTranscript?: string;
+  voicemailRecordingUrl?: string;
+  followUpDraft?: string;
+  capturedAt?: string;
 }
 
 interface JobCardProps {
@@ -110,6 +115,40 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const statusColors = getStatusColor(job.status, colors);
+  const sourceMeta = React.useMemo(() => {
+    switch (job.source) {
+      case 'voicemail':
+        return {
+          label: 'Voicemail lead',
+          icon: 'mic-outline' as const,
+          background: '#fef3c7',
+          text: '#92400e',
+        };
+      case 'upload':
+        return {
+          label: 'Screenshot import',
+          icon: 'image-outline' as const,
+          background: '#e0f2fe',
+          text: '#0369a1',
+        };
+      case 'call':
+        return {
+          label: 'Live call',
+          icon: 'call-outline' as const,
+          background: '#ede9fe',
+          text: '#5b21b6',
+        };
+      case 'manual':
+        return {
+          label: 'Manual entry',
+          icon: 'create-outline' as const,
+          background: '#f1f5f9',
+          text: '#475569',
+        };
+      default:
+        return null;
+    }
+  }, [job.source]);
 
   return (
     <TouchableOpacity
@@ -138,9 +177,31 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
         </View>
       </View>
 
+      {sourceMeta && (
+        <View
+          style={[
+            styles.sourceBadge,
+            {
+              backgroundColor: sourceMeta.background,
+            },
+          ]}
+        >
+          <Ionicons name={sourceMeta.icon} size={14} color={sourceMeta.text} />
+          <Text style={[styles.sourceBadgeText, { color: sourceMeta.text }]}>
+            {sourceMeta.label}
+          </Text>
+        </View>
+      )}
+
       <Text style={styles.description} numberOfLines={2}>
         {job.description}
       </Text>
+
+      {job.voicemailTranscript && (
+        <Text style={styles.transcriptSnippet} numberOfLines={3}>
+          “{job.voicemailTranscript.trim()}”
+        </Text>
+      )}
 
       <View style={styles.detailsRow}>
         <View style={styles.dateTimeContainer}>
@@ -185,6 +246,23 @@ const createStyles = (colors: any) => StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: spacing.xs,
   },
+
+  sourceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxxs,
+    borderRadius: borderRadius.full,
+    marginBottom: spacing.xs,
+    gap: spacing.xxxs,
+  },
+
+  sourceBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+    fontSize: 11,
+  },
   
   clientInfo: {
     flex: 1,
@@ -223,6 +301,13 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 20,
     marginBottom: spacing.sm,
+  },
+
+  transcriptSnippet: {
+    fontStyle: 'italic',
+    color: colors.gray600,
+    marginBottom: spacing.sm,
+    fontSize: 13,
   },
   
   detailsRow: {

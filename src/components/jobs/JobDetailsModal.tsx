@@ -85,6 +85,29 @@ const getModalTitle = (businessType: string) => {
   return isPersonalCare ? 'Booking Details' : 'Job Details';
 };
 
+const formatRelativeTime = (timestamp?: string) => {
+  if (!timestamp) return 'just now';
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return 'just now';
+  }
+
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.max(1, Math.round(diffMs / 60000));
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+};
+
 export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   job,
   visible,
@@ -185,6 +208,13 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     });
   };
 
+  const handlePlayVoicemail = () => {
+    if (!currentJob.voicemailRecordingUrl) return;
+    Linking.openURL(currentJob.voicemailRecordingUrl).catch(() => {
+      Alert.alert('Playback unavailable', 'Could not open the voicemail audio. Try again from a device with audio support.');
+    });
+  };
+
   const handleDeleteJob = () => {
     const deleteText = getModalTitle(job.businessType).includes('Booking') ? 'Delete Booking' : 'Delete Job';
     const confirmText = getModalTitle(job.businessType).includes('Booking') 
@@ -266,6 +296,52 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               </View>
             </View>
           </View>
+
+          {(currentJob.source === 'voicemail' || currentJob.voicemailTranscript || currentJob.followUpDraft) && (
+            <View style={styles.voicemailCard}>
+              <View style={styles.voicemailHeader}>
+                <View style={styles.voicemailBadge}>
+                  <Ionicons name="mic-outline" size={16} color={colors.primary} />
+                  <Text style={styles.voicemailBadgeText}>Captured via voicemail</Text>
+                </View>
+                <Text style={styles.voicemailTimestamp}>
+                  {formatRelativeTime(currentJob.capturedAt || currentJob.createdAt)}
+                </Text>
+              </View>
+
+              {currentJob.voicemailTranscript && (
+                <View style={styles.voicemailTranscriptContainer}>
+                  <Text style={styles.sectionSubtitle}>Transcript</Text>
+                  <Text style={styles.voicemailTranscript}>{currentJob.voicemailTranscript}</Text>
+                </View>
+              )}
+
+              {currentJob.voicemailRecordingUrl && !isEditing && (
+                <TouchableOpacity style={styles.playButton} onPress={handlePlayVoicemail}>
+                  <Ionicons name="play-circle" size={20} color={colors.primary} />
+                  <Text style={styles.playButtonText}>Listen to voicemail</Text>
+                </TouchableOpacity>
+              )}
+
+              {currentJob.followUpDraft && !isEditing && (
+                <View style={styles.followUpCard}>
+                  <View style={styles.followUpHeader}>
+                    <Ionicons name="paper-plane-outline" size={18} color={colors.primary} />
+                    <Text style={styles.sectionSubtitle}>Suggested follow-up</Text>
+                  </View>
+                  <Text style={styles.followUpText}>{currentJob.followUpDraft}</Text>
+                  <FlynnButton
+                    title="Use this message"
+                    onPress={() => onSendTextConfirmation(currentJob)}
+                    variant="ghost"
+                    size="small"
+                    icon={<Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.primary} />}
+                    style={styles.followUpButton}
+                  />
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Job Details */}
           <View style={styles.section}>
@@ -573,6 +649,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
+
+  sectionSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
   
   description: {
     ...typography.bodyMedium,
@@ -615,6 +698,100 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 22,
     fontStyle: 'italic',
+  },
+
+  voicemailCard: {
+    backgroundColor: colors.white,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.xs,
+  },
+
+  voicemailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+
+  voicemailBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxxs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxxs,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#e0f2fe',
+  },
+
+  voicemailBadgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+
+  voicemailTimestamp: {
+    fontSize: 13,
+    color: colors.textTertiary,
+  },
+
+  voicemailTranscriptContainer: {
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.gray50,
+    padding: spacing.sm,
+  },
+
+  voicemailTranscript: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
+  },
+
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+
+  playButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+
+  followUpCard: {
+    marginTop: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+    padding: spacing.sm,
+  },
+
+  followUpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+
+  followUpText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+
+  followUpButton: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xxxs,
   },
   
   actionContainer: {

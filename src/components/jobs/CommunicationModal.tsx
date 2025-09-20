@@ -51,6 +51,9 @@ const generateDefaultMessage = (job: Job, type: CommunicationType): string => {
   const time = formatTime(job.time);
   
   if (type === 'text') {
+    if (job.followUpDraft) {
+      return job.followUpDraft;
+    }
     return `Hi ${job.clientName}! This is a confirmation for your ${job.serviceType.toLowerCase()} service appointment.\n\n📅 Date: ${date}\n⏰ Time: ${time}\n📍 Location: ${job.location}\n\nWe'll see you then! Reply STOP to opt out.`;
   } else {
     return `Dear ${job.clientName},

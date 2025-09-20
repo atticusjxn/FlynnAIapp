@@ -16,6 +16,11 @@ export const mockJobs: Job[] = [
     estimatedDuration: '2 hours',
     notes: 'Client mentioned the leak started yesterday evening. Bring extra pipe fittings.',
     createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+    source: 'voicemail',
+    voicemailTranscript: 'Hi Flynn, this is Sarah from Oak Street. Our kitchen sink has been leaking since yesterday evening and it is starting to flood the cabinet. Could you send someone out first thing tomorrow morning? My number is 555-123-4567. Thank you!',
+    voicemailRecordingUrl: 'https://example.com/voicemail/sarah-johnson.mp3',
+    followUpDraft: 'Hi Sarah! We have you booked for a plumbing visit tomorrow at 9:00 AM. Reply YES to confirm or text us if you need another time.',
+    capturedAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
   },
   {
     id: '2',
@@ -32,6 +37,7 @@ export const mockJobs: Job[] = [
     estimatedDuration: '3 hours',
     notes: 'Regular client. Allergic to ammonia-based products. Use gentle formula.',
     createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+    source: 'upload',
   },
   {
     id: '3',
