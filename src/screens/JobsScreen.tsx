@@ -6,8 +6,10 @@ import {
   RefreshControl,
   Alert,
   SafeAreaView,
+  Text,
+  TouchableOpacity,
 } from 'react-native';
-import { spacing } from '../theme';
+import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useJobs } from '../context/JobsContext';
 import { JobCard, Job } from '../components/jobs/JobCard';
@@ -16,6 +18,24 @@ import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { CommunicationModal } from '../components/jobs/CommunicationModal';
 import { EmptyState } from '../components/jobs/EmptyState';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+
+const formatRelativeTime = (timestamp?: string) => {
+  if (!timestamp) return 'just now';
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return 'just now';
+  }
+
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.max(1, Math.round(diffMs / 60000));
+
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+};
 
 export const JobsScreen = () => {
   const { colors } = useTheme();
@@ -30,6 +50,16 @@ export const JobsScreen = () => {
   const [showCommunication, setShowCommunication] = useState(false);
   const [communicationType, setCommunicationType] = useState<'text' | 'email'>('text');
   const [refreshing, setRefreshing] = useState(false);
+
+  const pendingFollowUps = useMemo(() =>
+    jobs.filter(
+      (job) =>
+        job.source === 'voicemail' &&
+        job.status === 'pending' &&
+        !!job.followUpDraft
+    ),
+    [jobs]
+  );
 
   // Filter jobs based on active filter
   const filteredJobs = useMemo(() => {
@@ -88,16 +118,42 @@ export const JobsScreen = () => {
     setShowCommunication(true);
   };
 
+  const handleReviewFollowUp = (job: Job) => {
+    setSelectedJob(job);
+    setCommunicationType('text');
+    setShowCommunication(true);
+  };
+
+  const handleSendFollowUpDraft = async (job: Job) => {
+    if (!job.followUpDraft) {
+      handleReviewFollowUp(job);
+      return;
+    }
+
+    try {
+      await handleSendMessage(job, job.followUpDraft, 'text');
+      Alert.alert('Sent', `Follow-up text sent to ${job.clientName}.`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send the follow-up. Please try again.');
+    }
+  };
+
   const handleSendMessage = async (job: Job, message: string, type: 'text' | 'email') => {
-    // Simulate API call
     return new Promise<void>((resolve, reject) => {
       setTimeout(() => {
-        if (Math.random() > 0.1) { // 90% success rate
+        if (Math.random() > 0.1) {
+          if (type === 'text') {
+            updateJob({
+              ...job,
+              followUpDraft: message,
+              lastFollowUpAt: new Date().toISOString(),
+            });
+          }
           resolve();
         } else {
           reject(new Error('Failed to send message'));
         }
-      }, 1500);
+      }, 1200);
     });
   };
 
@@ -148,7 +204,52 @@ export const JobsScreen = () => {
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
       />
-      
+
+      {pendingFollowUps.length > 0 && (
+        <View style={styles.followUpShelf}>
+          <Text style={styles.followUpTitle}>Voicemail follow-ups awaiting approval</Text>
+          {pendingFollowUps.map((job) => (
+            <View key={job.id} style={styles.followUpCard}>
+              <View style={styles.followUpHeader}>
+                <View>
+                  <Text style={styles.followUpClient}>{job.clientName}</Text>
+                  <Text style={styles.followUpMeta}>
+                    {formatRelativeTime(job.capturedAt || job.createdAt)} • {job.clientPhone}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedJob(job);
+                    setShowJobDetails(true);
+                  }}
+                >
+                  <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.followUpPreview} numberOfLines={3}>
+                {job.followUpDraft}
+              </Text>
+              <View style={styles.followUpActions}>
+                <TouchableOpacity
+                  style={[styles.followUpActionButton, styles.followUpApprove]}
+                  onPress={() => handleSendFollowUpDraft(job)}
+                >
+                  <Ionicons name="paper-plane-outline" size={16} color={colors.white} />
+                  <Text style={styles.followUpApproveText}>Approve & Send</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.followUpActionButton}
+                  onPress={() => handleReviewFollowUp(job)}
+                >
+                  <Ionicons name="create-outline" size={16} color={colors.primary} />
+                  <Text style={styles.followUpReviewText}>Review</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
       {sortedJobs.length > 0 ? (
         <FlatList
           data={sortedJobs}
@@ -209,7 +310,88 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  
+
+  followUpShelf: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+
+  followUpTitle: {
+    ...typography.subtitle,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+
+  followUpCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.xs,
+  },
+
+  followUpHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+
+  followUpClient: {
+    ...typography.bodyLarge,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+
+  followUpMeta: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: spacing.xxxs,
+  },
+
+  followUpPreview: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: spacing.sm,
+  },
+
+  followUpActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+
+  followUpActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxxs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+
+  followUpApprove: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+
+  followUpApproveText: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.white,
+  },
+
+  followUpReviewText: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+
   listContent: {
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,

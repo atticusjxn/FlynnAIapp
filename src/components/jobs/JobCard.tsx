@@ -29,6 +29,7 @@ export interface Job {
   voicemailRecordingUrl?: string;
   followUpDraft?: string;
   capturedAt?: string;
+  lastFollowUpAt?: string;
 }
 
 interface JobCardProps {
