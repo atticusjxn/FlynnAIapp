@@ -43,8 +43,8 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
   const generateTimeSuggestions = () => {
     if (!conflictedJob) return [];
     
-    const suggestions = [];
-    const conflictTimes = [conflictedJob, ...overlappingJobs].filter(job => job); // Remove null/undefined
+    const suggestions: string[] = [];
+    const conflictTimes = [conflictedJob, ...overlappingJobs].filter((job): job is Job => Boolean(job)); // Remove null/undefined
     
     conflictTimes.forEach(job => {
       if (!job || !job.time) return;

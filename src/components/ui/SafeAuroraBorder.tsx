@@ -8,6 +8,7 @@ interface SafeAuroraBorderProps {
   borderRadius?: number;
   borderWidth?: number;
   gradientColors?: string[];
+  animationDuration?: number;
   children?: React.ReactNode;
 }
 
@@ -17,6 +18,8 @@ export const SafeAuroraBorder: React.FC<SafeAuroraBorderProps> = ({
   borderRadius = 12,
   borderWidth = 3,
   gradientColors = ['#60A5FA', '#A78BFA', '#F472B6', '#FB923C'],
+  // animationDuration is accepted for API compatibility with the SVG version
+  animationDuration,
   children,
 }) => {
   // Simple fallback with animated border using regular View

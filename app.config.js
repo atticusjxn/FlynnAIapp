@@ -1,6 +1,8 @@
 export default {
   expo: {
     plugins: [
+      "expo-asset",
+      "expo-secure-store",
       // Temporarily disabled for debugging
       // "@config-plugins/react-native-siri-shortcut"
     ],

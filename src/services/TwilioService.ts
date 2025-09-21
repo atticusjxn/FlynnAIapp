@@ -309,12 +309,14 @@ class TwilioServiceClass {
         .from('calls')
         .select(`
           id,
+          user_id,
           call_sid,
           from_number,
           to_number,
           status,
           duration,
           recording_url,
+          recording_sid,
           transcription_text,
           job_extracted,
           job_id,
@@ -331,12 +333,14 @@ class TwilioServiceClass {
 
       return calls?.map(call => ({
         id: call.id,
+        userId: call.user_id,
         callSid: call.call_sid,
         fromNumber: call.from_number,
         toNumber: call.to_number,
         status: call.status,
         duration: call.duration,
         recordingUrl: call.recording_url,
+        recordingSid: call.recording_sid,
         transcriptionText: call.transcription_text,
         jobExtracted: call.job_extracted,
         jobId: call.job_id,
@@ -382,12 +386,14 @@ class TwilioServiceClass {
 
       return {
         id: data.id,
+        userId: data.user_id,
         callSid: data.call_sid,
         fromNumber: data.from_number,
         toNumber: data.to_number,
         status: data.status,
         duration: data.duration,
         recordingUrl: data.recording_url,
+        recordingSid: data.recording_sid,
         transcriptionText: data.transcription_text,
         jobExtracted: data.job_extracted,
         jobId: data.job_id,
@@ -430,12 +436,14 @@ class TwilioServiceClass {
 
       return {
         id: data.id,
+        userId: data.user_id,
         callSid: data.call_sid,
         fromNumber: data.from_number,
         toNumber: data.to_number,
         status: data.status,
         duration: data.duration,
         recordingUrl: data.recording_url,
+        recordingSid: data.recording_sid,
         transcriptionText: data.transcription_text,
         jobExtracted: data.job_extracted,
         jobId: data.job_id,

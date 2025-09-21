@@ -7,7 +7,8 @@ let SiriShortcuts: any = null;
 try {
   SiriShortcuts = require('react-native-siri-shortcut').default;
 } catch (error) {
-  console.log('SiriShortcuts not available:', error.message);
+  const message = error instanceof Error ? error.message : String(error);
+  console.log('SiriShortcuts not available:', message);
 }
 
 // Check if we're in a production build environment
@@ -34,8 +35,8 @@ const isProductionBuild = () => {
 // Check if we're specifically in TestFlight
 const isTestFlightBuild = () => {
   try {
-    // TestFlight builds have a specific receipt structure
-    return Constants.manifest?.extra?.eas?.projectId !== undefined && !__DEV__;
+    const expoConfig = Constants.expoConfig as { extra?: { eas?: { projectId?: string } } } | null;
+    return Boolean(expoConfig?.extra?.eas?.projectId) && !__DEV__;
   } catch {
     return false;
   }
@@ -100,7 +101,11 @@ export class SiriShortcutService {
         callback?.(result);
       });
     } catch (error) {
-      console.error('SiriShortcutService: Error presenting shortcut:', error);
+      if (error instanceof Error) {
+        console.error('SiriShortcutService: Error presenting shortcut:', error);
+      } else {
+        console.error('SiriShortcutService: Error presenting shortcut:', String(error));
+      }
       callback?.({ status: 'error' });
     }
   }
@@ -118,7 +123,11 @@ export class SiriShortcutService {
       // Some versions of react-native-siri-shortcut may not support this
       return [];
     } catch (error) {
-      console.error('SiriShortcutService: Error getting shortcuts:', error);
+      if (error instanceof Error) {
+        console.error('SiriShortcutService: Error getting shortcuts:', error);
+      } else {
+        console.error('SiriShortcutService: Error getting shortcuts:', String(error));
+      }
       return [];
     }
   }

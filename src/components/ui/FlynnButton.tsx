@@ -7,6 +7,7 @@ import {
   TextStyle,
   ActivityIndicator,
   View,
+  StyleProp,
 } from 'react-native';
 import { spacing, typography, borderRadius, shadows, opacity } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -21,8 +22,8 @@ interface FlynnButtonProps {
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
   fullWidth?: boolean;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 }
 
 export const FlynnButton: React.FC<FlynnButtonProps> = ({
@@ -40,6 +41,18 @@ export const FlynnButton: React.FC<FlynnButtonProps> = ({
 }) => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const variantTextStyles: Record<NonNullable<FlynnButtonProps['variant']>, TextStyle> = {
+    primary: styles.textPrimary,
+    secondary: styles.textSecondary,
+    success: styles.textSuccess,
+    danger: styles.textDanger,
+    ghost: styles.textGhost,
+  };
+  const sizeTextStyles: Record<NonNullable<FlynnButtonProps['size']>, TextStyle> = {
+    small: styles.textSmall,
+    medium: styles.textMedium,
+    large: styles.textLarge,
+  };
   
   const handlePress = () => {
     if (!disabled && !loading) {
@@ -78,8 +91,8 @@ export const FlynnButton: React.FC<FlynnButtonProps> = ({
             <Text
               style={[
                 styles.text,
-                styles[`text${variant.charAt(0).toUpperCase() + variant.slice(1)}`],
-                styles[`text${size.charAt(0).toUpperCase() + size.slice(1)}`],
+                variantTextStyles[variant],
+                sizeTextStyles[size],
                 isDisabled && styles.textDisabled,
                 textStyle,
               ]}

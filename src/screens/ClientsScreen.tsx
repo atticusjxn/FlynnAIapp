@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
 import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { ClientCard } from '../components/clients/ClientCard';
@@ -21,7 +21,7 @@ import { Client, mockClients } from '../data/mockClients';
 
 export const ClientsScreen: React.FC = () => {
   const { colors } = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const styles = createStyles(colors);
   const [clients, setClients] = useState<Client[]>(mockClients);
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,10 +77,10 @@ export const ClientsScreen: React.FC = () => {
       location: client.address,
     };
 
-    navigation.navigate('JobFormDemo' as never, {
+    navigation.navigate('JobFormDemo', {
       prefilledData,
       isEditing: false,
-    } as never);
+    });
     
     handleCloseModal();
   };

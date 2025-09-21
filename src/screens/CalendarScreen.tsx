@@ -8,10 +8,9 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
 import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useJobs } from '../context/JobsContext';
@@ -28,7 +27,7 @@ type CalendarView = 'month' | 'day';
 export const CalendarScreen: React.FC = () => {
   const { colors } = useTheme();
   const { jobs, updateJob, deleteJob, markJobComplete } = useJobs();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const styles = createStyles(colors);
   const [currentView, setCurrentView] = useState<CalendarView>('day');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -57,7 +56,7 @@ export const CalendarScreen: React.FC = () => {
 
   const currentDateIndex = Math.floor(scrollDates.length / 2);
   const { width } = Dimensions.get('window');
-  const toggleButtonWidth = (width - (spacing.lg * 2) - spacing.xxxs) / 2; // Only 2 buttons now
+const toggleButtonWidth = (width - (spacing.lg * 2) - spacing.xxxs) / 2; // Only 2 buttons now
 
   // Animate indicator when view changes
   useEffect(() => {
@@ -150,15 +149,14 @@ export const CalendarScreen: React.FC = () => {
   const formatDateDisplay = () => {
     if (currentView === 'month') {
       return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    } else if (currentView === '3-day') {
-      const startDate = new Date(currentDate);
-      const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + 2);
-      
-      return `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-    } else {
-      return currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     }
+
+    return currentDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
   };
 
   const getTodaysJobs = () => {
@@ -188,66 +186,47 @@ export const CalendarScreen: React.FC = () => {
     
     
     // Navigate to job form with pre-filled date/time
-    navigation.navigate('JobFormDemo' as never, {
+    navigation.navigate('JobFormDemo', {
       prefilledData: {
         date: formattedDate,
         time: formattedTime
       }
-    } as never);
+    });
   }, [navigation]);
 
   const handleCreateJob = useCallback(() => {
-    navigation.navigate('JobFormDemo' as never);
+    navigation.navigate('JobFormDemo');
   }, [navigation]);
 
   const handleScroll = (event: any) => {
-    if (currentView !== '3-day') {
-      const scrollX = event.nativeEvent.contentOffset.x;
-      const pageIndex = Math.round(scrollX / scrollViewWidth);
-      
-      if (pageIndex >= 0 && pageIndex < scrollDates.length) {
-        const newDate = scrollDates[pageIndex];
-        if (newDate && newDate.toDateString() !== currentDate.toDateString()) {
-          setCurrentDate(new Date(newDate));
-        }
+    if (currentView !== 'day' || !scrollViewWidth) {
+      return;
+    }
+
+    const scrollX = event.nativeEvent.contentOffset.x;
+    const pageIndex = Math.round(scrollX / scrollViewWidth);
+
+    if (pageIndex >= 0 && pageIndex < scrollDates.length) {
+      const newDate = scrollDates[pageIndex];
+      if (newDate && newDate.toDateString() !== currentDate.toDateString()) {
+        setCurrentDate(new Date(newDate));
       }
     }
   };
 
   // Handle scroll end for reliable page detection
   const handleMomentumScrollEnd = (event: any) => {
+    if (currentView !== 'day' || !scrollViewWidth) {
+      return;
+    }
+
     const scrollX = event.nativeEvent.contentOffset.x;
-    
-    if (currentView === '3-day') {
-      // For continuous 3-day view, calculate which 3-day period we're in
-      const dayWidth = scrollViewWidth / 3;
-      const totalDayIndex = Math.round(scrollX / dayWidth);
-      const pageIndex = Math.floor(totalDayIndex / 3); // Which 3-day page
-      
-      if (pageIndex >= 0 && pageIndex < scrollDates.length) {
-        const newDate = scrollDates[pageIndex];
-        if (newDate && newDate.toDateString() !== currentDate.toDateString()) {
-          setCurrentDate(new Date(newDate));
-        }
-      }
-      
-      // Snap to 3-day boundary
-      const snappedScrollX = pageIndex * (scrollViewWidth);
-      if (Math.abs(scrollX - snappedScrollX) > 5) {
-        scrollViewRef.current?.scrollTo({
-          x: snappedScrollX,
-          animated: true,
-        });
-      }
-    } else {
-      // Regular day view
-      const pageIndex = Math.round(scrollX / scrollViewWidth);
-      
-      if (pageIndex >= 0 && pageIndex < scrollDates.length) {
-        const newDate = scrollDates[pageIndex];
-        if (newDate && newDate.toDateString() !== currentDate.toDateString()) {
-          setCurrentDate(new Date(newDate));
-        }
+    const pageIndex = Math.round(scrollX / scrollViewWidth);
+
+    if (pageIndex >= 0 && pageIndex < scrollDates.length) {
+      const newDate = scrollDates[pageIndex];
+      if (newDate && newDate.toDateString() !== currentDate.toDateString()) {
+        setCurrentDate(new Date(newDate));
       }
     }
   };
@@ -277,7 +256,7 @@ export const CalendarScreen: React.FC = () => {
       <ScrollView
         ref={scrollViewRef}
         horizontal
-        pagingEnabled={currentView !== '3-day'}
+        pagingEnabled={currentView === 'day'}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleMomentumScrollEnd}
         onScroll={handleScroll}
@@ -399,19 +378,6 @@ export const CalendarScreen: React.FC = () => {
       />
     </SafeAreaView>
   );
-};
-
-const getStatusColor = (status: Job['status']) => {
-  switch (status) {
-    case 'pending':
-      return colors.warning;
-    case 'in-progress':
-      return colors.primary;
-    case 'complete':
-      return colors.success;
-    default:
-      return colors.gray400;
-  }
 };
 
 const createStyles = (colors: any) => StyleSheet.create({

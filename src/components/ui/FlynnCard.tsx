@@ -4,6 +4,7 @@ import {
   StyleSheet,
   ViewStyle,
   TouchableOpacity,
+  StyleProp,
 } from 'react-native';
 import { spacing, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -13,8 +14,8 @@ interface FlynnCardProps {
   variant?: 'default' | 'outlined' | 'elevated';
   padding?: 'none' | 'small' | 'medium' | 'large';
   onPress?: () => void;
-  style?: ViewStyle;
-  contentStyle?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle>;
 }
 
 export const FlynnCard: React.FC<FlynnCardProps> = ({
@@ -27,6 +28,12 @@ export const FlynnCard: React.FC<FlynnCardProps> = ({
 }) => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const paddingStyles: Record<NonNullable<FlynnCardProps['padding']>, ViewStyle> = {
+    none: styles.paddingNone,
+    small: styles.paddingSmall,
+    medium: styles.paddingMedium,
+    large: styles.paddingLarge,
+  };
   const Component = onPress ? TouchableOpacity : View;
   
   return (
@@ -34,7 +41,7 @@ export const FlynnCard: React.FC<FlynnCardProps> = ({
       style={[
         styles.base,
         styles[variant],
-        styles[`padding${padding.charAt(0).toUpperCase() + padding.slice(1)}`],
+        paddingStyles[padding],
         style,
       ]}
       onPress={onPress}
@@ -84,7 +91,7 @@ const createStyles = (colors: any) => StyleSheet.create({
 // Card Header Component
 interface FlynnCardHeaderProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const FlynnCardHeader: React.FC<FlynnCardHeaderProps> = ({
@@ -103,7 +110,7 @@ export const FlynnCardHeader: React.FC<FlynnCardHeaderProps> = ({
 // Card Content Component
 interface FlynnCardContentProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const FlynnCardContent: React.FC<FlynnCardContentProps> = ({
@@ -122,7 +129,7 @@ export const FlynnCardContent: React.FC<FlynnCardContentProps> = ({
 // Card Footer Component
 interface FlynnCardFooterProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export const FlynnCardFooter: React.FC<FlynnCardFooterProps> = ({
@@ -152,4 +159,3 @@ const createCardStyles = (colors: any) => StyleSheet.create({
     borderTopColor: colors.border,
   },
 });
-

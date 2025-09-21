@@ -19,6 +19,25 @@ export interface TwiMLResponse {
 // Re-export the standardized type
 export type { CallProcessingResult } from '../types/calls.types';
 
+const createCallError = ({
+  callId,
+  phase,
+  code,
+  message,
+  details,
+}: {
+  callId: string;
+  phase: 'webhook' | 'transcription' | 'job_extraction' | 'client_creation';
+  code: string;
+  message: string;
+  details?: unknown;
+}): CallError => {
+  const error = new CallError(message, callId, phase, details);
+  (error as CallError & { code: string; timestamp: string }).code = code;
+  (error as CallError & { timestamp: string }).timestamp = new Date().toISOString();
+  return error;
+};
+
 class CallHandlerClass {
   /**
    * Handle incoming voice webhook from Twilio
@@ -141,10 +160,17 @@ class CallHandlerClass {
       return result;
     } catch (error) {
       console.error('Error handling transcription webhook:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
       return {
-        callId: '',
+        callId: webhookData.CallSid || '',
         jobCreated: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: createCallError({
+          callId: webhookData.CallSid || '',
+          phase: 'webhook',
+          code: 'TRANSCRIPTION_WEBHOOK_FAILED',
+          message,
+          details: error,
+        }),
       };
     }
   }
@@ -169,7 +195,16 @@ class CallHandlerClass {
 
     try {
       if (!transcriptionText.trim()) {
-        return { callId, jobCreated: false, error: 'No transcription text available' };
+        return {
+          callId,
+          jobCreated: false,
+          error: createCallError({
+            callId,
+            phase: 'transcription',
+            code: 'NO_TRANSCRIPTION',
+            message: 'No transcription text available',
+          }),
+        };
       }
 
       const recordingUrl =
@@ -179,7 +214,12 @@ class CallHandlerClass {
         return {
           callId,
           jobCreated: false,
-          error: 'Recording URL missing; cannot process voicemail',
+          error: createCallError({
+            callId,
+            phase: 'transcription',
+            code: 'RECORDING_URL_MISSING',
+            message: 'Recording URL missing; cannot process voicemail',
+          }),
         };
       }
 
@@ -241,10 +281,17 @@ class CallHandlerClass {
       };
     } catch (error) {
       console.error('Error processing call transcription:', error);
+      const message = error instanceof Error ? error.message : 'Processing failed';
       return {
         callId,
         jobCreated: false,
-        error: error instanceof Error ? error.message : 'Processing failed'
+        error: createCallError({
+          callId,
+          phase: 'job_extraction',
+          code: 'PROCESSING_FAILED',
+          message,
+          details: error,
+        }),
       };
     }
   }

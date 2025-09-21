@@ -317,7 +317,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
 
   followUpTitle: {
-    ...typography.subtitle,
+    ...typography.h3,
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
