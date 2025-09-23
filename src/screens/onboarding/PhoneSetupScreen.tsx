@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,10 @@ import {
   CarrierForwardingCode,
 } from '../../data/callForwardingGuides';
 import { TwilioService } from '../../services/TwilioService';
+import {
+  detectCarrierFromNumber,
+  CarrierDetectionConfidence,
+} from '../../services/CarrierDetectionService';
 
 interface PhoneSetupScreenProps {
   onNext: () => void;
@@ -52,6 +56,32 @@ const getDialableCode = (code: string, forwardingNumber: string | null) => {
   return replaced.replace(/#/g, '%23');
 };
 
+const normalizeNumberForDetection = (value: string) => {
+  const digitsOnly = sanitizeDigits(value);
+
+  if (!digitsOnly) {
+    return '';
+  }
+
+  if (digitsOnly.startsWith('61')) {
+    return digitsOnly;
+  }
+
+  if (digitsOnly.startsWith('0')) {
+    return digitsOnly;
+  }
+
+  if (digitsOnly.length === 9 && digitsOnly.startsWith('4')) {
+    return `0${digitsOnly}`;
+  }
+
+  if (digitsOnly.length === 10 && digitsOnly.startsWith('4')) {
+    return `0${digitsOnly.substring(1)}`;
+  }
+
+  return digitsOnly;
+};
+
 export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
   onNext,
   onBack,
@@ -65,6 +95,14 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
   const [isLoadingForwarding, setIsLoadingForwarding] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
   const [showAllCarriers, setShowAllCarriers] = useState(false);
+  const [carrierDetectionState, setCarrierDetectionState] = useState<{
+    status: 'idle' | 'loading' | 'success' | 'none' | 'error';
+    carrierId?: string;
+    confidence?: CarrierDetectionConfidence;
+    message?: string;
+  }>({ status: 'idle' });
+  const [hasManualCarrierOverride, setHasManualCarrierOverride] = useState(false);
+  const detectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -94,10 +132,125 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (detectionTimeoutRef.current) {
+      clearTimeout(detectionTimeoutRef.current);
+    }
+
+    const normalized = normalizeNumberForDetection(phoneNumber);
+
+    if (!normalized || normalized.length < 8) {
+      setCarrierDetectionState({ status: 'idle' });
+      return;
+    }
+
+    setCarrierDetectionState((prev) =>
+      prev.status === 'loading' && prev.carrierId ? prev : { status: 'loading' }
+    );
+
+    let cancelled = false;
+
+    detectionTimeoutRef.current = setTimeout(async () => {
+      try {
+        const result = await detectCarrierFromNumber(normalized);
+
+        if (cancelled) {
+          return;
+        }
+
+        if (result) {
+          setCarrierDetectionState({
+            status: 'success',
+            carrierId: result.carrierId,
+            confidence: result.confidence,
+          });
+        } else {
+          setCarrierDetectionState({ status: 'none' });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setCarrierDetectionState({
+            status: 'error',
+            message: 'We could not detect your carrier automatically.',
+          });
+        }
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      if (detectionTimeoutRef.current) {
+        clearTimeout(detectionTimeoutRef.current);
+      }
+    };
+  }, [phoneNumber]);
+
   const selectedCarrier = useMemo<CallForwardingGuide | undefined>(
     () => callForwardingGuides.find((carrier) => carrier.id === selectedCarrierId),
     [selectedCarrierId]
   );
+
+  useEffect(() => {
+    if (
+      carrierDetectionState.status !== 'success' ||
+      !carrierDetectionState.carrierId
+    ) {
+      return;
+    }
+
+    if (!hasManualCarrierOverride) {
+      if (selectedCarrierId !== carrierDetectionState.carrierId) {
+        setSelectedCarrierId(carrierDetectionState.carrierId);
+      }
+
+      if (!showAllCarriers) {
+        const detectedIndex = callForwardingGuides.findIndex(
+          (guide) => guide.id === carrierDetectionState.carrierId
+        );
+
+        if (detectedIndex >= DEFAULT_CARRIER_COUNT) {
+          setShowAllCarriers(true);
+        }
+      }
+    }
+  }, [
+    carrierDetectionState.status,
+    carrierDetectionState.carrierId,
+    hasManualCarrierOverride,
+    selectedCarrierId,
+    showAllCarriers,
+  ]);
+
+  useEffect(() => {
+    if (
+      carrierDetectionState.status === 'success' &&
+      carrierDetectionState.carrierId &&
+      hasManualCarrierOverride &&
+      carrierDetectionState.carrierId === selectedCarrierId
+    ) {
+      setHasManualCarrierOverride(false);
+    }
+  }, [
+    carrierDetectionState.status,
+    carrierDetectionState.carrierId,
+    hasManualCarrierOverride,
+    selectedCarrierId,
+  ]);
+
+  const detectedCarrier = useMemo<CallForwardingGuide | null>(() => {
+    if (
+      carrierDetectionState.status !== 'success' ||
+      !carrierDetectionState.carrierId
+    ) {
+      return null;
+    }
+
+    return (
+      callForwardingGuides.find(
+        (guide) => guide.id === carrierDetectionState.carrierId
+      ) || null
+    );
+  }, [carrierDetectionState.status, carrierDetectionState.carrierId]);
 
   const handleDialCode = async (code: CarrierForwardingCode) => {
     const dialable = getDialableCode(code.code, forwardingNumber);
@@ -129,6 +282,41 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
         `${fallback}\n\nOpen the phone app, enter the code, then press call.`,
         [{ text: 'Got it' }]
       );
+    }
+  };
+
+  const handlePhoneNumberChange = (value: string) => {
+    setPhoneNumber(value);
+  };
+
+  const handleCarrierSelect = (carrierId: string) => {
+    setSelectedCarrierId(carrierId);
+
+    if (
+      carrierDetectionState.status === 'success' &&
+      carrierDetectionState.carrierId === carrierId
+    ) {
+      setHasManualCarrierOverride(false);
+    } else {
+      setHasManualCarrierOverride(true);
+    }
+  };
+
+  const handleUseDetectedCarrier = () => {
+    if (
+      carrierDetectionState.status === 'success' &&
+      carrierDetectionState.carrierId
+    ) {
+      setHasManualCarrierOverride(false);
+      setSelectedCarrierId(carrierDetectionState.carrierId);
+      if (!showAllCarriers) {
+        const detectedIndex = callForwardingGuides.findIndex(
+          (guide) => guide.id === carrierDetectionState.carrierId
+        );
+        if (detectedIndex >= DEFAULT_CARRIER_COUNT) {
+          setShowAllCarriers(true);
+        }
+      }
     }
   };
 
@@ -252,15 +440,15 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
           <Text style={styles.sectionLabel}>Your business phone number</Text>
           <TextInput
             style={styles.input}
-            placeholder="(555) 123-4567"
+            placeholder="04 1234 5678"
             value={phoneNumber}
-            onChangeText={setPhoneNumber}
+            onChangeText={handlePhoneNumberChange}
             keyboardType="phone-pad"
             autoCorrect={false}
             placeholderTextColor="#9ca3af"
           />
           <Text style={styles.inputHelper}>
-            We’ll reference this when helping you verify forwarding later.
+            Flynn uses this to recommend the right forwarding instructions.
           </Text>
         </View>
 
@@ -272,6 +460,56 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
             </Text>
           </View>
 
+          {carrierDetectionState.status === 'loading' && (
+            <View style={[styles.detectionBanner, styles.detectionBannerNeutral]}>
+              <ActivityIndicator size="small" color="#2563eb" />
+              <Text style={styles.detectionText}>Checking who provides this line…</Text>
+            </View>
+          )}
+
+          {carrierDetectionState.status === 'success' && detectedCarrier && (
+            <View style={[styles.detectionBanner, styles.detectionBannerSuccess]}>
+              <Ionicons name="sparkles" size={18} color="#166534" />
+              <View style={styles.detectionTextWrapper}>
+                <Text style={styles.detectionText}>
+                  We think you're with {detectedCarrier.name}
+                  {carrierDetectionState.confidence === 'low'
+                    ? '. Double-check the instructions below and adjust if needed.'
+                    : '.'}
+                </Text>
+                {hasManualCarrierOverride &&
+                  selectedCarrierId !== detectedCarrier.id && (
+                    <TouchableOpacity
+                      onPress={handleUseDetectedCarrier}
+                      style={styles.detectionAction}
+                    >
+                      <Ionicons name="flash" size={14} color="#166534" />
+                      <Text style={styles.detectionActionText}>Use suggestion</Text>
+                    </TouchableOpacity>
+                  )}
+              </View>
+            </View>
+          )}
+
+          {carrierDetectionState.status === 'none' && (
+            <View style={[styles.detectionBanner, styles.detectionBannerNeutral]}>
+              <Ionicons name="information-circle" size={18} color="#1d4ed8" />
+              <Text style={styles.detectionText}>
+                We couldn't match the carrier automatically. Choose it from the list below.
+              </Text>
+            </View>
+          )}
+
+          {carrierDetectionState.status === 'error' && (
+            <View style={[styles.detectionBanner, styles.detectionBannerError]}>
+              <Ionicons name="alert-circle" size={18} color="#991b1b" />
+              <Text style={styles.detectionText}>
+                {carrierDetectionState.message ||
+                  'Carrier lookup failed. Pick your provider below.'}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.carrierList}>
             {carriersToShow.map((carrier) => (
               <TouchableOpacity
@@ -280,7 +518,7 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
                   styles.carrierChip,
                   carrier.id === selectedCarrierId && styles.carrierChipSelected,
                 ]}
-                onPress={() => setSelectedCarrierId(carrier.id)}
+                onPress={() => handleCarrierSelect(carrier.id)}
               >
                 <Text style={styles.carrierName}>{carrier.name}</Text>
                 <Text style={styles.carrierRegion}>{carrier.region}</Text>
@@ -560,6 +798,44 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     marginBottom: 16,
+  },
+  detectionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  detectionBannerNeutral: {
+    backgroundColor: '#dbeafe',
+  },
+  detectionBannerSuccess: {
+    backgroundColor: '#dcfce7',
+  },
+  detectionBannerError: {
+    backgroundColor: '#fee2e2',
+  },
+  detectionTextWrapper: {
+    flex: 1,
+    gap: 6,
+  },
+  detectionText: {
+    color: '#1f2937',
+    fontSize: 13,
+    lineHeight: 18,
+    flex: 1,
+  },
+  detectionAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detectionActionText: {
+    color: '#166534',
+    fontWeight: '600',
+    fontSize: 13,
   },
   carrierList: {
     flexDirection: 'row',
