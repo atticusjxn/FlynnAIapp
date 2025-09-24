@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnButton } from '../ui/FlynnButton';
+import { FlynnKeyboardAvoidingView } from '../ui/FlynnKeyboardAvoidingView';
 import { Job } from './JobCard';
 
 type CommunicationType = 'text' | 'email';
@@ -83,6 +85,8 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
 }) => {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [messageSectionOffset, setMessageSectionOffset] = useState(0);
+  const scrollViewRef = React.useRef<ScrollView>(null);
 
   React.useEffect(() => {
     if (job && visible) {
@@ -132,7 +136,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
+      <FlynnKeyboardAvoidingView style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Ionicons 
@@ -150,7 +154,12 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.content}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Recipient Info */}
           <View style={styles.recipientSection}>
             <Text style={styles.sectionTitle}>Sending to:</Text>
@@ -170,7 +179,12 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
           </View>
 
           {/* Message Editor */}
-          <View style={styles.messageSection}>
+          <View
+            style={styles.messageSection}
+            onLayout={(event) => {
+              setMessageSectionOffset(event.nativeEvent.layout.y);
+            }}
+          >
             <Text style={styles.sectionTitle}>Message:</Text>
             <TextInput
               style={styles.messageInput}
@@ -181,6 +195,10 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
               placeholder={`Enter your ${type} message...`}
               placeholderTextColor={colors.textPlaceholder}
               textAlignVertical="top"
+              onFocus={() => {
+                const targetOffset = Math.max(messageSectionOffset - spacing.lg, 0);
+                scrollViewRef.current?.scrollTo({ y: targetOffset, animated: true });
+              }}
             />
             <Text style={styles.characterCount}>
               {message.length} characters
@@ -189,7 +207,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
               }
             </Text>
           </View>
-        </View>
+        </ScrollView>
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
@@ -200,7 +218,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
             size="large"
             style={styles.cancelButton}
           />
-          
+
           <FlynnButton
             title={isLoading ? "Sending..." : `Send ${type === 'text' ? 'Text' : 'Email'}`}
             onPress={handleSend}
@@ -220,7 +238,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
             style={styles.sendButton}
           />
         </View>
-      </View>
+      </FlynnKeyboardAvoidingView>
     </Modal>
   );
 };
@@ -259,7 +277,12 @@ const styles = StyleSheet.create({
   
   content: {
     flex: 1,
+  },
+
+  contentContainer: {
+    flexGrow: 1,
     paddingVertical: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
   
   recipientSection: {

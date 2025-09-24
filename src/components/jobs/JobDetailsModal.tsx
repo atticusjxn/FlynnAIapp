@@ -5,14 +5,15 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  ScrollView,
   Linking,
   Alert,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnButton } from '../ui/FlynnButton';
+import { FlynnKeyboardAvoidingView } from '../ui/FlynnKeyboardAvoidingView';
 import { Job } from './JobCard';
 
 interface JobDetailsModalProps {
@@ -122,12 +123,14 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedJob, setEditedJob] = useState<Job | null>(null);
+  const [isAccountingExpanded, setIsAccountingExpanded] = useState(false);
 
   // Initialize edited job when job changes or modal visibility changes
   React.useEffect(() => {
     if (job) {
       setEditedJob({ ...job });
       setIsEditing(false); // Reset editing state when job changes
+      setIsAccountingExpanded(false);
     }
   }, [job, visible]);
 
@@ -245,7 +248,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
+      <FlynnKeyboardAvoidingView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.modalTitle}>{getModalTitle(job.businessType)}</Text>
           <TouchableOpacity
@@ -256,7 +259,12 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Client Information */}
           <View style={styles.section}>
             <View style={styles.clientHeader}>
@@ -471,7 +479,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               {/* Primary Communication Actions */}
               <View style={styles.primaryActions}>
                 <FlynnButton
-                  title="Send Text"
+                  title="Text"
                   onPress={() => onSendTextConfirmation(currentJob)}
                   variant="primary"
                   size="medium"
@@ -501,47 +509,61 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               {/* Accounting Actions - Show for completed jobs when accounting software is connected */}
               {currentJob.status === 'complete' && (
                 <View style={styles.accountingActions}>
-                  <Text style={styles.accountingSectionTitle}>Accounting Actions</Text>
-                  <View style={styles.accountingButtonsRow}>
-                    <TouchableOpacity
-                      style={styles.accountingAction}
-                      onPress={() => Alert.alert('Send Invoice', 'Invoice will be sent to MYOB for processing')}
-                    >
-                      <View style={styles.accountingActionIcon}>
-                        <Ionicons name="receipt-outline" size={20} color={colors.success} />
-                      </View>
-                      <Text style={[styles.accountingActionText, { color: colors.success }]}>
-                        Send Invoice
-                      </Text>
-                      <Text style={styles.accountingActionSubtext}>MYOB</Text>
-                    </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.accountingToggle}
+                    onPress={() => setIsAccountingExpanded((prev) => !prev)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.accountingSectionTitle}>Accounting Actions</Text>
+                    <Ionicons
+                      name={isAccountingExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color={colors.primary}
+                    />
+                  </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.accountingAction}
-                      onPress={() => Alert.alert('Create Quote', 'Quote template will be created in MYOB')}
-                    >
-                      <View style={styles.accountingActionIcon}>
-                        <Ionicons name="document-text-outline" size={20} color={colors.primary} />
-                      </View>
-                      <Text style={[styles.accountingActionText, { color: colors.primary }]}>
-                        Create Quote
-                      </Text>
-                      <Text style={styles.accountingActionSubtext}>MYOB</Text>
-                    </TouchableOpacity>
+                  {isAccountingExpanded && (
+                    <View style={styles.accountingButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.accountingAction}
+                        onPress={() => Alert.alert('Send Invoice', 'Invoice will be sent to MYOB for processing')}
+                      >
+                        <View style={styles.accountingActionIcon}>
+                          <Ionicons name="receipt-outline" size={20} color={colors.success} />
+                        </View>
+                        <Text style={[styles.accountingActionText, { color: colors.success }]}>
+                          Send Invoice
+                        </Text>
+                        <Text style={styles.accountingActionSubtext}>MYOB</Text>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.accountingAction}
-                      onPress={() => Alert.alert('Log Expenses', 'Expense tracking for this job will be logged in MYOB')}
-                    >
-                      <View style={styles.accountingActionIcon}>
-                        <Ionicons name="calculator-outline" size={20} color={colors.warning} />
-                      </View>
-                      <Text style={[styles.accountingActionText, { color: colors.warning }]}>
-                        Log Expenses
-                      </Text>
-                      <Text style={styles.accountingActionSubtext}>MYOB</Text>
-                    </TouchableOpacity>
-                  </View>
+                      <TouchableOpacity
+                        style={styles.accountingAction}
+                        onPress={() => Alert.alert('Create Quote', 'Quote template will be created in MYOB')}
+                      >
+                        <View style={styles.accountingActionIcon}>
+                          <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+                        </View>
+                        <Text style={[styles.accountingActionText, { color: colors.primary }]}>
+                          Create Quote
+                        </Text>
+                        <Text style={styles.accountingActionSubtext}>MYOB</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.accountingAction}
+                        onPress={() => Alert.alert('Log Expenses', 'Expense tracking for this job will be logged in MYOB')}
+                      >
+                        <View style={styles.accountingActionIcon}>
+                          <Ionicons name="calculator-outline" size={20} color={colors.warning} />
+                        </View>
+                        <Text style={[styles.accountingActionText, { color: colors.warning }]}>
+                          Log Expenses
+                        </Text>
+                        <Text style={styles.accountingActionSubtext}>MYOB</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -570,7 +592,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
             </>
           )}
         </View>
-      </View>
+      </FlynnKeyboardAvoidingView>
     </Modal>
   );
 };
@@ -604,6 +626,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingVertical: spacing.md,
+  },
+
+  contentContainer: {
+    paddingBottom: spacing.xxl,
   },
   
   section: {
@@ -877,16 +903,23 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
 
+  accountingToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+
   accountingSectionTitle: {
     ...typography.h4,
     color: colors.textPrimary,
-    marginBottom: spacing.md,
   },
 
   accountingButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: spacing.sm,
+    marginTop: spacing.sm,
   },
 
   accountingAction: {

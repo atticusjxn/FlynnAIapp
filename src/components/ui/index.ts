@@ -6,6 +6,7 @@ export { FlynnCard, FlynnCardHeader, FlynnCardContent, FlynnCardFooter } from '.
 export { FlynnInput } from './FlynnInput';
 export { FlynnJobForm } from './FlynnJobForm';
 export { JobFormDemo } from './JobFormDemo';
+export { FlynnKeyboardAvoidingView } from './FlynnKeyboardAvoidingView';
 export type { JobFormData } from './FlynnJobForm';
 
 // Re-export theme for easy access
