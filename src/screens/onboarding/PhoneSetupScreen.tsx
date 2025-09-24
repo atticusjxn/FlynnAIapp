@@ -100,9 +100,13 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
     carrierId?: string;
     confidence?: CarrierDetectionConfidence;
     message?: string;
+    rawCarrierName?: string | null;
+    source?: 'lookup' | 'heuristic';
+    e164Number?: string | null;
   }>({ status: 'idle' });
   const [hasManualCarrierOverride, setHasManualCarrierOverride] = useState(false);
   const detectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPersistedDetection = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -163,6 +167,9 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
             status: 'success',
             carrierId: result.carrierId,
             confidence: result.confidence,
+            rawCarrierName: result.rawCarrierName,
+            source: result.source,
+            e164Number: result.e164Number,
           });
         } else {
           setCarrierDetectionState({ status: 'none' });
@@ -320,6 +327,32 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (
+      carrierDetectionState.status !== 'success' ||
+      !carrierDetectionState.carrierId
+    ) {
+      return;
+    }
+
+    const normalized = normalizeNumberForDetection(phoneNumber) || phoneNumber;
+    const signature = `${carrierDetectionState.carrierId}:${carrierDetectionState.source || 'unknown'}:${carrierDetectionState.rawCarrierName || ''}:${normalized}`;
+
+    if (lastPersistedDetection.current === signature) {
+      return;
+    }
+
+    TwilioService.persistCarrierDetection(normalized, {
+      carrierId: carrierDetectionState.carrierId,
+      confidence: carrierDetectionState.confidence || 'low',
+      source: carrierDetectionState.source || 'heuristic',
+      rawCarrierName: carrierDetectionState.rawCarrierName ?? undefined,
+      e164Number: carrierDetectionState.e164Number ?? undefined,
+    }).finally(() => {
+      lastPersistedDetection.current = signature;
+    });
+  }, [carrierDetectionState, phoneNumber]);
+
   const handleMarkVerified = () => {
     if (!phoneNumber.trim()) {
       Alert.alert('Add your number', 'Enter the business number you forward.');
@@ -467,29 +500,37 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
             </View>
           )}
 
-          {carrierDetectionState.status === 'success' && detectedCarrier && (
-            <View style={[styles.detectionBanner, styles.detectionBannerSuccess]}>
-              <Ionicons name="sparkles" size={18} color="#166534" />
-              <View style={styles.detectionTextWrapper}>
-                <Text style={styles.detectionText}>
-                  We think you're with {detectedCarrier.name}
-                  {carrierDetectionState.confidence === 'low'
-                    ? '. Double-check the instructions below and adjust if needed.'
-                    : '.'}
-                </Text>
-                {hasManualCarrierOverride &&
-                  selectedCarrierId !== detectedCarrier.id && (
-                    <TouchableOpacity
-                      onPress={handleUseDetectedCarrier}
-                      style={styles.detectionAction}
-                    >
-                      <Ionicons name="flash" size={14} color="#166534" />
-                      <Text style={styles.detectionActionText}>Use suggestion</Text>
-                    </TouchableOpacity>
-                  )}
-              </View>
+        {carrierDetectionState.status === 'success' && detectedCarrier && (
+          <View style={[styles.detectionBanner, styles.detectionBannerSuccess]}>
+            <Ionicons name="sparkles" size={18} color="#166534" />
+            <View style={styles.detectionTextWrapper}>
+              <Text style={styles.detectionText}>
+                {carrierDetectionState.source === 'lookup'
+                  ? `We confirmed via network lookup that this number runs on ${detectedCarrier.name}.`
+                  : `We think you're with ${detectedCarrier.name}.`}
+                {carrierDetectionState.confidence === 'low'
+                  ? ' Double-check the instructions below and adjust if needed.'
+                  : ''}
+              </Text>
+              {carrierDetectionState.source === 'lookup' &&
+                carrierDetectionState.rawCarrierName && (
+                  <Text style={styles.detectionFootnote}>
+                    Carrier record: {carrierDetectionState.rawCarrierName}
+                  </Text>
+                )}
+              {hasManualCarrierOverride &&
+                selectedCarrierId !== detectedCarrier.id && (
+                  <TouchableOpacity
+                    onPress={handleUseDetectedCarrier}
+                    style={styles.detectionAction}
+                  >
+                    <Ionicons name="flash" size={14} color="#166534" />
+                    <Text style={styles.detectionActionText}>Use suggestion</Text>
+                  </TouchableOpacity>
+                )}
             </View>
-          )}
+          </View>
+        )}
 
           {carrierDetectionState.status === 'none' && (
             <View style={[styles.detectionBanner, styles.detectionBannerNeutral]}>
@@ -836,6 +877,10 @@ const styles = StyleSheet.create({
     color: '#166534',
     fontWeight: '600',
     fontSize: 13,
+  },
+  detectionFootnote: {
+    fontSize: 12,
+    color: '#166534',
   },
   carrierList: {
     flexDirection: 'row',

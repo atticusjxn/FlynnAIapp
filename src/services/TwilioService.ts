@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { 
+import {
   TwilioServiceError, 
   CallProcessingError,
   CallRecord as CallRecordType,
@@ -7,6 +7,7 @@ import {
   JobExtraction,
   RecordingPreference 
 } from '../types/calls.types';
+import { CarrierDetectionResult } from './CarrierDetectionService';
 
 // Environment configuration
 const TWILIO_ACCOUNT_SID = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID;
@@ -292,6 +293,39 @@ class TwilioServiceClass {
     } catch (error) {
       console.error('Error updating recording preference:', error);
       throw error;
+    }
+  }
+
+  async persistCarrierDetection(
+    phoneNumber: string,
+    detection: CarrierDetectionResult
+  ): Promise<void> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return;
+      }
+
+      const existingMetadata = user.user_metadata || {};
+
+      const detectionRecord = {
+        phoneNumber,
+        carrierId: detection.carrierId,
+        confidence: detection.confidence,
+        source: detection.source,
+        rawCarrierName: detection.rawCarrierName || null,
+        e164Number: detection.e164Number || null,
+        recordedAt: new Date().toISOString(),
+      };
+
+      await supabase.auth.updateUser({
+        data: {
+          ...existingMetadata,
+          forwarding_carrier_hint: detectionRecord,
+        },
+      });
+    } catch (error) {
+      console.warn('persistCarrierDetection failed', error);
     }
   }
 
