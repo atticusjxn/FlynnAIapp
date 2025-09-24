@@ -122,9 +122,9 @@ const attemptLookup = async (e164Number: string) => {
   }
 
   try {
-    const url = `https://lookups.twilio.com/v1/PhoneNumbers/${encodeURIComponent(
+    const url = `https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(
       e164Number
-    )}?Type=carrier`;
+    )}?Fields=carrier`;
 
     const auth = Buffer.from(
       `${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`
