@@ -176,9 +176,14 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
         }
       } catch (error) {
         if (!cancelled) {
+          const message =
+            error instanceof Error && error.message === 'LOOKUP_DISABLED'
+              ? 'Automatic detection requires Twilio Lookup credentials. Enter your carrier manually.'
+              : 'We could not detect your carrier automatically.';
+
           setCarrierDetectionState({
             status: 'error',
-            message: 'We could not detect your carrier automatically.',
+            message,
           });
         }
       }
@@ -200,7 +205,8 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
   useEffect(() => {
     if (
       carrierDetectionState.status !== 'success' ||
-      !carrierDetectionState.carrierId
+      !carrierDetectionState.carrierId ||
+      carrierDetectionState.source !== 'lookup'
     ) {
       return;
     }
@@ -232,6 +238,7 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
     if (
       carrierDetectionState.status === 'success' &&
       carrierDetectionState.carrierId &&
+      carrierDetectionState.source === 'lookup' &&
       hasManualCarrierOverride &&
       carrierDetectionState.carrierId === selectedCarrierId
     ) {
@@ -330,7 +337,8 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
   useEffect(() => {
     if (
       carrierDetectionState.status !== 'success' ||
-      !carrierDetectionState.carrierId
+      !carrierDetectionState.carrierId ||
+      carrierDetectionState.source !== 'lookup'
     ) {
       return;
     }
@@ -432,7 +440,11 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.titleContainer}>
           <View style={styles.iconContainer}>
             <Ionicons name="call" size={32} color="#3B82F6" />
@@ -507,10 +519,7 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
               <Text style={styles.detectionText}>
                 {carrierDetectionState.source === 'lookup'
                   ? `We confirmed via network lookup that this number runs on ${detectedCarrier.name}.`
-                  : `We think you're with ${detectedCarrier.name}.`}
-                {carrierDetectionState.confidence === 'low'
-                  ? ' Double-check the instructions below and adjust if needed.'
-                  : ''}
+                  : `We couldn't confirm automatically, but this number range typically uses ${detectedCarrier.name}. Please double-check before dialing.`}
               </Text>
               {carrierDetectionState.source === 'lookup' &&
                 carrierDetectionState.rawCarrierName && (
@@ -663,32 +672,32 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
             )}
           </View>
         )}
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.primaryButton, isVerifying && styles.disabledButton]}
+            onPress={handleMarkVerified}
+            disabled={isVerifying}
+          >
+            {isVerifying ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Text style={styles.primaryButtonText}>Mark forwarding verified</Text>
+                <Ionicons name="checkmark-circle" size={20} color="white" />
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleSkip}>
+            <Text style={styles.secondaryButtonText}>Set this up later</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.footerText}>
+            You can reopen these instructions under Settings → Calls & Voicemail.
+          </Text>
+        </View>
       </ScrollView>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.primaryButton, isVerifying && styles.disabledButton]}
-          onPress={handleMarkVerified}
-          disabled={isVerifying}
-        >
-          {isVerifying ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <>
-              <Text style={styles.primaryButtonText}>Mark forwarding verified</Text>
-              <Ionicons name="checkmark-circle" size={20} color="white" />
-            </>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleSkip}>
-          <Text style={styles.secondaryButtonText}>Set this up later</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.footerText}>
-          You can reopen these instructions under Settings → Calls & Voicemail.
-        </Text>
-      </View>
     </SafeAreaView>
   );
 };
@@ -725,6 +734,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
+  },
+  scrollContent: {
+    paddingBottom: 160,
   },
   titleContainer: {
     paddingBottom: 24,
@@ -1058,6 +1070,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     backgroundColor: '#f8fafc',
+    marginTop: 24,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 2,
   },
   primaryButton: {
     backgroundColor: '#2563eb',

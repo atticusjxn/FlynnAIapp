@@ -2,6 +2,8 @@ import { callForwardingGuides } from '../data/callForwardingGuides';
 
 const TWILIO_ACCOUNT_SID = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.EXPO_PUBLIC_TWILIO_AUTH_TOKEN;
+const ENABLE_HEURISTIC =
+  process.env.EXPO_PUBLIC_ENABLE_CARRIER_HEURISTIC === 'true';
 
 export type CarrierDetectionConfidence = 'high' | 'medium' | 'low';
 
@@ -41,25 +43,28 @@ const AUS_CARRIER_HEURISTICS: Array<{
 ];
 
 const MVNO_TO_CARRIER: Record<string, string> = {
-  'mate': 'au-telstra',
-  'boost': 'au-telstra',
-  'belong': 'au-telstra',
-  'aldi': 'au-telstra',
-  'amaysim': 'au-optus',
-  'vaya': 'au-optus',
-  'tpg': 'au-vodafone',
-  'felix': 'au-vodafone',
-  'lebara': 'au-vodafone',
-  'kogan': 'au-vodafone',
+  mate: 'au-telstra',
+  boost: 'au-telstra',
+  belong: 'au-telstra',
+  aldi: 'au-telstra',
+  amaysim: 'au-optus',
+  vaya: 'au-optus',
+  tpg: 'au-vodafone',
+  felix: 'au-vodafone',
+  lebara: 'au-vodafone',
+  kogan: 'au-vodafone',
 };
 
 const STRONG_NAME_MATCHES: Array<{ matcher: RegExp; carrierId: string }> = [
   { matcher: /telstra/i, carrierId: 'au-telstra' },
   { matcher: /optus/i, carrierId: 'au-optus' },
-  { matcher: /vodafone|tpgo|tpg|one\.com\.au/i, carrierId: 'au-vodafone' },
+  { matcher: /vodafone|tpg|one\.com\.au/i, carrierId: 'au-vodafone' },
 ];
 
 const stripToDigits = (value: string) => value.replace(/[^\d+]/g, '');
+
+export const isCarrierLookupEnabled = () =>
+  Boolean(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN);
 
 const formatToE164 = (input: string): string | null => {
   const digits = stripToDigits(input);
@@ -112,7 +117,7 @@ const getGuideById = (carrierId: string) =>
   callForwardingGuides.find((guide) => guide.id === carrierId) || null;
 
 const attemptLookup = async (e164Number: string) => {
-  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+  if (!isCarrierLookupEnabled()) {
     return null;
   }
 
@@ -169,6 +174,10 @@ const attemptLookup = async (e164Number: string) => {
 const attemptHeuristic = (
   input: string
 ): CarrierDetectionResult | null => {
+  if (!ENABLE_HEURISTIC) {
+    return null;
+  }
+
   const clean = stripToDigits(input);
   if (!clean) {
     return null;
@@ -196,14 +205,24 @@ const attemptHeuristic = (
 export const detectCarrierFromNumber = async (
   inputNumber: string
 ): Promise<CarrierDetectionResult | null> => {
+  const lookupEnabled = isCarrierLookupEnabled();
   const e164 = formatToE164(inputNumber);
 
-  if (e164) {
+  if (lookupEnabled && e164) {
     const lookupResult = await attemptLookup(e164);
     if (lookupResult) {
       return lookupResult;
     }
   }
 
-  return attemptHeuristic(inputNumber);
+  const heuristic = attemptHeuristic(inputNumber);
+  if (heuristic) {
+    return heuristic;
+  }
+
+  if (!lookupEnabled) {
+    throw new Error('LOOKUP_DISABLED');
+  }
+
+  return null;
 };
