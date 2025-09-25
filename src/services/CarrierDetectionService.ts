@@ -1,9 +1,16 @@
+import { Buffer } from 'buffer';
 import { callForwardingGuides } from '../data/callForwardingGuides';
+
+if (typeof globalThis.Buffer === 'undefined') {
+  (globalThis as any).Buffer = Buffer;
+}
 
 const TWILIO_ACCOUNT_SID = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.EXPO_PUBLIC_TWILIO_AUTH_TOKEN;
+const TWILIO_LOOKUP_FUNCTION_URL =
+  process.env.EXPO_PUBLIC_TWILIO_LOOKUP_FUNCTION_URL;
 const ENABLE_HEURISTIC =
-  process.env.EXPO_PUBLIC_ENABLE_CARRIER_HEURISTIC === 'true';
+  process.env.EXPO_PUBLIC_ENABLE_CARRIER_HEURISTIC !== 'false';
 
 export type CarrierDetectionConfidence = 'high' | 'medium' | 'low';
 
@@ -89,25 +96,62 @@ const formatToE164 = (input: string): string | null => {
   return null;
 };
 
-const mapCarrierIdFromName = (rawName?: string | null): string | null => {
-  if (!rawName) {
-    return null;
+const MCC_MNC_TO_CARRIER: Record<string, string> = {
+  '50501': 'au-telstra',
+  '50511': 'au-telstra',
+  '50571': 'au-telstra',
+  '50502': 'au-optus',
+  '50507': 'au-optus',
+  '50516': 'au-optus',
+  '50503': 'au-vodafone',
+  '50505': 'au-vodafone',
+  '50506': 'au-vodafone',
+};
+
+const MNC_TO_CARRIER: Record<string, string> = {
+  '01': 'au-telstra',
+  '11': 'au-telstra',
+  '71': 'au-telstra',
+  '02': 'au-optus',
+  '07': 'au-optus',
+  '16': 'au-optus',
+  '03': 'au-vodafone',
+  '05': 'au-vodafone',
+  '06': 'au-vodafone',
+};
+
+const mapCarrierIdFromLookup = (
+  rawName?: string | null,
+  mobileCountryCode?: string | null,
+  mobileNetworkCode?: string | null
+): string | null => {
+  if (mobileCountryCode && mobileNetworkCode) {
+    const combined = `${mobileCountryCode}${mobileNetworkCode}`;
+    if (MCC_MNC_TO_CARRIER[combined]) {
+      return MCC_MNC_TO_CARRIER[combined];
+    }
   }
 
-  const normalized = rawName.trim().toLowerCase();
-
-  const mvnoMatch = Object.entries(MVNO_TO_CARRIER).find(([mvno]) =>
-    normalized.includes(mvno)
-  );
-  if (mvnoMatch) {
-    return mvnoMatch[1];
+  if (mobileNetworkCode && MNC_TO_CARRIER[mobileNetworkCode]) {
+    return MNC_TO_CARRIER[mobileNetworkCode];
   }
 
-  const strongMatch = STRONG_NAME_MATCHES.find(({ matcher }) =>
-    matcher.test(rawName)
-  );
-  if (strongMatch) {
-    return strongMatch.carrierId;
+  if (rawName) {
+    const normalized = rawName.trim().toLowerCase();
+
+    const mvnoMatch = Object.entries(MVNO_TO_CARRIER).find(([mvno]) =>
+      normalized.includes(mvno)
+    );
+    if (mvnoMatch) {
+      return mvnoMatch[1];
+    }
+
+    const strongMatch = STRONG_NAME_MATCHES.find(({ matcher }) =>
+      matcher.test(rawName)
+    );
+    if (strongMatch) {
+      return strongMatch.carrierId;
+    }
   }
 
   return null;
@@ -116,15 +160,79 @@ const mapCarrierIdFromName = (rawName?: string | null): string | null => {
 const getGuideById = (carrierId: string) =>
   callForwardingGuides.find((guide) => guide.id === carrierId) || null;
 
+const attemptFunctionLookup = async (
+  e164Number: string
+): Promise<CarrierDetectionResult | null> => {
+  if (!TWILIO_LOOKUP_FUNCTION_URL) {
+    return null;
+  }
+
+  try {
+    const url = new URL(TWILIO_LOOKUP_FUNCTION_URL);
+    url.searchParams.set('phoneNumber', e164Number);
+
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(`Function lookup failed: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const carrierData = payload?.carrier || null;
+    const callerName = payload?.callerName || null;
+
+    const mappedCarrierId = mapCarrierIdFromLookup(
+      carrierData?.name,
+      carrierData?.mobile_country_code,
+      carrierData?.mobile_network_code
+    );
+
+    if (!mappedCarrierId) {
+      if (__DEV__) {
+        console.log('[CarrierDetectionService] function lookup unmapped carrier', {
+          carrierData,
+          callerName,
+        });
+      }
+      return null;
+    }
+
+    const guide = getGuideById(mappedCarrierId);
+    if (!guide) {
+      return null;
+    }
+
+    return {
+      carrierId: guide.id,
+      confidence: 'high',
+      source: 'lookup',
+      rawCarrierName: carrierData?.name || null,
+      e164Number,
+    };
+  } catch (error) {
+    console.warn('[CarrierDetectionService] function lookup failed', error);
+    return null;
+  }
+};
+
 const attemptLookup = async (e164Number: string) => {
+  const functionResult = await attemptFunctionLookup(e164Number);
+  if (functionResult) {
+    return functionResult;
+  }
+
   if (!isCarrierLookupEnabled()) {
     return null;
   }
 
   try {
-    const url = `https://lookups.twilio.com/v2/PhoneNumbers/${encodeURIComponent(
+    const params = new URLSearchParams({ Type: 'carrier' });
+    if (e164Number.startsWith('+61')) {
+      params.append('CountryCode', 'AU');
+    }
+
+    const url = `https://lookups.twilio.com/v1/PhoneNumbers/${encodeURIComponent(
       e164Number
-    )}?Fields=carrier`;
+    )}?${params.toString()}`;
 
     const auth = Buffer.from(
       `${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`
@@ -133,6 +241,7 @@ const attemptLookup = async (e164Number: string) => {
     const response = await fetch(url, {
       headers: {
         Authorization: `Basic ${auth}`,
+        Accept: 'application/json',
       },
     });
 
@@ -141,15 +250,39 @@ const attemptLookup = async (e164Number: string) => {
     }
 
     if (!response.ok) {
-      throw new Error(`Twilio lookup failed: ${response.status}`);
+      let errorDetail: string | undefined;
+      try {
+        errorDetail = await response.text();
+      } catch (readError) {
+        errorDetail = undefined;
+      }
+
+      throw new Error(
+        `Twilio lookup failed: ${response.status}${
+          errorDetail ? ` - ${errorDetail}` : ''
+        }`
+      );
     }
 
     const payload = await response.json();
     const rawCarrierName: string | undefined = payload?.carrier?.name;
+    const mobileCountryCode: string | undefined = payload?.carrier?.mobile_country_code;
+    const mobileNetworkCode: string | undefined = payload?.carrier?.mobile_network_code;
 
-    const mappedCarrierId = mapCarrierIdFromName(rawCarrierName);
+    const mappedCarrierId = mapCarrierIdFromLookup(
+      rawCarrierName,
+      mobileCountryCode,
+      mobileNetworkCode
+    );
 
     if (!mappedCarrierId) {
+      if (__DEV__) {
+        console.log('[CarrierDetectionService] lookup unmapped carrier', {
+          rawCarrierName,
+          mobileCountryCode,
+          mobileNetworkCode,
+        });
+      }
       return null;
     }
 

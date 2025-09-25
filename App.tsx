@@ -27,7 +27,6 @@ import { ResultsScreen } from './src/screens/upload/ResultsScreen';
 import { JobFormDemo } from './src/components/ui/JobFormDemo';
 import { ShortcutSetupScreen } from './src/screens/shortcuts/ShortcutSetupScreen';
 import shortcutHandler from './src/services/ShortcutHandler';
-import SiriShortcutService from './src/services/SiriShortcutService';
 import CallSetupScreen from './src/screens/calls/CallSetupScreen';
 import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
 import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
@@ -169,8 +168,6 @@ function AppNavigator() {
       shortcutHandler.setNavigationRef(navigationRef.current);
     }
     
-    // Donate shortcuts to iOS on app launch for better Siri integration
-    SiriShortcutService.donateShortcut();
   }, []);
 
   // Configure linking for deep linking

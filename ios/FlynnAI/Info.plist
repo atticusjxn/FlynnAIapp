@@ -80,7 +80,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>FlynnAI accesses your photo library to select images containing job details that can be automatically processed into calendar events and client information.</string>
 	<key>RCTNewArchEnabled</key>
-	<false/>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

@@ -15,7 +15,6 @@ import { FlynnCard } from '../../components/ui/FlynnCard';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { useNavigation } from '@react-navigation/native';
 import shortcutHandler from '../../services/ShortcutHandler';
-import SiriShortcutService from '../../services/SiriShortcutService';
 import ShortcutSharingService from '../../services/ShortcutSharingService';
 
 export const ShortcutSetupScreen = () => {
@@ -36,9 +35,9 @@ export const ShortcutSetupScreen = () => {
     setIsAddingShortcut(true);
     
     try {
-      // First try the iCloud sharing approach (most reliable)
+      // Try the shared shortcut approach first (most reliable)
       const success = await ShortcutSharingService.installShortcut();
-      
+
       if (success) {
         // Show success message after a delay (user will be in Shortcuts app)
         setTimeout(() => {
@@ -48,32 +47,11 @@ export const ShortcutSetupScreen = () => {
             [{ text: 'Great!' }]
           );
         }, 1000);
-      } else {
-        // Fallback to native module approach
-        await SiriShortcutService.presentShortcut(({ status }) => {
-          if (status === 'added') {
-            Alert.alert(
-              'Success! 🎉',
-              'Flynn AI shortcut has been added successfully!\n\nYou can now:\n• Use it from Control Center\n• Say "Process screenshot with Flynn" to Siri\n• Find it in the Shortcuts app',
-              [{ text: 'Awesome!' }]
-            );
-          } else if (status === 'cancelled') {
-            // User cancelled - no alert needed
-          } else if (status === 'unsupported' || status === 'guided_setup') {
-            // Use the improved manual setup
-            handleManualSetup();
-          } else if (status === 'development_mode') {
-            Alert.alert(
-              'Development Mode',
-              'You\'re running in development mode. The one-tap shortcut installation will work when you build the app natively with Xcode.\n\nFor now, would you like to set up the shortcut manually?',
-              [
-                { text: 'Manual Setup', onPress: handleManualSetup },
-                { text: 'Got It', style: 'cancel' }
-              ]
-            );
-          }
-        });
+        return;
       }
+
+      // If the automatic install couldn't launch, fall back to manual instructions
+      handleManualSetup();
     } catch (error) {
       console.error('Error adding shortcut to Siri:', error);
       Alert.alert(

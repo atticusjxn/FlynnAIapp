@@ -3,8 +3,6 @@ export default {
     plugins: [
       "expo-asset",
       "expo-secure-store",
-      // Temporarily disabled for debugging
-      // "@config-plugins/react-native-siri-shortcut"
     ],
     name: "FlynnAI",
     slug: "FlynnAI",
@@ -12,7 +10,7 @@ export default {
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     userInterfaceStyle: "light",
-    newArchEnabled: false,
+    newArchEnabled: true,
     splash: {
       image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
