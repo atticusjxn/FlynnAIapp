@@ -848,6 +848,10 @@ app.post('/jobs/:id/confirm', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`FlynnAI telephony server listening on port ${port}`);
-});
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`FlynnAI telephony server listening on port ${port}`);
+  });
+}
+
+module.exports = app;
