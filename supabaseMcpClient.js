@@ -1,4 +1,5 @@
 const { once } = require('events');
+const { randomUUID } = require('crypto');
 
 let clientPromise;
 
@@ -113,6 +114,7 @@ const ensureClient = async () => {
     const createCallsTableSql = `
       create table if not exists public.calls (
         call_sid text primary key,
+        user_id uuid,
         from_number text,
         to_number text,
         recording_url text,
@@ -132,6 +134,7 @@ const ensureClient = async () => {
     });
 
     const alterCallsSql = `
+      alter table public.calls add column if not exists user_id uuid;
       alter table public.calls add column if not exists transcription_status text;
       alter table public.calls add column if not exists transcription_updated_at timestamptz;
     `;
@@ -165,6 +168,31 @@ const ensureClient = async () => {
       },
     });
 
+    const createJobsSql = `
+      create table if not exists public.jobs (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid references public.users(id) on delete cascade,
+        call_sid text references public.calls(call_sid) on delete cascade,
+        customer_name text,
+        customer_phone text,
+        summary text,
+        service_type text,
+        status text default 'new',
+        created_at timestamptz default now()
+      );
+
+      create index if not exists jobs_user_id_idx on public.jobs(user_id);
+      create unique index if not exists jobs_call_sid_unique on public.jobs(call_sid);
+    `;
+
+    await client.callTool({
+      name: 'execute_sql',
+      arguments: {
+        project_id: config.projectId,
+        query: createJobsSql,
+      },
+    });
+
     return { client, transport, config };
   })();
 
@@ -194,6 +222,7 @@ const executeSql = async (query) => {
 
 const upsertCallRecord = async ({
   callSid,
+  userId,
   fromNumber,
   toNumber,
   recordingUrl,
@@ -208,9 +237,10 @@ const upsertCallRecord = async ({
   const durationValue = Number.isFinite(durationSec) ? Number(durationSec) : null;
 
   const query = `
-    insert into public.calls (call_sid, from_number, to_number, recording_url, duration_sec, recorded_at, transcription_status, transcription_updated_at)
+    insert into public.calls (call_sid, user_id, from_number, to_number, recording_url, duration_sec, recorded_at, transcription_status, transcription_updated_at)
     values (
       ${sqlString(callSid)},
+      ${sqlString(userId)},
       ${sqlString(fromNumber)},
       ${sqlString(toNumber)},
       ${sqlString(recordingUrl)},
@@ -220,6 +250,7 @@ const upsertCallRecord = async ({
       ${transcriptionStatus ? 'now()' : 'NULL'}
     )
     on conflict (call_sid) do update set
+      user_id = coalesce(excluded.user_id, public.calls.user_id),
       from_number = excluded.from_number,
       to_number = excluded.to_number,
       recording_url = excluded.recording_url,
@@ -303,10 +334,104 @@ const updateCallTranscriptionStatus = async ({ callSid, status }) => {
   await executeSql(query);
 };
 
+const getCallBySid = async (callSid) => {
+  if (!callSid) {
+    throw new Error('callSid is required to lookup call metadata.');
+  }
+
+  const query = `
+    select call_sid, user_id, from_number, to_number, recording_url, duration_sec, recorded_at, transcription_status
+    from public.calls
+    where call_sid = ${sqlString(callSid)}
+    limit 1;
+  `;
+
+  const result = await executeSql(query);
+  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+};
+
+const getJobByCallSid = async (callSid) => {
+  if (!callSid) {
+    throw new Error('callSid is required to lookup job by call.');
+  }
+
+  const query = `
+    select id, user_id, call_sid, customer_name, customer_phone, summary, service_type, status, created_at
+    from public.jobs
+    where call_sid = ${sqlString(callSid)}
+    limit 1;
+  `;
+
+  const result = await executeSql(query);
+  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+};
+
+const getJobById = async (id) => {
+  if (!id) {
+    throw new Error('id is required to lookup job.');
+  }
+
+  const query = `
+    select id, user_id, call_sid, customer_name, customer_phone, summary, service_type, status, created_at
+    from public.jobs
+    where id = ${sqlString(id)}
+    limit 1;
+  `;
+
+  const result = await executeSql(query);
+  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+};
+
+const insertJob = async ({
+  id,
+  userId,
+  callSid,
+  customerName,
+  customerPhone,
+  summary,
+  serviceType,
+  status,
+}) => {
+  if (!callSid) {
+    throw new Error('callSid is required for job insert.');
+  }
+
+  const jobId = id || randomUUID();
+
+  const query = `
+    insert into public.jobs (id, user_id, call_sid, customer_name, customer_phone, summary, service_type, status)
+    values (
+      ${sqlString(jobId)},
+      ${sqlString(userId)},
+      ${sqlString(callSid)},
+      ${sqlString(customerName)},
+      ${sqlString(customerPhone)},
+      ${sqlString(summary)},
+      ${sqlString(serviceType)},
+      ${sqlString(status || 'new')}
+    )
+    on conflict (call_sid) do update set
+      user_id = coalesce(excluded.user_id, public.jobs.user_id),
+      customer_name = excluded.customer_name,
+      customer_phone = excluded.customer_phone,
+      summary = excluded.summary,
+      service_type = excluded.service_type,
+      status = excluded.status
+    returning id;
+  `;
+
+  const result = await executeSql(query);
+  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : { id: jobId };
+};
+
 module.exports = {
   upsertCallRecord,
   executeSql,
   getTranscriptByCallSid,
   insertTranscription,
   updateCallTranscriptionStatus,
+  getCallBySid,
+  getJobByCallSid,
+  getJobById,
+  insertJob,
 };

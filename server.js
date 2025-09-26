@@ -4,12 +4,17 @@ const dotenv = require('dotenv');
 const { randomUUID } = require('crypto');
 const OpenAI = require('openai');
 const { toFile } = require('openai');
+const { ensureJobForTranscript } = require('./telephony/jobCreation');
 
 const {
   upsertCallRecord,
   getTranscriptByCallSid,
   insertTranscription,
   updateCallTranscriptionStatus,
+  getCallBySid,
+  getJobByCallSid,
+  getJobById,
+  insertJob,
 } = require('./supabaseMcpClient');
 
 dotenv.config();
@@ -27,6 +32,8 @@ const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
 const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
 const shouldValidateSignature = process.env.TWILIO_VALIDATE_SIGNATURE !== 'false';
 const openaiApiKey = process.env.OPENAI_API_KEY;
+const twilioMessagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+const twilioSmsFromNumber = process.env.TWILIO_SMS_FROM_NUMBER || process.env.TWILIO_FROM_NUMBER;
 
 if (!twilioAccountSid || !twilioAuthToken) {
   console.warn('[Telephony] Twilio credentials are incomplete; recording downloads will fail until configured.');
@@ -37,6 +44,9 @@ if (!openaiApiKey) {
 }
 
 const openaiClient = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
+const twilioMessagingClient = twilioAccountSid && twilioAuthToken
+  ? twilio(twilioAccountSid, twilioAuthToken)
+  : null;
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -136,6 +146,32 @@ const inferAudioExtension = (resolvedUrl, response) => {
   }
 
   return 'mp3';
+};
+
+const sendConfirmationSms = async ({ to, body }) => {
+  if (!twilioMessagingClient) {
+    throw new Error('Twilio messaging client is not configured.');
+  }
+
+  if (!to) {
+    throw new Error('Destination phone number is required.');
+  }
+
+  const payload = {
+    to,
+    body,
+  };
+
+  if (twilioMessagingServiceSid) {
+    payload.messagingServiceSid = twilioMessagingServiceSid;
+  } else if (twilioSmsFromNumber) {
+    payload.from = twilioSmsFromNumber;
+  } else {
+    throw new Error('Configure TWILIO_MESSAGING_SERVICE_SID or TWILIO_SMS_FROM_NUMBER to send SMS.');
+  }
+
+  const message = await twilioMessagingClient.messages.create(payload);
+  return message;
 };
 
 const handleInboundVoice = (req, res) => {
@@ -304,6 +340,19 @@ app.post('/telephony/recording-complete', async (req, res) => {
 
       console.log('[Telephony] Transcription stored successfully for call.', { callSid: CallSid });
 
+      try {
+        await ensureJobForTranscript({
+          callSid: CallSid,
+          transcriptText,
+          openaiClient,
+        });
+      } catch (jobCreationError) {
+        console.error('[Jobs] Failed to create job from transcript.', {
+          callSid: CallSid,
+          error: jobCreationError,
+        });
+      }
+
       return res.status(200).json({ status: 'transcribed' });
     } catch (transcriptionError) {
       console.error('[Telephony] Failed to transcribe recording.', {
@@ -316,6 +365,56 @@ app.post('/telephony/recording-complete', async (req, res) => {
   } catch (error) {
     console.error('[Telephony] Failed to handle recording complete webhook:', error);
     return res.status(500).json({ error: 'Failed to process recording' });
+  }
+});
+
+app.post('/jobs/:id/confirm', async (req, res) => {
+  const jobId = req.params?.id;
+
+  if (!jobId) {
+    return res.status(400).json({ error: 'Job ID is required' });
+  }
+
+  if (!twilioMessagingClient) {
+    console.error('[Jobs] Twilio messaging client unavailable; cannot send confirmation SMS.');
+    return res.status(500).json({ error: 'Messaging not configured' });
+  }
+
+  try {
+    const jobRecord = await getJobById(jobId);
+
+    if (!jobRecord) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (!jobRecord.customer_phone) {
+      return res.status(400).json({ error: 'Job is missing customer_phone' });
+    }
+
+    const smsBody = "Hi, we received your voicemail and created a job card. We'll be in touch soon.";
+
+    await sendConfirmationSms({
+      to: jobRecord.customer_phone,
+      body: smsBody,
+    });
+
+    console.log('[Jobs] Confirmation SMS queued.', {
+      jobId: jobRecord.id,
+      callSid: jobRecord.call_sid,
+    });
+
+    return res.status(200).json({ status: 'queued' });
+  } catch (error) {
+    console.error('[Jobs] Failed to send confirmation SMS.', {
+      jobId,
+      error,
+    });
+
+    if (error && error.message && /configure/i.test(error.message)) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(500).json({ error: 'Failed to send confirmation SMS' });
   }
 });
 
