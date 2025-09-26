@@ -10,6 +10,33 @@ const sqlString = (value) => {
   return `'${String(value).replace(/'/g, "''")}'`;
 };
 
+const parseResultRows = (result) => {
+  if (!result) {
+    return [];
+  }
+
+  if (result.structuredContent && Array.isArray(result.structuredContent.rows)) {
+    return result.structuredContent.rows;
+  }
+
+  if (Array.isArray(result.content)) {
+    for (const block of result.content) {
+      if (block && block.type === 'text' && typeof block.text === 'string') {
+        try {
+          const parsed = JSON.parse(block.text);
+          if (parsed && Array.isArray(parsed.rows)) {
+            return parsed.rows;
+          }
+        } catch (error) {
+          // Ignore JSON parse failures; fallback to next block.
+        }
+      }
+    }
+  }
+
+  return [];
+};
+
 const getSupabaseConfig = () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -83,14 +110,16 @@ const ensureClient = async () => {
       process.exit(0);
     });
 
-    const createTableSql = `
+    const createCallsTableSql = `
       create table if not exists public.calls (
         call_sid text primary key,
         from_number text,
         to_number text,
         recording_url text,
         duration_sec integer,
-        recorded_at timestamptz
+        recorded_at timestamptz,
+        transcription_status text,
+        transcription_updated_at timestamptz
       );
     `;
 
@@ -98,7 +127,41 @@ const ensureClient = async () => {
       name: 'execute_sql',
       arguments: {
         project_id: config.projectId,
-        query: createTableSql,
+        query: createCallsTableSql,
+      },
+    });
+
+    const alterCallsSql = `
+      alter table public.calls add column if not exists transcription_status text;
+      alter table public.calls add column if not exists transcription_updated_at timestamptz;
+    `;
+
+    await client.callTool({
+      name: 'execute_sql',
+      arguments: {
+        project_id: config.projectId,
+        query: alterCallsSql,
+      },
+    });
+
+    const createTranscriptionsSql = `
+      create table if not exists public.transcriptions (
+        id uuid primary key,
+        call_sid text not null references public.calls(call_sid) on delete cascade,
+        engine text not null,
+        "text" text not null,
+        confidence double precision default 0.8,
+        language text,
+        created_at timestamptz default now() not null
+      );
+      create unique index if not exists transcriptions_call_sid_idx on public.transcriptions(call_sid);
+    `;
+
+    await client.callTool({
+      name: 'execute_sql',
+      arguments: {
+        project_id: config.projectId,
+        query: createTranscriptionsSql,
       },
     });
 
@@ -124,6 +187,8 @@ const executeSql = async (query) => {
     },
   });
 
+  result.rows = parseResultRows(result);
+
   return result;
 };
 
@@ -134,6 +199,7 @@ const upsertCallRecord = async ({
   recordingUrl,
   durationSec,
   recordedAt,
+  transcriptionStatus,
 }) => {
   if (!callSid) {
     throw new Error('callSid is required for upsert.');
@@ -142,21 +208,96 @@ const upsertCallRecord = async ({
   const durationValue = Number.isFinite(durationSec) ? Number(durationSec) : null;
 
   const query = `
-    insert into public.calls (call_sid, from_number, to_number, recording_url, duration_sec, recorded_at)
+    insert into public.calls (call_sid, from_number, to_number, recording_url, duration_sec, recorded_at, transcription_status, transcription_updated_at)
     values (
       ${sqlString(callSid)},
       ${sqlString(fromNumber)},
       ${sqlString(toNumber)},
       ${sqlString(recordingUrl)},
       ${durationValue === null ? 'NULL' : durationValue},
-      ${sqlString(recordedAt)}
+      ${sqlString(recordedAt)},
+      ${sqlString(transcriptionStatus)},
+      ${transcriptionStatus ? 'now()' : 'NULL'}
     )
     on conflict (call_sid) do update set
       from_number = excluded.from_number,
       to_number = excluded.to_number,
       recording_url = excluded.recording_url,
       duration_sec = excluded.duration_sec,
-      recorded_at = excluded.recorded_at;
+      recorded_at = excluded.recorded_at,
+      transcription_status = case
+        when excluded.transcription_status is not null then excluded.transcription_status
+        else public.calls.transcription_status
+      end,
+      transcription_updated_at = case
+        when excluded.transcription_status is not null
+          and excluded.transcription_status is distinct from public.calls.transcription_status then now()
+        else public.calls.transcription_updated_at
+      end;
+  `;
+
+  await executeSql(query);
+};
+
+const getTranscriptByCallSid = async (callSid) => {
+  if (!callSid) {
+    throw new Error('callSid is required for transcription lookup.');
+  }
+
+  const query = `
+    select id, call_sid, engine, "text", confidence, language, created_at
+    from public.transcriptions
+    where call_sid = ${sqlString(callSid)}
+    limit 1;
+  `;
+
+  const result = await executeSql(query);
+  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+};
+
+const insertTranscription = async ({ id, callSid, engine, text, confidence, language }) => {
+  if (!id) {
+    throw new Error('id is required for transcription insert.');
+  }
+
+  if (!callSid) {
+    throw new Error('callSid is required for transcription insert.');
+  }
+
+  const query = `
+    insert into public.transcriptions (id, call_sid, engine, "text", confidence, language)
+    values (
+      ${sqlString(id)},
+      ${sqlString(callSid)},
+      ${sqlString(engine)},
+      ${sqlString(text)},
+      ${typeof confidence === 'number' ? confidence : '0.8'},
+      ${sqlString(language)}
+    )
+    on conflict (call_sid) do update set
+      engine = excluded.engine,
+      "text" = excluded."text",
+      confidence = excluded.confidence,
+      language = excluded.language,
+      created_at = now()
+    returning id;
+  `;
+
+  const result = await executeSql(query);
+  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+};
+
+const updateCallTranscriptionStatus = async ({ callSid, status }) => {
+  if (!callSid) {
+    throw new Error('callSid is required for transcription status update.');
+  }
+
+  const query = `
+    update public.calls
+    set
+      transcription_status = ${sqlString(status)},
+      transcription_updated_at = now()
+    where call_sid = ${sqlString(callSid)};
   `;
 
   await executeSql(query);
@@ -165,4 +306,7 @@ const upsertCallRecord = async ({
 module.exports = {
   upsertCallRecord,
   executeSql,
+  getTranscriptByCallSid,
+  insertTranscription,
+  updateCallTranscriptionStatus,
 };

@@ -1,8 +1,16 @@
 const express = require('express');
 const twilio = require('twilio');
 const dotenv = require('dotenv');
+const { randomUUID } = require('crypto');
+const OpenAI = require('openai');
+const { toFile } = require('openai');
 
-const { upsertCallRecord } = require('./supabaseMcpClient');
+const {
+  upsertCallRecord,
+  getTranscriptByCallSid,
+  insertTranscription,
+  updateCallTranscriptionStatus,
+} = require('./supabaseMcpClient');
 
 dotenv.config();
 
@@ -14,8 +22,20 @@ if (process.env.SERVER_PUBLIC_URL) {
 
 const app = express();
 const port = process.env.PORT || 3000;
+const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
 const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
 const shouldValidateSignature = process.env.TWILIO_VALIDATE_SIGNATURE !== 'false';
+const openaiApiKey = process.env.OPENAI_API_KEY;
+
+if (!twilioAccountSid || !twilioAuthToken) {
+  console.warn('[Telephony] Twilio credentials are incomplete; recording downloads will fail until configured.');
+}
+
+if (!openaiApiKey) {
+  console.warn('[Telephony] OPENAI_API_KEY is not configured; transcription will fail until set.');
+}
+
+const openaiClient = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -35,6 +55,86 @@ const buildRecordingCallbackUrl = (req) => {
 
   const fallbackUrl = `${req.protocol}://${req.get('host')}${callbackPath}`;
   return fallbackUrl;
+};
+
+const isAudioResponse = (response, url) => {
+  if (!response) {
+    return false;
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.toLowerCase().startsWith('audio/')) {
+    return true;
+  }
+
+  return /\.(mp3|wav)(\?|$)/i.test(url);
+};
+
+const downloadTwilioRecording = async (recordingUrl) => {
+  if (!recordingUrl) {
+    throw new Error('RecordingUrl is required to download audio.');
+  }
+
+  if (!twilioAccountSid || !twilioAuthToken) {
+    throw new Error('Twilio credentials are not configured.');
+  }
+
+  const authHeader = `Basic ${Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64')}`;
+  const candidateUrls = [recordingUrl];
+
+  if (!/\.(mp3|wav)(\?|$)/i.test(recordingUrl)) {
+    candidateUrls.push(`${recordingUrl}.mp3`);
+    candidateUrls.push(`${recordingUrl}.wav`);
+  }
+
+  for (const url of candidateUrls) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: authHeader,
+        },
+      });
+
+      if (response.ok && isAudioResponse(response, url)) {
+        return { response, resolvedUrl: url };
+      }
+
+      response.body?.cancel?.().catch(() => {});
+
+      console.warn('[Telephony] Twilio recording fetch returned unexpected response.', {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+      });
+    } catch (error) {
+      console.warn('[Telephony] Failed to download recording from Twilio URL.', {
+        url,
+        error,
+      });
+    }
+  }
+
+  throw new Error('Unable to download recording from Twilio.');
+};
+
+const inferAudioExtension = (resolvedUrl, response) => {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('wav')) {
+    return 'wav';
+  }
+
+  if (contentType.includes('mpeg') || contentType.includes('mp3')) {
+    return 'mp3';
+  }
+
+  const urlMatch = resolvedUrl.match(/\.([a-z0-9]+)(?:\?|$)/i);
+  if (urlMatch && urlMatch[1]) {
+    return urlMatch[1].toLowerCase();
+  }
+
+  return 'mp3';
 };
 
 app.post('/telephony/inbound-voice', (req, res) => {
@@ -141,7 +241,72 @@ app.post('/telephony/recording-complete', async (req, res) => {
       recordedAt,
     });
 
-    return res.status(200).json({ status: 'recording received' });
+    const existingTranscript = await getTranscriptByCallSid(CallSid);
+    if (existingTranscript) {
+      console.log('[Telephony] Transcript already exists for call; skipping regeneration.');
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'completed' });
+      return res.status(200).json({ status: 'transcribed' });
+    }
+
+    if (!RecordingUrl) {
+      console.warn('[Telephony] RecordingUrl missing from webhook payload.');
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' });
+      return res.status(400).json({ error: 'RecordingUrl is required' });
+    }
+
+    if (!openaiClient) {
+      console.error('[Telephony] OpenAI client not configured; cannot transcribe.');
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' });
+      return res.status(500).json({ error: 'Transcription service unavailable' });
+    }
+
+    await updateCallTranscriptionStatus({ callSid: CallSid, status: 'processing' });
+
+    try {
+      const { response: recordingResponse, resolvedUrl } = await downloadTwilioRecording(RecordingUrl);
+      const extension = inferAudioExtension(resolvedUrl, recordingResponse);
+      const contentType = recordingResponse.headers.get('content-type') || undefined;
+      const fileNameBase = RecordingSid || CallSid || 'recording';
+      const fileName = extension ? `${fileNameBase}.${extension}` : fileNameBase;
+
+      const audioFile = await toFile(recordingResponse, fileName, contentType ? { type: contentType } : undefined);
+
+      const transcriptionResponse = await openaiClient.audio.transcriptions.create({
+        file: audioFile,
+        model: 'gpt-4o-mini-transcribe',
+      });
+
+      const transcriptText = (transcriptionResponse && transcriptionResponse.text) ? transcriptionResponse.text.trim() : '';
+      const transcriptLanguage = transcriptionResponse && transcriptionResponse.language
+        ? transcriptionResponse.language
+        : 'en';
+
+      if (!transcriptText) {
+        throw new Error('Transcription response did not include text.');
+      }
+
+      await insertTranscription({
+        id: randomUUID(),
+        callSid: CallSid,
+        engine: 'whisper',
+        text: transcriptText,
+        confidence: 0.8,
+        language: transcriptLanguage,
+      });
+
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'completed' });
+
+      console.log('[Telephony] Transcription stored successfully for call.', { callSid: CallSid });
+
+      return res.status(200).json({ status: 'transcribed' });
+    } catch (transcriptionError) {
+      console.error('[Telephony] Failed to transcribe recording.', {
+        callSid: CallSid,
+        error: transcriptionError,
+      });
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' });
+      return res.status(500).json({ error: 'Failed to transcribe recording' });
+    }
   } catch (error) {
     console.error('[Telephony] Failed to handle recording complete webhook:', error);
     return res.status(500).json({ error: 'Failed to process recording' });
