@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const { randomUUID } = require('crypto');
 const OpenAI = require('openai');
 const { toFile } = require('openai');
+const { createClient } = require('@supabase/supabase-js');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 
 const {
@@ -13,8 +14,14 @@ const {
   updateCallTranscriptionStatus,
   getCallBySid,
   getJobByCallSid,
+  listJobsForUser,
+  getJobForUser,
+  updateJobStatusForUser,
   getJobById,
   insertJob,
+  findExpiredRecordingCalls,
+  markCallRecordingExpired,
+  updateCallRecordingSignedUrl,
 } = require('./supabaseMcpClient');
 
 dotenv.config();
@@ -34,6 +41,23 @@ const shouldValidateSignature = process.env.TWILIO_VALIDATE_SIGNATURE !== 'false
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const twilioMessagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 const twilioSmsFromNumber = process.env.TWILIO_SMS_FROM_NUMBER || process.env.TWILIO_FROM_NUMBER;
+const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  || process.env.SUPABASE_KEY
+  || process.env.SUPABASE_SECRET;
+
+const parseIntegerEnv = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const voicemailBucket = process.env.VOICEMAIL_STORAGE_BUCKET || 'voicemails';
+const voicemailSignedUrlTtlSeconds = parseIntegerEnv(process.env.VOICEMAIL_SIGNED_URL_TTL_SECONDS, 3600);
+const voicemailRetentionDays = parseIntegerEnv(process.env.VOICEMAIL_RETENTION_DAYS, 30);
+
+const supabaseStorageClient = supabaseUrl && supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
+  : null;
 
 if (!twilioAccountSid || !twilioAuthToken) {
   console.warn('[Telephony] Twilio credentials are incomplete; recording downloads will fail until configured.');
@@ -43,6 +67,10 @@ if (!openaiApiKey) {
   console.warn('[Telephony] OPENAI_API_KEY is not configured; transcription will fail until set.');
 }
 
+if (!supabaseStorageClient) {
+  console.warn('[Telephony] Supabase storage client is not configured; voicemail uploads will fail.');
+}
+
 const openaiClient = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
 const twilioMessagingClient = twilioAccountSid && twilioAuthToken
   ? twilio(twilioAccountSid, twilioAuthToken)
@@ -50,6 +78,35 @@ const twilioMessagingClient = twilioAccountSid && twilioAuthToken
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+const JOB_STATUS_VALUES = new Set(['new', 'in_progress', 'completed']);
+
+const extractUserId = (req) => {
+  const headerCandidates = [
+    req.get('x-user-id'),
+    req.get('x-flynn-user-id'),
+    req.get('flynn-user-id'),
+  ];
+
+  for (const candidate of headerCandidates) {
+    if (candidate && typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+};
+
+const requireUser = (req, res, next) => {
+  const userId = extractUserId(req);
+
+  if (!userId) {
+    return res.status(401).json({ error: 'User authentication required' });
+  }
+
+  req.user = { id: userId };
+  return next();
+};
 
 const buildRecordingCallbackUrl = (req) => {
   const callbackPath = '/telephony/recording-complete';
@@ -148,6 +205,158 @@ const inferAudioExtension = (resolvedUrl, response) => {
   return 'mp3';
 };
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const buildVoicemailStoragePath = ({ callSid, recordingSid, extension }) => {
+  const now = new Date();
+  const dateFolder = [
+    now.getUTCFullYear(),
+    String(now.getUTCMonth() + 1).padStart(2, '0'),
+    String(now.getUTCDate()).padStart(2, '0'),
+  ].join('/');
+
+  const baseName = (recordingSid || callSid || randomUUID()).replace(/[^a-zA-Z0-9-_]/g, '');
+  return `${dateFolder}/${baseName}.${extension}`;
+};
+
+const createSignedUrlForPath = async (storagePath, ttlSeconds = voicemailSignedUrlTtlSeconds) => {
+  if (!supabaseStorageClient) {
+    throw new Error('Supabase storage client is not configured.');
+  }
+
+  const expiresIn = Math.max(60, Number.isFinite(ttlSeconds) ? ttlSeconds : 3600);
+
+  const { data, error } = await supabaseStorageClient
+    .storage
+    .from(voicemailBucket)
+    .createSignedUrl(storagePath, expiresIn);
+
+  if (error) {
+    throw error;
+  }
+
+  const signedUrl = data?.signedUrl || null;
+  const expirationIso = data?.expiration
+    ? new Date(data.expiration * 1000).toISOString()
+    : new Date(Date.now() + expiresIn * 1000).toISOString();
+
+  return { signedUrl, expiresAt: expirationIso };
+};
+
+const persistRecordingToSupabaseStorage = async ({
+  callSid,
+  recordingSid,
+  resolvedUrl,
+  response,
+}) => {
+  if (!supabaseStorageClient) {
+    throw new Error('Supabase storage client is not configured.');
+  }
+
+  const extension = inferAudioExtension(resolvedUrl, response);
+  const contentType = response.headers.get('content-type') || `audio/${extension === 'wav' ? 'wav' : 'mpeg'}`;
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const storagePath = buildVoicemailStoragePath({ callSid, recordingSid, extension });
+
+  const { error: uploadError } = await supabaseStorageClient
+    .storage
+    .from(voicemailBucket)
+    .upload(storagePath, buffer, {
+      contentType,
+      upsert: true,
+    });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { signedUrl, expiresAt } = await createSignedUrlForPath(storagePath);
+
+  const recordingExpiresAt = voicemailRetentionDays > 0
+    ? new Date(Date.now() + voicemailRetentionDays * MS_PER_DAY).toISOString()
+    : null;
+
+  return {
+    storagePath,
+    signedUrl,
+    signedExpiresAt: expiresAt,
+    recordingExpiresAt,
+    contentType,
+    extension,
+    size: buffer.length,
+  };
+};
+
+const purgeExpiredRecordings = async () => {
+  if (!supabaseStorageClient) {
+    return;
+  }
+
+  if (!voicemailRetentionDays || voicemailRetentionDays <= 0) {
+    return;
+  }
+
+  try {
+    const cutoffIso = new Date().toISOString();
+    const candidates = await findExpiredRecordingCalls({ cutoffIso, limit: 50 });
+
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      return;
+    }
+
+    for (const candidate of candidates) {
+      const callSid = candidate?.call_sid;
+      const storagePath = candidate?.recording_storage_path;
+
+      if (!callSid) {
+        continue;
+      }
+
+      try {
+        if (storagePath) {
+          const { error: removeError } = await supabaseStorageClient
+            .storage
+            .from(voicemailBucket)
+            .remove([storagePath]);
+
+          if (removeError) {
+            console.error('[Telephony] Failed to delete expired voicemail from storage.', {
+              callSid,
+              storagePath,
+              error: removeError,
+            });
+            continue;
+          }
+
+          await markCallRecordingExpired({ callSid, clearStoragePath: true });
+        } else {
+          await markCallRecordingExpired({ callSid, clearStoragePath: false });
+        }
+      } catch (callError) {
+        console.error('[Telephony] Failed to mark voicemail recording expired.', {
+          callSid,
+          error: callError,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('[Telephony] Failed to purge expired recordings.', { error });
+  }
+};
+
+const scheduleRetentionSweep = () => {
+  if (!voicemailRetentionDays || voicemailRetentionDays <= 0) {
+    return;
+  }
+
+  setTimeout(() => {
+    purgeExpiredRecordings().catch((error) => {
+      console.error('[Telephony] Retention sweep threw an error.', { error });
+    });
+  }, 0);
+};
+
 const sendConfirmationSms = async ({ to, body }) => {
   if (!twilioMessagingClient) {
     throw new Error('Twilio messaging client is not configured.');
@@ -219,6 +428,48 @@ const handleInboundVoice = (req, res) => {
 app.post('/telephony/inbound-voice', handleInboundVoice);
 app.get('/telephony/inbound-voice', handleInboundVoice);
 
+app.get('/telephony/calls/:callSid/recording', async (req, res) => {
+  const callSid = req.params?.callSid;
+
+  if (!callSid) {
+    return res.status(400).json({ error: 'CallSid is required' });
+  }
+
+  try {
+    const callRecord = await getCallBySid(callSid);
+
+    if (!callRecord) {
+      return res.status(404).json({ error: 'Call not found' });
+    }
+
+    if (!callRecord.recording_storage_path) {
+      return res.status(404).json({ error: 'No stored recording for this call' });
+    }
+
+    if (!supabaseStorageClient) {
+      console.error('[Telephony] Supabase storage client is not configured; cannot issue signed URL.');
+      return res.status(500).json({ error: 'Voicemail storage unavailable' });
+    }
+
+    const { signedUrl, expiresAt } = await createSignedUrlForPath(callRecord.recording_storage_path);
+
+    await updateCallRecordingSignedUrl({
+      callSid,
+      signedUrl,
+      signedExpiresAt: expiresAt,
+    });
+
+    return res.status(200).json({
+      callSid,
+      signedUrl,
+      expiresAt,
+    });
+  } catch (error) {
+    console.error('[Telephony] Failed to generate signed voicemail URL.', { callSid, error });
+    return res.status(500).json({ error: 'Failed to generate voicemail URL' });
+  }
+});
+
 app.post('/telephony/recording-complete', async (req, res) => {
   console.log('[Telephony] Recording complete webhook request received.');
 
@@ -274,26 +525,90 @@ app.post('/telephony/recording-complete', async (req, res) => {
     const durationSec = Number.isFinite(Number(RecordingDuration)) ? Number(RecordingDuration) : null;
     const recordedAt = Timestamp || new Date().toISOString();
 
+    if (!supabaseStorageClient) {
+      console.error('[Telephony] Supabase storage client is not configured; cannot store voicemail.');
+      await upsertCallRecord({
+        callSid: CallSid,
+        fromNumber: From,
+        toNumber: To,
+        recordingSid: RecordingSid,
+        durationSec,
+        recordedAt,
+        status: 'failed',
+      });
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' }).catch(() => {});
+      return res.status(500).json({ error: 'Voicemail storage unavailable' });
+    }
+
+    if (!RecordingUrl) {
+      console.warn('[Telephony] RecordingUrl missing from webhook payload.');
+      await upsertCallRecord({
+        callSid: CallSid,
+        fromNumber: From,
+        toNumber: To,
+        recordingSid: RecordingSid,
+        durationSec,
+        recordedAt,
+        status: 'failed',
+      });
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' }).catch(() => {});
+      return res.status(400).json({ error: 'RecordingUrl is required' });
+    }
+
+    let recordingResponse;
+    let resolvedUrl;
+    let storageMetadata;
+
+    try {
+      ({ response: recordingResponse, resolvedUrl } = await downloadTwilioRecording(RecordingUrl));
+      storageMetadata = await persistRecordingToSupabaseStorage({
+        callSid: CallSid,
+        recordingSid: RecordingSid,
+        resolvedUrl,
+        response: recordingResponse.clone(),
+      });
+    } catch (storageError) {
+      console.error('[Telephony] Failed to persist voicemail recording.', {
+        callSid: CallSid,
+        error: storageError,
+      });
+
+      await upsertCallRecord({
+        callSid: CallSid,
+        fromNumber: From,
+        toNumber: To,
+        recordingSid: RecordingSid,
+        durationSec,
+        recordedAt,
+        status: 'failed',
+      });
+
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' }).catch(() => {});
+
+      return res.status(500).json({ error: 'Failed to store recording' });
+    }
+
     await upsertCallRecord({
       callSid: CallSid,
       fromNumber: From,
       toNumber: To,
-      recordingUrl: RecordingUrl,
+      recordingUrl: storageMetadata?.signedUrl,
+      recordingSid: RecordingSid,
+      recordingStoragePath: storageMetadata?.storagePath,
+      recordingSignedExpiresAt: storageMetadata?.signedExpiresAt,
+      recordingExpiresAt: storageMetadata?.recordingExpiresAt,
       durationSec,
       recordedAt,
+      status: 'active',
     });
+
+    scheduleRetentionSweep();
 
     const existingTranscript = await getTranscriptByCallSid(CallSid);
     if (existingTranscript) {
       console.log('[Telephony] Transcript already exists for call; skipping regeneration.');
       await updateCallTranscriptionStatus({ callSid: CallSid, status: 'completed' });
       return res.status(200).json({ status: 'transcribed' });
-    }
-
-    if (!RecordingUrl) {
-      console.warn('[Telephony] RecordingUrl missing from webhook payload.');
-      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' });
-      return res.status(400).json({ error: 'RecordingUrl is required' });
     }
 
     if (!openaiClient) {
@@ -305,11 +620,10 @@ app.post('/telephony/recording-complete', async (req, res) => {
     await updateCallTranscriptionStatus({ callSid: CallSid, status: 'processing' });
 
     try {
-      const { response: recordingResponse, resolvedUrl } = await downloadTwilioRecording(RecordingUrl);
-      const extension = inferAudioExtension(resolvedUrl, recordingResponse);
-      const contentType = recordingResponse.headers.get('content-type') || undefined;
       const fileNameBase = RecordingSid || CallSid || 'recording';
+      const extension = storageMetadata?.extension || inferAudioExtension(resolvedUrl, recordingResponse);
       const fileName = extension ? `${fileNameBase}.${extension}` : fileNameBase;
+      const contentType = storageMetadata?.contentType || recordingResponse.headers.get('content-type') || undefined;
 
       const audioFile = await toFile(recordingResponse, fileName, contentType ? { type: contentType } : undefined);
 
@@ -365,6 +679,122 @@ app.post('/telephony/recording-complete', async (req, res) => {
   } catch (error) {
     console.error('[Telephony] Failed to handle recording complete webhook:', error);
     return res.status(500).json({ error: 'Failed to process recording' });
+  }
+});
+
+app.get('/jobs', requireUser, async (req, res) => {
+  const userId = req.user.id;
+  const statusParam = typeof req.query.status === 'string' ? req.query.status.trim() : undefined;
+  const normalizedStatus = statusParam ? statusParam.toLowerCase() : undefined;
+
+  if (normalizedStatus && !JOB_STATUS_VALUES.has(normalizedStatus)) {
+    return res.status(400).json({ error: 'Invalid status filter' });
+  }
+
+  const limitParam = typeof req.query.limit === 'string' ? req.query.limit : undefined;
+  const offsetParam = typeof req.query.offset === 'string' ? req.query.offset : undefined;
+
+  const parsedLimit = Number.parseInt(limitParam ?? '', 10);
+  const parsedOffset = Number.parseInt(offsetParam ?? '', 10);
+
+  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0
+    ? Math.min(parsedLimit, 100)
+    : 20;
+  const offset = Number.isFinite(parsedOffset) && parsedOffset >= 0
+    ? parsedOffset
+    : 0;
+
+  try {
+    const jobs = await listJobsForUser({
+      userId,
+      status: normalizedStatus,
+      limit,
+      offset,
+    });
+
+    return res.status(200).json({
+      jobs,
+      pagination: {
+        limit,
+        offset,
+        count: jobs.length,
+      },
+    });
+  } catch (error) {
+    console.error('[Jobs] Failed to list jobs.', {
+      userId,
+      error,
+    });
+    return res.status(500).json({ error: 'Failed to load jobs' });
+  }
+});
+
+app.get('/jobs/:id', requireUser, async (req, res) => {
+  const userId = req.user.id;
+  const jobId = req.params?.id;
+
+  if (!jobId) {
+    return res.status(400).json({ error: 'Job ID is required' });
+  }
+
+  try {
+    const job = await getJobForUser({ jobId, userId });
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    return res.status(200).json({ job });
+  } catch (error) {
+    console.error('[Jobs] Failed to fetch job.', {
+      userId,
+      jobId,
+      error,
+    });
+    return res.status(500).json({ error: 'Failed to load job' });
+  }
+});
+
+app.patch('/jobs/:id', requireUser, async (req, res) => {
+  const userId = req.user.id;
+  const jobId = req.params?.id;
+
+  if (!jobId) {
+    return res.status(400).json({ error: 'Job ID is required' });
+  }
+
+  const requestedStatus = req.body && typeof req.body.status === 'string'
+    ? req.body.status.trim().toLowerCase()
+    : undefined;
+
+  if (!requestedStatus) {
+    return res.status(400).json({ error: 'Status is required' });
+  }
+
+  if (!JOB_STATUS_VALUES.has(requestedStatus)) {
+    return res.status(400).json({ error: 'Invalid status value' });
+  }
+
+  try {
+    const updatedJob = await updateJobStatusForUser({
+      jobId,
+      userId,
+      status: requestedStatus,
+    });
+
+    if (!updatedJob) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    return res.status(200).json({ job: updatedJob });
+  } catch (error) {
+    console.error('[Jobs] Failed to update job status.', {
+      userId,
+      jobId,
+      requestedStatus,
+      error,
+    });
+    return res.status(500).json({ error: 'Failed to update job' });
   }
 });
 

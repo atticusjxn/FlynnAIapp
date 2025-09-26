@@ -4,8 +4,13 @@ with required_columns as (
   select 'calls', 'from_number' union all
   select 'calls', 'to_number' union all
   select 'calls', 'recording_url' union all
+  select 'calls', 'recording_sid' union all
+  select 'calls', 'recording_storage_path' union all
+  select 'calls', 'recording_signed_expires_at' union all
+  select 'calls', 'recording_expires_at' union all
   select 'calls', 'duration_sec' union all
   select 'calls', 'recorded_at' union all
+  select 'calls', 'status' union all
   select 'calls', 'transcription_status' union all
   select 'transcriptions', 'id' union all
   select 'transcriptions', 'call_sid' union all
