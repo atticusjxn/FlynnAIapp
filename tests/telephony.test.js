@@ -1,4 +1,4 @@
-const { loadServer, BASE_ENV } = require('./testServer');
+const { loadServer, BASE_ENV, createAuthToken } = require('./testServer');
 
 const buildRecordingResponse = () => {
   const buffer = Buffer.from('fake-audio');
@@ -128,8 +128,11 @@ describe('Telephony API', () => {
         recording_storage_path: 'voicemails/file.mp3',
       });
 
+      const token = createAuthToken('user-123');
       const request = require('supertest')(app);
-      const response = await request.get(`/telephony/calls/${CALL_SID}/recording`);
+      const response = await request
+        .get(`/telephony/calls/${CALL_SID}/recording`)
+        .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
       expect(response.body.callSid).toBe(CALL_SID);
@@ -146,12 +149,15 @@ describe('Telephony API', () => {
     } = loadServer();
 
     mockSupabaseClient.getCallBySid.mockResolvedValue({
-        call_sid: CALL_SID,
-        recording_storage_path: null,
-      });
+      call_sid: CALL_SID,
+      recording_storage_path: null,
+    });
 
-      const request = require('supertest')(app);
-      const response = await request.get(`/telephony/calls/${CALL_SID}/recording`);
+    const token = createAuthToken('user-123');
+    const request = require('supertest')(app);
+    const response = await request
+      .get(`/telephony/calls/${CALL_SID}/recording`)
+      .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'No stored recording for this call' });

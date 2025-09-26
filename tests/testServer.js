@@ -1,9 +1,11 @@
 const path = require('path');
+const jwt = require('jsonwebtoken');
 
 const BASE_ENV = {
   SERVER_PUBLIC_URL: 'https://example.test',
   SUPABASE_URL: 'https://supabase.test',
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+  SUPABASE_JWT_SECRET: 'dev-jwt-secret',
   TWILIO_ACCOUNT_SID: 'AC_TEST',
   TWILIO_AUTH_TOKEN: 'auth-token',
   TWILIO_SMS_FROM_NUMBER: '+15555550123',
@@ -56,7 +58,20 @@ const loadServer = (envOverrides = {}) => {
   };
 };
 
+const createAuthToken = (userId, overrides = {}) => {
+  const secret = process.env.SUPABASE_JWT_SECRET || BASE_ENV.SUPABASE_JWT_SECRET;
+  const payload = {
+    sub: userId,
+    aud: 'authenticated',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    ...overrides,
+  };
+
+  return jwt.sign(payload, secret, { algorithm: 'HS256' });
+};
+
 module.exports = {
   loadServer,
   BASE_ENV,
+  createAuthToken,
 };

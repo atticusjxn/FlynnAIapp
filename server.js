@@ -6,6 +6,7 @@ const OpenAI = require('openai');
 const { toFile } = require('openai');
 const { createClient } = require('@supabase/supabase-js');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
+const authenticateJwt = require('./middleware/authenticateJwt');
 
 const {
   upsertCallRecord,
@@ -80,33 +81,6 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 const JOB_STATUS_VALUES = new Set(['new', 'in_progress', 'completed']);
-
-const extractUserId = (req) => {
-  const headerCandidates = [
-    req.get('x-user-id'),
-    req.get('x-flynn-user-id'),
-    req.get('flynn-user-id'),
-  ];
-
-  for (const candidate of headerCandidates) {
-    if (candidate && typeof candidate === 'string' && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  return null;
-};
-
-const requireUser = (req, res, next) => {
-  const userId = extractUserId(req);
-
-  if (!userId) {
-    return res.status(401).json({ error: 'User authentication required' });
-  }
-
-  req.user = { id: userId };
-  return next();
-};
 
 const buildRecordingCallbackUrl = (req) => {
   const callbackPath = '/telephony/recording-complete';
@@ -428,7 +402,7 @@ const handleInboundVoice = (req, res) => {
 app.post('/telephony/inbound-voice', handleInboundVoice);
 app.get('/telephony/inbound-voice', handleInboundVoice);
 
-app.get('/telephony/calls/:callSid/recording', async (req, res) => {
+app.get('/telephony/calls/:callSid/recording', authenticateJwt, async (req, res) => {
   const callSid = req.params?.callSid;
 
   if (!callSid) {
@@ -436,9 +410,10 @@ app.get('/telephony/calls/:callSid/recording', async (req, res) => {
   }
 
   try {
+    const userId = req.user?.id;
     const callRecord = await getCallBySid(callSid);
 
-    if (!callRecord) {
+    if (!callRecord || (callRecord.user_id && callRecord.user_id !== userId)) {
       return res.status(404).json({ error: 'Call not found' });
     }
 
@@ -682,7 +657,7 @@ app.post('/telephony/recording-complete', async (req, res) => {
   }
 });
 
-app.get('/jobs', requireUser, async (req, res) => {
+app.get('/jobs', authenticateJwt, async (req, res) => {
   const userId = req.user.id;
   const statusParam = typeof req.query.status === 'string' ? req.query.status.trim() : undefined;
   const normalizedStatus = statusParam ? statusParam.toLowerCase() : undefined;
@@ -729,7 +704,7 @@ app.get('/jobs', requireUser, async (req, res) => {
   }
 });
 
-app.get('/jobs/:id', requireUser, async (req, res) => {
+app.get('/jobs/:id', authenticateJwt, async (req, res) => {
   const userId = req.user.id;
   const jobId = req.params?.id;
 
@@ -755,7 +730,7 @@ app.get('/jobs/:id', requireUser, async (req, res) => {
   }
 });
 
-app.patch('/jobs/:id', requireUser, async (req, res) => {
+app.patch('/jobs/:id', authenticateJwt, async (req, res) => {
   const userId = req.user.id;
   const jobId = req.params?.id;
 

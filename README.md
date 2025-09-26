@@ -108,6 +108,23 @@ FlynnAI/
 - Email/password authentication with OTP support
 - Automatic user profile creation on signup
 - Session persistence using AsyncStorage
+- Server APIs verify Supabase Auth JWTs (see below)
+
+#### API Authentication
+- All `/jobs` and `/telephony/calls` routes expect `Authorization: Bearer <jwt>` signed with `SUPABASE_JWT_SECRET`.
+- When `NODE_ENV=development` and no bearer token is present, the server accepts legacy `x-user-id` headers for local testing only.
+- Configure the backend with:
+  - `SUPABASE_JWT_SECRET` – copy from the Supabase project settings (`Settings → API → JWT Secret`).
+- Example curl (JWT):
+  ```bash
+  curl http://localhost:3000/jobs \
+    -H "Authorization: Bearer <your_supabase_jwt>"
+  ```
+- Example curl (development fallback):
+  ```bash
+  NODE_ENV=development curl http://localhost:3000/jobs \
+    -H "x-user-id: 00000000-0000-0000-0000-000000000001"
+  ```
 
 ### Screenshot Capture
 - Uses `expo-camera` and `expo-image-picker`

@@ -1,4 +1,4 @@
-const { loadServer } = require('./testServer');
+const { loadServer, createAuthToken } = require('./testServer');
 
 const USER_ID = '00000000-0000-0000-0000-000000000001';
 const OTHER_USER_ID = '00000000-0000-0000-0000-000000000002';
@@ -53,7 +53,7 @@ describe('Jobs API', () => {
     const response = await request.get('/jobs');
 
     expect(response.status).toBe(401);
-    expect(response.body).toEqual({ error: 'User authentication required' });
+    expect(response.body).toEqual({ error: 'Unauthorized' });
     expect(mockSupabaseClient.listJobsForUser).not.toHaveBeenCalled();
   });
 
@@ -71,7 +71,9 @@ describe('Jobs API', () => {
     mockSupabaseClient.listJobsForUser.mockResolvedValue(expected);
 
     const request = require('supertest')(app);
-    const response = await request.get('/jobs').set('x-user-id', USER_ID);
+    const token = createAuthToken(USER_ID);
+    const response = await request.get('/jobs')
+      .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
     expect(response.body.jobs).toEqual(expected);
@@ -94,9 +96,10 @@ describe('Jobs API', () => {
     mockSupabaseClient.listJobsForUser.mockResolvedValue(filtered);
 
     const request = require('supertest')(app);
+    const token = createAuthToken(USER_ID);
     const response = await request
       .get('/jobs?status=COMPLETED&limit=5&offset=10')
-      .set('x-user-id', USER_ID);
+      .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
     expect(response.body.jobs).toEqual(filtered);
@@ -115,9 +118,10 @@ describe('Jobs API', () => {
     } = loadServer();
 
     const request = require('supertest')(app);
+    const token = createAuthToken(USER_ID);
     const response = await request
       .get('/jobs?status=done')
-      .set('x-user-id', USER_ID);
+      .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'Invalid status filter' });
@@ -134,9 +138,10 @@ describe('Jobs API', () => {
     mockSupabaseClient.getJobForUser.mockResolvedValue(job);
 
     const request = require('supertest')(app);
+    const token = createAuthToken(USER_ID);
     const response = await request
       .get(`/jobs/${job.id}`)
-      .set('x-user-id', USER_ID);
+      .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
     expect(response.body.job).toEqual(job);
@@ -152,9 +157,10 @@ describe('Jobs API', () => {
     mockSupabaseClient.getJobForUser.mockResolvedValue(null);
 
     const request = require('supertest')(app);
+    const token = createAuthToken(USER_ID);
     const response = await request
       .get('/jobs/job-missing')
-      .set('x-user-id', USER_ID);
+      .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'Job not found' });
@@ -172,9 +178,10 @@ describe('Jobs API', () => {
     mockSupabaseClient.updateJobStatusForUser.mockResolvedValue(job);
 
     const request = require('supertest')(app);
+    const token = createAuthToken(USER_ID);
     const response = await request
       .patch(`/jobs/${job.id}`)
-      .set('x-user-id', USER_ID)
+      .set('Authorization', `Bearer ${token}`)
       .send({ status: 'completed' });
 
     expect(response.status).toBe(200);
@@ -193,10 +200,11 @@ describe('Jobs API', () => {
     } = loadServer();
 
     const request = require('supertest')(app);
+    const token = createAuthToken(USER_ID);
 
     const missingStatus = await request
       .patch('/jobs/job-1')
-      .set('x-user-id', USER_ID)
+      .set('Authorization', `Bearer ${token}`)
       .send({});
 
     expect(missingStatus.status).toBe(400);
@@ -205,7 +213,7 @@ describe('Jobs API', () => {
 
     const invalidStatus = await request
       .patch('/jobs/job-1')
-      .set('x-user-id', USER_ID)
+      .set('Authorization', `Bearer ${token}`)
       .send({ status: 'done' });
 
     expect(invalidStatus.status).toBe(400);
@@ -222,9 +230,10 @@ describe('Jobs API', () => {
     mockSupabaseClient.updateJobStatusForUser.mockResolvedValue(null);
 
     const request = require('supertest')(app);
+    const token = createAuthToken(USER_ID);
     const response = await request
       .patch('/jobs/job-3')
-      .set('x-user-id', USER_ID)
+      .set('Authorization', `Bearer ${token}`)
       .send({ status: 'in_progress' });
 
     expect(response.status).toBe(404);
