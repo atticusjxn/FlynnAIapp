@@ -21,6 +21,7 @@ if (process.env.SERVER_PUBLIC_URL) {
 }
 
 const app = express();
+app.set('trust proxy', true); // ensure req.protocol honors X-Forwarded-Proto from ngrok/Twilio
 const port = process.env.PORT || 3000;
 const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
 const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
@@ -137,8 +138,10 @@ const inferAudioExtension = (resolvedUrl, response) => {
   return 'mp3';
 };
 
-app.post('/telephony/inbound-voice', (req, res) => {
-  console.log('[Telephony] Inbound voice webhook request received.');
+const handleInboundVoice = (req, res) => {
+  console.log('[Telephony] Inbound voice webhook request received.', { method: req.method });
+
+  const inboundParams = req.method === 'GET' ? req.query || {} : req.body || {};
 
   if (shouldValidateSignature && twilioAuthToken) {
     const signature = req.headers['x-twilio-signature'];
@@ -148,7 +151,7 @@ app.post('/telephony/inbound-voice', (req, res) => {
     }
 
     const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-    const isValid = twilio.validateRequest(twilioAuthToken, signature, url, req.body);
+    const isValid = twilio.validateRequest(twilioAuthToken, signature, url, inboundParams);
 
     if (!isValid) {
       console.warn('[Telephony] Twilio signature validation failed for inbound voice webhook.', {
@@ -163,7 +166,7 @@ app.post('/telephony/inbound-voice', (req, res) => {
     console.warn('[Telephony] Twilio signature validation disabled via TWILIO_VALIDATE_SIGNATURE=false.');
   }
 
-  console.log('[Telephony] Request body:', req.body);
+  console.log('[Telephony] Request params:', inboundParams);
 
   const response = new twilio.twiml.VoiceResponse();
   response.say('Hi, you\'ve reached FlynnAI. Please leave a message after the tone.');
@@ -175,7 +178,10 @@ app.post('/telephony/inbound-voice', (req, res) => {
 
   res.type('text/xml');
   res.send(response.toString());
-});
+};
+
+app.post('/telephony/inbound-voice', handleInboundVoice);
+app.get('/telephony/inbound-voice', handleInboundVoice);
 
 app.post('/telephony/recording-complete', async (req, res) => {
   console.log('[Telephony] Recording complete webhook request received.');
