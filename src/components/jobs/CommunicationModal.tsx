@@ -22,7 +22,7 @@ interface CommunicationModalProps {
   visible: boolean;
   type: CommunicationType;
   onClose: () => void;
-  onSend: (job: Job, message: string, type: CommunicationType) => void;
+  onSend: (job: Job, message: string, type: CommunicationType) => Promise<void>;
 }
 
 const formatDate = (dateString: string) => {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -12,6 +12,7 @@ import {
 import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useJobs } from '../context/JobsContext';
+import { apiClient } from '../services/apiClient';
 import { JobCard, Job } from '../components/jobs/JobCard';
 import { JobFilterBar, FilterType } from '../components/jobs/JobFilterBar';
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
@@ -39,7 +40,7 @@ const formatRelativeTime = (timestamp?: string) => {
 
 export const JobsScreen = () => {
   const { colors } = useTheme();
-  const { jobs, updateJob, deleteJob, markJobComplete } = useJobs();
+  const { jobs, updateJob, deleteJob, markJobComplete, refreshJobs, loading: jobsLoading } = useJobs();
   const navigation = useNavigation<any>();
   const styles = createStyles(colors);
   
@@ -49,7 +50,6 @@ export const JobsScreen = () => {
   const [showJobDetails, setShowJobDetails] = useState(false);
   const [showCommunication, setShowCommunication] = useState(false);
   const [communicationType, setCommunicationType] = useState<'text' | 'email'>('text');
-  const [refreshing, setRefreshing] = useState(false);
 
   const pendingFollowUps = useMemo(() =>
     jobs.filter(
@@ -139,22 +139,23 @@ export const JobsScreen = () => {
   };
 
   const handleSendMessage = async (job: Job, message: string, type: 'text' | 'email') => {
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        if (Math.random() > 0.1) {
-          if (type === 'text') {
-            updateJob({
-              ...job,
-              followUpDraft: message,
-              lastFollowUpAt: new Date().toISOString(),
-            });
-          }
-          resolve();
-        } else {
-          reject(new Error('Failed to send message'));
-        }
-      }, 1200);
-    });
+    try {
+      await apiClient.post(`/jobs/${job.id}/confirm`, {
+        channel: type,
+        message,
+      });
+
+      if (type === 'text') {
+        updateJob({
+          ...job,
+          followUpDraft: message,
+          lastFollowUpAt: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error('[JobsScreen] Confirmation request failed:', error);
+      throw error;
+    }
   };
 
   const handleMarkComplete = (job: Job) => {
@@ -181,13 +182,11 @@ export const JobsScreen = () => {
     Alert.alert('Success', `Job for ${job.clientName} has been deleted.`);
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    // Simulate API refresh
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  };
+  const handleRefresh = useCallback(() => {
+    refreshJobs().catch((error) => {
+      console.error('[JobsScreen] Refresh failed:', error);
+    });
+  }, [refreshJobs]);
 
   const handleAddJob = () => {
     navigation.navigate('UploadFlow');
@@ -197,6 +196,55 @@ export const JobsScreen = () => {
     <JobCard job={item} onPress={handleJobPress} />
   );
 
+  const renderFollowUpShelf = useCallback(() => {
+    if (!pendingFollowUps.length) return null;
+
+    return (
+      <View style={styles.followUpShelf}>
+        <Text style={styles.followUpTitle}>Voicemail follow-ups awaiting approval</Text>
+        {pendingFollowUps.map((job) => (
+          <View key={job.id} style={styles.followUpCard}>
+            <View style={styles.followUpHeader}>
+              <View>
+                <Text style={styles.followUpClient}>{job.clientName}</Text>
+                <Text style={styles.followUpMeta}>
+                  {formatRelativeTime(job.capturedAt || job.createdAt)} • {job.clientPhone}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedJob(job);
+                  setShowJobDetails(true);
+                }}
+              >
+                <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.followUpPreview} numberOfLines={3}>
+              {job.followUpDraft}
+            </Text>
+            <View style={styles.followUpActions}>
+              <TouchableOpacity
+                style={[styles.followUpActionButton, styles.followUpApprove]}
+                onPress={() => handleSendFollowUpDraft(job)}
+              >
+                <Ionicons name="paper-plane-outline" size={16} color={colors.white} />
+                <Text style={styles.followUpApproveText}>Approve & Send</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.followUpActionButton}
+                onPress={() => handleReviewFollowUp(job)}
+              >
+                <Ionicons name="create-outline" size={16} color={colors.primary} />
+                <Text style={styles.followUpReviewText}>Review</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  }, [colors.primary, handleReviewFollowUp, handleSendFollowUpDraft, pendingFollowUps]);
+
   return (
     <SafeAreaView style={styles.container}>
       <JobFilterBar
@@ -205,73 +253,31 @@ export const JobsScreen = () => {
         onFilterChange={setActiveFilter}
       />
 
-      {pendingFollowUps.length > 0 && (
-        <View style={styles.followUpShelf}>
-          <Text style={styles.followUpTitle}>Voicemail follow-ups awaiting approval</Text>
-          {pendingFollowUps.map((job) => (
-            <View key={job.id} style={styles.followUpCard}>
-              <View style={styles.followUpHeader}>
-                <View>
-                  <Text style={styles.followUpClient}>{job.clientName}</Text>
-                  <Text style={styles.followUpMeta}>
-                    {formatRelativeTime(job.capturedAt || job.createdAt)} • {job.clientPhone}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => {
-                    setSelectedJob(job);
-                    setShowJobDetails(true);
-                  }}
-                >
-                  <Ionicons name="document-text-outline" size={18} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.followUpPreview} numberOfLines={3}>
-                {job.followUpDraft}
-              </Text>
-              <View style={styles.followUpActions}>
-                <TouchableOpacity
-                  style={[styles.followUpActionButton, styles.followUpApprove]}
-                  onPress={() => handleSendFollowUpDraft(job)}
-                >
-                  <Ionicons name="paper-plane-outline" size={16} color={colors.white} />
-                  <Text style={styles.followUpApproveText}>Approve & Send</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.followUpActionButton}
-                  onPress={() => handleReviewFollowUp(job)}
-                >
-                  <Ionicons name="create-outline" size={16} color={colors.primary} />
-                  <Text style={styles.followUpReviewText}>Review</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {sortedJobs.length > 0 ? (
-        <FlatList
-          data={sortedJobs}
-          renderItem={renderJobCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-        />
-      ) : (
-        <EmptyState 
-          filter={activeFilter} 
-          onAddJob={handleAddJob}
-        />
-      )}
+      <FlatList
+        data={sortedJobs}
+        renderItem={renderJobCard}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={[
+          styles.listContent,
+          sortedJobs.length === 0 ? styles.emptyListContent : null,
+        ]}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={renderFollowUpShelf}
+        ListEmptyComponent={
+          <EmptyState
+            filter={activeFilter}
+            onAddJob={handleAddJob}
+          />
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={jobsLoading}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      />
 
       {/* Job Details Modal */}
       <JobDetailsModal
@@ -395,5 +401,11 @@ const createStyles = (colors: any) => StyleSheet.create({
   listContent: {
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
+  },
+
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingTop: spacing.xl,
   },
 });

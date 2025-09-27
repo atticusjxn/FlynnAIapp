@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
+import { AuthTokenStorage } from '../services/authTokenStorage';
 
 interface AuthContextType {
   user: User | null;
@@ -18,25 +19,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const updateSessionState = (nextSession: Session | null) => {
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+
+    return AuthTokenStorage.storeSession(nextSession).catch((error) => {
+      console.error('[AuthContext] Failed to persist auth session:', error);
+    });
+  };
+
   useEffect(() => {
     console.log('[AuthContext] Initializing auth state');
-    
+
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         console.log('[AuthContext] Initial session:', session ? 'exists' : 'null');
-        setSession(session);
-        setUser(session?.user ?? null);
+        void updateSessionState(session ?? null);
         setLoading(false);
       })
       .catch((error) => {
         console.error('[AuthContext] Error getting session:', error);
+        AuthTokenStorage.clear().catch((storageError) => {
+          console.error('[AuthContext] Failed clearing session storage:', storageError);
+        });
         setLoading(false);
       });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('[AuthContext] Auth state changed:', _event);
-      setSession(session);
-      setUser(session?.user ?? null);
+      void updateSessionState(session ?? null);
       setLoading(false);
     });
 
@@ -44,12 +55,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    if (data?.session) {
+      await updateSessionState(data.session);
+    }
   };
 
   const signUp = async (email: string, password: string, businessName: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -57,11 +71,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
     if (error) throw error;
+    if (data?.session) {
+      await updateSessionState(data.session);
+    }
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    await updateSessionState(null);
   };
 
   return (

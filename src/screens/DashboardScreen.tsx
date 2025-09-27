@@ -14,7 +14,6 @@ import { useAuth } from '../context/AuthContext';
 import { typography, spacing, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
-import { mockJobs } from '../data/mockJobs';
 import { mockActivities, getRecentActivity, formatActivityTime, Activity } from '../data/mockActivities';
 import { Job } from '../components/jobs/JobCard';
 import { ActivityHistoryModal } from '../components/dashboard/ActivityHistoryModal';
@@ -26,9 +25,15 @@ import { FloatingActionButton } from '../components/common/FloatingActionButton'
 export const DashboardScreen = () => {
   const { user } = useAuth();
   const { colors } = useTheme();
-  const { updateJob, deleteJob, markJobComplete } = useJobs();
+  const {
+    jobs,
+    updateJob,
+    deleteJob,
+    markJobComplete,
+    refreshJobs,
+    loading: jobsLoading,
+  } = useJobs();
   const navigation = useNavigation<any>();
-  const [refreshing, setRefreshing] = useState(false);
   const [showActivityHistory, setShowActivityHistory] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [jobModalVisible, setJobModalVisible] = useState(false);
@@ -39,7 +44,7 @@ export const DashboardScreen = () => {
   // Get real data
   const getUpcomingJob = (): Job | null => {
     const now = new Date();
-    const upcomingJobs = mockJobs
+    const upcomingJobs = jobs
       .filter(job => {
         const jobDate = new Date(job.date + 'T' + job.time);
         return jobDate > now && (job.status === 'pending' || job.status === 'in-progress');
@@ -61,9 +66,11 @@ export const DashboardScreen = () => {
   const upcomingJob = getUpcomingJob();
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    // In real app, this would fetch fresh data from API
-    setTimeout(() => setRefreshing(false), 1000);
+    try {
+      await refreshJobs();
+    } catch (error) {
+      console.error('[Dashboard] Refresh failed:', error);
+    }
   };
 
   const handleCallClient = (phone: string) => {
@@ -132,7 +139,7 @@ export const DashboardScreen = () => {
 
   const handleNavigateToJobFromActivity = (jobId: string) => {
     // Find the job by ID and open the job details modal
-    const job = mockJobs.find(j => j.id === jobId);
+    const job = jobs.find(j => j.id === jobId);
     if (job) {
       setSelectedJob(job);
       setJobModalVisible(true);
@@ -189,7 +196,7 @@ export const DashboardScreen = () => {
       <ScrollView
         style={styles.container}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={jobsLoading} onRefresh={onRefresh} />
         }
       >
       {/* Welcome Section */}
