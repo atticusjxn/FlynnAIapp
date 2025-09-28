@@ -11,6 +11,8 @@ const sqlString = (value) => {
   return `'${String(value).replace(/'/g, "''")}'`;
 };
 
+const VALID_NOTIFICATION_PLATFORMS = new Set(['ios', 'android']);
+
 const parseResultRows = (result) => {
   if (!result) {
     return [];
@@ -264,6 +266,42 @@ const ensureClient = async () => {
       arguments: {
         project_id: config.projectId,
         query: alignJobsSql,
+      },
+    });
+
+    const createNotificationTokensSql = `
+      create table if not exists public.notification_tokens (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid references public.users(id) on delete cascade,
+        platform text,
+        token text unique,
+        created_at timestamptz default now()
+      );
+
+      alter table public.notification_tokens
+        add column if not exists user_id uuid;
+
+      alter table public.notification_tokens
+        add column if not exists platform text;
+
+      alter table public.notification_tokens
+        add column if not exists token text;
+
+      alter table public.notification_tokens
+        add column if not exists created_at timestamptz default now();
+
+      create unique index if not exists notification_tokens_token_key
+        on public.notification_tokens(token);
+
+      create index if not exists notification_tokens_user_id_idx
+        on public.notification_tokens(user_id);
+    `;
+
+    await client.callTool({
+      name: 'execute_sql',
+      arguments: {
+        project_id: config.projectId,
+        query: createNotificationTokensSql,
       },
     });
 
@@ -681,6 +719,55 @@ const insertJob = async ({
   return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : { id: jobId };
 };
 
+const upsertNotificationToken = async ({ userId, platform, token }) => {
+  if (!userId) {
+    throw new Error('userId is required to upsert notification token.');
+  }
+
+  if (!token) {
+    throw new Error('token is required to upsert notification token.');
+  }
+
+  const normalizedPlatform = typeof platform === 'string' ? platform.toLowerCase() : null;
+
+  if (!normalizedPlatform || !VALID_NOTIFICATION_PLATFORMS.has(normalizedPlatform)) {
+    throw new Error('platform must be one of ios or android.');
+  }
+
+  const query = `
+    insert into public.notification_tokens (user_id, platform, token)
+    values (
+      ${sqlString(userId)},
+      ${sqlString(normalizedPlatform)},
+      ${sqlString(token)}
+    )
+    on conflict (token) do update set
+      user_id = excluded.user_id,
+      platform = excluded.platform,
+      created_at = now()
+    returning id, user_id, platform, token, created_at;
+  `;
+
+  const result = await executeSql(query);
+  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+};
+
+const listNotificationTokensForUser = async ({ userId }) => {
+  if (!userId) {
+    throw new Error('userId is required to list notification tokens.');
+  }
+
+  const query = `
+    select id, user_id, platform, token, created_at
+    from public.notification_tokens
+    where user_id = ${sqlString(userId)}
+    order by created_at desc;
+  `;
+
+  const result = await executeSql(query);
+  return Array.isArray(result.rows) ? result.rows : [];
+};
+
 module.exports = {
   upsertCallRecord,
   executeSql,
@@ -694,6 +781,8 @@ module.exports = {
   getJobForUser,
   updateJobStatusForUser,
   insertJob,
+  upsertNotificationToken,
+  listNotificationTokensForUser,
   findExpiredRecordingCalls,
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,

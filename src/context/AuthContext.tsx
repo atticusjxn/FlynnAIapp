@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import { AuthTokenStorage } from '../services/authTokenStorage';
+import { registerDevicePushToken } from '../services/pushRegistration';
 
 interface AuthContextType {
   user: User | null;
@@ -53,6 +54,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    registerDevicePushToken().catch((error) => {
+      console.warn('[AuthContext] Failed registering push notifications:', error);
+    });
+  }, [user]);
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });

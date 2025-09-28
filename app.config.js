@@ -3,6 +3,7 @@ export default {
     plugins: [
       "expo-asset",
       "expo-secure-store",
+      "expo-notifications",
     ],
     name: "FlynnAI",
     slug: "FlynnAI",
@@ -24,7 +25,8 @@ export default {
         ITSAppUsesNonExemptEncryption: false,
         NSCameraUsageDescription: "FlynnAI uses the camera to capture screenshots of job details, quotes, and work orders. This helps automatically extract information and create calendar events for your business.",
         NSPhotoLibraryUsageDescription: "FlynnAI accesses your photo library to select images containing job details that can be automatically processed into calendar events and client information.",
-        NSMicrophoneUsageDescription: "FlynnAI uses the microphone to record and transcribe phone calls with clients to automatically capture job details and create bookings."
+        NSMicrophoneUsageDescription: "FlynnAI uses the microphone to record and transcribe phone calls with clients to automatically capture job details and create bookings.",
+        NSUserNotificationUsageDescription: "FlynnAI sends push notifications when new jobs are created so you never miss important follow-ups."
       }
     },
     android: {

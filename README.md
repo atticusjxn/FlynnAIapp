@@ -147,13 +147,45 @@ FlynnAI/
 - Row Level Security (RLS) is enabled on all tables
 - All user data is isolated by user_id
 - TypeScript types are generated from Supabase schema
-- The app uses Expo SDK 53 with React Native 0.79.6
+- The app uses Expo SDK 54 with React Native 0.81.x
+- Push notifications rely on Expo's `expo-notifications` module and device-specific tokens stored in `notification_tokens`
+
+### Push Notifications
+
+When a job is created, the backend records the event and attempts to notify the job owner on every registered device.
+
+**Database**
+- `notification_tokens` stores per-user device tokens with strict RLS (`user_id = auth.uid()`).
+- Tokens are unique per device (`token` is unique) and indexed by `user_id` for efficient lookups.
+
+**Environment variables**
+- `FCM_SERVER_KEY` – Firebase Cloud Messaging server key for Android devices.
+- `APNS_KEY_ID` – Apple Push Notification key identifier.
+- `APNS_TEAM_ID` – Apple Developer Team ID.
+- `APNS_PRIVATE_KEY` – Contents of your `.p8` key (use `\n` escapes for newlines).
+- `APNS_BUNDLE_ID` – iOS bundle identifier used for APNs topics (defaults to `com.flynnai.app`).
+- `APNS_HOST` *(optional)* – Override (`https://api.sandbox.push.apple.com` vs production).
+
+**Registering a device token**
+```bash
+curl -X POST "http://localhost:3000/me/notifications/token" \\
+  -H "Authorization: Bearer <SUPABASE_JWT>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"platform":"ios","token":"<device-token>"}'
+```
+
+**Triggering a notification for a job**
+```bash
+curl -X POST "http://localhost:3000/jobs/<job-id>/notify" \\
+  -H "Authorization: Bearer <SUPABASE_JWT>"
+```
+
+Both endpoints return success/failure details; the notify endpoint reports the number of device sends attempted and delivered.
 
 ## Next Steps
 
 - Implement OCR functionality for screenshot text extraction
 - Add phone call recording and transcription
-- Implement push notifications for reminders
 - Add client confirmation email/SMS sending
 - Integrate with external calendar services (Google, Apple)
 - Add invoice generation and payment tracking

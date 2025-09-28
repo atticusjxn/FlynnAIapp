@@ -1,4 +1,5 @@
 const { getCallBySid, getJobByCallSid, insertJob } = require('../supabaseMcpClient');
+const { sendJobCreatedNotification } = require('../notifications/pushService');
 
 const JOB_EXTRACTION_MODEL = process.env.OPENAI_JOB_EXTRACTION_MODEL || 'gpt-4o-mini';
 
@@ -110,7 +111,29 @@ const ensureJobForTranscript = async ({ callSid, transcriptText, openaiClient })
     jobId: inserted?.id,
   });
 
-  // TODO: Hook into Firebase/APNs notification service for push alerts when jobs are created.
+  const jobRecord = {
+    id: inserted?.id || jobPayload.id,
+    call_sid: callSid,
+    customer_name: jobPayload.customerName,
+    status: jobPayload.status || 'new',
+  };
+
+  sendJobCreatedNotification({ userId: jobPayload.userId, job: jobRecord })
+    .then((result) => {
+      if (result.sent > 0) {
+        console.log('[Push] Job notification dispatched.', {
+          jobId: jobRecord.id,
+          sent: result.sent,
+          attempted: result.attempted,
+        });
+      }
+    })
+    .catch((error) => {
+      console.warn('[Push] Failed to dispatch job notification.', {
+        jobId: jobRecord.id,
+        error,
+      });
+    });
 
   return {
     id: inserted?.id,

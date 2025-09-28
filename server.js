@@ -20,10 +20,12 @@ const {
   updateJobStatusForUser,
   getJobById,
   insertJob,
+  upsertNotificationToken,
   findExpiredRecordingCalls,
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,
 } = require('./supabaseMcpClient');
+const { sendJobCreatedNotification } = require('./notifications/pushService');
 
 dotenv.config();
 
@@ -657,6 +659,33 @@ app.post('/telephony/recording-complete', async (req, res) => {
   }
 });
 
+app.post('/me/notifications/token', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { token, platform } = req.body || {};
+  const trimmedToken = typeof token === 'string' ? token.trim() : '';
+  const normalizedPlatform = typeof platform === 'string' ? platform.toLowerCase() : '';
+
+  if (!trimmedToken) {
+    return res.status(400).json({ error: 'token is required' });
+  }
+
+  if (!['ios', 'android'].includes(normalizedPlatform)) {
+    return res.status(400).json({ error: 'platform must be ios or android' });
+  }
+
+  try {
+    await upsertNotificationToken({ userId, platform: normalizedPlatform, token: trimmedToken });
+    return res.status(204).end();
+  } catch (error) {
+    console.error('[Notifications] Failed to upsert notification token.', { userId, error });
+    return res.status(500).json({ error: 'Failed to register device token' });
+  }
+});
+
 app.get('/jobs', authenticateJwt, async (req, res) => {
   const userId = req.user.id;
   const statusParam = typeof req.query.status === 'string' ? req.query.status.trim() : undefined;
@@ -770,6 +799,37 @@ app.patch('/jobs/:id', authenticateJwt, async (req, res) => {
       error,
     });
     return res.status(500).json({ error: 'Failed to update job' });
+  }
+});
+
+app.post('/jobs/:id/notify', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  const jobId = req.params?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!jobId) {
+    return res.status(400).json({ error: 'Job ID is required' });
+  }
+
+  try {
+    const job = await getJobById(jobId);
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.user_id && job.user_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const result = await sendJobCreatedNotification({ userId: job.user_id, job });
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('[Notifications] Failed to send job notification.', { jobId, error });
+    return res.status(500).json({ error: 'Failed to send notification' });
   }
 });
 
