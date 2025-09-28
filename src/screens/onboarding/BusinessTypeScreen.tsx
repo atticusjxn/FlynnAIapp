@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { businessTypes, useOnboarding } from '../../context/OnboardingContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const categoryDescriptions: { [key: string]: string } = {
   home_property: 'Plumbing, Electrical, Carpentry, Landscaping, Cleaning, HVAC, Roofing',
@@ -31,6 +32,18 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
   const [selectedType, setSelectedType] = useState(onboardingData.businessType);
   const [customType, setCustomType] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(selectedType === 'other');
+  const { colors: themeColors } = useTheme();
+
+  const iconColors = useMemo<Record<string, string>>(
+    () => ({
+      home_property: themeColors.primary,
+      personal_beauty: themeColors.warning,
+      automotive: themeColors.error,
+      business_professional: themeColors.success,
+      other: themeColors.gray500,
+    }),
+    [themeColors],
+  );
 
   const handleTypeSelect = (typeId: string) => {
     setSelectedType(typeId);
@@ -84,38 +97,51 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
           </View>
 
           <View style={styles.optionsContainer}>
-            {businessTypes.map((type) => (
-              <TouchableOpacity
-                key={type.id}
-                style={[
-                  styles.option,
-                  selectedType === type.id && styles.selectedOption,
-                ]}
-                onPress={() => handleTypeSelect(type.id)}
-              >
-                <View style={styles.optionContent}>
-                  <Text style={styles.emoji}>{type.emoji}</Text>
-                  <View style={styles.textContainer}>
-                    <Text
-                      style={[
-                        styles.optionText,
-                        selectedType === type.id && styles.selectedOptionText,
-                      ]}
-                    >
-                      {type.label}
-                    </Text>
-                    {categoryDescriptions[type.id] && (
-                      <Text style={styles.optionDescription}>
-                        {categoryDescriptions[type.id]}
+            {businessTypes.map(type => {
+              const iconColor = iconColors[type.id] || themeColors.primary;
+              const iconBackground = `${iconColor}${selectedType === type.id ? '33' : '20'}`;
+
+              return (
+                <TouchableOpacity
+                  key={type.id}
+                  style={[
+                    styles.option,
+                    selectedType === type.id && [
+                      styles.selectedOption,
+                      {
+                        borderColor: iconColor,
+                        backgroundColor: `${iconColor}15`,
+                      },
+                    ],
+                  ]}
+                  onPress={() => handleTypeSelect(type.id)}
+                >
+                  <View style={styles.optionContent}>
+                    <View style={[styles.iconContainer, { backgroundColor: iconBackground }]}>
+                      <Ionicons name={type.icon as any} size={22} color={iconColor} />
+                    </View>
+                    <View style={styles.textContainer}>
+                      <Text
+                        style={[
+                          styles.optionText,
+                          selectedType === type.id && { color: iconColor },
+                        ]}
+                      >
+                        {type.label}
                       </Text>
-                    )}
+                      {categoryDescriptions[type.id] && (
+                        <Text style={styles.optionDescription}>
+                          {categoryDescriptions[type.id]}
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                </View>
-                {selectedType === type.id && (
-                  <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
-                )}
-              </TouchableOpacity>
-            ))}
+                  {selectedType === type.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={iconColor} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {showCustomInput && (
@@ -229,8 +255,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  emoji: {
-    fontSize: 24,
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 16,
   },
   textContainer: {
@@ -241,9 +271,6 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     fontWeight: '600',
     marginBottom: 4,
-  },
-  selectedOptionText: {
-    color: '#3B82F6',
   },
   optionDescription: {
     fontSize: 13,
