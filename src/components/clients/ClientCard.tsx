@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
-import { Client } from '../../data/mockClients';
+import { Client } from '../../types/client';
 
 interface ClientCardProps {
   client: Client;
@@ -19,8 +19,17 @@ interface ClientCardProps {
   onSendEmail: (client: Client) => void;
 }
 
-const formatLastJobDate = (dateString: string) => {
+const formatLastJobDate = (dateString?: string | null) => {
+  if (!dateString) {
+    return 'No jobs yet';
+  }
+
   const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'No jobs yet';
+  }
+
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - date.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -32,7 +41,7 @@ const formatLastJobDate = (dateString: string) => {
   return `${Math.ceil(diffDays / 365)} years ago`;
 };
 
-const getBusinessTypeColor = (businessType: string, colors: any) => {
+const getBusinessTypeColor = (businessType: string | null | undefined, colors: any) => {
   switch (businessType) {
     case 'home_property':
       return colors.primary;
@@ -49,7 +58,7 @@ const getBusinessTypeColor = (businessType: string, colors: any) => {
   }
 };
 
-const getBusinessTypeIcon = (businessType: string) => {
+const getBusinessTypeIcon = (businessType: string | null | undefined) => {
   switch (businessType) {
     case 'home_property':
       return 'home-outline';
@@ -100,7 +109,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
           <View style={styles.nameRow}>
             <View style={[
               styles.businessIcon,
-              { backgroundColor: getBusinessTypeColor(client.businessType, colors) + '20' }
+              { backgroundColor: `${getBusinessTypeColor(client.businessType, colors)}20` }
             ]}>
               <Ionicons 
                 name={getBusinessTypeIcon(client.businessType) as any} 
@@ -110,7 +119,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
             </View>
             <Text style={styles.clientName}>{client.name}</Text>
           </View>
-          <Text style={styles.contactInfo}>{client.phone}</Text>
+          {client.phone && <Text style={styles.contactInfo}>{client.phone}</Text>}
           {client.email && (
             <Text style={styles.contactInfo}>{client.email}</Text>
           )}
@@ -118,7 +127,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
         
         <View style={styles.statsContainer}>
           <View style={styles.stat}>
-            <Text style={styles.statNumber}>{client.totalJobs}</Text>
+            <Text style={styles.statNumber}>{client.totalJobs ?? 0}</Text>
             <Text style={styles.statLabel}>Jobs</Text>
           </View>
         </View>
@@ -127,7 +136,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
       <View style={styles.lastJobSection}>
         <View style={styles.lastJobInfo}>
           <Text style={styles.lastJobLabel}>Last Job</Text>
-          <Text style={styles.lastJobType}>{client.lastJobType}</Text>
+          <Text style={styles.lastJobType}>{client.lastJobType || 'No recent jobs'}</Text>
           <Text style={styles.lastJobDate}>{formatLastJobDate(client.lastJobDate)}</Text>
         </View>
       </View>

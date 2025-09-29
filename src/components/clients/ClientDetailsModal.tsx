@@ -13,42 +13,50 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { FlynnButton } from '../ui/FlynnButton';
-import { Client } from '../../data/mockClients';
+import { ClientDetails, CommunicationEntry } from '../../types/client';
 
 interface ClientDetailsModalProps {
-  client: Client | null;
+  client: ClientDetails | null;
   visible: boolean;
   onClose: () => void;
-  onScheduleJob: (client: Client) => void;
-  onEditClient: (client: Client) => void;
-  onSendText: (client: Client) => void;
-  onSendEmail: (client: Client) => void;
+  onScheduleJob: (client: ClientDetails) => void;
+  onEditClient: (client: ClientDetails) => void;
+  onSendText: (client: ClientDetails) => void;
+  onSendEmail: (client: ClientDetails) => void;
 }
 
 const formatJobDate = (dateString: string) => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown date';
+  }
+
+  return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
   });
 };
 
 const formatCommunicationDate = (dateString: string) => {
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown';
+  }
+
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - date.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 1) return 'Yesterday';
   if (diffDays <= 7) return `${diffDays} days ago`;
-  return date.toLocaleDateString('en-US', { 
+  return date.toLocaleDateString('en-US', {
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   });
 };
 
-const getCommunicationIcon = (type: string) => {
+const getCommunicationIcon = (type: CommunicationEntry['type']) => {
   switch (type) {
     case 'call':
       return 'call';
@@ -61,7 +69,7 @@ const getCommunicationIcon = (type: string) => {
   }
 };
 
-const getCommunicationColor = (type: string, colors: any) => {
+const getCommunicationColor = (type: CommunicationEntry['type'], colors: any) => {
   switch (type) {
     case 'call':
       return colors.success;
@@ -90,6 +98,11 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
   if (!client) return null;
 
   const handleCall = () => {
+    if (!client.phone) {
+      Alert.alert('No phone number', 'Add a phone number for this client to call them.');
+      return;
+    }
+
     const phoneUrl = `tel:${client.phone}`;
     Linking.openURL(phoneUrl).catch(() => {
       Alert.alert('Error', 'Unable to make phone call');
@@ -104,9 +117,17 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
     }
   };
 
-  const totalRevenue = client.jobHistory.reduce((sum, job) => 
-    sum + (job.amount || 0), 0
-  );
+  const totalRevenue = client.jobHistory?.reduce((sum, job) => sum + (job.amount || 0), 0) ?? 0;
+
+  const clientSinceDays = client.createdAt
+    ? Math.max(
+        1,
+        Math.round(
+          (new Date().getTime() - new Date(client.createdAt).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      )
+    : null;
 
   return (
     <Modal
@@ -124,47 +145,49 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Client Information */}
           <View style={styles.section}>
             <View style={styles.clientHeader}>
               <View style={styles.clientMainInfo}>
                 <Text style={styles.clientName}>{client.name}</Text>
-                <Text style={styles.clientAddress}>{client.address}</Text>
+                {client.address ? (
+                  <Text style={styles.clientAddress}>{client.address}</Text>
+                ) : null}
               </View>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => onEditClient(client)}
-              >
+              <TouchableOpacity style={styles.editButton} onPress={() => onEditClient(client)}>
                 <Ionicons name="create-outline" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
-            {/* Contact Information */}
             <View style={styles.contactSection}>
-              <View style={styles.contactRow}>
-                <Ionicons name="call-outline" size={20} color={colors.primary} />
-                <TouchableOpacity onPress={handleCall} style={styles.contactInfo}>
-                  <Text style={[styles.contactText, styles.phoneLink]}>{client.phone}</Text>
-                  <Text style={styles.contactLabel}>
-                    Preferred: {client.preferredContactMethod}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              
-              {client.email && (
+              {client.phone ? (
+                <View style={styles.contactRow}>
+                  <Ionicons name="call-outline" size={20} color={colors.primary} />
+                  <TouchableOpacity onPress={handleCall} style={styles.contactInfo}>
+                    <Text style={[styles.contactText, styles.phoneLink]}>{client.phone}</Text>
+                    {client.preferredContactMethod ? (
+                      <Text style={styles.contactLabel}>
+                        Preferred: {client.preferredContactMethod}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              {client.email ? (
                 <View style={styles.contactRow}>
                   <Ionicons name="mail-outline" size={20} color={colors.primary} />
                   <View style={styles.contactInfo}>
                     <Text style={styles.contactText}>{client.email}</Text>
                   </View>
                 </View>
-              )}
+              ) : null}
             </View>
 
-            {/* Statistics */}
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statNumber}>{client.totalJobs}</Text>
+                <Text style={styles.statNumber}>
+                  {client.totalJobs ?? client.jobHistory?.length ?? 0}
+                </Text>
                 <Text style={styles.statLabel}>Total Jobs</Text>
               </View>
               <View style={styles.statBox}>
@@ -172,31 +195,25 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
                 <Text style={styles.statLabel}>Total Revenue</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statNumber}>
-                  {Math.round((new Date().getTime() - new Date(client.createdAt).getTime()) / (1000 * 60 * 60 * 24))}d
-                </Text>
+                <Text style={styles.statNumber}>{clientSinceDays ? `${clientSinceDays}d` : '--'}</Text>
                 <Text style={styles.statLabel}>Client Since</Text>
               </View>
             </View>
           </View>
 
-          {/* Notes */}
-          {client.notes && (
+          {client.notes ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Notes</Text>
               <Text style={styles.notesText}>{client.notes}</Text>
             </View>
-          )}
+          ) : null}
 
-          {/* Tab Navigation */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
               style={[styles.tab, activeTab === 'jobs' && styles.activeTab]}
               onPress={() => setActiveTab('jobs')}
             >
-              <Text style={[styles.tabText, activeTab === 'jobs' && styles.activeTabText]}>
-                Job History
-              </Text>
+              <Text style={[styles.tabText, activeTab === 'jobs' && styles.activeTabText]}>Job History</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tab, activeTab === 'communication' && styles.activeTab]}
@@ -208,76 +225,72 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Job History */}
-          {activeTab === 'jobs' && (
+          {activeTab === 'jobs' ? (
             <View style={styles.section}>
-              {client.jobHistory.map((job) => (
-                <View key={job.id} style={styles.jobItem}>
-                  <View style={styles.jobHeader}>
-                    <View style={styles.jobMainInfo}>
-                      <Text style={styles.jobService}>{job.serviceType}</Text>
-                      <Text style={styles.jobDescription}>{job.description}</Text>
-                    </View>
-                    <View style={styles.jobMeta}>
-                      <Text style={styles.jobDate}>{formatJobDate(job.date)}</Text>
-                      {job.amount && (
-                        <Text style={styles.jobAmount}>${job.amount}</Text>
-                      )}
+              {client.jobHistory?.length ? (
+                client.jobHistory.map((job) => (
+                  <View key={job.id} style={styles.jobItem}>
+                    <View style={styles.jobHeader}>
+                      <View style={styles.jobMainInfo}>
+                        <Text style={styles.jobService}>{job.serviceType || 'Service job'}</Text>
+                        {job.description ? (
+                          <Text style={styles.jobDescription}>{job.description}</Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.jobMeta}>
+                        <Text style={styles.jobDate}>{formatJobDate(job.date)}</Text>
+                        {job.amount !== undefined && job.amount !== null ? (
+                          <Text style={styles.jobAmount}>${job.amount.toFixed(2)}</Text>
+                        ) : null}
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
-              
-              {client.jobHistory.length === 0 && (
+                ))
+              ) : (
                 <View style={styles.emptyState}>
                   <Ionicons name="briefcase-outline" size={48} color={colors.gray400} />
-                  <Text style={styles.emptyTitle}>No Jobs Yet</Text>
+                  <Text style={styles.emptyTitle}>No job history yet</Text>
                   <Text style={styles.emptyDescription}>
-                    This client hasn't had any jobs completed yet.
+                    Jobs linked to this client will appear here once created.
                   </Text>
                 </View>
               )}
             </View>
-          )}
-
-          {/* Communication Log */}
-          {activeTab === 'communication' && (
+          ) : (
             <View style={styles.section}>
-              {client.communicationLog.map((comm) => (
-                <View key={comm.id} style={styles.commItem}>
-                  <View style={[
-                    styles.commIcon,
-                    { backgroundColor: getCommunicationColor(comm.type, colors) + '20' }
-                  ]}>
-                    <Ionicons 
-                      name={getCommunicationIcon(comm.type) as any} 
-                      size={16} 
-                      color={getCommunicationColor(comm.type, colors)} 
-                    />
-                  </View>
-                  <View style={styles.commContent}>
-                    <View style={styles.commHeader}>
-                      <Text style={styles.commType}>
-                        {comm.type.charAt(0).toUpperCase() + comm.type.slice(1)} • 
-                        {comm.direction === 'outgoing' ? ' Sent' : ' Received'}
-                      </Text>
-                      <Text style={styles.commDate}>
-                        {formatCommunicationDate(comm.date)}
-                      </Text>
+              {client.communicationLog?.length ? (
+                client.communicationLog.map((entry) => (
+                  <View key={entry.id} style={styles.commItem}>
+                    <View
+                      style={[
+                        styles.commIcon,
+                        { backgroundColor: `${getCommunicationColor(entry.type, colors)}20` },
+                      ]}
+                    >
+                      <Ionicons
+                        name={getCommunicationIcon(entry.type) as any}
+                        size={16}
+                        color={getCommunicationColor(entry.type, colors)}
+                      />
                     </View>
-                    {comm.content && (
-                      <Text style={styles.commText}>{comm.content}</Text>
-                    )}
+                    <View style={styles.commContent}>
+                      <View style={styles.commHeader}>
+                        <Text style={styles.commType}>
+                          {entry.type.charAt(0).toUpperCase() + entry.type.slice(1)} •{' '}
+                          {entry.direction === 'incoming' ? 'Received' : 'Sent'}
+                        </Text>
+                        <Text style={styles.commDate}>{formatCommunicationDate(entry.date)}</Text>
+                      </View>
+                      {entry.content ? <Text style={styles.commText}>{entry.content}</Text> : null}
+                    </View>
                   </View>
-                </View>
-              ))}
-              
-              {client.communicationLog.length === 0 && (
+                ))
+              ) : (
                 <View style={styles.emptyState}>
                   <Ionicons name="chatbubbles-outline" size={48} color={colors.gray400} />
-                  <Text style={styles.emptyTitle}>No Communication</Text>
+                  <Text style={styles.emptyTitle}>No communication yet</Text>
                   <Text style={styles.emptyDescription}>
-                    No communication history with this client yet.
+                    Messages and calls linked to this client will appear here.
                   </Text>
                 </View>
               )}
@@ -285,9 +298,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
           )}
         </ScrollView>
 
-        {/* Action Buttons */}
         <View style={styles.actionContainer}>
-          {/* Primary Actions */}
           <FlynnButton
             title="Schedule New Job"
             onPress={() => onScheduleJob(client)}
@@ -297,35 +308,33 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
             style={styles.scheduleButton}
           />
 
-          {/* Communication Actions */}
           <View style={styles.communicationActions}>
             <TouchableOpacity style={styles.commActionButton} onPress={handleCall}>
               <Ionicons name="call" size={20} color={colors.success} />
               <Text style={[styles.commActionText, { color: colors.success }]}>Call</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.commActionButton} 
-              onPress={() => onSendText(client)}
-            >
+            <TouchableOpacity style={styles.commActionButton} onPress={() => onSendText(client)}>
               <Ionicons name="chatbubble" size={20} color={colors.primary} />
               <Text style={[styles.commActionText, { color: colors.primary }]}>Text</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.commActionButton} 
+            <TouchableOpacity
+              style={styles.commActionButton}
               onPress={handleEmail}
               disabled={!client.email}
             >
-              <Ionicons 
-                name="mail" 
-                size={20} 
-                color={client.email ? colors.warning : colors.gray400} 
+              <Ionicons
+                name="mail"
+                size={20}
+                color={client.email ? colors.warning : colors.gray400}
               />
-              <Text style={[
-                styles.commActionText, 
-                { color: client.email ? colors.warning : colors.gray400 }
-              ]}>
+              <Text
+                style={[
+                  styles.commActionText,
+                  { color: client.email ? colors.warning : colors.gray400 },
+                ]}
+              >
                 Email
               </Text>
             </TouchableOpacity>
@@ -341,7 +350,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -352,21 +360,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  
   modalTitle: {
     ...typography.h2,
     color: colors.textPrimary,
   },
-  
   closeButton: {
     padding: spacing.xs,
   },
-  
   content: {
     flex: 1,
     paddingVertical: spacing.md,
   },
-  
   section: {
     backgroundColor: colors.card,
     marginHorizontal: spacing.lg,
@@ -375,277 +379,226 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: borderRadius.lg,
     ...shadows.sm,
   },
-  
   clientHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: spacing.md,
   },
-  
   clientMainInfo: {
     flex: 1,
   },
-  
   clientName: {
     ...typography.h2,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
-  
   clientAddress: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
     lineHeight: 20,
   },
-  
   editButton: {
     padding: spacing.xs,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.sm,
+    ...shadows.xs,
   },
-  
   contactSection: {
-    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
-  
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
-  
   contactInfo: {
-    marginLeft: spacing.sm,
     flex: 1,
   },
-  
   contactText: {
     ...typography.bodyMedium,
     color: colors.textPrimary,
   },
-  
   phoneLink: {
-    color: colors.primary,
     textDecorationLine: 'underline',
   },
-  
   contactLabel: {
     ...typography.caption,
-    color: colors.textTertiary,
-    marginTop: spacing.xxxs,
+    color: colors.gray500,
+    marginTop: spacing.xs,
   },
-  
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray200,
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
   },
-  
   statBox: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    marginRight: spacing.sm,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     alignItems: 'center',
   },
-  
   statNumber: {
-    ...typography.h3,
-    color: colors.primary,
-    fontWeight: '700',
+    ...typography.h2,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
   },
-  
   statLabel: {
     ...typography.caption,
-    color: colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: spacing.xxxs,
+    color: colors.textSecondary,
   },
-  
   sectionTitle: {
-    ...typography.h4,
+    ...typography.h3,
     color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
-  
   notesText: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
-    lineHeight: 22,
-    fontStyle: 'italic',
+    lineHeight: 20,
   },
-  
   tabContainer: {
     flexDirection: 'row',
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    backgroundColor: colors.gray100,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xxxs,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
   },
-  
   tab: {
     flex: 1,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
     alignItems: 'center',
   },
-  
-  activeTab: {
-    backgroundColor: colors.white,
-    ...shadows.sm,
-  },
-  
   tabText: {
     ...typography.bodyMedium,
     color: colors.textSecondary,
-    fontWeight: '500',
   },
-  
+  activeTab: {
+    backgroundColor: colors.primary,
+  },
   activeTabText: {
-    color: colors.primary,
+    color: colors.white,
     fontWeight: '600',
   },
-  
   jobItem: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray100,
+    borderBottomColor: colors.border,
   },
-  
   jobHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: spacing.md,
   },
-  
   jobMainInfo: {
     flex: 1,
-    marginRight: spacing.md,
   },
-  
   jobService: {
-    ...typography.bodyMedium,
+    ...typography.bodyLarge,
     color: colors.textPrimary,
-    fontWeight: '600',
-    marginBottom: spacing.xxxs,
+    marginBottom: spacing.xs,
   },
-  
   jobDescription: {
     ...typography.bodySmall,
     color: colors.textSecondary,
     lineHeight: 18,
   },
-  
   jobMeta: {
     alignItems: 'flex-end',
+    gap: spacing.xs,
   },
-  
   jobDate: {
     ...typography.caption,
-    color: colors.textTertiary,
-    marginBottom: spacing.xxxs,
+    color: colors.textSecondary,
   },
-  
   jobAmount: {
     ...typography.bodyMedium,
-    color: colors.success,
+    color: colors.textPrimary,
     fontWeight: '600',
   },
-  
   commItem: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  
   commIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.sm,
   },
-  
   commContent: {
     flex: 1,
   },
-  
   commHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
-  
   commType: {
-    ...typography.caption,
+    ...typography.bodySmall,
     color: colors.textPrimary,
     fontWeight: '600',
-    textTransform: 'capitalize',
   },
-  
   commDate: {
     ...typography.caption,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
   },
-  
   commText: {
     ...typography.bodySmall,
     color: colors.textSecondary,
     lineHeight: 18,
   },
-  
   emptyState: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
+    gap: spacing.sm,
   },
-  
   emptyTitle: {
-    ...typography.h4,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
+    ...typography.bodyLarge,
+    color: colors.textPrimary,
+    fontWeight: '600',
   },
-  
   emptyDescription: {
-    ...typography.bodyMedium,
-    color: colors.textTertiary,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: spacing.lg,
+    lineHeight: 18,
   },
-  
   actionContainer: {
-    backgroundColor: colors.white,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.gray200,
+    borderTopColor: colors.border,
   },
-  
   scheduleButton: {
-    marginBottom: spacing.md,
+    width: '100%',
   },
-  
   communicationActions: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
   },
-  
   commActionButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
     borderRadius: borderRadius.md,
-    backgroundColor: colors.gray50,
-    minWidth: 80,
+    backgroundColor: colors.card,
+    marginHorizontal: spacing.xs,
   },
-  
   commActionText: {
-    ...typography.caption,
-    fontWeight: '600',
-    marginTop: spacing.xs,
+    ...typography.bodyMedium,
   },
 });

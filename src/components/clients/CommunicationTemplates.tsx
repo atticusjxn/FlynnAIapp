@@ -11,12 +11,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { FlynnButton } from '../ui/FlynnButton';
-import { Client } from '../../data/mockClients';
+import { ClientDetails } from '../../types/client';
 
 interface CommunicationTemplatesProps {
   visible: boolean;
   onClose: () => void;
-  client: Client;
+  client: ClientDetails;
   type: 'text' | 'email';
   onSendTemplate: (template: string) => void;
 }
@@ -86,7 +86,7 @@ export const CommunicationTemplates: React.FC<CommunicationTemplatesProps> = ({
   const replaceVariables = (template: string) => {
     return template
       .replace(/{clientName}/g, client.name)
-      .replace(/{serviceType}/g, client.lastJobType)
+      .replace(/{serviceType}/g, client.lastJobType || 'your recent service')
       .replace(/{time}/g, '2:00 PM'); // Default time - could be dynamic
   };
 
@@ -116,7 +116,9 @@ export const CommunicationTemplates: React.FC<CommunicationTemplatesProps> = ({
         <View style={styles.clientInfo}>
           <Text style={styles.clientName}>To: {client.name}</Text>
           <Text style={styles.clientContact}>
-            {type === 'text' ? client.phone : client.email}
+            {type === 'text'
+              ? client.phone || 'No mobile number on file'
+              : client.email || 'No email on file'}
           </Text>
         </View>
 
