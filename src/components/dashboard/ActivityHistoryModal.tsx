@@ -7,23 +7,30 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
-import { Activity, mockActivities, formatActivityTime } from '../../data/mockActivities';
+import { DashboardActivity, DashboardActivityType, formatActivityTime } from '../../services/dashboardService';
 
 interface ActivityHistoryModalProps {
   visible: boolean;
+  activities: DashboardActivity[];
+  loading?: boolean;
   onClose: () => void;
-  onActivityPress?: (activity: Activity) => void;
+  onRefresh?: () => Promise<void> | void;
+  onActivityPress?: (activity: DashboardActivity) => void;
   onNavigateToJob?: (jobId: string) => void;
   onCallClient?: (phone: string) => void;
 }
 
 export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
   visible,
+  activities,
+  loading = false,
   onClose,
+  onRefresh,
   onActivityPress,
   onNavigateToJob,
   onCallClient,
@@ -31,19 +38,20 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const [refreshing, setRefreshing] = useState(false);
-  const [activities] = useState<Activity[]>(mockActivities);
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<DashboardActivity | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    // Simulate refresh - in real app, this would fetch from API
-    setTimeout(() => {
+  const handleRefresh = async () => {
+    if (!onRefresh) return;
+    try {
+      setRefreshing(true);
+      await onRefresh();
+    } finally {
       setRefreshing(false);
-    }, 1000);
+    }
   };
 
-  const handleActivityPress = (activity: Activity) => {
+  const handleActivityPress = (activity: DashboardActivity) => {
     setSelectedActivity(activity);
     setShowDetails(true);
     onActivityPress?.(activity);
@@ -65,39 +73,32 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
     onClose();
   };
 
-  const getActivityIcon = (activity: Activity) => {
-    const iconColors = {
-      screenshot_processed: colors.primary,
-      call_recorded: colors.success,
-      job_created: colors.warning,
-      job_completed: colors.success,
-      communication_sent: colors.primary,
-      calendar_synced: colors.warning,
-      invoice_sent: colors.success,
-      status_changed: colors.primary,
-    };
-
-    return {
-      name: activity.icon as any,
-      color: iconColors[activity.type] || colors.gray500,
-    };
+  const iconColors: Record<DashboardActivityType, string> = {
+    job_created: colors.warning,
+    job_completed: colors.success,
+    job_updated: colors.primary,
+    communication_sent: colors.primary,
+    calendar_synced: colors.primary,
+    call_recorded: colors.success,
   };
 
-  const getActivityTypeLabel = (type: Activity['type']) => {
-    const labels = {
-      screenshot_processed: 'Screenshot',
-      call_recorded: 'Call',
-      job_created: 'Job Created',
-      job_completed: 'Job Complete',
-      communication_sent: 'Message',
-      calendar_synced: 'Calendar',
-      invoice_sent: 'Invoice',
-      status_changed: 'Status Update',
-    };
-    return labels[type] || type;
+  const typeLabels: Record<DashboardActivityType, string> = {
+    job_created: 'Job Created',
+    job_completed: 'Job Completed',
+    job_updated: 'Job Updated',
+    communication_sent: 'Communication',
+    calendar_synced: 'Calendar',
+    call_recorded: 'Call Recorded',
   };
 
-  const renderActivityItem = (activity: Activity) => {
+  const getActivityIcon = (activity: DashboardActivity) => ({
+    name: activity.icon as any,
+    color: iconColors[activity.type] ?? colors.gray500,
+  });
+
+  const getActivityTypeLabel = (type: DashboardActivity['type']) => typeLabels[type] ?? type;
+
+  const renderActivityItem = (activity: DashboardActivity) => {
     const iconConfig = getActivityIcon(activity);
     
     return (
@@ -131,28 +132,12 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
                   <Text style={styles.metadataText}>{activity.metadata.clientName}</Text>
                 </View>
               )}
-              {activity.metadata.amount && (
-                <View style={styles.metadataItem}>
-                  <Ionicons name="card-outline" size={14} color={colors.textTertiary} />
-                  <Text style={styles.metadataText}>${activity.metadata.amount}</Text>
-                </View>
-              )}
-              {activity.metadata.platform && (
+              {(activity.metadata.platform || activity.metadata.channel) && (
                 <View style={styles.metadataItem}>
                   <Ionicons name="apps-outline" size={14} color={colors.textTertiary} />
-                  <Text style={styles.metadataText}>{activity.metadata.platform}</Text>
+                  <Text style={styles.metadataText}>{activity.metadata.platform || activity.metadata.channel}</Text>
                 </View>
               )}
-            </View>
-          )}
-          
-          {/* Thumbnail for screenshots */}
-          {activity.type === 'screenshot_processed' && activity.metadata?.thumbnailUrl && (
-            <View style={styles.thumbnailContainer}>
-              <View style={styles.thumbnailPlaceholder}>
-                <Ionicons name="image" size={24} color={colors.gray400} />
-                <Text style={styles.thumbnailText}>Screenshot Preview</Text>
-              </View>
             </View>
           )}
         </View>
@@ -165,10 +150,10 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
     );
   };
 
-  const groupActivitiesByDate = (activities: Activity[]) => {
-    const groups: { [key: string]: Activity[] } = {};
-    
-    activities.forEach(activity => {
+  const groupActivitiesByDate = (activityEntries: DashboardActivity[]) => {
+    const groups: { [key: string]: DashboardActivity[] } = {};
+
+    activityEntries.forEach(activity => {
       const date = new Date(activity.timestamp);
       const today = new Date();
       const yesterday = new Date(today);
@@ -198,30 +183,26 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
 
   const activityGroups = groupActivitiesByDate(activities);
 
-  const getActivityTypeColor = (type: Activity['type']) => {
+  const getActivityTypeColor = (type: DashboardActivity['type']) => {
     switch (type) {
-      case 'screenshot_processed':
-        return colors.primary;
-      case 'call_recorded':
-        return colors.success;
       case 'job_created':
         return colors.warning;
       case 'job_completed':
         return colors.success;
+      case 'job_updated':
+        return colors.primary;
       case 'communication_sent':
         return colors.primary;
       case 'calendar_synced':
         return colors.primary;
-      case 'invoice_sent':
+      case 'call_recorded':
         return colors.success;
-      case 'status_changed':
-        return colors.warning;
       default:
         return colors.gray500;
     }
   };
 
-  const getActivityTypeBackground = (type: Activity['type']) => {
+  const getActivityTypeBackground = (type: DashboardActivity['type']) => {
     return getActivityTypeColor(type) + '15';
   };
 
@@ -292,24 +273,12 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
         });
       }
 
-      if (metadata.platform) {
-        items.push({ label: 'Platform', value: metadata.platform, icon: 'globe-outline' });
+      if (metadata.platform || metadata.channel) {
+        items.push({ label: 'Channel', value: metadata.platform || metadata.channel || '', icon: 'globe-outline' });
       }
 
-      if (metadata.amount) {
-        items.push({ 
-          label: 'Amount', 
-          value: `$${metadata.amount}`, 
-          icon: 'cash-outline' 
-        });
-      }
-
-      if (metadata.oldStatus && metadata.newStatus) {
-        items.push({ 
-          label: 'Status Change', 
-          value: `${metadata.oldStatus} → ${metadata.newStatus}`, 
-          icon: 'refresh-outline' 
-        });
+      if (metadata.status) {
+        items.push({ label: 'Status', value: metadata.status, icon: 'information-outline' });
       }
 
       if (items.length === 0) return null;
@@ -392,29 +361,23 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
             <Text style={styles.sectionTitle}>Activity Context</Text>
             <View style={styles.contextCard}>
               <Text style={styles.contextText}>
-                {selectedActivity.type === 'screenshot_processed' && 
-                  'Flynn AI automatically processed your screenshot and extracted the key information. You can review the details and create a job if needed.'
-                }
                 {selectedActivity.type === 'call_recorded' && 
-                  'This call was automatically recorded and transcribed by Flynn AI. The key details have been captured for easy reference.'
+                  'This call was automatically recorded and transcribed by Flynn AI. Key details are captured for easy reference.'
                 }
                 {selectedActivity.type === 'job_created' && 
-                  'A new job was created in your system. You can view and manage the job details from the Jobs tab.'
+                  'A new job was captured for your business. Review and assign it from the Jobs tab.'
                 }
                 {selectedActivity.type === 'job_completed' && 
-                  'This job has been marked as completed. You can now send invoices or follow-up communications to the client.'
+                  'This job has been marked as completed. Send any follow-up communications or invoices as needed.'
+                }
+                {selectedActivity.type === 'job_updated' && 
+                  'Job details were updated. Double-check the latest status to keep work on track.'
                 }
                 {selectedActivity.type === 'communication_sent' && 
-                  'Flynn AI automatically sent this communication to keep your client informed about their appointment.'
+                  'Flynn AI sent this communication to keep your client informed.'
                 }
                 {selectedActivity.type === 'calendar_synced' && 
-                  'This appointment has been synced with your connected calendar platform for better schedule management.'
-                }
-                {selectedActivity.type === 'invoice_sent' && 
-                  'Invoice has been generated and sent through your connected accounting software.'
-                }
-                {selectedActivity.type === 'status_changed' && 
-                  'Job status was updated to reflect the current progress of the work.'
+                  'This event has been synced with your calendar so you never miss an appointment.'
                 }
               </Text>
             </View>
@@ -447,24 +410,36 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
               style={styles.content}
               showsVerticalScrollIndicator={false}
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                onRefresh
+                  ? (
+                    <RefreshControl
+                      refreshing={refreshing || loading}
+                      onRefresh={handleRefresh}
+                    />
+                  )
+                  : undefined
               }
             >
-              {Object.entries(activityGroups).map(([dateKey, dayActivities]) => (
-                <View key={dateKey} style={styles.dateSection}>
-                  <Text style={styles.dateHeader}>{dateKey}</Text>
-                  {dayActivities.map(renderActivityItem)}
+              {loading && activities.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.emptyDescription}>Loading recent activity…</Text>
                 </View>
-              ))}
-              
-              {activities.length === 0 && (
+              ) : activities.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="time-outline" size={48} color={colors.gray400} />
                   <Text style={styles.emptyTitle}>No Activity Yet</Text>
                   <Text style={styles.emptyDescription}>
-                    Your business activity will appear here as you process screenshots, record calls, and manage jobs.
+                    Recent activity will appear here as you process calls, create jobs, and send communications.
                   </Text>
                 </View>
+              ) : (
+                Object.entries(activityGroups).map(([dateKey, dayActivities]) => (
+                  <View key={dateKey} style={styles.dateSection}>
+                    <Text style={styles.dateHeader}>{dateKey}</Text>
+                    {dayActivities.map(renderActivityItem)}
+                  </View>
+                ))
               )}
             </ScrollView>
           </>

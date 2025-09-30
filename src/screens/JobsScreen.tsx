@@ -40,7 +40,7 @@ const formatRelativeTime = (timestamp?: string) => {
 
 export const JobsScreen = () => {
   const { colors } = useTheme();
-  const { jobs, updateJob, deleteJob, markJobComplete, refreshJobs, loading: jobsLoading } = useJobs();
+  const { jobs, updateJob, deleteJob, markJobComplete, saveJobEdits, refreshJobs, loading: jobsLoading } = useJobs();
   const navigation = useNavigation<any>();
   const styles = createStyles(colors);
   
@@ -158,9 +158,14 @@ export const JobsScreen = () => {
     }
   };
 
-  const handleMarkComplete = (job: Job) => {
-    markJobComplete(job.id);
-    Alert.alert('Success', `Job for ${job.clientName} marked as complete!`);
+  const handleMarkComplete = async (job: Job) => {
+    try {
+      await markJobComplete(job.id);
+      Alert.alert('Success', `Job for ${job.clientName} marked as complete!`);
+    } catch (error) {
+      console.error('[JobsScreen] Failed to mark complete', error);
+      Alert.alert('Error', 'Unable to mark this job complete right now.');
+    }
   };
 
   const handleReschedule = (job: Job) => {
@@ -172,14 +177,22 @@ export const JobsScreen = () => {
     // This is now handled inline in the modal
   };
 
-  const handleUpdateJob = (updatedJob: Job) => {
-    updateJob(updatedJob);
-    console.log('Updated job:', updatedJob);
+  const handleUpdateJob = async (updatedJob: Job) => {
+    try {
+      await saveJobEdits(updatedJob);
+    } catch (error) {
+      Alert.alert('Error', 'Unable to save job changes right now.');
+    }
   };
 
-  const handleDeleteJob = (job: Job) => {
-    deleteJob(job.id);
-    Alert.alert('Success', `Job for ${job.clientName} has been deleted.`);
+  const handleDeleteJob = async (job: Job) => {
+    try {
+      await deleteJob(job.id);
+      Alert.alert('Success', `Job for ${job.clientName} has been deleted.`);
+    } catch (error) {
+      console.error('[JobsScreen] Failed to delete job', error);
+      Alert.alert('Error', 'Unable to delete this job right now.');
+    }
   };
 
   const handleRefresh = useCallback(() => {

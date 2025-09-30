@@ -82,6 +82,10 @@ export interface JobExtraction {
   scheduledTime?: string; // HH:MM format
   location?: string;
   estimatedPrice?: number;
+  businessType?: string;
+  notes?: string;
+  followUpDraft?: string;
+  estimatedDuration?: string;
   urgency?: UrgencyLevel;
   followUpRequired?: boolean;
   extractedAt: string;

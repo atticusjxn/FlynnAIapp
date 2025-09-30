@@ -26,7 +26,7 @@ interface JobDetailsModalProps {
   onReschedule: (job: Job) => void;
   onEditDetails: (job: Job) => void;
   onDeleteJob: (job: Job) => void;
-  onUpdateJob: (updatedJob: Job) => void;
+  onUpdateJob: (updatedJob: Job) => Promise<void>;
 }
 
 const getStatusColor = (status: Job['status']) => {
@@ -124,6 +124,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedJob, setEditedJob] = useState<Job | null>(null);
   const [isAccountingExpanded, setIsAccountingExpanded] = useState(false);
+  const [savingEdits, setSavingEdits] = useState(false);
 
   // Initialize edited job when job changes or modal visibility changes
   React.useEffect(() => {
@@ -147,11 +148,18 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     setIsEditing(false);
   };
 
-  const handleConfirmEdits = () => {
-    if (editedJob) {
-      onUpdateJob(editedJob);
+  const handleConfirmEdits = async () => {
+    if (!editedJob) return;
+    try {
+      setSavingEdits(true);
+      await onUpdateJob(editedJob);
       setIsEditing(false);
       Alert.alert('Success', 'Job details updated successfully!');
+    } catch (error) {
+      console.error('[JobDetailsModal] Failed to save edits', error);
+      Alert.alert('Error', 'Unable to save changes right now.');
+    } finally {
+      setSavingEdits(false);
     }
   };
 
@@ -466,8 +474,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               />
               
               <FlynnButton
-                title="Confirm Edits"
+                title={savingEdits ? 'Saving…' : 'Confirm edits'}
                 onPress={handleConfirmEdits}
+                disabled={savingEdits}
                 variant="primary"
                 size="medium"
                 icon={<Ionicons name="checkmark-outline" size={18} color={colors.white} />}

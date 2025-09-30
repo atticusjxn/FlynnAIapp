@@ -13,11 +13,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
-import { Activity, formatActivityTime } from '../../data/mockActivities';
+import { DashboardActivity, formatActivityTime } from '../../services/dashboardService';
 
 interface ActivityDetailsModalProps {
   visible: boolean;
-  activity: Activity | null;
+  activity: DashboardActivity | null;
   onClose: () => void;
   onNavigateToJob?: (jobId: string) => void;
   onCallClient?: (phone: string) => void;
@@ -35,30 +35,26 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
 
   if (!activity) return null;
 
-  const getActivityTypeColor = (type: Activity['type']) => {
+  const getActivityTypeColor = (type: DashboardActivity['type']) => {
     switch (type) {
-      case 'screenshot_processed':
-        return colors.primary;
       case 'call_recorded':
         return colors.success;
       case 'job_created':
         return colors.warning;
       case 'job_completed':
         return colors.success;
+      case 'job_updated':
+        return colors.primary;
       case 'communication_sent':
         return colors.primary;
       case 'calendar_synced':
         return colors.primary;
-      case 'invoice_sent':
-        return colors.success;
-      case 'status_changed':
-        return colors.warning;
       default:
         return colors.gray500;
     }
   };
 
-  const getActivityTypeBackground = (type: Activity['type']) => {
+  const getActivityTypeBackground = (type: DashboardActivity['type']) => {
     return getActivityTypeColor(type) + '15';
   };
 
@@ -139,23 +135,19 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
       });
     }
 
-    if (metadata.platform) {
-      items.push({ label: 'Platform', value: metadata.platform, icon: 'globe-outline' });
-    }
-
-    if (metadata.amount) {
-      items.push({ 
-        label: 'Amount', 
-        value: `$${metadata.amount}`, 
-        icon: 'cash-outline' 
+    if (metadata.platform || metadata.channel) {
+      items.push({
+        label: 'Channel',
+        value: metadata.platform || metadata.channel || '',
+        icon: 'globe-outline',
       });
     }
 
-    if (metadata.oldStatus && metadata.newStatus) {
-      items.push({ 
-        label: 'Status Change', 
-        value: `${metadata.oldStatus} → ${metadata.newStatus}`, 
-        icon: 'refresh-outline' 
+    if (metadata.status) {
+      items.push({
+        label: 'Status',
+        value: metadata.status,
+        icon: 'information-outline',
       });
     }
 
@@ -246,9 +238,6 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
               <Text style={styles.sectionTitle}>Activity Context</Text>
               <View style={styles.contextCard}>
                 <Text style={styles.contextText}>
-                  {activity.type === 'screenshot_processed' && 
-                    'Flynn AI automatically processed your screenshot and extracted the key information. You can review the details and create a job if needed.'
-                  }
                   {activity.type === 'call_recorded' && 
                     'This call was automatically recorded and transcribed by Flynn AI. The key details have been captured for easy reference.'
                   }
@@ -258,17 +247,14 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
                   {activity.type === 'job_completed' && 
                     'This job has been marked as completed. You can now send invoices or follow-up communications to the client.'
                   }
+                  {activity.type === 'job_updated' && 
+                    'Details for this job were updated. Review the latest status to keep your workflow on track.'
+                  }
                   {activity.type === 'communication_sent' && 
                     'Flynn AI automatically sent this communication to keep your client informed about their appointment.'
                   }
                   {activity.type === 'calendar_synced' && 
                     'This appointment has been synced with your connected calendar platform for better schedule management.'
-                  }
-                  {activity.type === 'invoice_sent' && 
-                    'Invoice has been generated and sent through your connected accounting software.'
-                  }
-                  {activity.type === 'status_changed' && 
-                    'Job status was updated to reflect the current progress of the work.'
                   }
                 </Text>
               </View>

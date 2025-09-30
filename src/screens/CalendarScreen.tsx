@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
@@ -26,7 +27,7 @@ type CalendarView = 'month' | 'day';
 
 export const CalendarScreen: React.FC = () => {
   const { colors } = useTheme();
-  const { jobs, updateJob, deleteJob, markJobComplete } = useJobs();
+  const { jobs, updateJob, deleteJob, markJobComplete, saveJobEdits } = useJobs();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const styles = createStyles(colors);
   const [currentView, setCurrentView] = useState<CalendarView>('day');
@@ -56,7 +57,7 @@ export const CalendarScreen: React.FC = () => {
 
   const currentDateIndex = Math.floor(scrollDates.length / 2);
   const { width } = Dimensions.get('window');
-const toggleButtonWidth = (width - (spacing.lg * 2) - spacing.xxxs) / 2; // Only 2 buttons now
+const toggleButtonWidth = (width - spacing.lg * 2 - spacing.xxxs) / 2; // Only 2 buttons now
 
   // Animate indicator when view changes
   useEffect(() => {
@@ -93,10 +94,14 @@ const toggleButtonWidth = (width - (spacing.lg * 2) - spacing.xxxs) / 2; // Only
     console.log('Send email confirmation for job:', job.id);
   }, []);
 
-  const handleMarkComplete = useCallback((job: Job) => {
-    markJobComplete(job.id);
-    handleCloseModal();
-  }, [markJobComplete]);
+  const handleMarkComplete = useCallback(async (job: Job) => {
+    try {
+      await markJobComplete(job.id);
+      handleCloseModal();
+    } catch (error) {
+      Alert.alert('Error', 'Unable to mark this job complete right now.');
+    }
+  }, [markJobComplete, handleCloseModal]);
 
   const handleReschedule = useCallback((job: Job) => {
     console.log('Reschedule job:', job.id);
@@ -107,14 +112,22 @@ const toggleButtonWidth = (width - (spacing.lg * 2) - spacing.xxxs) / 2; // Only
     // This is now handled inline in the modal
   }, []);
 
-  const handleUpdateJob = useCallback((updatedJob: Job) => {
-    updateJob(updatedJob);
-  }, [updateJob]);
+  const handleUpdateJob = useCallback(async (updatedJob: Job) => {
+    try {
+      await saveJobEdits(updatedJob);
+    } catch (error) {
+      Alert.alert('Error', 'Unable to save job changes right now.');
+    }
+  }, [saveJobEdits]);
 
-  const handleDeleteJob = useCallback((job: Job) => {
-    deleteJob(job.id);
-    handleCloseModal();
-  }, [deleteJob]);
+  const handleDeleteJob = useCallback(async (job: Job) => {
+    try {
+      await deleteJob(job.id);
+      handleCloseModal();
+    } catch (error) {
+      Alert.alert('Error', 'Unable to delete this job right now.');
+    }
+  }, [deleteJob, handleCloseModal]);
 
   const navigateToToday = () => {
     setCurrentDate(new Date());

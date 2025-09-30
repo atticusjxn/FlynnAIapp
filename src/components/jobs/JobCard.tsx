@@ -8,6 +8,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
+import { businessTypes } from '../../context/OnboardingContext';
 
 export interface Job {
   id: string;
@@ -151,6 +152,29 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
     }
   }, [job.source]);
 
+  const businessMeta = React.useMemo(() => {
+    const entry = businessTypes.find(type => type.id === job.businessType);
+    if (!entry) {
+      return null;
+    }
+
+    const palette: Record<string, { background: string; text: string }> = {
+      home_property: { background: '#fef3c7', text: '#92400e' },
+      personal_beauty: { background: '#fdf2f8', text: '#9d174d' },
+      automotive: { background: '#eff6ff', text: '#1d4ed8' },
+      business_professional: { background: '#ede9fe', text: '#5b21b6' },
+      moving_delivery: { background: '#e0f2fe', text: '#0c4a6e' },
+      other: { background: colors.gray100, text: colors.gray600 },
+    };
+
+    const paletteKey = job.businessType && palette[job.businessType] ? job.businessType : 'other';
+    return {
+      label: entry.label,
+      background: palette[paletteKey].background,
+      text: palette[paletteKey].text,
+    };
+  }, [job.businessType, colors.gray100, colors.gray600]);
+
   return (
     <TouchableOpacity
       style={styles.card}
@@ -160,7 +184,17 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
       <View style={styles.header}>
         <View style={styles.clientInfo}>
           <Text style={styles.clientName}>{job.clientName}</Text>
-          <Text style={styles.serviceType}>{job.serviceType}</Text>
+          <View style={styles.serviceRow}>
+            <Text style={styles.serviceType}>{job.serviceType}</Text>
+            {businessMeta && (
+              <View style={[styles.businessChip, { backgroundColor: businessMeta.background }]}
+              >
+                <Text style={[styles.businessChipText, { color: businessMeta.text }]}>
+                  {businessMeta.label}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
         <View style={[
           styles.statusBadge,
@@ -275,13 +309,25 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.xxxs,
   },
-  
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
   serviceType: {
-    ...typography.caption,
-    color: colors.primary,
+    ...typography.bodySmall,
+    color: colors.textSecondary,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  },
+  businessChip: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxxs,
+    borderRadius: borderRadius.sm,
+  },
+  businessChipText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   
   statusBadge: {

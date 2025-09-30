@@ -9,18 +9,19 @@ import React, {
 } from 'react';
 import { Alert } from 'react-native';
 import { Job } from '../components/jobs/JobCard';
-import { apiClient } from '../services/apiClient';
+import { jobsService } from '../services/jobsService';
 import { useAuth } from './AuthContext';
 
 interface JobsContextType {
   jobs: Job[];
   setJobs: React.Dispatch<React.SetStateAction<Job[]>>;
   updateJob: (updatedJob: Job) => void;
-  deleteJob: (jobId: string) => void;
-  markJobComplete: (jobId: string) => void;
+  deleteJob: (jobId: string) => Promise<void>;
+  markJobComplete: (jobId: string) => Promise<void>;
   addJob: (job: Job) => void;
   refreshJobs: () => Promise<void>;
   loading: boolean;
+  saveJobEdits: (job: Job) => Promise<void>;
 }
 
 const JobsContext = createContext<JobsContextType | undefined>(undefined);
@@ -37,57 +38,6 @@ export const JobsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  interface JobsApiRecord {
-    id: string;
-    call_sid?: string | null;
-    customer_name?: string | null;
-    customer_phone?: string | null;
-    summary?: string | null;
-    service_type?: string | null;
-    status?: 'new' | 'in_progress' | 'completed';
-    created_at?: string | null;
-  }
-
-  const mapStatus = (status?: JobsApiRecord['status']): Job['status'] => {
-    switch (status) {
-      case 'completed':
-        return 'complete';
-      case 'in_progress':
-        return 'in-progress';
-      default:
-        return 'pending';
-    }
-  };
-
-  const mapJobRecordToJob = (record: JobsApiRecord): Job => {
-    const createdAt = record.created_at ? new Date(record.created_at) : new Date();
-    const isoString = createdAt.toISOString();
-    const [datePart, timePart = '00:00:00'] = isoString.split('T');
-    const timeValue = timePart.slice(0, 5);
-
-    return {
-      id: record.id,
-      clientName: record.customer_name || 'Client',
-      clientPhone: record.customer_phone || '',
-      serviceType: record.service_type || 'General Service',
-      description: record.summary || 'Job details unavailable',
-      date: datePart,
-      time: timeValue,
-      location: 'To be determined',
-      status: mapStatus(record.status),
-      businessType: 'general',
-      notes: undefined,
-      estimatedDuration: undefined,
-      createdAt: createdAt.toISOString(),
-      source: record.call_sid ? 'voicemail' : 'manual',
-      voicemailTranscript: undefined,
-      voicemailRecordingUrl: undefined,
-      followUpDraft: undefined,
-      capturedAt: createdAt.toISOString(),
-      lastFollowUpAt: undefined,
-    };
-  };
-
   const refreshJobs = useCallback(async () => {
     if (!user?.id) {
       if (isMountedRef.current) {
@@ -101,10 +51,7 @@ export const JobsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
-      const response = await apiClient.get<{ jobs: JobsApiRecord[] }>('/jobs');
-      const hydratedJobs = Array.isArray(response?.jobs)
-        ? response.jobs.map(mapJobRecordToJob)
-        : [];
+      const hydratedJobs = await jobsService.listJobs(user.id);
 
       if (isMountedRef.current) {
         setJobs(hydratedJobs);
@@ -136,20 +83,71 @@ export const JobsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   };
 
-  const deleteJob = (jobId: string) => {
+  const deleteJob = async (jobId: string) => {
+    const prevJobs = jobs;
     setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+    try {
+      await jobsService.deleteJob(jobId);
+    } catch (error) {
+      console.error('[JobsContext] Failed to delete job', error);
+      setJobs(prevJobs);
+      throw error;
+    }
   };
 
-  const markJobComplete = (jobId: string) => {
+  const markJobComplete = async (jobId: string) => {
+    const prevJobs = jobs;
     setJobs(prevJobs =>
       prevJobs.map(job =>
         job.id === jobId ? { ...job, status: 'complete' as const } : job
       )
     );
+    try {
+      await jobsService.updateStatus(jobId, 'complete');
+    } catch (error) {
+      console.error('[JobsContext] Failed to mark job complete', error);
+      setJobs(prevJobs);
+      throw error;
+    }
   };
 
   const addJob = (job: Job) => {
     setJobs(prevJobs => [...prevJobs, job]);
+  };
+
+  const saveJobEdits = async (updatedJob: Job) => {
+    const prevJobs = jobs;
+    setJobs(prev => prev.map(job => (job.id === updatedJob.id ? updatedJob : job)));
+
+    const original = prevJobs.find(job => job.id === updatedJob.id);
+    const payload: Record<string, string | undefined> = {};
+
+    if (!original || original.serviceType !== updatedJob.serviceType) {
+      payload.serviceType = updatedJob.serviceType;
+    }
+    if (!original || original.description !== updatedJob.description) {
+      payload.description = updatedJob.description;
+    }
+    if (!original || original.date !== updatedJob.date) {
+      payload.scheduledDate = updatedJob.date;
+    }
+    if (!original || original.time !== updatedJob.time) {
+      payload.scheduledTime = updatedJob.time;
+    }
+    if (!original || original.location !== updatedJob.location) {
+      payload.location = updatedJob.location;
+    }
+    if (!original || original.notes !== updatedJob.notes) {
+      payload.notes = updatedJob.notes;
+    }
+
+    try {
+      await jobsService.updateJob(updatedJob.id, payload);
+    } catch (error) {
+      console.error('[JobsContext] Failed to save job edits', error);
+      setJobs(prevJobs);
+      throw error;
+    }
   };
 
   return (
@@ -162,6 +160,7 @@ export const JobsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       addJob,
       refreshJobs,
       loading,
+      saveJobEdits,
     }}>
       {children}
     </JobsContext.Provider>

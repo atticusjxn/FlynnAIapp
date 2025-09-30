@@ -8,13 +8,14 @@ import {
   RefreshControl,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { typography, spacing, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
-import { mockActivities, getRecentActivity, formatActivityTime, Activity } from '../data/mockActivities';
+import { fetchDashboardActivities, DashboardActivity, formatActivityTime } from '../services/dashboardService';
 import { Job } from '../components/jobs/JobCard';
 import { ActivityHistoryModal } from '../components/dashboard/ActivityHistoryModal';
 import { ActivityDetailsModal } from '../components/dashboard/ActivityDetailsModal';
@@ -31,13 +32,16 @@ export const DashboardScreen = () => {
     deleteJob,
     markJobComplete,
     refreshJobs,
+    saveJobEdits,
     loading: jobsLoading,
   } = useJobs();
   const navigation = useNavigation<any>();
   const [showActivityHistory, setShowActivityHistory] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [jobModalVisible, setJobModalVisible] = useState(false);
-  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [activities, setActivities] = useState<DashboardActivity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<DashboardActivity | null>(null);
   const [activityModalVisible, setActivityModalVisible] = useState(false);
   const styles = createStyles(colors);
 
@@ -58,20 +62,38 @@ export const DashboardScreen = () => {
     return upcomingJobs.length > 0 ? upcomingJobs[0] : null;
   };
 
-  const getRecentActivities = (limit: number = 5): Activity[] => {
-    return mockActivities.slice(0, limit);
-  };
-
-  const recentActivities = getRecentActivities(5);
+  const recentActivities = activities.slice(0, 5);
   const upcomingJob = getUpcomingJob();
 
   const onRefresh = async () => {
     try {
-      await refreshJobs();
+      await Promise.all([refreshJobs(), loadActivities()]);
     } catch (error) {
       console.error('[Dashboard] Refresh failed:', error);
     }
   };
+
+  const loadActivities = async () => {
+    if (!user?.id) {
+      setActivities([]);
+      return;
+    }
+
+    setActivitiesLoading(true);
+    try {
+      const fetched = await fetchDashboardActivities(user.id);
+      setActivities(fetched);
+    } catch (error) {
+      console.error('[Dashboard] Failed to load activities', error);
+      setActivities([]);
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadActivities();
+  }, [user?.id]);
 
   const handleCallClient = (phone: string) => {
     const phoneUrl = `tel:${phone}`;
@@ -112,8 +134,12 @@ export const DashboardScreen = () => {
     Alert.alert('Edit Details', `Edit details for ${job.clientName}'s ${job.serviceType}`);
   };
 
-  const handleUpdateJob = (updatedJob: Job) => {
-    updateJob(updatedJob);
+  const handleUpdateJob = async (updatedJob: Job) => {
+    try {
+      await saveJobEdits(updatedJob);
+    } catch (error) {
+      Alert.alert('Error', 'Unable to save job changes right now.');
+    }
   };
 
   const handleDeleteJob = (job: Job) => {
@@ -122,7 +148,7 @@ export const DashboardScreen = () => {
     Alert.alert('Job Deleted', `${job.clientName}'s ${job.serviceType} has been deleted`);
   };
 
-  const handleActivityAction = (activity: Activity) => {
+  const handleActivityAction = (activity: DashboardActivity) => {
     setSelectedActivity(activity);
     setActivityModalVisible(true);
   };
@@ -146,7 +172,7 @@ export const DashboardScreen = () => {
     }
   };
 
-  const handleActivityHistoryPress = (activity: Activity) => {
+  const handleActivityHistoryPress = (activity: DashboardActivity) => {
     // Keep activity history modal open and let it handle the details internally
     // The ActivityHistoryModal now handles showing details within itself
   };
@@ -262,7 +288,12 @@ export const DashboardScreen = () => {
             <Ionicons name="chevron-forward" size={16} color={colors.primary} />
           </TouchableOpacity>
         </View>
-        {recentActivities.length > 0 ? (
+        {activitiesLoading && recentActivities.length === 0 ? (
+          <View style={styles.emptyActivityCard}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.emptyActivityDescription}>Loading recent activity…</Text>
+          </View>
+        ) : recentActivities.length > 0 ? (
           <View style={styles.activitiesContainer}>
             {recentActivities.map((activity, index) => (
               <TouchableOpacity 
@@ -315,7 +346,10 @@ export const DashboardScreen = () => {
       {/* Activity History Modal */}
       <ActivityHistoryModal 
         visible={showActivityHistory}
+        activities={activities}
+        loading={activitiesLoading}
         onClose={() => setShowActivityHistory(false)}
+        onRefresh={loadActivities}
         onActivityPress={handleActivityHistoryPress}
         onNavigateToJob={handleNavigateToJobFromActivity}
         onCallClient={handleCallClientFromActivity}

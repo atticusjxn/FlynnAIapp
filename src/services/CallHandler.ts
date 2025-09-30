@@ -267,7 +267,16 @@ class CallHandlerClass {
 
       let jobId: string | undefined;
       if (jobExtraction && jobExtraction.confidence > 0.7) {
-        jobId = await this.createJobFromExtraction(jobExtraction, userId, callId);
+        jobId = await this.createJobFromExtraction(
+          jobExtraction,
+          userId,
+          callId,
+          businessType,
+          {
+            transcriptionText,
+            recordingUrl,
+          }
+        );
         
         if (jobId) {
           await TwilioService.updateCallRecord(callId, { jobId });
@@ -299,10 +308,44 @@ class CallHandlerClass {
   /**
    * Create a job from extracted call data
    */
+  private normalizeDate(dateString?: string | null) {
+    if (!dateString) return null;
+    const parsed = Date.parse(dateString);
+    if (Number.isNaN(parsed)) {
+      const isoMatch = /^\d{4}-\d{2}-\d{2}$/;
+      return isoMatch.test(dateString) ? dateString : null;
+    }
+    return new Date(parsed).toISOString().slice(0, 10);
+  }
+
+  private normalizeTime(timeString?: string | null) {
+    if (!timeString) return null;
+    const trimmed = timeString.trim();
+    const match = trimmed.match(/^([0-2]?\d):([0-5]\d)(?:\s*(am|pm))?$/i);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const minutes = match[2];
+      const meridiem = match[3]?.toLowerCase();
+      if (meridiem === 'pm' && hours < 12) hours += 12;
+      if (meridiem === 'am' && hours === 12) hours = 0;
+      if (hours >= 0 && hours <= 23) {
+        return `${hours.toString().padStart(2, '0')}:${minutes}`;
+      }
+    }
+
+    const date = new Date(`1970-01-01T${trimmed}`);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString().slice(11, 16);
+    }
+    return null;
+  }
+
   private async createJobFromExtraction(
-    extraction: JobExtraction, 
-    userId: string, 
-    callId: string
+    extraction: JobExtraction,
+    userId: string,
+    callId: string,
+    fallbackBusinessType?: string | null,
+    options?: { transcriptionText?: string | null; recordingUrl?: string | null }
   ): Promise<string | undefined> {
     try {
       if (!extraction.serviceType && !extraction.description) {
@@ -316,18 +359,42 @@ class CallHandlerClass {
         clientId = await this.findOrCreateClient(extraction, userId);
       }
 
-      // Create the job record
+      const scheduledDate = this.normalizeDate(extraction.scheduledDate);
+      const scheduledTime = this.normalizeTime(extraction.scheduledTime);
+      const estimatedDuration = extraction.estimatedDuration
+        || (typeof extraction.estimatedPrice === 'number' ? `${extraction.estimatedPrice} minutes` : null);
+
+      const notes = [
+        extraction.notes,
+        `Created from phone call (Call ID: ${callId})`,
+        !scheduledDate && extraction.scheduledDate ? `Original date: ${extraction.scheduledDate}` : undefined,
+        !scheduledTime && extraction.scheduledTime ? `Original time: ${extraction.scheduledTime}` : undefined,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
       const { data: jobData, error: jobError } = await supabase
         .from('jobs')
         .insert({
           user_id: userId,
-          client_id: clientId,
-          title: extraction.serviceType || 'Phone Call Job',
-          description: extraction.description || '',
-          address: extraction.location,
-          quoted_price: extraction.estimatedPrice,
-          status: 'pending',
-          notes: `Created from phone call (Call ID: ${callId})`
+          customer_name: extraction.clientName || null,
+          customer_phone: extraction.clientPhone || null,
+          customer_email: extraction.clientEmail || null,
+          summary: extraction.description || '',
+          service_type: extraction.serviceType || 'Phone call job',
+          status: 'new',
+          business_type: extraction.businessType || fallbackBusinessType || null,
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime,
+          location: extraction.location || null,
+          notes: notes || null,
+          estimated_duration: estimatedDuration,
+          source: 'voicemail',
+          follow_up_draft: extraction.followUpDraft || (extraction.followUpRequired ? 'Hi there! Just following up on your enquiry.' : null),
+          last_follow_up_at: null,
+          voicemail_transcript: options?.transcriptionText || null,
+          voicemail_recording_url: options?.recordingUrl || null,
+          captured_at: new Date().toISOString(),
         })
         .select('id')
         .single();
@@ -337,7 +404,7 @@ class CallHandlerClass {
       }
 
       // Create calendar event if we have scheduling information
-      if (jobData.id && (extraction.scheduledDate || extraction.scheduledTime)) {
+      if (jobData.id && (scheduledDate || scheduledTime)) {
         await this.createCalendarEvent(jobData.id, extraction, userId, clientId);
       }
 

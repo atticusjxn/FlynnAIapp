@@ -505,6 +505,22 @@ const getCallBySid = async (callSid) => {
   return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
 };
 
+const getUserProfileById = async (userId) => {
+  if (!userId) {
+    throw new Error('userId is required to lookup user profile.');
+  }
+
+  const query = `
+    select id, email, business_name, business_type, phone_number
+    from public.users
+    where id = ${sqlString(userId)}
+    limit 1;
+  `;
+
+  const result = await executeSql(query);
+  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+};
+
 const findExpiredRecordingCalls = async ({ cutoffIso, limit = 50 }) => {
   if (!cutoffIso) {
     throw new Error('cutoffIso is required to locate expired recordings.');
@@ -683,9 +699,22 @@ const insertJob = async ({
   callSid,
   customerName,
   customerPhone,
+  customerEmail,
   summary,
   serviceType,
   status,
+  businessType,
+  scheduledDate,
+  scheduledTime,
+  location,
+  notes,
+  estimatedDuration,
+  source,
+  followUpDraft,
+  lastFollowUpAt,
+  voicemailTranscript,
+  voicemailRecordingUrl,
+  capturedAt,
 }) => {
   if (!callSid) {
     throw new Error('callSid is required for job insert.');
@@ -693,25 +722,79 @@ const insertJob = async ({
 
   const jobId = id || randomUUID();
 
+  const resolvedBusinessType = businessType
+    ? sqlString(businessType)
+    : userId
+      ? `(select business_type from public.users where id = ${sqlString(userId)} limit 1)`
+      : 'NULL';
+
   const query = `
-    insert into public.jobs (id, user_id, call_sid, customer_name, customer_phone, summary, service_type, status)
+    insert into public.jobs (
+      id,
+      user_id,
+      call_sid,
+      customer_name,
+      customer_phone,
+      customer_email,
+      summary,
+      service_type,
+      status,
+      business_type,
+      scheduled_date,
+      scheduled_time,
+      location,
+      notes,
+      estimated_duration,
+      source,
+      follow_up_draft,
+      last_follow_up_at,
+      voicemail_transcript,
+      voicemail_recording_url,
+      captured_at
+    )
     values (
       ${sqlString(jobId)},
       ${sqlString(userId)},
       ${sqlString(callSid)},
       ${sqlString(customerName)},
       ${sqlString(customerPhone)},
+      ${sqlString(customerEmail)},
       ${sqlString(summary)},
       ${sqlString(serviceType)},
-      ${sqlString(status || 'new')}
+      ${sqlString(status || 'new')},
+      ${resolvedBusinessType},
+      ${sqlString(scheduledDate)},
+      ${sqlString(scheduledTime)},
+      ${sqlString(location)},
+      ${sqlString(notes)},
+      ${sqlString(estimatedDuration)},
+      ${sqlString(source)},
+      ${sqlString(followUpDraft)},
+      ${sqlString(lastFollowUpAt)},
+      ${sqlString(voicemailTranscript)},
+      ${sqlString(voicemailRecordingUrl)},
+      coalesce(${sqlString(capturedAt)}, now())
     )
     on conflict (call_sid) do update set
       user_id = coalesce(excluded.user_id, public.jobs.user_id),
       customer_name = excluded.customer_name,
       customer_phone = excluded.customer_phone,
+      customer_email = excluded.customer_email,
       summary = excluded.summary,
       service_type = excluded.service_type,
-      status = excluded.status
+      status = excluded.status,
+      business_type = coalesce(excluded.business_type, public.jobs.business_type),
+      scheduled_date = coalesce(excluded.scheduled_date, public.jobs.scheduled_date),
+      scheduled_time = coalesce(excluded.scheduled_time, public.jobs.scheduled_time),
+      location = coalesce(excluded.location, public.jobs.location),
+      notes = coalesce(excluded.notes, public.jobs.notes),
+      estimated_duration = coalesce(excluded.estimated_duration, public.jobs.estimated_duration),
+      source = coalesce(excluded.source, public.jobs.source),
+      follow_up_draft = coalesce(excluded.follow_up_draft, public.jobs.follow_up_draft),
+      last_follow_up_at = coalesce(excluded.last_follow_up_at, public.jobs.last_follow_up_at),
+      voicemail_transcript = coalesce(excluded.voicemail_transcript, public.jobs.voicemail_transcript),
+      voicemail_recording_url = coalesce(excluded.voicemail_recording_url, public.jobs.voicemail_recording_url),
+      captured_at = coalesce(excluded.captured_at, public.jobs.captured_at)
     returning id;
   `;
 
@@ -781,6 +864,7 @@ module.exports = {
   getJobForUser,
   updateJobStatusForUser,
   insertJob,
+  getUserProfileById,
   upsertNotificationToken,
   listNotificationTokensForUser,
   findExpiredRecordingCalls,

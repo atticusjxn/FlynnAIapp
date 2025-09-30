@@ -1,4 +1,9 @@
-const { getCallBySid, getJobByCallSid, insertJob } = require('../supabaseMcpClient');
+const {
+  getCallBySid,
+  getJobByCallSid,
+  getUserProfileById,
+  insertJob,
+} = require('../supabaseMcpClient');
 const { sendJobCreatedNotification } = require('../notifications/pushService');
 
 const JOB_EXTRACTION_MODEL = process.env.OPENAI_JOB_EXTRACTION_MODEL || 'gpt-4o-mini';
@@ -41,7 +46,7 @@ const extractJobDetails = async ({ transcriptText, openaiClient }) => {
     messages: [
       {
         role: 'system',
-        content: 'Extract customer details from service voicemails. Always respond with JSON containing customer_name, customer_phone, service_type, and summary. Use null when a field is unknown.',
+        content: 'Extract customer details from service voicemails. Always respond with JSON containing customer_name, customer_phone, customer_email, service_type, summary, and business_type (one of home_property, personal_beauty, automotive, business_professional, moving_delivery, other). Use null when a field is unknown.',
       },
       {
         role: 'user',
@@ -67,8 +72,10 @@ const extractJobDetails = async ({ transcriptText, openaiClient }) => {
   return {
     customerName: sanitizeText(parsed.customer_name),
     customerPhone: normalizePhone(parsed.customer_phone),
+    customerEmail: sanitizeText(parsed.customer_email),
     serviceType: sanitizeText(parsed.service_type),
     summary,
+    businessType: sanitizeText(parsed.business_type),
   };
 };
 
@@ -94,14 +101,35 @@ const ensureJobForTranscript = async ({ callSid, transcriptText, openaiClient })
 
   const extracted = await extractJobDetails({ transcriptText, openaiClient });
 
+  let userProfile = null;
+  if (callRecord?.user_id) {
+    userProfile = await getUserProfileById(callRecord.user_id).catch((error) => {
+      console.warn('[Jobs] Failed to load user profile before job creation.', { userId: callRecord.user_id, error });
+      return null;
+    });
+  }
+
   const jobPayload = {
     userId: callRecord?.user_id || null,
     callSid,
     customerName: extracted.customerName,
     customerPhone: extracted.customerPhone,
+    customerEmail: extracted.customerEmail || null,
     summary: extracted.summary,
     serviceType: extracted.serviceType,
     status: 'new',
+    businessType: userProfile?.business_type || null,
+    source: 'voicemail',
+    capturedAt: callRecord?.recorded_at || new Date().toISOString(),
+    voicemailTranscript: transcriptText,
+    voicemailRecordingUrl: callRecord?.recording_url || null,
+    scheduledDate: extracted.scheduledDate || null,
+    scheduledTime: extracted.scheduledTime || null,
+    location: extracted.location || null,
+    notes: extracted.notes || null,
+    estimatedDuration: extracted.estimatedDuration || null,
+    followUpDraft: extracted.followUpDraft || null,
+    lastFollowUpAt: null,
   };
 
   const inserted = await insertJob(jobPayload);
