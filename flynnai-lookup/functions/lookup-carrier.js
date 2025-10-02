@@ -1,4 +1,6 @@
 exports.handler = async (context, event, callback) => {
+  console.log('Twilio Function: Invoked');
+  console.log('Twilio Function: Event Payload', JSON.stringify(event, null, 2));
   const response = new Twilio.Response();
   response.appendHeader('Access-Control-Allow-Origin', '*');
   response.appendHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -14,6 +16,8 @@ exports.handler = async (context, event, callback) => {
   try {
     const client = context.getTwilioClient();
     const phoneNumber = event.phoneNumber || event.From;
+
+    console.log('Twilio Function: Received phoneNumber', phoneNumber);
 
     if (!phoneNumber) {
       response.setStatusCode(400);
@@ -38,6 +42,7 @@ exports.handler = async (context, event, callback) => {
     return callback(null, response);
   } catch (error) {
     console.error('Lookup failed', error);
+    console.error('Twilio Function: Detailed Error', error.message, error.code, error.status);
     response.setStatusCode(error.status || 500);
     response.setBody(
       JSON.stringify({

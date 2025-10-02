@@ -25,7 +25,7 @@ import {
   CarrierDetectionConfidence,
 } from '../../services/CarrierDetectionService';
 
-interface PhoneSetupScreenProps {
+interface CarrierSetupScreenProps {
   onNext: () => void;
   onBack: () => void;
 }
@@ -82,17 +82,15 @@ const normalizeNumberForDetection = (value: string) => {
   return digitsOnly;
 };
 
-export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
+export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
   onNext,
   onBack,
 }) => {
-  const { updateOnboardingData } = useOnboarding();
+  const { updateOnboardingData, onboardingData } = useOnboarding();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedCarrierId, setSelectedCarrierId] = useState(
     callForwardingGuides[0]?.id || ''
   );
-  const [forwardingNumber, setForwardingNumber] = useState<string | null>(null);
-  const [isLoadingForwarding, setIsLoadingForwarding] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
   const [showAllCarriers, setShowAllCarriers] = useState(false);
   const [carrierDetectionState, setCarrierDetectionState] = useState<{
@@ -107,34 +105,6 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
   const [hasManualCarrierOverride, setHasManualCarrierOverride] = useState(false);
   const detectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPersistedDetection = useRef<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchForwardingNumber = async () => {
-      try {
-        const status = await TwilioService.getUserTwilioStatus();
-        if (!isMounted) return;
-        setForwardingNumber(
-          status.twilioPhoneNumber || status.phoneNumber || null
-        );
-      } catch (error) {
-        if (isMounted) {
-          setForwardingNumber(null);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingForwarding(false);
-        }
-      }
-    };
-
-    fetchForwardingNumber();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (detectionTimeoutRef.current) {
@@ -267,12 +237,12 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
   }, [carrierDetectionState.status, carrierDetectionState.carrierId]);
 
   const handleDialCode = async (code: CarrierForwardingCode) => {
-    const dialable = getDialableCode(code.code, forwardingNumber);
+    const dialable = getDialableCode(code.code, onboardingData.twilioPhoneNumber);
 
-    if (!forwardingNumber || !dialable) {
+    if (!onboardingData.twilioPhoneNumber || !dialable) {
       Alert.alert(
         'Flynn number unavailable',
-        'Provision your Flynn voicemail number first in Call Settings, then return to forward your calls.'
+        'Please provision your Flynn business number first.'
       );
       return;
     }
@@ -290,7 +260,7 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
 
       await Linking.openURL(url);
     } catch (error) {
-      const fallback = replaceForwardingPlaceholder(code.code, forwardingNumber);
+      const fallback = replaceForwardingPlaceholder(code.code, onboardingData.twilioPhoneNumber);
       Alert.alert(
         'Dial this code manually',
         `${fallback}\n\nOpen the phone app, enter the code, then press call.`,
@@ -370,7 +340,7 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
     setIsVerifying(true);
     setTimeout(() => {
       setIsVerifying(false);
-      updateOnboardingData({ phoneSetupComplete: true });
+      updateOnboardingData({ phoneSetupComplete: true, phoneNumber: phoneNumber });
       Alert.alert(
         'Forwarding verified',
         'Great! Flynn will intake your voicemails and convert them to job cards. You can update this any time from Settings.',
@@ -392,16 +362,12 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
   }, [showAllCarriers]);
 
   const formattedForwardingNumber = useMemo(() => {
-    if (isLoadingForwarding) {
-      return 'Fetching your Flynn number…';
-    }
-
-    if (!forwardingNumber) {
+    if (!onboardingData.twilioPhoneNumber) {
       return 'Provision a Flynn number to unlock forwarding instructions.';
     }
 
-    return forwardingNumber;
-  }, [forwardingNumber, isLoadingForwarding]);
+    return onboardingData.twilioPhoneNumber;
+  }, [onboardingData.twilioPhoneNumber]);
 
   const steps = [
     {
@@ -463,18 +429,14 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
             <Text style={styles.infoCardTitle}>Your Flynn voicemail number</Text>
           </View>
           <View style={styles.infoCardBody}>
-            {isLoadingForwarding ? (
-              <ActivityIndicator color="#2563eb" />
-            ) : (
-              <Text
-                style={[
-                  styles.forwardingNumber,
-                  !forwardingNumber && styles.forwardingNumberPlaceholder,
-                ]}
-              >
-                {formattedForwardingNumber}
-              </Text>
-            )}
+            <Text
+              style={[
+                styles.forwardingNumber,
+                !onboardingData.twilioPhoneNumber && styles.forwardingNumberPlaceholder,
+              ]}
+            >
+              {formattedForwardingNumber}
+            </Text>
             <Text style={styles.infoCardHint}>
               Use this value when dialing your carrier code. Flynn captures voicemails from this number, transcribes them, and creates job cards automatically.
             </Text>
@@ -624,7 +586,7 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
             {selectedCarrier.codes.map((carrierCode) => {
               const displayCode = replaceForwardingPlaceholder(
                 carrierCode.code,
-                forwardingNumber
+                onboardingData.twilioPhoneNumber
               );
 
               return (
@@ -641,10 +603,10 @@ export const PhoneSetupScreen: React.FC<PhoneSetupScreenProps> = ({
                   <TouchableOpacity
                     style={[
                       styles.codeAction,
-                      (!forwardingNumber || carrierCode.type === 'all') &&
+                      (!onboardingData.twilioPhoneNumber || carrierCode.type === 'all') &&
                         styles.codeActionDisabled,
                     ]}
-                    disabled={!forwardingNumber || carrierCode.type === 'all'}
+                    disabled={!onboardingData.twilioPhoneNumber || carrierCode.type === 'all'}
                     onPress={() => handleDialCode(carrierCode)}
                   >
                     <Ionicons name="call" size={18} color="white" />

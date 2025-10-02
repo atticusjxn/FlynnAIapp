@@ -9,10 +9,12 @@ export interface BusinessGoal {
 }
 
 export interface OnboardingData {
-  businessType: string;
-  goals: string[];
+  businessType?: string;
+  goals?: string[];
   phoneSetupComplete: boolean;
   calendarIntegrationComplete: boolean;
+  twilioPhoneNumber?: string | null;
+  phoneNumber?: string | null;
 }
 
 interface OnboardingContextType {
@@ -29,6 +31,8 @@ const defaultOnboardingData: OnboardingData = {
   goals: [],
   phoneSetupComplete: false,
   calendarIntegrationComplete: false,
+  twilioPhoneNumber: null,
+  phoneNumber: null,
 };
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -93,7 +97,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('business_type, onboarding_complete, business_goals, phone_setup_complete, calendar_integration_complete')
+        .select('business_type, onboarding_complete, business_goals, phone_setup_complete, calendar_integration_complete, twilio_phone_number, phone_number')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -118,6 +122,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         goals: data.business_goals || [],
         phoneSetupComplete: data.phone_setup_complete || false,
         calendarIntegrationComplete: data.calendar_integration_complete || false,
+        twilioPhoneNumber: data.twilio_phone_number || null,
+        phoneNumber: data.phone_number || null,
       });
     } catch (error) {
       console.error('Error in checkOnboardingStatus:', error);
@@ -141,6 +147,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           business_goals: onboardingData.goals,
           phone_setup_complete: onboardingData.phoneSetupComplete,
           calendar_integration_complete: onboardingData.calendarIntegrationComplete,
+          twilio_phone_number: onboardingData.twilioPhoneNumber,
+          phone_number: onboardingData.phoneNumber,
           onboarding_complete: true,
         })
         .eq('id', user.id);

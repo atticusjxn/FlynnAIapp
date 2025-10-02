@@ -171,6 +171,10 @@ const attemptFunctionLookup = async (
     const url = new URL(TWILIO_LOOKUP_FUNCTION_URL);
     url.searchParams.set('phoneNumber', e164Number);
 
+    if (__DEV__) {
+      console.log('[CarrierDetectionService] Attempting to call Twilio Function URL:', url.toString());
+    }
+
     const response = await fetch(url.toString());
     if (!response.ok) {
       throw new Error(`Function lookup failed: ${response.status}`);
@@ -179,6 +183,10 @@ const attemptFunctionLookup = async (
     const payload = await response.json();
     const carrierData = payload?.carrier || null;
     const callerName = payload?.callerName || null;
+
+    if (__DEV__) {
+      console.log('[CarrierDetectionService] Raw Twilio Function Lookup Data:', { carrierData, callerName });
+    }
 
     const mappedCarrierId = mapCarrierIdFromLookup(
       carrierData?.name,

@@ -233,6 +233,45 @@ export const SettingsScreen: React.FC = () => {
     ]);
   };
 
+  const handleSetupCallForwarding = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'User not authenticated.');
+      return;
+    }
+    try {
+      // In a real scenario, you'd navigate to a dedicated setup screen
+      // or show a modal to guide the user through the process.
+      // For now, we'll directly attempt to provision.
+      Alert.alert(
+        'Setup Call Forwarding',
+        'This will provision a new Twilio number for your business. Continue?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Provision Number',
+            onPress: async () => {
+              try {
+                // Ensure TwilioService is imported
+                const { TwilioService } = await import('../services/TwilioService');
+                const result = await TwilioService.provisionPhoneNumber();
+                if (result) {
+                  Alert.alert('Success', `Phone number ${result.phoneNumber} provisioned!`);
+                  void loadSettings(); // Refresh settings to show new toggle
+                }
+              } catch (error: any) {
+                console.error('[Settings] Failed to provision phone number', error);
+                Alert.alert('Error', error.message || 'Failed to provision phone number.');
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('[Settings] Error during call forwarding setup', error);
+      Alert.alert('Error', 'An unexpected error occurred during setup.');
+    }
+  };
+
   const initials = getInitials(profile?.businessName, profile?.email);
 
   const renderSection = (title: string, children: React.ReactNode) => (
@@ -336,23 +375,38 @@ export const SettingsScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.toggleRow}>
-              <View style={styles.settingLeft}>
-                <View style={styles.settingIcon}>
-                  <Ionicons name="call-outline" size={20} color={colors.primary} />
+            {profile?.phone ? ( // Check if a phone number (likely Twilio) is present
+              <View style={styles.toggleRow}>
+                <View style={styles.settingLeft}>
+                  <View style={styles.settingIcon}>
+                    <Ionicons name="call-outline" size={20} color={colors.primary} />
+                  </View>
+                  <View style={styles.settingContent}>
+                    <Text style={styles.settingTitle}>Call forwarding</Text>
+                    <Text style={styles.settingSubtitle}>
+                      {profile?.forwardingActive ? 'Forwarding enabled' : 'Forwarding off'}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>Call forwarding</Text>
-                  <Text style={styles.settingSubtitle}>
-                    {profile?.forwardingActive ? 'Forwarding enabled' : 'Forwarding off'}
-                  </Text>
-                </View>
+                <Switch
+                  value={profile?.forwardingActive ?? false}
+                  onValueChange={handleForwardingToggle}
+                />
               </View>
-              <Switch
-                value={profile?.forwardingActive ?? false}
-                onValueChange={handleForwardingToggle}
-              />
-            </View>
+            ) : (
+              <TouchableOpacity style={styles.settingRow} onPress={handleSetupCallForwarding}>
+                <View style={styles.settingLeft}>
+                  <View style={styles.settingIcon}>
+                    <Ionicons name="call-outline" size={20} color={colors.primary} />
+                  </View>
+                  <View style={styles.settingContent}>
+                    <Text style={styles.settingTitle}>Set up call forwarding</Text>
+                    <Text style={styles.settingSubtitle}>Provision a new number for your business</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
+              </TouchableOpacity>
+            )}
           </View>
         ))}
 
