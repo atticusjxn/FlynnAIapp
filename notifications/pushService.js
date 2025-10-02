@@ -2,80 +2,140 @@ const http2 = require('http2');
 const jwt = require('jsonwebtoken');
 const { listNotificationTokensForUser } = require('../supabaseMcpClient');
 
-const FCM_ENDPOINT = 'https://fcm.googleapis.com/fcm/send';
 const VALID_RESPONSE_STATUSES = new Set([200, 201, 202]);
 
-const chunkArray = (values, chunkSize) => {
-  if (!Array.isArray(values) || values.length === 0) {
-    return [];
+// Cache for FCM access token (valid for 1 hour)
+let fcmAccessTokenCache = null;
+let fcmTokenExpiry = null;
+
+/**
+ * Generate OAuth 2.0 access token for FCM HTTP v1 API using service account
+ * Requires GOOGLE_SERVICE_ACCOUNT_KEY environment variable with service account JSON
+ */
+const getFcmAccessToken = async () => {
+  // Return cached token if still valid
+  if (fcmAccessTokenCache && fcmTokenExpiry && Date.now() < fcmTokenExpiry) {
+    return fcmAccessTokenCache;
   }
 
-  const size = Math.max(chunkSize, 1);
-  const chunks = [];
-
-  for (let i = 0; i < values.length; i += size) {
-    chunks.push(values.slice(i, i + size));
+  const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (!serviceAccountKey) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY not configured for FCM v1 API');
   }
 
-  return chunks;
+  let serviceAccount;
+  try {
+    serviceAccount = JSON.parse(serviceAccountKey);
+  } catch (error) {
+    throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_KEY JSON format');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const expiry = now + 3600; // 1 hour
+
+  const jwtPayload = {
+    iss: serviceAccount.client_email,
+    sub: serviceAccount.client_email,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: expiry,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+  };
+
+  const token = jwt.sign(jwtPayload, serviceAccount.private_key, { algorithm: 'RS256' });
+
+  // Exchange JWT for access token
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${token}`,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to get FCM access token: ${errorText}`);
+  }
+
+  const result = await response.json();
+  fcmAccessTokenCache = result.access_token;
+  fcmTokenExpiry = Date.now() + 50 * 60 * 1000; // Cache for 50 minutes
+
+  return fcmAccessTokenCache;
 };
 
+/**
+ * Send push notification via FCM HTTP v1 API
+ * https://firebase.google.com/docs/cloud-messaging/migrate-v1
+ */
 const sendFcmNotifications = async ({ tokens, title, body, data }) => {
   if (!tokens.length) {
     return { attempted: 0, sent: 0 };
   }
 
-  const serverKey = process.env.FCM_SERVER_KEY;
-  if (!serverKey) {
-    console.warn('[Push] FCM_SERVER_KEY not configured; skipping Android push notifications.');
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  if (!projectId) {
+    console.warn('[Push] FIREBASE_PROJECT_ID not configured; skipping Android push notifications.');
     return { attempted: tokens.length, sent: 0 };
   }
 
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `key=${serverKey}`,
-  };
+  let accessToken;
+  try {
+    accessToken = await getFcmAccessToken();
+  } catch (error) {
+    console.error('[Push] Failed to get FCM access token:', error.message);
+    return { attempted: tokens.length, sent: 0 };
+  }
+
+  const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
   let sent = 0;
   let attempted = 0;
 
-  for (const chunk of chunkArray(tokens, 500)) {
-    attempted += chunk.length;
+  // FCM v1 API requires sending to one token at a time (no batch endpoint)
+  for (const token of tokens) {
+    attempted += 1;
 
     const payload = {
-      registration_ids: chunk,
-      notification: {
-        title,
-        body,
+      message: {
+        token,
+        notification: {
+          title,
+          body,
+        },
+        data: data || {},
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channel_id: 'default',
+          },
+        },
       },
-      data,
     };
 
     try {
-      const response = await fetch(FCM_ENDPOINT, {
+      const response = await fetch(fcmEndpoint, {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        sent += 1;
+      } else {
         const errorText = await response.text();
-        console.warn('[Push] FCM send failed.', {
+        console.warn('[Push] FCM send failed for token.', {
           status: response.status,
           statusText: response.statusText,
           body: errorText,
+          token: token.substring(0, 20) + '...',
         });
-        continue;
-      }
-
-      const result = await response.json().catch(() => null);
-      if (result && typeof result.success === 'number') {
-        sent += result.success;
-      } else {
-        sent += chunk.length;
       }
     } catch (error) {
-      console.warn('[Push] FCM request error:', error);
+      console.warn('[Push] FCM request error:', error.message);
     }
   }
 
