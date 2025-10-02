@@ -46,7 +46,7 @@ export const SettingsScreen: React.FC = () => {
   const { isDark, colors, toggleTheme } = useTheme();
   const navigation = useNavigation<any>();
   const styles = createStyles(colors);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -67,6 +67,11 @@ export const SettingsScreen: React.FC = () => {
   const [editBusinessName, setEditBusinessName] = useState('');
   const [editBusinessType, setEditBusinessType] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [pushStatus, setPushStatus] = useState<{
+    permissionGranted: boolean;
+    tokenRegistered: boolean;
+    isDevice: boolean;
+  } | null>(null);
 
   const loadSettings = async () => {
     if (!user?.id) {
@@ -99,7 +104,19 @@ export const SettingsScreen: React.FC = () => {
 
   useEffect(() => {
     void loadSettings();
+    void loadPushStatus();
   }, [user?.id]);
+
+  const loadPushStatus = async () => {
+    try {
+      const { getPushNotificationStatus } = await import('../services/pushRegistration');
+      const status = await getPushNotificationStatus();
+      setPushStatus(status);
+    } catch (error) {
+      console.error('[Settings] Failed to load push status', error);
+      setPushStatus(null);
+    }
+  };
 
   const handleEditProfile = () => {
     if (!profile) return;
@@ -200,7 +217,19 @@ export const SettingsScreen: React.FC = () => {
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => Alert.alert('Signed out', 'Sign out handled via Auth provider.') },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await signOut();
+            // Navigation will be handled automatically by auth state change
+          } catch (error) {
+            console.error('[Settings] Sign out failed', error);
+            Alert.alert('Sign out failed', 'Unable to sign out right now. Please try again.');
+          }
+        },
+      },
     ]);
   };
 
@@ -337,12 +366,25 @@ export const SettingsScreen: React.FC = () => {
                 </View>
                 <View style={styles.settingContent}>
                   <Text style={styles.settingTitle}>Push notifications</Text>
-                  <Text style={styles.settingSubtitle}>Device alerts about new jobs and activity</Text>
+                  <Text style={styles.settingSubtitle}>
+                    {pushStatus ? (
+                      !pushStatus.isDevice
+                        ? 'Only available on physical devices'
+                        : !pushStatus.permissionGranted
+                        ? 'Permission not granted - tap to enable'
+                        : pushStatus.tokenRegistered
+                        ? 'Active and registered'
+                        : 'Permission granted - registration pending'
+                    ) : (
+                      'Device alerts about new jobs and activity'
+                    )}
+                  </Text>
                 </View>
               </View>
               <Switch
                 value={notificationPrefs.push}
                 onValueChange={value => handleNotificationToggle('push', value)}
+                disabled={!pushStatus?.isDevice || !pushStatus?.permissionGranted}
               />
             </View>
 
@@ -460,7 +502,35 @@ export const SettingsScreen: React.FC = () => {
         {/* Account */}
         {renderSection('Account', (
           <View style={styles.settingsGroup}>
-            {renderSettingRow('key-outline', 'Change password', undefined, undefined, () => Alert.alert('Password', 'Password management is handled via Supabase Auth emails.'))}
+            {renderSettingRow('key-outline', 'Change password', undefined, undefined, async () => {
+              if (!profile?.email) {
+                Alert.alert('No email', 'We could not find your email address.');
+                return;
+              }
+              Alert.alert(
+                'Reset password',
+                `We'll send a password reset link to ${profile.email}. Continue?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Send link',
+                    onPress: async () => {
+                      try {
+                        const { supabase } = await import('../services/supabase');
+                        const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+                          redirectTo: 'flynnai://reset-password',
+                        });
+                        if (error) throw error;
+                        Alert.alert('Email sent', 'Check your inbox for a password reset link.');
+                      } catch (error) {
+                        console.error('[Settings] Password reset failed', error);
+                        Alert.alert('Reset failed', 'Unable to send password reset email. Please try again.');
+                      }
+                    },
+                  },
+                ]
+              );
+            })}
             {renderSettingRow('log-out-outline', 'Sign out', undefined, undefined, handleSignOut)}
           </View>
         ))}

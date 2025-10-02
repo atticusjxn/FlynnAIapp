@@ -1,30 +1,70 @@
 # Flynn AI Design System & Project Context
 
 ## About Flynn AI
-Flynn AI is a mobile app for busy service providers (plumbers, electricians, cleaners, contractors, consultants, agencies) that automatically captures job details from screenshots and phone calls to create calendar events/job cards and send client confirmations.
+**"Flynn turns missed calls into booked jobs."**
+
+Flynn AI is a mobile voicemail receptionist for busy service providers (tradespeople, beauty/service professionals, small business owners) that captures missed calls and voicemails, transcribes and processes them with AI, and automates follow-up workflows to convert leads into scheduled jobs.
+
+### Core Value Proposition:
+Flynn receives forwarded voicemails, transcribes and classifies them, drafts responses, and syncs the resulting work into calendars and financial systems. The app helps service businesses never miss a lead by turning voicemail into actionable job cards with automated follow-up.
 
 ### Core Features:
+
+#### Voicemail Processing (Primary Focus)
+- **Voicemail intake**: Call forwarding (conditional or dedicated Flynn number) routes voicemails to Flynn via Twilio
+- **Custom greetings**: Upload existing greeting, record new one, or choose koala-themed persona (male/female, accents) via TTS
+- **AI transcription**: Automatic transcription via Whisper/Deepgram with confidence scoring
+- **Smart classification**: AI extracts client name, phone, service type, urgency, and key details
+- **Job card creation**: Draft job cards pre-filled with transcript summary and contact info
+- **Automated follow-up**: AI-drafted SMS/email responses with manual approval workflow
+
+#### Supporting Features (Preserved from Original)
 - **Screenshot upload**: Users upload screenshots of text conversations → AI extracts job details → creates job cards/calendar events
 - **iOS Shortcuts integration**: Control Center shortcut for instant screenshot processing → AI extraction → job creation
-- **Call recording**: Call forwarding with press-0 to record → AI processes recordings → creates job cards
 - **Job confirmations**: Automatically send SMS confirmations to clients
 - **Calendar integration**: Google Calendar, Outlook, Apple Calendar sync
-- **Accounting integration**: MYOB, QuickBooks, Xero integration for invoicing and expense tracking
+- **Accounting integration**: MYOB, QuickBooks, Xero integration for invoicing and expense tracking (roadmap)
 
 ### Target Users:
-Busy sole traders and small service businesses who get scheduling requests via calls and texts. They need quick, reliable ways to capture job details without manual data entry.
+- Tradespeople, beauty/service professionals, and small business owners who can't answer every call but rely on inbound leads
+- Office managers handling call overflow who want structured triage and automated follow-up
+- Businesses already experimenting with AI tools but lacking a coherent voicemail workflow
 
 ### App Navigation (Current):
 5 tabs: Dashboard (home), Jobs, Calendar, Clients, Settings
+
+### Product Roadmap:
+
+#### Phase 1: Voicemail MVP (Current)
+- Voicemail forwarding setup UX with carrier-specific instructions
+- Backend pipeline: recording → transcription → job draft
+- Job review UI with manual approval gates
+- Basic koala persona greetings
+
+#### Phase 2: Automated Follow-Up (Next)
+- Template manager for SMS/email responses
+- Approval queue and analytics on response times
+- Enhanced persona library (multiple voices, accents)
+
+#### Phase 3: Financial Integrations (Soon)
+- Invoice generation from completed job cards
+- Receipt scanning + wallet pass storage
+- MYOB/QuickBooks/Xero sync completion
+
+#### Phase 4: Premium Features (Later)
+- Live-call assisted receptionist as premium add-on
+- Advanced analytics and conversion tracking
+- Multi-user/team collaboration features
 
 ## 🎨 Design System Overview
 
 FlynnAI uses React Native's built-in StyleSheet API as the foundation for all UI components. This document outlines the design rules, patterns, and best practices for maintaining consistency across the application.
 
 ### Brand Personality:
-- **Professional and trustworthy** - Users need to feel confident in the app
-- **Efficient and time-saving** - Every interaction should feel fast and purposeful
-- **Clean and uncluttered** - Avoid visual noise, focus on core tasks
+- **Friendly and approachable** - Laid-back koala mascot with optional persona voice packs
+- **Professional and reliable** - Service providers need to trust Flynn with their leads
+- **Efficient and time-saving** - Focus on fast follow-ups and lead conversion
+- **Human-in-the-loop** - Manual approval gates maintain control and quality
 - **Accessible to non-tech-savvy users** - Simple, intuitive interfaces
 
 ## 🎯 Core Principles
@@ -505,28 +545,36 @@ const responsive = {
 ## 🗣️ Language & Copy Guidelines
 
 ### Terminology:
-- Use **"job"** or **"event"** instead of technical terms
-- Say **"Send confirmation"** not "Execute API call"
+- Use **"voicemail"**, **"job"** or **"lead"** instead of technical terms
+- Say **"Send response"** not "Execute API call"
+- Use **"Process voicemail"** not "Run transcription pipeline"
 - Use **"Upload screenshot"** not "Process image data"
+- Say **"Approve and send"** for manual approval workflows
 - Keep copy concise - users are busy and on-the-go
 
 ### Voice & Tone:
-- **Professional but approachable** - Like a reliable assistant
-- **Action-oriented** - "Create job", "Send confirmation", "View details"
-- **Encouraging** - "Great! Your job has been created"
-- **Clear status updates** - "Processing...", "Sent successfully", "Failed to send"
+- **Friendly but professional** - Like a helpful receptionist (the koala mascot reinforces this)
+- **Action-oriented** - "Create job", "Send response", "Approve reply", "View transcript"
+- **Encouraging** - "Great! Your response has been sent", "New lead captured!"
+- **Clear status updates** - "Transcribing...", "Processing voicemail", "Response sent", "Waiting for approval"
+- **Human-in-the-loop language** - "Review before sending", "Approve response", "Edit draft"
 
 ### Button Labels:
 - ✅ "Create Job" (not "Submit")
-- ✅ "Send Confirmation" (not "Execute")
-- ✅ "View Details" (not "Open")
-- ✅ "Upload Screenshot" (not "Select Image")
+- ✅ "Approve & Send" (not "Execute")
+- ✅ "Review Voicemail" (not "Open Recording")
+- ✅ "Edit Response" (not "Modify Template")
+- ✅ "View Transcript" (not "Show Text")
+- ✅ "Set Up Forwarding" (not "Configure Integration")
 
 ### Status Messages:
-- ✅ "Job created successfully"
-- ✅ "Confirmation sent to client"
-- ✅ "Screenshot processed"
+- ✅ "Voicemail transcribed successfully"
+- ✅ "Response sent to client"
+- ✅ "Lead captured from voicemail"
+- ✅ "Waiting for your approval"
+- ✅ "Forwarding setup complete"
 - ❌ "API call completed"
+- ❌ "Webhook processed successfully"
 - ❌ "Data successfully uploaded"
 
 ## 📋 Component Checklist
@@ -660,16 +708,25 @@ export default FlynnJobCard;
 4. **Efficiency** - Minimize steps to complete common tasks
 
 ### Key UI Patterns:
-- **Dashboard**: Quick overview of pending jobs, recent activity, key metrics
-- **Job Cards**: Substantial, tappable cards with clear status indicators
-- **Action Buttons**: Large, prominent buttons for primary actions
-- **Status Feedback**: Clear, immediate feedback for all user actions
+- **Dashboard**: Quick overview of recent voicemails, pending approvals, follow-up SLAs, and key conversion metrics
+- **Voicemail Cards**: Substantial cards showing caller info, transcript summary, urgency indicators, and quick actions
+- **Job Cards**: Substantial, tappable cards with clear status indicators for scheduled work
+- **Approval Flows**: Clear review interfaces with "Approve & Send", "Edit Draft", and "Skip" options
+- **Action Buttons**: Large, prominent buttons for primary actions (especially approval workflows)
+- **Status Feedback**: Clear, immediate feedback for all user actions (transcribing, sending, etc.)
+- **Transcript Display**: Clean, readable transcript views with confidence indicators
 - **Error Handling**: Gentle, helpful error messages with next steps
 
 ## 🔄 Version History
 
-- **v1.0.0** - Initial design system implementation
-- Last updated: December 2024
+- **v2.0.0** - Voicemail receptionist pivot (January 2025)
+  - New primary focus: "Flynn turns missed calls into booked jobs"
+  - Added voicemail intake, transcription, and approval workflows
+  - Introduced koala persona greeting system
+  - Updated brand personality and messaging
+  - Preserved screenshot and iOS Shortcuts features as supporting functionality
+- **v1.0.0** - Initial design system implementation (December 2024)
+- Last updated: January 2025
 - Maintained by: FlynnAI Development Team
 
 ---
@@ -796,6 +853,139 @@ Add to `.env` file and ensure proper babel configuration for `react-native-doten
 - **Processing fails**: Ensure OpenAI API key is configured
 - **Poor extraction**: Use screenshots with clear, readable text
 - **Network issues**: Check internet connection for AI processing
+
+## 📞 Voicemail Receptionist (Primary Feature)
+
+### Overview
+Flynn's core feature is its AI-powered voicemail receptionist that captures missed calls, transcribes them, extracts job details, and automates follow-up workflows. This is the primary value proposition: **"Flynn turns missed calls into booked jobs."**
+
+### How It Works:
+
+#### 1. Voicemail Intake
+- **Conditional call forwarding**: Users configure carrier-specific forwarding codes to route unanswered calls to Flynn's Twilio number
+- **Dedicated Flynn number**: Alternative option for users who can't configure forwarding
+- **Voicemail capture**: Twilio receives voicemail, stores recording, and triggers webhook to Flynn backend
+
+#### 2. Greeting System
+Users can customize their voicemail greeting:
+- **Upload existing greeting**: Use their current voicemail audio file
+- **Record new greeting**: Record directly in the app
+- **Koala persona voices**: Choose from AI-generated greetings with different accents and genders
+  - Male/female options
+  - Various accent options (Australian, American, British, etc.)
+  - Generated via TTS and cached in Supabase Storage for fast playback
+  - Reinforces friendly, approachable brand personality
+
+#### 3. Processing Pipeline
+When a voicemail is received:
+1. **Recording captured**: Twilio posts recording metadata to Flynn webhook
+2. **Audio stored**: Recording saved securely to Supabase Storage with retention policy
+3. **Transcription**: Audio transcribed via Whisper or Deepgram
+4. **AI classification**: Transcript analyzed to extract:
+   - Client name and phone number
+   - Service type and urgency level
+   - Preferred date/time
+   - Location details
+   - Key requirements
+   - Confidence scores for manual review
+5. **Job card draft**: Pre-filled job card created with extracted data
+6. **Response draft**: AI generates suggested SMS/email reply based on context
+
+#### 4. Approval Workflow
+- **Review screen**: User sees transcript, extracted data, and drafted response
+- **Edit capabilities**: Full editing of job details and response message
+- **Approval options**:
+  - "Approve & Send" - Creates job and sends response
+  - "Edit Draft" - Modify before sending
+  - "Skip" - Save as job without sending response
+- **Audit trail**: Track who approved what and when
+
+#### 5. Follow-Up Automation
+- **Template system**: Customizable SMS/email templates per service type
+- **Manual approval gates**: Human-in-the-loop ensures quality control
+- **Opt-in management**: Respect contact preferences and consent
+- **Analytics**: Track response times, conversion rates, and follow-up SLAs
+
+### Technical Architecture:
+
+#### Backend Components:
+- **Twilio Integration**: Voice/SMS APIs for call routing and messaging
+- **Supabase Storage**: Secure audio recording storage with retention policies
+- **Transcription Service**: Whisper (OpenAI) or Deepgram for speech-to-text
+- **OpenAI Processing**: GPT models for entity extraction and response drafting
+- **Webhook Handler**: Processes Twilio callbacks for recording completion
+
+#### Key Services:
+```
+src/
+├── services/
+│   ├── TwilioService.ts          # Call routing, SMS sending
+│   ├── VoicemailProcessor.ts     # Transcription orchestration
+│   ├── TranscriptionService.ts   # Whisper/Deepgram integration
+│   ├── JobExtractor.ts           # AI-powered entity extraction
+│   ├── ResponseGenerator.ts      # AI-drafted replies
+│   └── GreetingManager.ts        # TTS and greeting storage
+├── screens/
+│   ├── voicemail/
+│   │   ├── VoicemailListScreen.tsx      # Pending voicemails
+│   │   ├── VoicemailDetailScreen.tsx    # Transcript + review
+│   │   ├── ApprovalScreen.tsx           # Response approval UI
+│   │   └── ForwardingSetupScreen.tsx    # Carrier setup wizard
+│   └── settings/
+│       └── GreetingSetupScreen.tsx      # Persona/greeting config
+└── components/
+    ├── VoicemailCard.tsx         # Voicemail list item
+    ├── TranscriptView.tsx        # Formatted transcript display
+    ├── ConfidenceIndicator.tsx   # AI confidence badges
+    └── ApprovalActions.tsx       # Approve/Edit/Skip buttons
+```
+
+#### Database Schema:
+- **voicemails**: Recording metadata, transcripts, status, confidence scores
+- **greetings**: Persona selections, custom uploads, TTS cache
+- **approval_logs**: Audit trail of user approvals and edits
+- **response_templates**: Customizable SMS/email templates per service type
+
+### Setup Process:
+
+#### Onboarding Wizard:
+1. **Choose intake method**: Conditional forwarding vs. dedicated number
+2. **Carrier selection**: Show carrier-specific forwarding codes
+3. **Setup instructions**: Step-by-step visual guide for call forwarding
+4. **Verification**: Test call to confirm forwarding works
+5. **Greeting setup**: Choose or record greeting
+6. **Template customization**: Set up default response templates
+
+#### Forwarding Codes (Examples):
+- **Busy/No Answer**: `*004*[flynn_number]#` (varies by carrier)
+- **Carrier-specific guides**: Verizon, AT&T, T-Mobile, Telstra, Optus, etc.
+
+### Privacy & Compliance:
+- **Recording consent**: Greeting includes disclosure message per regional requirements
+- **Data retention**: Configurable retention windows (30/60/90 days)
+- **Secure storage**: Encrypted audio files in Supabase
+- **Audit logs**: Track all access to voicemail data
+- **GDPR/privacy compliance**: Export and deletion capabilities
+
+### Success Metrics:
+- **Capture rate**: % of missed calls captured within 30 days
+- **Processing time**: Median time from voicemail to job approval
+- **Conversion rate**: Voicemails → scheduled jobs
+- **Response time**: Time to send follow-up response
+- **User satisfaction**: Quality of transcription and extraction
+
+### UI/UX Priorities:
+- **Clear voicemail cards**: Show caller, summary, urgency, confidence scores
+- **Easy transcript review**: Readable formatting with entity highlighting
+- **Fast approval flow**: Minimize taps to approve and send
+- **Confidence indicators**: Visual cues for low-confidence extractions
+- **Playback controls**: Easy audio playback with transcript sync
+- **Edit-friendly**: Quick edits to job details and response text
+
+### Roadmap Integration:
+- **MVP (Current)**: Basic voicemail capture, transcription, job creation, manual approval
+- **Next**: Automated follow-up templates, persona library expansion
+- **Future**: Live-call receptionist as premium upsell once operational hurdles resolved
 
 ## 🚫 Development Rules
 

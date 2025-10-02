@@ -5,6 +5,40 @@ import { apiClient } from './apiClient';
 
 let lastRegisteredToken: string | null = null;
 
+export const getPushNotificationStatus = async (): Promise<{
+  permissionGranted: boolean;
+  tokenRegistered: boolean;
+  isDevice: boolean;
+}> => {
+  const isDevice = Device.isDevice;
+
+  if (!isDevice) {
+    return {
+      permissionGranted: false,
+      tokenRegistered: false,
+      isDevice: false,
+    };
+  }
+
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    const permissionGranted = status === 'granted';
+
+    return {
+      permissionGranted,
+      tokenRegistered: !!lastRegisteredToken,
+      isDevice,
+    };
+  } catch (error) {
+    console.warn('[Push] Failed to get notification status:', error);
+    return {
+      permissionGranted: false,
+      tokenRegistered: false,
+      isDevice,
+    };
+  }
+};
+
 const ensureNotificationChannel = async () => {
   if (Platform.OS !== 'android') {
     return;

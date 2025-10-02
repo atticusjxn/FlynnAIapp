@@ -30,7 +30,7 @@ const normalizePhone = (value) => {
   return null;
 };
 
-const extractJobDetails = async ({ transcriptText, openaiClient }) => {
+const extractJobDetails = async ({ transcriptText, openaiClient, userBusinessType }) => {
   if (!openaiClient) {
     throw new Error('OpenAI client is not configured for job extraction.');
   }
@@ -40,13 +40,27 @@ const extractJobDetails = async ({ transcriptText, openaiClient }) => {
     throw new Error('Transcript text is required to extract job details.');
   }
 
+  const businessTypeContext = userBusinessType
+    ? `This business is a ${userBusinessType.replace(/_/g, ' ')} service provider.`
+    : '';
+
+  const systemPrompt = `Extract customer details from service voicemails. ${businessTypeContext}
+
+Always respond with JSON containing customer_name, customer_phone, customer_email, service_type, summary, scheduled_date, scheduled_time, location, and notes. Use null when a field is unknown.
+
+- service_type should be specific to the business type (e.g., "Leaky faucet repair" for plumbers, "Haircut and color" for salons)
+- scheduled_date should be in YYYY-MM-DD format if mentioned
+- scheduled_time should be in HH:MM format if mentioned
+- location should include address details if provided
+- notes should capture special requirements or urgency`;
+
   const completion = await openaiClient.chat.completions.create({
     model: JOB_EXTRACTION_MODEL,
     response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
-        content: 'Extract customer details from service voicemails. Always respond with JSON containing customer_name, customer_phone, customer_email, service_type, summary, and business_type (one of home_property, personal_beauty, automotive, business_professional, moving_delivery, other). Use null when a field is unknown.',
+        content: systemPrompt,
       },
       {
         role: 'user',
@@ -75,7 +89,10 @@ const extractJobDetails = async ({ transcriptText, openaiClient }) => {
     customerEmail: sanitizeText(parsed.customer_email),
     serviceType: sanitizeText(parsed.service_type),
     summary,
-    businessType: sanitizeText(parsed.business_type),
+    scheduledDate: sanitizeText(parsed.scheduled_date),
+    scheduledTime: sanitizeText(parsed.scheduled_time),
+    location: sanitizeText(parsed.location),
+    notes: sanitizeText(parsed.notes),
   };
 };
 
@@ -99,8 +116,6 @@ const ensureJobForTranscript = async ({ callSid, transcriptText, openaiClient })
     throw error;
   });
 
-  const extracted = await extractJobDetails({ transcriptText, openaiClient });
-
   let userProfile = null;
   if (callRecord?.user_id) {
     userProfile = await getUserProfileById(callRecord.user_id).catch((error) => {
@@ -108,6 +123,12 @@ const ensureJobForTranscript = async ({ callSid, transcriptText, openaiClient })
       return null;
     });
   }
+
+  const extracted = await extractJobDetails({
+    transcriptText,
+    openaiClient,
+    userBusinessType: userProfile?.business_type || null,
+  });
 
   const jobPayload = {
     userId: callRecord?.user_id || null,

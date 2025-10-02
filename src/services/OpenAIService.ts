@@ -24,15 +24,18 @@ export interface ExtractedJobData {
   location?: string;
   serviceType?: string;
   notes?: string;
-  businessType?: 'home_property' | 'personal_beauty' | 'automotive' | 'business_professional' | 'moving_delivery';
   confidence: number; // 0-1 score
 }
 
 class OpenAIService {
   private getJobExtractionPrompt(businessType?: string): string {
-    const businessContext = businessType ? 
-      `This is for a ${businessType.replace('_', ' ')} service business.` : 
-      'This appears to be for a service business.';
+    const businessContext = businessType
+      ? `This is for a ${businessType.replace(/_/g, ' ')} service business.`
+      : 'This appears to be for a service business.';
+
+    const serviceTypeGuidance = businessType
+      ? this.getServiceTypeGuidance(businessType)
+      : 'The service type should be descriptive and specific (e.g., "Leaky faucet repair", "Haircut and color").';
 
     return `
 You are an AI assistant that extracts job/appointment details from screenshot images of text conversations, emails, or messages.
@@ -46,9 +49,8 @@ Please analyze the image and extract the following information in JSON format:
   "date": "Date in format like 'Dec 15' or 'Tomorrow' or actual date",
   "time": "Time in format like '2:00 PM' or '14:00'",
   "location": "Full address or location description",
-  "serviceType": "Type of service needed (e.g., plumbing repair, haircut, car service)",
+  "serviceType": "Type of service needed",
   "notes": "Additional details about the job or special requirements",
-  "businessType": "One of: home_property, personal_beauty, automotive, business_professional, moving_delivery",
   "confidence": 0.95
 }
 
@@ -57,11 +59,24 @@ Guidelines:
 - For dates like "tomorrow", "next week", etc., keep the original text
 - Include all relevant details in the notes field
 - Confidence should be 0.0-1.0 based on how clear the information is
-- businessType should be inferred from the service type mentioned
 - phone numbers should include country code if visible
+- ${serviceTypeGuidance}
 
 Respond only with valid JSON, no additional text.
     `.trim();
+  }
+
+  private getServiceTypeGuidance(businessType: string): string {
+    const serviceExamples: Record<string, string> = {
+      home_property: 'Examples: "Leaky faucet repair", "House cleaning - 3 bedrooms", "HVAC maintenance"',
+      personal_beauty: 'Examples: "Haircut and color", "Deep tissue massage - 90min", "Manicure and pedicure"',
+      automotive: 'Examples: "Oil change and tire rotation", "Brake pad replacement", "Engine diagnostic"',
+      business_professional: 'Examples: "Tax consultation", "Website design project", "Legal contract review"',
+      moving_delivery: 'Examples: "2-bedroom apartment move", "Furniture delivery and assembly", "Office relocation"',
+      other: 'The service type should be descriptive and specific',
+    };
+
+    return serviceExamples[businessType] || serviceExamples.other;
   }
 
   async extractJobFromImage(imageBase64: string, businessType?: string): Promise<ExtractedJobData> {
@@ -117,7 +132,6 @@ Respond only with valid JSON, no additional text.
         location: '',
         serviceType: '',
         notes: 'Failed to extract information from image. Please enter details manually.',
-        businessType: undefined,
         confidence: 0.0
       };
     }
@@ -134,13 +148,12 @@ ${context ? `Additional context: ${context}` : ''}
 Please fill in missing information and improve the data quality. Respond with complete JSON:
 {
   "clientName": "string",
-  "phone": "string", 
+  "phone": "string",
   "date": "string",
   "time": "string",
   "location": "string",
   "serviceType": "string",
   "notes": "string",
-  "businessType": "home_property|personal_beauty|automotive|business_professional|moving_delivery",
   "confidence": 0.95
 }
 
@@ -173,7 +186,6 @@ If information cannot be reasonably inferred, use empty strings. Do not make up 
         location: partialData.location || '',
         serviceType: partialData.serviceType || '',
         notes: partialData.notes || '',
-        businessType: partialData.businessType,
         confidence: partialData.confidence || 0.5
       };
     }
