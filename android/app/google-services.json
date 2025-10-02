@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "872058422543",
+    "project_id": "flynnai",
+    "storage_bucket": "flynnai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:872058422543:android:35c7a983e57f96d71b2a7a",
+        "android_client_info": {
+          "package_name": "com.flynnai.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcwk8Sk54XcCfB_WUmEXvS9xpfbAWzE7Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
