@@ -24,6 +24,7 @@ import {
   detectCarrierFromNumber,
   CarrierDetectionConfidence,
 } from '../../services/CarrierDetectionService';
+import { sanitizeDigits, normalizeNumberForDetection } from '../../utils/phone';
 
 interface CarrierSetupScreenProps {
   onNext: () => void;
@@ -31,8 +32,6 @@ interface CarrierSetupScreenProps {
 }
 
 const DEFAULT_CARRIER_COUNT = 3;
-
-const sanitizeDigits = (value: string) => value.replace(/[^0-9]/g, '');
 
 const replaceForwardingPlaceholder = (
   code: string,
@@ -56,38 +55,12 @@ const getDialableCode = (code: string, forwardingNumber: string | null) => {
   return replaced.replace(/#/g, '%23');
 };
 
-const normalizeNumberForDetection = (value: string) => {
-  const digitsOnly = sanitizeDigits(value);
-
-  if (!digitsOnly) {
-    return '';
-  }
-
-  if (digitsOnly.startsWith('61')) {
-    return digitsOnly;
-  }
-
-  if (digitsOnly.startsWith('0')) {
-    return digitsOnly;
-  }
-
-  if (digitsOnly.length === 9 && digitsOnly.startsWith('4')) {
-    return `0${digitsOnly}`;
-  }
-
-  if (digitsOnly.length === 10 && digitsOnly.startsWith('4')) {
-    return `0${digitsOnly.substring(1)}`;
-  }
-
-  return digitsOnly;
-};
-
 export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
   onNext,
   onBack,
 }) => {
   const { updateOnboardingData, onboardingData } = useOnboarding();
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(onboardingData.phoneNumber || '');
   const [selectedCarrierId, setSelectedCarrierId] = useState(
     callForwardingGuides[0]?.id || ''
   );
@@ -105,6 +78,12 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
   const [hasManualCarrierOverride, setHasManualCarrierOverride] = useState(false);
   const detectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPersistedDetection = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!phoneNumber && onboardingData.phoneNumber) {
+      setPhoneNumber(onboardingData.phoneNumber);
+    }
+  }, [onboardingData.phoneNumber]);
 
   useEffect(() => {
     if (detectionTimeoutRef.current) {
@@ -237,7 +216,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
   }, [carrierDetectionState.status, carrierDetectionState.carrierId]);
 
   const handleDialCode = async (code: CarrierForwardingCode) => {
-    const dialable = getDialableCode(code.code, onboardingData.twilioPhoneNumber);
+    const dialable = getDialableCode(code.code, onboardingData.twilioPhoneNumber ?? null);
 
     if (!onboardingData.twilioPhoneNumber || !dialable) {
       Alert.alert(
@@ -260,7 +239,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
       await Linking.openURL(url);
     } catch (error) {
-      const fallback = replaceForwardingPlaceholder(code.code, onboardingData.twilioPhoneNumber);
+      const fallback = replaceForwardingPlaceholder(code.code, onboardingData.twilioPhoneNumber ?? null);
       Alert.alert(
         'Dial this code manually',
         `${fallback}\n\nOpen the phone app, enter the code, then press call.`,
@@ -368,6 +347,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
     return onboardingData.twilioPhoneNumber;
   }, [onboardingData.twilioPhoneNumber]);
+
 
   const steps = [
     {
@@ -586,7 +566,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
             {selectedCarrier.codes.map((carrierCode) => {
               const displayCode = replaceForwardingPlaceholder(
                 carrierCode.code,
-                onboardingData.twilioPhoneNumber
+                onboardingData.twilioPhoneNumber ?? null
               );
 
               return (

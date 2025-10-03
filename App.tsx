@@ -1,11 +1,10 @@
 import 'react-native-url-polyfill/auto';
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
-import * as Linking from 'expo-linking';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OnboardingProvider, useOnboarding } from './src/context/OnboardingContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -21,34 +20,13 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { AppInitLogger } from './src/utils/AppInitLogger';
 import { useNavigationLogger } from './src/utils/NavigationLogger';
 import { Ionicons } from '@expo/vector-icons';
-import { UploadScreen } from './src/screens/upload/UploadScreen';
-import { ProcessingScreen } from './src/screens/upload/ProcessingScreen';
-import { ResultsScreen } from './src/screens/upload/ResultsScreen';
 import { JobFormDemo } from './src/components/ui/JobFormDemo';
-import { ShortcutSetupScreen } from './src/screens/shortcuts/ShortcutSetupScreen';
-import shortcutHandler from './src/services/ShortcutHandler';
 import CallSetupScreen from './src/screens/calls/CallSetupScreen';
 import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
 import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
-const UploadStack = createStackNavigator();
-
-function UploadFlow() {
-  return (
-    <UploadStack.Navigator
-      screenOptions={{
-        headerShown: false,
-        presentation: 'modal',
-      }}
-    >
-      <UploadStack.Screen name="Upload" component={UploadScreen} />
-      <UploadStack.Screen name="Processing" component={ProcessingScreen} />
-      <UploadStack.Screen name="Results" component={ResultsScreen} />
-    </UploadStack.Navigator>
-  );
-}
 
 function MainTabs() {
   const { colors } = useTheme();
@@ -106,22 +84,8 @@ function RootNavigator() {
     >
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen 
-        name="UploadFlow" 
-        component={UploadFlow}
-        options={{
-          presentation: 'modal',
-        }}
-      />
-      <Stack.Screen 
         name="JobFormDemo" 
         component={JobFormDemo}
-        options={{
-          presentation: 'modal',
-        }}
-      />
-      <Stack.Screen 
-        name="ShortcutSetup" 
-        component={ShortcutSetupScreen}
         options={{
           presentation: 'modal',
         }}
@@ -162,71 +126,6 @@ function AppNavigator() {
   const navigationLogger = useNavigationLogger();
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
-  // Set up deep linking for iOS Shortcuts
-  useEffect(() => {
-    if (navigationRef.current) {
-      shortcutHandler.setNavigationRef(navigationRef.current);
-    }
-    
-  }, []);
-
-  // Configure linking for deep linking
-  const linking = {
-    prefixes: ['flynn-ai://', 'com.flynnai.app://'],
-    config: {
-      screens: {
-        MainTabs: {
-          screens: {
-            Dashboard: 'dashboard',
-            Jobs: 'jobs',
-            Calendar: 'calendar',
-            Clients: 'clients',
-            Settings: 'settings',
-          },
-        },
-        UploadFlow: {
-          screens: {
-            Upload: 'upload',
-            Processing: 'processing',
-            Results: 'results',
-          },
-        },
-      },
-    },
-    async getInitialURL() {
-      // Check if app was opened from a deep link
-      const url = await Linking.getInitialURL();
-      
-      if (url && url.startsWith('flynn-ai://')) {
-        console.log('[AppNavigator] Initial URL from shortcut:', url);
-        // Handle shortcut URL
-        setTimeout(() => shortcutHandler.handleShortcutURL(url), 1000);
-      }
-      
-      return url;
-    },
-    subscribe(listener: (url: string) => void) {
-      const onReceiveURL = ({ url }: { url: string }) => {
-        console.log('[AppNavigator] Received URL:', url);
-        
-        if (url.startsWith('flynn-ai://')) {
-          // Handle shortcut URL
-          shortcutHandler.handleShortcutURL(url);
-        } else {
-          // Handle normal deep link
-          listener(url);
-        }
-      };
-
-      // Listen to incoming links from deep linking
-      const eventListenerSubscription = Linking.addEventListener('url', onReceiveURL);
-
-      return () => {
-        eventListenerSubscription.remove();
-      };
-    },
-  };
-
   console.log('[AppNavigator] Render - user:', !!user, 'loading:', loading, 'onboardingLoading:', onboardingLoading);
 
   if (loading || onboardingLoading) {
@@ -241,7 +140,6 @@ function AppNavigator() {
   return (
     <NavigationContainer
       ref={navigationRef}
-      linking={linking}
       onReady={navigationLogger.onReady}
       onStateChange={navigationLogger.onStateChange}
     >

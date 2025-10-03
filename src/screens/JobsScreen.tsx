@@ -202,7 +202,7 @@ export const JobsScreen = () => {
   }, [refreshJobs]);
 
   const handleAddJob = () => {
-    navigation.navigate('UploadFlow');
+    navigation.navigate('JobFormDemo');
   };
 
   const renderJobCard = ({ item }: { item: Job }) => (

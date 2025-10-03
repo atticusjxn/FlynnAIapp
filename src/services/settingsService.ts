@@ -9,6 +9,8 @@ export interface UserSettingsPayload {
   phone_number: string | null;
   forwarding_active: boolean;
   call_features_enabled: boolean;
+  twilio_phone_number: string | null; // Added
+  twilio_number_sid: string | null; // Added
   settings: Record<string, any> | null;
 }
 
@@ -54,6 +56,8 @@ export interface SettingsData {
     phone: string;
     forwardingActive: boolean;
     callFeaturesEnabled: boolean;
+    twilioPhoneNumber: string | null; // Added
+    twilioNumberSid: string | null; // Added
   } | null;
   pushEnabled: boolean;
   calendarIntegrations: CalendarIntegrationView[];
@@ -64,7 +68,7 @@ export const fetchUserSettings = async (userId: string): Promise<SettingsData> =
   const [profileRes, calendarRes, tokensRes] = await Promise.all([
     supabase
       .from('users')
-      .select('id, business_name, business_type, email, phone_number, forwarding_active, call_features_enabled, settings')
+      .select('id, business_name, business_type, email, phone_number, forwarding_active, call_features_enabled, settings, twilio_phone_number, twilio_number_sid') // Added Twilio fields
       .eq('id', userId)
       .maybeSingle(),
     supabase
@@ -87,6 +91,8 @@ export const fetchUserSettings = async (userId: string): Promise<SettingsData> =
         phone: profileRow.phone_number ?? '',
         forwardingActive: Boolean(profileRow.forwarding_active),
         callFeaturesEnabled: profileRow.call_features_enabled !== false,
+        twilioPhoneNumber: profileRow.twilio_phone_number ?? null, // Mapped Twilio phone number
+        twilioNumberSid: profileRow.twilio_number_sid ?? null, // Mapped Twilio number SID
       }
     : null;
 

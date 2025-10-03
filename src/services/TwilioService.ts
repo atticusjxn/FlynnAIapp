@@ -8,6 +8,7 @@ import {
   RecordingPreference 
 } from '../types/calls.types';
 import { CarrierDetectionResult } from './CarrierDetectionService';
+import { carrierIdToIsoCountry, inferIsoCountryFromNumber } from '../utils/phone';
 
 // Environment configuration
 const TWILIO_ACCOUNT_SID = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID;
@@ -28,8 +29,15 @@ export interface PhoneNumberProvisionResult {
 // Re-export for backward compatibility
 export type JobExtractionResult = JobExtraction;
 
+export interface PhoneNumberProvisionOptions {
+  countryCode?: string;
+  phoneNumberHint?: string | null;
+  carrierIdHint?: string | null;
+}
+
 class TwilioServiceClass {
   private baseUrl = 'https://api.twilio.com/2010-04-01';
+  private readonly defaultCountryCode = 'US';
   
   /**
    * Get current user's Twilio setup status
@@ -85,7 +93,7 @@ class TwilioServiceClass {
   /**
    * Provision a new Twilio phone number for the user
    */
-  async provisionPhoneNumber(): Promise<PhoneNumberProvisionResult> {
+  async provisionPhoneNumber(options: PhoneNumberProvisionOptions = {}): Promise<PhoneNumberProvisionResult> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
@@ -95,19 +103,36 @@ class TwilioServiceClass {
       // Get user's location for number selection (default to US)
       const { data: userData } = await supabase
         .from('users')
-        .select('phone, address')
+        .select('phone, phone_number, address, country_code')
         .eq('id', user.id)
         .single();
 
+      const countryCode = this.resolveCountryCode({
+        user,
+        userData,
+        options,
+      });
+
       // Search for available phone numbers
-      const availableNumbers = await this.searchAvailableNumbers('US');
+      const availableNumbers = await this.searchAvailableNumbers(countryCode);
       
-      if (!availableNumbers || availableNumbers.length === 0) {
-        throw new Error('No phone numbers available in your area');
+      let numbersToConsider = availableNumbers;
+
+      if (!numbersToConsider || numbersToConsider.length === 0) {
+        if (countryCode !== this.defaultCountryCode) {
+          const fallbackNumbers = await this.searchAvailableNumbers(this.defaultCountryCode);
+          if (fallbackNumbers && fallbackNumbers.length > 0) {
+            numbersToConsider = fallbackNumbers;
+          }
+        }
+
+        if (!numbersToConsider || numbersToConsider.length === 0) {
+          throw new Error('No phone numbers available in your area');
+        }
       }
 
       // Purchase the first available number
-      const selectedNumber = availableNumbers[0];
+      const selectedNumber = numbersToConsider[0];
       const purchaseResult = await this.purchasePhoneNumber(selectedNumber.phone_number, user.id);
 
       // Update user record with Twilio information
@@ -136,11 +161,20 @@ class TwilioServiceClass {
   /**
    * Search for available phone numbers in a country
    */
-  private async searchAvailableNumbers(countryCode: string = 'US') {
+  private async searchAvailableNumbers(countryCode: string = this.defaultCountryCode) {
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
       // For development, return mock data
+      const devNumbers: Record<string, string> = {
+        AU: '+61491570156',
+        GB: '+447700900123',
+        IE: '+35315500000',
+        NZ: '+64210123456',
+        US: '+15551234567',
+      };
+
+      const fallback = devNumbers[this.defaultCountryCode];
       return [{
-        phone_number: '+15551234567',
+        phone_number: devNumbers[countryCode] || fallback,
         friendly_name: 'Flynn AI Development Number',
         capabilities: { voice: true, sms: true, fax: false }
       }];
@@ -620,6 +654,62 @@ If information is unclear or missing, set those fields to null. Set confidence b
       console.error('Error releasing phone number:', error);
       throw error;
     }
+  }
+
+  private normalizeCountryCode(code?: string | null): string | null {
+    if (!code) return null;
+    const trimmed = code.trim();
+    if (!trimmed) return null;
+    return trimmed.toUpperCase();
+  }
+
+  private resolveCountryCode({
+    user,
+    userData,
+    options,
+  }: {
+    user: { user_metadata?: Record<string, any>; phone?: string | null };
+    userData: { phone?: string | null; phone_number?: string | null; address?: any; country_code?: string | null } | null;
+    options: PhoneNumberProvisionOptions;
+  }): string {
+    const metadata = (user?.user_metadata || {}) as Record<string, any>;
+    const forwardingHint = metadata.forwarding_carrier_hint as
+      | { carrierId?: string | null; e164Number?: string | null }
+      | undefined;
+
+    const addressCountry = userData?.address && typeof userData.address === 'object'
+      ? this.normalizeCountryCode(userData.address.country || userData.address.countryCode)
+      : this.normalizeCountryCode(userData?.country_code);
+
+    const addressStringCountry =
+      typeof userData?.address === 'string'
+        ? ((): string | null => {
+            const lower = userData.address.toLowerCase();
+            if (lower.includes('australia')) return 'AU';
+            if (lower.includes('new zealand')) return 'NZ';
+            if (lower.includes('united kingdom') || lower.includes('u.k.') || lower.includes('uk')) return 'GB';
+            if (lower.includes('ireland')) return 'IE';
+            if (lower.includes('canada')) return 'CA';
+            if (lower.includes('united states') || lower.includes('usa') || lower.includes('u.s.')) return 'US';
+            return null;
+          })()
+        : null;
+
+    const hints: Array<string | null | undefined> = [
+      this.normalizeCountryCode(options.countryCode),
+      carrierIdToIsoCountry(options.carrierIdHint),
+      inferIsoCountryFromNumber(options.phoneNumberHint),
+      carrierIdToIsoCountry(forwardingHint?.carrierId),
+      inferIsoCountryFromNumber(forwardingHint?.e164Number),
+      inferIsoCountryFromNumber(user?.phone),
+      inferIsoCountryFromNumber(userData?.phone_number),
+      inferIsoCountryFromNumber(userData?.phone),
+      addressCountry,
+      addressStringCountry,
+    ];
+
+    const resolved = hints.find((code) => Boolean(code));
+    return this.normalizeCountryCode(resolved) || this.defaultCountryCode;
   }
 }
 

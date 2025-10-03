@@ -55,9 +55,11 @@ export const SettingsScreen: React.FC = () => {
     businessName: string;
     businessType: string;
     email: string;
-    phone: string;
+    phone: string; // This is the user's personal mobile number
     forwardingActive: boolean;
     callFeaturesEnabled: boolean;
+    twilioPhoneNumber: string | null; // Added Twilio phone number
+    twilioNumberSid: string | null; // Added Twilio number SID
   } | null>(null);
   const [calendarIntegrations, setCalendarIntegrations] = useState<CalendarIntegrationView[]>([]);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({ push: false, email: true, sms: true });
@@ -198,10 +200,6 @@ export const SettingsScreen: React.FC = () => {
     profile ? resolveBusinessTypeLabel(profile.businessType) : 'Not specified'
   , [profile]);
 
-  const handleShortcutSetup = () => {
-    navigation.navigate('ShortcutSetup');
-  };
-
   const handleBusinessSettings = () => {
     handleEditProfile();
   };
@@ -238,38 +236,8 @@ export const SettingsScreen: React.FC = () => {
       Alert.alert('Error', 'User not authenticated.');
       return;
     }
-    try {
-      // In a real scenario, you'd navigate to a dedicated setup screen
-      // or show a modal to guide the user through the process.
-      // For now, we'll directly attempt to provision.
-      Alert.alert(
-        'Setup Call Forwarding',
-        'This will provision a new Twilio number for your business. Continue?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Provision Number',
-            onPress: async () => {
-              try {
-                // Ensure TwilioService is imported
-                const { TwilioService } = await import('../services/TwilioService');
-                const result = await TwilioService.provisionPhoneNumber();
-                if (result) {
-                  Alert.alert('Success', `Phone number ${result.phoneNumber} provisioned!`);
-                  void loadSettings(); // Refresh settings to show new toggle
-                }
-              } catch (error: any) {
-                console.error('[Settings] Failed to provision phone number', error);
-                Alert.alert('Error', error.message || 'Failed to provision phone number.');
-              }
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('[Settings] Error during call forwarding setup', error);
-      Alert.alert('Error', 'An unexpected error occurred during setup.');
-    }
+    // Navigate to the TwilioProvisioningScreen instead of directly provisioning here
+    navigation.navigate('OnboardingNavigator', { screen: 'TwilioProvisioning' });
   };
 
   const initials = getInitials(profile?.businessName, profile?.email);
@@ -375,7 +343,7 @@ export const SettingsScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {profile?.phone ? ( // Check if a phone number (likely Twilio) is present
+            {profile?.twilioPhoneNumber ? ( // Check if a Twilio phone number is present
               <View style={styles.toggleRow}>
                 <View style={styles.settingLeft}>
                   <View style={styles.settingIcon}>
@@ -586,13 +554,6 @@ export const SettingsScreen: React.FC = () => {
               );
             })}
             {renderSettingRow('log-out-outline', 'Sign out', undefined, undefined, handleSignOut)}
-          </View>
-        ))}
-
-        {/* Shortcuts */}
-        {renderSection('Shortcuts', (
-          <View style={styles.settingsGroup}>
-            {renderSettingRow('flash-outline', 'Flynn shortcuts', 'Quick actions for capture', undefined, handleShortcutSetup)}
           </View>
         ))}
 

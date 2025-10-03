@@ -339,7 +339,6 @@ export const DashboardScreen = () => {
       
       {/* Floating Action Button */}
       <FloatingActionButton
-        onUploadScreenshot={() => navigation.navigate('UploadFlow')}
         onQuickAddJob={() => navigation.navigate('JobFormDemo')}
       />
 
