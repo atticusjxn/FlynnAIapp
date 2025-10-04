@@ -10,7 +10,7 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { DashboardActivity, formatActivityTime } from '../../services/dashboardService';
@@ -82,7 +82,7 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
           style={[styles.actionButton, { backgroundColor: colors.success + '15' }]}
           onPress={handleCallClient}
         >
-          <Ionicons name="call-outline" size={16} color={colors.success} />
+          <FlynnIcon name="call-outline" size={16} color={colors.success} />
           <Text style={[styles.actionButtonText, { color: colors.success }]}>
             Call {activity.metadata.clientName?.split(' ')[0]}
           </Text>
@@ -98,7 +98,7 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
           style={[styles.actionButton, { backgroundColor: colors.primary + '15' }]}
           onPress={handleViewJob}
         >
-          <Ionicons name="briefcase-outline" size={16} color={colors.primary} />
+          <FlynnIcon name="briefcase-outline" size={16} color={colors.primary} />
           <Text style={[styles.actionButtonText, { color: colors.primary }]}>
             View Job Details
           </Text>
@@ -165,7 +165,7 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
               activeOpacity={item.actionable ? 0.7 : 1}
             >
               <View style={styles.metadataIcon}>
-                <Ionicons name={item.icon as any} size={16} color={colors.gray600} />
+                <FlynnIcon name={item.icon as any} size={16} color={colors.gray600} />
               </View>
               <View style={styles.metadataContent}>
                 <Text style={styles.metadataLabel}>{item.label}</Text>
@@ -177,7 +177,7 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
                 </Text>
               </View>
               {item.actionable && (
-                <Ionicons name="chevron-forward" size={16} color={colors.gray400} />
+                <FlynnIcon name="chevron-forward" size={16} color={colors.gray400} />
               )}
             </TouchableOpacity>
           ))}
@@ -201,7 +201,7 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
               styles.activityTypeIcon,
               { backgroundColor: getActivityTypeBackground(activity.type) }
             ]}>
-              <Ionicons 
+              <FlynnIcon 
                 name={activity.icon as any} 
                 size={24} 
                 color={getActivityTypeColor(activity.type)} 
@@ -214,7 +214,7 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={colors.gray600} />
+              <FlynnIcon name="close" size={24} color={colors.gray600} />
             </TouchableOpacity>
           </View>
 
@@ -242,19 +242,19 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
                     'This call was automatically recorded and transcribed by Flynn AI. The key details have been captured for easy reference.'
                   }
                   {activity.type === 'job_created' && 
-                    'A new job was created in your system. You can view and manage the job details from the Jobs tab.'
+                    'A new event was created in your system. You can view and manage the event details from the Events tab.'
                   }
                   {activity.type === 'job_completed' && 
-                    'This job has been marked as completed. You can now send invoices or follow-up communications to the client.'
+                    'This event has been marked as completed. You can now send invoices or follow-up communications to the client.'
                   }
                   {activity.type === 'job_updated' && 
-                    'Details for this job were updated. Review the latest status to keep your workflow on track.'
+                    'Details for this event were updated. Review the latest status to keep your workflow on track.'
                   }
                   {activity.type === 'communication_sent' && 
                     'Flynn AI automatically sent this communication to keep your client informed about their appointment.'
                   }
                   {activity.type === 'calendar_synced' && 
-                    'This appointment has been synced with your connected calendar platform for better schedule management.'
+                    'This appointment summary is ready inside Flynn so you can stay on top of every booking.'
                   }
                 </Text>
               </View>

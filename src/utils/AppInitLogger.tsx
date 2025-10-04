@@ -1,12 +1,20 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 export const AppInitLogger: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     console.log('===== FlynnAI App Initialization =====');
     console.log('App starting at:', new Date().toISOString());
     console.log('Environment:', __DEV__ ? 'Development' : 'Production');
-    console.log('React Native version:', require('react-native/package.json').version);
-    console.log('Expo SDK version:', require('expo/package.json').version);
+    const rnVersionParts = Platform.constants?.reactNativeVersion;
+    const rnVersion = rnVersionParts
+      ? [rnVersionParts.major, rnVersionParts.minor, rnVersionParts.patch]
+          .filter((part) => part !== undefined)
+          .join('.')
+      : String(Platform.Version);
+    console.log('React Native version:', rnVersion);
+    console.log('Expo SDK version:', Constants.expoVersion ?? 'unknown');
     
     // Log any initial errors
     const originalConsoleError = console.error;

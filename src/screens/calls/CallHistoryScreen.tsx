@@ -9,7 +9,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { FlynnCard } from '../../components/ui/FlynnCard';
@@ -166,7 +166,7 @@ const CallHistoryScreen: React.FC<CallHistoryScreenProps> = ({ navigation }) => 
         <View style={styles.callHeader}>
           <View style={styles.callerInfo}>
             <View style={styles.callerIcon}>
-              <Ionicons name="call" size={20} color={themeColors.primary || colors.primary} />
+              <FlynnIcon name="call" size={20} color={themeColors.primary || colors.primary} />
             </View>
             <View style={styles.callerDetails}>
               <Text style={styles.callerNumber}>{item.fromNumber}</Text>
@@ -176,7 +176,7 @@ const CallHistoryScreen: React.FC<CallHistoryScreenProps> = ({ navigation }) => 
           
           <View style={styles.callStatus}>
             <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-              <Ionicons 
+              <FlynnIcon 
                 name={getStatusIcon(item.status) as any} 
                 size={16} 
                 color={getStatusColor(item.status)} 
@@ -187,20 +187,20 @@ const CallHistoryScreen: React.FC<CallHistoryScreenProps> = ({ navigation }) => 
 
         <View style={styles.callMetadata}>
           <View style={styles.metadataItem}>
-            <Ionicons name="time-outline" size={14} color={themeColors.textTertiary || colors.gray500} />
+            <FlynnIcon name="time-outline" size={14} color={themeColors.textTertiary || colors.gray500} />
             <Text style={styles.metadataText}>{formatDuration(item.duration)}</Text>
           </View>
           
           {item.transcriptionText && (
             <View style={styles.metadataItem}>
-              <Ionicons name="document-text-outline" size={14} color={themeColors.textTertiary || colors.gray500} />
+              <FlynnIcon name="document-text-outline" size={14} color={themeColors.textTertiary || colors.gray500} />
               <Text style={styles.metadataText}>Transcribed</Text>
             </View>
           )}
           
           {item.jobId && (
             <View style={styles.metadataItem}>
-              <Ionicons name="briefcase-outline" size={14} color={themeColors.success || colors.success} />
+              <FlynnIcon name="briefcase-outline" size={14} color={themeColors.success || colors.success} />
               <Text style={[styles.metadataText, { color: themeColors.success || colors.success }]}>Job Created</Text>
             </View>
           )}
@@ -232,7 +232,7 @@ const CallHistoryScreen: React.FC<CallHistoryScreenProps> = ({ navigation }) => 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIcon}>
-        <Ionicons name="call-outline" size={48} color={themeColors.gray400 || colors.gray400} />
+        <FlynnIcon name="call-outline" size={48} color={themeColors.gray400 || colors.gray400} />
       </View>
       <Text style={styles.emptyTitle}>No Call History</Text>
       <Text style={styles.emptyDescription}>
@@ -250,7 +250,7 @@ const CallHistoryScreen: React.FC<CallHistoryScreenProps> = ({ navigation }) => 
   const renderErrorState = () => (
     <View style={styles.errorState}>
       <View style={styles.errorIcon}>
-        <Ionicons name="alert-circle" size={48} color={themeColors.error || colors.error} />
+        <FlynnIcon name="alert-circle" size={48} color={themeColors.error || colors.error} />
       </View>
       <Text style={styles.errorTitle}>Unable to Load Calls</Text>
       <Text style={styles.errorDescription}>{error}</Text>
@@ -278,14 +278,14 @@ const CallHistoryScreen: React.FC<CallHistoryScreenProps> = ({ navigation }) => 
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={themeColors.textPrimary || colors.gray800} />
+          <FlynnIcon name="arrow-back" size={24} color={themeColors.textPrimary || colors.gray800} />
         </TouchableOpacity>
         <Text style={styles.title}>Call History</Text>
         <TouchableOpacity 
           style={styles.settingsButton}
           onPress={() => navigation.navigate('CallSettings')}
         >
-          <Ionicons name="settings-outline" size={24} color={themeColors.textPrimary || colors.gray800} />
+          <FlynnIcon name="settings-outline" size={24} color={themeColors.textPrimary || colors.gray800} />
         </TouchableOpacity>
       </View>
 

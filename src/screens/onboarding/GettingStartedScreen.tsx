@@ -9,7 +9,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../../components/ui/FlynnIcon';
 
 interface GettingStartedScreenProps {
   onStartOnboarding: () => void;
@@ -47,7 +47,7 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
         <View style={[styles.featuresContainer, isSmallScreen && styles.featuresContainerSmall]}>
           <View style={styles.feature}>
             <View style={styles.featureIcon}>
-              <Ionicons name="camera-outline" size={24} color="#3B82F6" />
+              <FlynnIcon name="camera-outline" size={24} color="#3B82F6" />
             </View>
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>Smart Job Capture</Text>
@@ -59,7 +59,7 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
 
           <View style={styles.feature}>
             <View style={styles.featureIcon}>
-              <Ionicons name="call-outline" size={24} color="#3B82F6" />
+              <FlynnIcon name="call-outline" size={24} color="#3B82F6" />
             </View>
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>Call Integration</Text>
@@ -71,7 +71,7 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
 
           <View style={styles.feature}>
             <View style={styles.featureIcon}>
-              <Ionicons name="calendar-outline" size={24} color="#3B82F6" />
+              <FlynnIcon name="calendar-outline" size={24} color="#3B82F6" />
             </View>
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>Auto Scheduling</Text>
@@ -83,7 +83,7 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
 
           <View style={styles.feature}>
             <View style={styles.featureIcon}>
-              <Ionicons name="people-outline" size={24} color="#3B82F6" />
+              <FlynnIcon name="people-outline" size={24} color="#3B82F6" />
             </View>
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>Client Management</Text>
@@ -97,7 +97,7 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
         <View style={[styles.buttonContainer, isSmallScreen && styles.buttonContainerSmall]}>
           <TouchableOpacity style={styles.primaryButton} onPress={onStartOnboarding}>
             <Text style={styles.primaryButtonText}>Set Up Your Business</Text>
-            <Ionicons name="arrow-forward" size={20} color="white" />
+            <FlynnIcon name="arrow-forward" size={20} color="white" />
           </TouchableOpacity>
           
           <Text style={styles.footerText}>

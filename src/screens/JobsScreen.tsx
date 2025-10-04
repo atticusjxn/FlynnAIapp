@@ -19,7 +19,7 @@ import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { CommunicationModal } from '../components/jobs/CommunicationModal';
 import { EmptyState } from '../components/jobs/EmptyState';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../components/ui/FlynnIcon';
 
 const formatRelativeTime = (timestamp?: string) => {
   if (!timestamp) return 'just now';
@@ -161,10 +161,10 @@ export const JobsScreen = () => {
   const handleMarkComplete = async (job: Job) => {
     try {
       await markJobComplete(job.id);
-      Alert.alert('Success', `Job for ${job.clientName} marked as complete!`);
+      Alert.alert('Success', `Event for ${job.clientName} marked as complete!`);
     } catch (error) {
       console.error('[JobsScreen] Failed to mark complete', error);
-      Alert.alert('Error', 'Unable to mark this job complete right now.');
+      Alert.alert('Error', 'Unable to mark this event complete right now.');
     }
   };
 
@@ -173,7 +173,7 @@ export const JobsScreen = () => {
   };
 
   const handleEditDetails = (job: Job) => {
-    console.log('Edit details for job:', job.id);
+    console.log('Edit details for event:', job.id);
     // This is now handled inline in the modal
   };
 
@@ -181,17 +181,17 @@ export const JobsScreen = () => {
     try {
       await saveJobEdits(updatedJob);
     } catch (error) {
-      Alert.alert('Error', 'Unable to save job changes right now.');
+      Alert.alert('Error', 'Unable to save event changes right now.');
     }
   };
 
   const handleDeleteJob = async (job: Job) => {
     try {
       await deleteJob(job.id);
-      Alert.alert('Success', `Job for ${job.clientName} has been deleted.`);
+      Alert.alert('Success', `Event for ${job.clientName} has been deleted.`);
     } catch (error) {
       console.error('[JobsScreen] Failed to delete job', error);
-      Alert.alert('Error', 'Unable to delete this job right now.');
+      Alert.alert('Error', 'Unable to delete this event right now.');
     }
   };
 
@@ -230,7 +230,7 @@ export const JobsScreen = () => {
                   setShowJobDetails(true);
                 }}
               >
-                <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                <FlynnIcon name="document-text-outline" size={18} color={colors.primary} />
               </TouchableOpacity>
             </View>
             <Text style={styles.followUpPreview} numberOfLines={3}>
@@ -241,14 +241,14 @@ export const JobsScreen = () => {
                 style={[styles.followUpActionButton, styles.followUpApprove]}
                 onPress={() => handleSendFollowUpDraft(job)}
               >
-                <Ionicons name="paper-plane-outline" size={16} color={colors.white} />
+                <FlynnIcon name="paper-plane-outline" size={16} color={colors.white} />
                 <Text style={styles.followUpApproveText}>Approve & Send</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.followUpActionButton}
                 onPress={() => handleReviewFollowUp(job)}
               >
-                <Ionicons name="create-outline" size={16} color={colors.primary} />
+                <FlynnIcon name="create-outline" size={16} color={colors.primary} />
                 <Text style={styles.followUpReviewText}>Review</Text>
               </TouchableOpacity>
             </View>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { useTheme } from '../../context/ThemeContext';
 import { shadows } from '../../theme';
 
@@ -20,7 +20,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
         onPress={onQuickAddJob}
         activeOpacity={0.8}
       >
-        <Ionicons name="add" size={28} color={colors.white} />
+        <FlynnIcon name="add" size={28} color={colors.white} />
       </TouchableOpacity>
     </View>
   );

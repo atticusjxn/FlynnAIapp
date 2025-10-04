@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../components/ui/FlynnIcon';
 import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
 import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -294,7 +294,7 @@ export const ClientsScreen: React.FC = () => {
 
   const renderEmptyState = useCallback(() => (
     <View style={styles.emptyState}>
-      <Ionicons name="people-outline" size={64} color={colors.gray400} />
+      <FlynnIcon name="people-outline" size={64} color={colors.gray400} />
       <Text style={styles.emptyTitle}>
         {searchQuery ? 'No Clients Found' : 'No Clients Yet'}
       </Text>
@@ -309,7 +309,7 @@ export const ClientsScreen: React.FC = () => {
           onPress={handleAddClient}
           variant="primary"
           size="medium"
-          icon={<Ionicons name="person-add-outline" size={18} color={colors.white} />}
+          icon={<FlynnIcon name="person-add-outline" size={18} color={colors.white} />}
           style={styles.emptyActionButton}
         />
       )}
@@ -340,13 +340,13 @@ export const ClientsScreen: React.FC = () => {
             onPress={handleAddClient}
             variant="primary"
             size="medium"
-            icon={<Ionicons name="person-add-outline" size={18} color={colors.white} />}
+            icon={<FlynnIcon name="person-add-outline" size={18} color={colors.white} />}
           />
         </View>
 
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
-            <Ionicons name="search-outline" size={20} color={colors.gray500} />
+            <FlynnIcon name="search-outline" size={20} color={colors.gray500} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search clients..."
@@ -356,7 +356,7 @@ export const ClientsScreen: React.FC = () => {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color={colors.gray400} />
+                <FlynnIcon name="close-circle" size={18} color={colors.gray400} />
               </TouchableOpacity>
             )}
           </View>
@@ -364,7 +364,7 @@ export const ClientsScreen: React.FC = () => {
 
         {error ? (
           <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={16} color={colors.error} />
+            <FlynnIcon name="alert-circle" size={16} color={colors.error} />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}

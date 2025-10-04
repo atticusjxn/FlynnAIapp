@@ -9,7 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { DashboardActivity, DashboardActivityType, formatActivityTime } from '../../services/dashboardService';
@@ -92,7 +92,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
   };
 
   const getActivityIcon = (activity: DashboardActivity) => ({
-    name: activity.icon as any,
+    name: activity.icon,
     color: iconColors[activity.type] ?? colors.gray500,
   });
 
@@ -109,7 +109,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
         activeOpacity={0.7}
       >
         <View style={[styles.activityIconContainer, { backgroundColor: iconConfig.color + '20' }]}>
-          <Ionicons name={iconConfig.name} size={20} color={iconConfig.color} />
+          <FlynnIcon name={iconConfig.name} size={20} color={iconConfig.color} />
         </View>
         
         <View style={styles.activityContent}>
@@ -128,13 +128,13 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
             <View style={styles.activityMetadata}>
               {activity.metadata.clientName && (
                 <View style={styles.metadataItem}>
-                  <Ionicons name="person-outline" size={14} color={colors.textTertiary} />
+                  <FlynnIcon name="person-outline" size={14} color={colors.textTertiary} />
                   <Text style={styles.metadataText}>{activity.metadata.clientName}</Text>
                 </View>
               )}
               {(activity.metadata.platform || activity.metadata.channel) && (
                 <View style={styles.metadataItem}>
-                  <Ionicons name="apps-outline" size={14} color={colors.textTertiary} />
+                  <FlynnIcon name="apps-outline" size={14} color={colors.textTertiary} />
                   <Text style={styles.metadataText}>{activity.metadata.platform || activity.metadata.channel}</Text>
                 </View>
               )}
@@ -144,7 +144,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
         
         {/* Chevron indicator for clickable items */}
         <View style={styles.chevronContainer}>
-          <Ionicons name="chevron-forward" size={16} color={colors.gray400} />
+          <FlynnIcon name="chevron-forward" size={16} color={colors.gray400} />
         </View>
       </TouchableOpacity>
     );
@@ -220,7 +220,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
             style={[styles.actionButton, { backgroundColor: colors.success + '15' }]}
             onPress={() => handleCallClient(selectedActivity.metadata!.clientPhone!)}
           >
-            <Ionicons name="call-outline" size={16} color={colors.success} />
+            <FlynnIcon name="call-outline" size={16} color={colors.success} />
             <Text style={[styles.actionButtonText, { color: colors.success }]}>
               Call {selectedActivity.metadata.clientName?.split(' ')[0]}
             </Text>
@@ -236,7 +236,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
             style={[styles.actionButton, { backgroundColor: colors.primary + '15' }]}
             onPress={() => handleViewJob(selectedActivity.metadata!.jobId!)}
           >
-            <Ionicons name="briefcase-outline" size={16} color={colors.primary} />
+            <FlynnIcon name="briefcase-outline" size={16} color={colors.primary} />
             <Text style={[styles.actionButtonText, { color: colors.primary }]}>
               View Job Details
             </Text>
@@ -295,7 +295,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
                 activeOpacity={item.actionable ? 0.7 : 1}
               >
                 <View style={styles.metadataIcon}>
-                  <Ionicons name={item.icon as any} size={16} color={colors.gray600} />
+                  <FlynnIcon name={item.icon as any} size={16} color={colors.gray600} />
                 </View>
                 <View style={styles.metadataContent}>
                   <Text style={styles.metadataLabel}>{item.label}</Text>
@@ -307,7 +307,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
                   </Text>
                 </View>
                 {item.actionable && (
-                  <Ionicons name="chevron-forward" size={16} color={colors.gray400} />
+                  <FlynnIcon name="chevron-forward" size={16} color={colors.gray400} />
                 )}
               </TouchableOpacity>
             ))}
@@ -321,13 +321,13 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
         {/* Header */}
         <View style={styles.detailsHeader}>
           <TouchableOpacity onPress={handleBackToList} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
+            <FlynnIcon name="chevron-back" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
           <View style={[
             styles.detailsActivityIcon,
             { backgroundColor: getActivityTypeBackground(selectedActivity.type) }
           ]}>
-            <Ionicons 
+            <FlynnIcon 
               name={selectedActivity.icon as any} 
               size={24} 
               color={getActivityTypeColor(selectedActivity.type)} 
@@ -365,19 +365,19 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
                   'This call was automatically recorded and transcribed by Flynn AI. Key details are captured for easy reference.'
                 }
                 {selectedActivity.type === 'job_created' && 
-                  'A new job was captured for your business. Review and assign it from the Jobs tab.'
+                  'A new event was captured for your business. Review and assign it from the Events tab.'
                 }
                 {selectedActivity.type === 'job_completed' && 
-                  'This job has been marked as completed. Send any follow-up communications or invoices as needed.'
+                  'This event has been marked as completed. Send any follow-up communications or invoices as needed.'
                 }
                 {selectedActivity.type === 'job_updated' && 
-                  'Job details were updated. Double-check the latest status to keep work on track.'
+                  'Event details were updated. Double-check the latest status to keep work on track.'
                 }
                 {selectedActivity.type === 'communication_sent' && 
                   'Flynn AI sent this communication to keep your client informed.'
                 }
                 {selectedActivity.type === 'calendar_synced' && 
-                  'This event has been synced with your calendar so you never miss an appointment.'
+                  'This event summary is ready in Flynn so your team never misses an appointment.'
                 }
               </Text>
             </View>
@@ -402,7 +402,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
             <View style={styles.header}>
               <Text style={styles.title}>Activity History</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
+                <FlynnIcon name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -427,7 +427,7 @@ export const ActivityHistoryModal: React.FC<ActivityHistoryModalProps> = ({
                 </View>
               ) : activities.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="time-outline" size={48} color={colors.gray400} />
+                  <FlynnIcon name="time-outline" size={48} color={colors.gray400} />
                   <Text style={styles.emptyTitle}>No Activity Yet</Text>
                   <Text style={styles.emptyDescription}>
                     Recent activity will appear here as you process calls, create jobs, and send communications.

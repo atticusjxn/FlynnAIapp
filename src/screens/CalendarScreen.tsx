@@ -10,7 +10,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../components/ui/FlynnIcon';
 import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
 import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -350,13 +350,13 @@ const toggleButtonWidth = (width - spacing.lg * 2 - spacing.xxxs) / 2; // Only 2
 
         <View style={styles.dateNavigation}>
           <TouchableOpacity onPress={navigatePrevious} style={styles.navButton}>
-            <Ionicons name="chevron-back" size={24} color={colors.primary} />
+            <FlynnIcon name="chevron-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           
           <Text style={styles.dateDisplay}>{formatDateDisplay()}</Text>
           
           <TouchableOpacity onPress={navigateNext} style={styles.navButton}>
-            <Ionicons name="chevron-forward" size={24} color={colors.primary} />
+            <FlynnIcon name="chevron-forward" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -373,7 +373,7 @@ const toggleButtonWidth = (width - spacing.lg * 2 - spacing.xxxs) / 2; // Only 2
         style={styles.floatingButton}
         onPress={handleCreateJob}
       >
-        <Ionicons name="add" size={24} color={colors.white} />
+        <FlynnIcon name="add" size={24} color={colors.white} />
       </TouchableOpacity>
 
       {/* Job Details Modal */}

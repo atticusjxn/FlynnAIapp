@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Job } from '../jobs/JobCard';
@@ -262,7 +262,7 @@ export const DayView: React.FC<DayViewProps> = ({
           </Text>
           <View style={styles.jobStatusBadge}>
             {isConflicted ? (
-              <Ionicons name="warning" size={16} color={colors.error} />
+              <FlynnIcon name="warning" size={16} color={colors.error} />
             ) : (
               <View style={[
                 styles.statusDot,
@@ -290,14 +290,14 @@ export const DayView: React.FC<DayViewProps> = ({
               }}
               activeOpacity={0.8}
             >
-              <Ionicons name="warning-outline" size={12} color={colors.white} />
+              <FlynnIcon name="warning-outline" size={12} color={colors.white} />
               <Text style={styles.conflictText}>
                 Scheduling conflict - tap to resolve
               </Text>
             </TouchableOpacity>
           )}
           <View style={styles.jobLocation}>
-            <Ionicons name="location-outline" size={12} color={colors.gray500} />
+            <FlynnIcon name="location-outline" size={12} color={colors.gray500} />
             <Text style={styles.jobLocationText} numberOfLines={1}>
               {job.location}
             </Text>

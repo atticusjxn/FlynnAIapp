@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon, FlynnIconName } from '../components/ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
@@ -20,10 +20,8 @@ import { FlynnButton } from '../components/ui/FlynnButton';
 import { businessTypes } from '../context/OnboardingContext';
 import { useAuth } from '../context/AuthContext';
 import {
-  CalendarIntegrationView,
   fetchUserSettings,
   resolveBusinessTypeLabel,
-  toggleCalendarIntegration,
   updateNotificationSettings,
   updateUserProfile,
 } from '../services/settingsService';
@@ -61,7 +59,6 @@ export const SettingsScreen: React.FC = () => {
     twilioPhoneNumber: string | null; // Added Twilio phone number
     twilioNumberSid: string | null; // Added Twilio number SID
   } | null>(null);
-  const [calendarIntegrations, setCalendarIntegrations] = useState<CalendarIntegrationView[]>([]);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({ push: false, email: true, sms: true });
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
@@ -78,7 +75,6 @@ export const SettingsScreen: React.FC = () => {
   const loadSettings = async () => {
     if (!user?.id) {
       setProfile(null);
-      setCalendarIntegrations([]);
       setProfileLoading(false);
       return;
     }
@@ -88,8 +84,6 @@ export const SettingsScreen: React.FC = () => {
       setProfileError(null);
       const data = await fetchUserSettings(user.id);
       setProfile(data.profile);
-      setCalendarIntegrations(data.calendarIntegrations);
-
       const notifications = data.notificationSettings?.notifications ?? {};
       setNotificationPrefs({
         push: notifications.push ?? data.pushEnabled,
@@ -180,22 +174,6 @@ export const SettingsScreen: React.FC = () => {
     }
   };
 
-  const handleCalendarToggle = async (integration: CalendarIntegrationView) => {
-    const nextState = !integration.connected;
-    setCalendarIntegrations(prev =>
-      prev.map(item => (item.id === integration.id ? { ...item, connected: nextState } : item))
-    );
-    try {
-      await toggleCalendarIntegration(integration.id, nextState);
-    } catch (error) {
-      console.error('[Settings] Failed to toggle calendar integration', error);
-      setCalendarIntegrations(prev =>
-        prev.map(item => (item.id === integration.id ? { ...item, connected: integration.connected } : item))
-      );
-      Alert.alert('Update failed', 'Unable to update calendar integration right now.');
-    }
-  };
-
   const businessTypeLabel = useMemo(() =>
     profile ? resolveBusinessTypeLabel(profile.businessType) : 'Not specified'
   , [profile]);
@@ -250,7 +228,7 @@ export const SettingsScreen: React.FC = () => {
   );
 
   const renderSettingRow = (
-    icon: keyof typeof Ionicons.glyphMap,
+    icon: FlynnIconName,
     title: string,
     subtitle?: string,
     rightElement?: React.ReactNode,
@@ -263,7 +241,7 @@ export const SettingsScreen: React.FC = () => {
     >
       <View style={styles.settingLeft}>
         <View style={styles.settingIcon}>
-          <Ionicons name={icon} size={20} color={colors.primary} />
+          <FlynnIcon name={icon} size={20} color={colors.primary} />
         </View>
         <View style={styles.settingContent}>
           <Text style={styles.settingTitle}>{title}</Text>
@@ -272,7 +250,7 @@ export const SettingsScreen: React.FC = () => {
       </View>
       <View style={styles.settingRight}>
         {rightElement}
-        {onPress && <Ionicons name="chevron-forward" size={20} color={colors.gray400} />}
+        {onPress && <FlynnIcon name="chevron-forward" size={20} color={colors.gray400} />}
       </View>
     </TouchableOpacity>
   );
@@ -295,7 +273,7 @@ export const SettingsScreen: React.FC = () => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {profileError && (
           <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={16} color={colors.error} />
+            <FlynnIcon name="alert-circle" size={16} color={colors.error} />
             <Text style={styles.errorText}>{profileError}</Text>
           </View>
         )}
@@ -314,7 +292,7 @@ export const SettingsScreen: React.FC = () => {
               </View>
             </View>
             <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-              <Ionicons name="create-outline" size={18} color={colors.primary} />
+              <FlynnIcon name="create-outline" size={18} color={colors.primary} />
               <Text style={styles.editButtonText}>Edit</Text>
             </TouchableOpacity>
           </View>
@@ -331,7 +309,7 @@ export const SettingsScreen: React.FC = () => {
             <View style={styles.settingRowStatic}>
               <View style={styles.settingLeft}>
                 <View style={styles.settingIcon}>
-                  <Ionicons name="business-outline" size={20} color={colors.primary} />
+                  <FlynnIcon name="business-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.settingContent}>
                   <Text style={styles.settingTitle}>Business type</Text>
@@ -339,7 +317,7 @@ export const SettingsScreen: React.FC = () => {
                 </View>
               </View>
               <TouchableOpacity onPress={handleBusinessSettings}>
-                <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
+                <FlynnIcon name="chevron-forward" size={20} color={colors.gray400} />
               </TouchableOpacity>
             </View>
 
@@ -347,7 +325,7 @@ export const SettingsScreen: React.FC = () => {
               <View style={styles.toggleRow}>
                 <View style={styles.settingLeft}>
                   <View style={styles.settingIcon}>
-                    <Ionicons name="call-outline" size={20} color={colors.primary} />
+                    <FlynnIcon name="call-outline" size={20} color={colors.primary} />
                   </View>
                   <View style={styles.settingContent}>
                     <Text style={styles.settingTitle}>Call forwarding</Text>
@@ -365,14 +343,14 @@ export const SettingsScreen: React.FC = () => {
               <TouchableOpacity style={styles.settingRow} onPress={handleSetupCallForwarding}>
                 <View style={styles.settingLeft}>
                   <View style={styles.settingIcon}>
-                    <Ionicons name="call-outline" size={20} color={colors.primary} />
+                    <FlynnIcon name="call-outline" size={20} color={colors.primary} />
                   </View>
                   <View style={styles.settingContent}>
                     <Text style={styles.settingTitle}>Set up call forwarding</Text>
                     <Text style={styles.settingSubtitle}>Provision a new number for your business</Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
+                <FlynnIcon name="chevron-forward" size={20} color={colors.gray400} />
               </TouchableOpacity>
             )}
           </View>
@@ -384,7 +362,7 @@ export const SettingsScreen: React.FC = () => {
             <View style={styles.toggleRow}>
               <View style={styles.settingLeft}>
                 <View style={styles.settingIcon}>
-                  <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+                  <FlynnIcon name="notifications-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.settingContent}>
                   <Text style={styles.settingTitle}>Push notifications</Text>
@@ -413,7 +391,7 @@ export const SettingsScreen: React.FC = () => {
             <View style={styles.toggleRow}>
               <View style={styles.settingLeft}>
                 <View style={styles.settingIcon}>
-                  <Ionicons name="mail-outline" size={20} color={colors.primary} />
+                  <FlynnIcon name="mail-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.settingContent}>
                   <Text style={styles.settingTitle}>Email updates</Text>
@@ -429,7 +407,7 @@ export const SettingsScreen: React.FC = () => {
             <View style={styles.toggleRow}>
               <View style={styles.settingLeft}>
                 <View style={styles.settingIcon}>
-                  <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
+                  <FlynnIcon name="chatbubble-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.settingContent}>
                   <Text style={styles.settingTitle}>SMS alerts</Text>
@@ -447,61 +425,12 @@ export const SettingsScreen: React.FC = () => {
             )}
           </View>
         ))}
-
-        {/* Calendar integrations */}
-        {renderSection('Calendar integrations', (
-          <View style={styles.settingsGroup}>
-            {calendarIntegrations.length === 0 ? (
-              <Text style={styles.emptyIntegrationText}>
-                No calendar connections yet. Connect Google, Outlook, or Apple Calendar to sync your jobs.
-              </Text>
-            ) : (
-              calendarIntegrations.map(integration => (
-                <View key={integration.id} style={styles.integrationRow}>
-                  <View style={styles.integrationLeft}>
-                    <View style={[
-                      styles.integrationIcon,
-                      { backgroundColor: integration.connected ? colors.successLight : colors.gray100 }
-                    ]}>
-                      <Ionicons
-                        name={integration.icon as keyof typeof Ionicons.glyphMap}
-                        size={18}
-                        color={integration.connected ? colors.success : colors.gray400}
-                      />
-                    </View>
-                    <View style={styles.integrationContent}>
-                      <Text style={styles.integrationTitle}>{integration.label}</Text>
-                      <Text style={styles.integrationDescription}>{integration.description}</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.connectButton,
-                      integration.connected ? styles.disconnectButton : styles.connectButtonPrimary,
-                    ]}
-                    onPress={() => handleCalendarToggle(integration)}
-                  >
-                    <Text
-                      style={[
-                        styles.connectButtonText,
-                        integration.connected ? styles.disconnectButtonText : styles.connectButtonTextPrimary,
-                      ]}
-                    >
-                      {integration.connected ? 'Disconnect' : 'Connect'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
-          </View>
-        ))}
-
         {/* Appearance */}
         {renderSection('Appearance', (
           <View style={styles.toggleRow}>
             <View style={styles.settingLeft}>
               <View style={styles.settingIcon}>
-                <Ionicons name="moon-outline" size={20} color={colors.primary} />
+                <FlynnIcon name="moon-outline" size={20} color={colors.primary} />
               </View>
               <View style={styles.settingContent}>
                 <Text style={styles.settingTitle}>Dark mode</Text>
@@ -570,7 +499,7 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.editModalHeader}>
             <Text style={styles.editModalTitle}>Edit profile</Text>
             <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={colors.gray600} />
+              <FlynnIcon name="close" size={24} color={colors.gray600} />
             </TouchableOpacity>
           </View>
 
@@ -787,70 +716,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  integrationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  integrationLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.md,
-  },
-  integrationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  integrationContent: {
-    flex: 1,
-  },
-  integrationTitle: {
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  integrationDescription: {
-    ...typography.bodySmall,
-    color: colors.textTertiary,
-  },
-  connectButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  connectButtonPrimary: {
-    backgroundColor: colors.primary,
-  },
-  disconnectButton: {
-    backgroundColor: colors.transparent,
-  },
-  connectButtonText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  connectButtonTextPrimary: {
-    color: colors.white,
-  },
-  disconnectButtonText: {
-    color: colors.primary,
-  },
-  emptyIntegrationText: {
-    ...typography.bodySmall,
-    color: colors.textTertiary,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
   },
   savingText: {
     ...typography.bodySmall,

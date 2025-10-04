@@ -1,0 +1,662 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Switch,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
+import { FlynnIcon } from '../components/ui/FlynnIcon';
+import { useOnboarding } from '../context/OnboardingContext';
+import { FlynnInput } from '../components/ui/FlynnInput';
+import { FlynnButton } from '../components/ui/FlynnButton';
+import { spacing, typography, borderRadius } from '../theme';
+import ReceptionistService, { VoiceProfile } from '../services/ReceptionistService';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+
+const BASE_VOICE_OPTIONS = [
+  { id: 'koala_warm', label: 'Koala — Warm & Friendly' },
+  { id: 'koala_expert', label: 'Koala — Expert Concierge' },
+  { id: 'koala_hype', label: 'Koala — High Energy' },
+];
+
+const defaultScript = [
+  'Welcome callers with a warm greeting and brand promise.',
+  'Capture their name and the best callback number.',
+  'Understand the service request and location.',
+  'Offer to book an appointment or promise a follow-up with ETA.',
+];
+
+export const ReceptionistScreen: React.FC = () => {
+  const { onboardingData, updateOnboardingData } = useOnboarding();
+  const [selectedVoice, setSelectedVoice] = useState<string>(
+    onboardingData.receptionistVoice || BASE_VOICE_OPTIONS[0].id
+  );
+  const [greeting, setGreeting] = useState(
+    onboardingData.receptionistGreeting || 'Hi, you have reached Flynn — how can we lend a hand today?'
+  );
+  const [script, setScript] = useState(
+    onboardingData.receptionistQuestions && onboardingData.receptionistQuestions.length > 0
+      ? onboardingData.receptionistQuestions.join('\n')
+      : defaultScript.join('\n')
+  );
+  const [callRecordingEnabled, setCallRecordingEnabled] = useState(true);
+  const [autoSummaryEnabled, setAutoSummaryEnabled] = useState(true);
+  const [voiceProfiles, setVoiceProfiles] = useState<VoiceProfile[]>([]);
+  const [activeVoiceProfileId, setActiveVoiceProfileId] = useState<string | null>(
+    onboardingData.receptionistVoiceProfileId || null
+  );
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [recordModalVisible, setRecordModalVisible] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isUploadingSample, setIsUploadingSample] = useState(false);
+  const recordingStatusInterval = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    refreshVoiceProfiles();
+  }, []);
+
+  useEffect(() => {
+    if (onboardingData.receptionistVoice) {
+      setSelectedVoice(onboardingData.receptionistVoice);
+    }
+    if (onboardingData.receptionistGreeting) {
+      setGreeting(onboardingData.receptionistGreeting);
+    }
+    if (onboardingData.receptionistQuestions && onboardingData.receptionistQuestions.length > 0) {
+      setScript(onboardingData.receptionistQuestions.join('\n'));
+    }
+    if (onboardingData.receptionistVoiceProfileId) {
+      setActiveVoiceProfileId(onboardingData.receptionistVoiceProfileId);
+    }
+  }, [
+    onboardingData.receptionistVoice,
+    onboardingData.receptionistGreeting,
+    onboardingData.receptionistQuestions,
+    onboardingData.receptionistVoiceProfileId,
+  ]);
+
+  const refreshVoiceProfiles = useCallback(async () => {
+    setLoadingProfiles(true);
+    try {
+      const profiles = await ReceptionistService.listVoiceProfiles();
+      setVoiceProfiles(profiles);
+    } catch (error) {
+      console.error('[ReceptionistScreen] Failed to load voice profiles', error);
+      Alert.alert('Voice profiles', error instanceof Error ? error.message : 'Unable to load voice profiles right now.');
+    } finally {
+      setLoadingProfiles(false);
+    }
+  }, []);
+
+  const customVoiceProfile = useMemo(() => {
+    if (!activeVoiceProfileId) {
+      return null;
+    }
+    return voiceProfiles.find(profile => profile.id === activeVoiceProfileId) || null;
+  }, [activeVoiceProfileId, voiceProfiles]);
+
+  const customVoiceStatusLabel = useMemo(() => {
+    if (!customVoiceProfile) {
+      return 'Recorded Voice (setup required)';
+    }
+
+    switch (customVoiceProfile.status) {
+      case 'ready':
+        return 'Your Voice — Ready';
+      case 'cloning':
+      case 'processing':
+        return 'Your Voice — Cloning in progress';
+      case 'uploaded':
+        return 'Your Voice — Waiting to clone';
+      case 'error':
+        return 'Your Voice — Clone failed (retry)';
+      default:
+        return `Your Voice — ${customVoiceProfile.status}`;
+    }
+  }, [customVoiceProfile]);
+
+  const voiceOptions = useMemo(() => {
+    return [
+      ...BASE_VOICE_OPTIONS,
+      { id: 'custom_voice', label: customVoiceStatusLabel },
+    ];
+  }, [customVoiceStatusLabel]);
+
+  const selectedVoiceLabel = useMemo(
+    () => voiceOptions.find(v => v.id === selectedVoice)?.label || 'Koala — Warm & Friendly',
+    [selectedVoice, voiceOptions]
+  );
+
+  const parseScriptToQuestions = useCallback((value: string) => {
+    return value
+      .split(/\n+/)
+      .map(line => line.trim())
+      .filter(Boolean);
+  }, []);
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      const questions = parseScriptToQuestions(script);
+      const voiceProfileId = selectedVoice === 'custom_voice' ? activeVoiceProfileId : null;
+
+      await ReceptionistService.savePreferences({
+        voiceId: selectedVoice,
+        greeting,
+        questions,
+        voiceProfileId,
+        configured: true,
+      });
+
+      updateOnboardingData({
+        receptionistConfigured: true,
+        receptionistVoice: selectedVoice,
+        receptionistGreeting: greeting,
+        receptionistQuestions: questions,
+        receptionistVoiceProfileId: voiceProfileId,
+      });
+
+      Alert.alert('Receptionist updated', 'Your koala concierge will use the new settings on the next call.');
+    } catch (error) {
+      console.error('[ReceptionistScreen] Failed to save receptionist profile', error);
+      Alert.alert('Save failed', error instanceof Error ? error.message : 'Unable to save receptionist settings.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSimulateCall = () => {
+    Alert.alert(
+      'Call simulation',
+      `${selectedVoiceLabel} will say:\n\n"${greeting}"` +
+        `\n\nTalking points:\n${script.split('\n').map(line => `• ${line}`).join('\n')}`,
+      [{ text: 'Okay' }]
+    );
+  };
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.heroCard}>
+        <View style={styles.heroAvatar}>
+          <FlynnIcon name="paw" size={32} color="#fb923c" />
+        </View>
+        <View style={styles.heroTextWrapper}>
+          <Text style={styles.heroTitle}>Koala Concierge</Text>
+          <Text style={styles.heroSubtitle}>
+            Manage the voice, behaviour, and scripts your AI receptionist uses on every call.
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Voice profile</Text>
+        <Text style={styles.cardHint}>Choose who callers hear when Flynn answers.</Text>
+        {voiceOptions.map(option => {
+          const isSelected = option.id === selectedVoice;
+          return (
+            <TouchableOpacity
+              key={option.id}
+              style={[styles.listItem, isSelected && styles.listItemSelected]}
+              onPress={() => setSelectedVoice(option.id)}
+              activeOpacity={0.85}
+            >
+              <FlynnIcon
+                name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                size={22}
+                color={isSelected ? '#3B82F6' : '#94a3b8'}
+              />
+              <Text style={styles.listItemLabel}>{option.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+        {selectedVoice === 'custom_voice' && (
+          <View style={styles.noticeBanner}>
+            <FlynnIcon name="mic" size={18} color="#1d4ed8" style={styles.noticeIcon} />
+            <Text style={styles.noticeText}>
+              Upload 60 seconds of clean audio so Flynn can clone your voice. We guide you through the script when you tap “Record now”.
+            </Text>
+            <FlynnButton
+              title={isUploadingSample ? 'Uploading…' : 'Record now'}
+              onPress={() => setRecordModalVisible(true)}
+              variant="secondary"
+              disabled={isUploadingSample}
+            />
+            {customVoiceProfile && (
+              <View style={styles.profileStatusRow}>
+                <FlynnIcon name={customVoiceProfile.status === 'ready' ? 'checkmark-circle' : 'time'} size={16} color={customVoiceProfile.status === 'ready' ? '#10B981' : '#2563eb'} />
+                <Text style={styles.profileStatusText}>
+                  {customVoiceProfile.status === 'ready'
+                    ? 'Ready for calls'
+                    : customVoiceProfile.status === 'error'
+                      ? 'Clone failed — record a new sample'
+                      : customVoiceProfile.status === 'cloning'
+                        ? 'Cloning in progress'
+                        : 'Awaiting cloning'}
+                </Text>
+                <TouchableOpacity onPress={refreshVoiceProfiles} disabled={loadingProfiles}>
+                  <Text style={styles.refreshLink}>{loadingProfiles ? 'Refreshing…' : 'Refresh'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Greeting script</Text>
+        <Text style={styles.cardHint}>Set the opening line and tone for every caller.</Text>
+        <FlynnInput
+          multiline
+          numberOfLines={3}
+          value={greeting}
+          onChangeText={setGreeting}
+          placeholder="Hello! You've reached ..."
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Conversation flow</Text>
+        <Text style={styles.cardHint}>
+          These talking points keep Flynn on-brand while capturing the details you need.
+        </Text>
+        <FlynnInput
+          multiline
+          numberOfLines={6}
+          value={script}
+          onChangeText={setScript}
+          placeholder={defaultScript.join('\n')}
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Call intelligence</Text>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleLabel}>Call recording</Text>
+            <Text style={styles.toggleHint}>Keep high-quality recordings for coaching and compliance.</Text>
+          </View>
+          <Switch
+            value={callRecordingEnabled}
+            onValueChange={setCallRecordingEnabled}
+            thumbColor={callRecordingEnabled ? '#3B82F6' : '#f1f5f9'}
+            trackColor={{ false: '#cbd5f5', true: '#bfdbfe' }}
+          />
+        </View>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleLabel}>Automatic summaries</Text>
+            <Text style={styles.toggleHint}>Send AI-generated summaries and follow-up tasks to your team.</Text>
+          </View>
+          <Switch
+            value={autoSummaryEnabled}
+            onValueChange={setAutoSummaryEnabled}
+            thumbColor={autoSummaryEnabled ? '#3B82F6' : '#f1f5f9'}
+            trackColor={{ false: '#cbd5f5', true: '#bfdbfe' }}
+          />
+        </View>
+      </View>
+
+     <View style={styles.actions}>
+        <FlynnButton title="Play test message" onPress={handleSimulateCall} variant="secondary" />
+        <FlynnButton title={isSaving ? 'Saving…' : 'Save profile'} onPress={handleSaveProfile} variant="primary" disabled={isSaving} />
+      </View>
+
+      <RecordVoiceModal
+        visible={recordModalVisible}
+        onDismiss={() => {
+          setRecordModalVisible(false);
+          setRecording(null);
+          setIsRecording(false);
+          setRecordingDuration(0);
+        }}
+        onStartRecording={async () => {
+          try {
+            setRecordingDuration(0);
+            setIsRecording(true);
+
+            const permission = await Audio.requestPermissionsAsync();
+            if (!permission.granted) {
+              setIsRecording(false);
+              setIsUploadingSample(false);
+              Alert.alert('Microphone permission', 'We need microphone access to capture your voice sample.');
+              return;
+            }
+
+            await Audio.setAudioModeAsync({
+              allowsRecordingIOS: true,
+              playsInSilentModeIOS: true,
+              staysActiveInBackground: false,
+              interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+              shouldDuckAndroid: true,
+              playThroughEarpieceAndroid: false,
+              interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+            });
+
+            const recordingInstance = new Audio.Recording();
+            recordingInstance.setOnRecordingStatusUpdate((status) => {
+              if (status?.isRecording) {
+                setRecordingDuration(status.durationMillis ?? 0);
+              }
+            });
+            await recordingInstance.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+            await recordingInstance.startAsync();
+            setRecording(recordingInstance);
+          } catch (error) {
+            console.error('[ReceptionistScreen] Failed to start recording', error);
+            setIsRecording(false);
+            Alert.alert('Recording failed', error instanceof Error ? error.message : 'Unable to start recording.');
+          }
+        }}
+        onStopRecording={async () => {
+          if (!recording) {
+            setRecordModalVisible(false);
+            setIsRecording(false);
+            return;
+          }
+
+          try {
+            await recording.stopAndUnloadAsync();
+            const uri = recording.getURI();
+            setRecording(null);
+            setIsRecording(false);
+
+            if (!uri) {
+              throw new Error('Recording file unavailable.');
+            }
+
+            setIsUploadingSample(true);
+            const profile = await ReceptionistService.createVoiceProfile(
+              `Your voice ${new Date().toLocaleDateString()}`,
+              uri,
+            );
+
+            setActiveVoiceProfileId(profile.id);
+            setSelectedVoice('custom_voice');
+            updateOnboardingData({ receptionistVoiceProfileId: profile.id, receptionistVoice: 'custom_voice' });
+            await refreshVoiceProfiles();
+            Alert.alert('Voice sample uploaded', 'We are cloning your voice. This usually takes a few minutes.');
+          } catch (error) {
+            console.error('[ReceptionistScreen] Voice sample upload failed', error);
+            Alert.alert('Upload failed', error instanceof Error ? error.message : 'Unable to upload voice sample.');
+          } finally {
+            setRecordModalVisible(false);
+            setIsUploadingSample(false);
+            setRecordingDuration(0);
+            await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+          }
+        }}
+        isRecording={isRecording}
+        durationMillis={recordingDuration}
+        uploading={isUploadingSample}
+      />
+    </ScrollView>
+  );
+};
+
+const formatDuration = (millis: number): string => {
+  const seconds = Math.floor(millis / 1000);
+  const mins = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
+};
+
+interface RecordVoiceModalProps {
+  visible: boolean;
+  isRecording: boolean;
+  durationMillis: number;
+  uploading: boolean;
+  onStartRecording: () => Promise<void>;
+  onStopRecording: () => Promise<void>;
+  onDismiss: () => void;
+}
+
+const RecordVoiceModal: React.FC<RecordVoiceModalProps> = ({
+  visible,
+  isRecording,
+  durationMillis,
+  uploading,
+  onStartRecording,
+  onStopRecording,
+  onDismiss,
+}) => {
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onDismiss}>
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.card}>
+          <Text style={modalStyles.title}>Record your voice</Text>
+          <Text style={modalStyles.subtitle}>
+            Find a quiet space and read one of your typical phone greetings for at least 45 seconds. Flynn needs a clean sample to mimic your tone.
+          </Text>
+
+          <View style={modalStyles.timerContainer}>
+            <View style={[modalStyles.timerBadge, isRecording ? modalStyles.timerBadgeActive : null]}>
+              <FlynnIcon name={isRecording ? 'recording' : 'mic-outline'} size={18} color={isRecording ? '#f87171' : '#2563eb'} />
+              <Text style={modalStyles.timerText}>{formatDuration(durationMillis)}</Text>
+            </View>
+            {uploading && (
+              <View style={modalStyles.uploadRow}>
+                <ActivityIndicator size="small" color="#2563eb" />
+                <Text style={modalStyles.uploadText}>Uploading sample…</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={modalStyles.actions}>
+            <FlynnButton
+              title={isRecording ? 'Stop recording' : uploading ? 'Uploading…' : 'Start recording'}
+              variant={isRecording ? 'danger' : 'primary'}
+              onPress={isRecording ? onStopRecording : onStartRecording}
+              disabled={uploading}
+            />
+            <FlynnButton title="Cancel" variant="secondary" onPress={onDismiss} disabled={isRecording || uploading} />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  content: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
+  },
+  heroCard: {
+    backgroundColor: '#fff7ed',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    flexDirection: 'row',
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+  },
+  heroAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fb923c',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTextWrapper: {
+    flex: 1,
+  },
+  heroTitle: {
+    ...typography.h3,
+    color: '#9a3412',
+  },
+  heroSubtitle: {
+    ...typography.bodyMedium,
+    color: '#b45309',
+    marginTop: spacing.xs,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  cardTitle: {
+    ...typography.h3,
+    color: '#0f172a',
+    marginBottom: spacing.sm,
+  },
+  cardHint: {
+    ...typography.bodySmall,
+    color: '#64748b',
+    marginBottom: spacing.md,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+  },
+  listItemSelected: {
+    backgroundColor: '#eff6ff',
+  },
+  listItemLabel: {
+    flex: 1,
+    ...typography.bodyLarge,
+    color: '#0f172a',
+  },
+  noticeBanner: {
+    marginTop: spacing.md,
+    backgroundColor: '#e0f2fe',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  noticeIcon: {
+    marginBottom: spacing.xs,
+  },
+  noticeText: {
+    ...typography.bodySmall,
+    color: '#1d4ed8',
+  },
+  profileStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  profileStatusText: {
+    ...typography.bodySmall,
+    color: '#1d4ed8',
+    flex: 1,
+  },
+  refreshLink: {
+    ...typography.bodySmall,
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  toggleCopy: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  toggleLabel: {
+    ...typography.bodyMedium,
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  toggleHint: {
+    ...typography.caption,
+    color: '#64748b',
+    marginTop: spacing.xxxs,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    justifyContent: 'space-between',
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  title: {
+    ...typography.h3,
+    color: '#0f172a',
+  },
+  subtitle: {
+    ...typography.bodyMedium,
+    color: '#475569',
+    lineHeight: 20,
+  },
+  timerContainer: {
+    gap: spacing.sm,
+  },
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#e2e8f0',
+  },
+  timerBadgeActive: {
+    backgroundColor: '#fee2e2',
+  },
+  timerText: {
+    ...typography.bodyMedium,
+    color: '#0f172a',
+    fontVariant: ['tabular-nums'],
+  },
+  uploadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  uploadText: {
+    ...typography.bodySmall,
+    color: '#2563eb',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    justifyContent: 'space-between',
+  },
+});
+
+export default ReceptionistScreen;

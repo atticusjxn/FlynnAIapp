@@ -4,10 +4,13 @@ import {
   Text,
   StyleSheet,
   Alert,
+  Image,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useAuth } from '../context/AuthContext';
 import { FlynnButton, FlynnInput, colors, typography, spacing } from '../components/ui';
+
+const KOALA_LOGO = require('../../assets/images/onboardinglogo.png');
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -38,6 +41,7 @@ export const LoginScreen = () => {
     >
       <View style={styles.formWrapper}>
         <View style={styles.formContainer}>
+          <Image source={KOALA_LOGO} style={styles.logo} accessibilityLabel="FlynnAI koala" />
           <Text style={styles.title}>FlynnAI</Text>
           <Text style={styles.subtitle}>
             {isSignUp ? 'Create your account' : 'Welcome back'}
@@ -116,6 +120,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+  },
+  logo: {
+    width: 96,
+    height: 96,
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
+    resizeMode: 'contain',
   },
   title: {
     ...typography.displayLarge,

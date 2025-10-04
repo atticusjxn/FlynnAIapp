@@ -14,39 +14,6 @@ export interface UserSettingsPayload {
   settings: Record<string, any> | null;
 }
 
-export interface CalendarIntegrationRecord {
-  id: string;
-  integration_type: string;
-  is_active: boolean;
-  calendar_name: string | null;
-}
-
-export interface CalendarIntegrationView {
-  id: string;
-  label: string;
-  description: string;
-  icon: string;
-  connected: boolean;
-}
-
-const calendarIntegrationMetadata: Record<string, { label: string; description: string; icon: string }> = {
-  google: {
-    label: 'Google Calendar',
-    description: 'Sync jobs with Google Calendar',
-    icon: 'calendar-outline',
-  },
-  outlook: {
-    label: 'Outlook',
-    description: 'Sync jobs with Outlook Calendar',
-    icon: 'mail-outline',
-  },
-  apple: {
-    label: 'Apple Calendar',
-    description: 'Sync jobs with Apple Calendar',
-    icon: 'phone-portrait-outline',
-  },
-};
-
 export interface SettingsData {
   profile: {
     id: string;
@@ -60,21 +27,16 @@ export interface SettingsData {
     twilioNumberSid: string | null; // Added
   } | null;
   pushEnabled: boolean;
-  calendarIntegrations: CalendarIntegrationView[];
   notificationSettings: Record<string, any> | null;
 }
 
 export const fetchUserSettings = async (userId: string): Promise<SettingsData> => {
-  const [profileRes, calendarRes, tokensRes] = await Promise.all([
+  const [profileRes, tokensRes] = await Promise.all([
     supabase
       .from('users')
       .select('id, business_name, business_type, email, phone_number, forwarding_active, call_features_enabled, settings, twilio_phone_number, twilio_number_sid') // Added Twilio fields
       .eq('id', userId)
       .maybeSingle(),
-    supabase
-      .from('calendar_integrations')
-      .select('id, integration_type, is_active, calendar_name')
-      .eq('user_id', userId),
     supabase
       .from('notification_tokens')
       .select('id', { count: 'exact', head: true })
@@ -96,27 +58,11 @@ export const fetchUserSettings = async (userId: string): Promise<SettingsData> =
       }
     : null;
 
-  const calendarIntegrations: CalendarIntegrationView[] = (calendarRes.data ?? []).map((integration) => {
-    const meta = calendarIntegrationMetadata[integration.integration_type] ?? {
-      label: integration.integration_type,
-      description: integration.calendar_name || 'Calendar integration',
-      icon: 'calendar-outline',
-    };
-    return {
-      id: integration.id,
-      label: meta.label,
-      description: meta.description,
-      icon: meta.icon,
-      connected: Boolean(integration.is_active),
-    };
-  });
-
   const pushEnabled = (tokensRes.count ?? 0) > 0;
 
   return {
     profile,
     pushEnabled,
-    calendarIntegrations,
     notificationSettings: (profileRow?.settings as Record<string, any>) ?? null,
   };
 };
@@ -152,16 +98,6 @@ export const updateNotificationSettings = async (
     .from('users')
     .update({ settings: { ...settings, notifications: next }, updated_at: new Date().toISOString() })
     .eq('id', userId);
-};
-
-export const toggleCalendarIntegration = async (
-  integrationId: string,
-  nextState: boolean,
-) => {
-  return supabase
-    .from('calendar_integrations')
-    .update({ is_active: nextState, updated_at: new Date().toISOString() })
-    .eq('id', integrationId);
 };
 
 export const resolveBusinessTypeLabel = (businessType: string) => {

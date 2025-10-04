@@ -7,7 +7,7 @@ import {
   SafeAreaView,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { TwilioService } from '../../services/TwilioService';
 import { useAuth } from '../../context/AuthContext';
@@ -231,7 +231,7 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Ionicons name="call-outline" size={64} color="#3B82F6" style={styles.icon} />
+        <FlynnIcon name="call-outline" size={64} color="#3B82F6" style={styles.icon} />
         <Text style={styles.title}>Your Flynn Business Number</Text>
         <Text style={styles.subtitle}>
           Let Flynn handle your voicemails and turn them into job cards. Tell us the mobile number you answer today and we'll provision a matching country code automatically.
@@ -262,7 +262,7 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
           </View>
         ) : provisionedNumber ? (
           <View style={styles.successContainer}>
-            <Ionicons name="checkmark-circle-outline" size={48} color="#10b981" />
+            <FlynnIcon name="checkmark-circle-outline" size={48} color="#10b981" />
             <Text style={styles.successText}>Number Provisioned!</Text>
             <Text style={styles.provisionedNumber}>{provisionedNumber}</Text>
             <FlynnButton title="Continue" onPress={onNext} variant="primary" style={styles.button} />

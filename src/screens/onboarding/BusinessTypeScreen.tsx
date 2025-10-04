@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { businessTypes, useOnboarding } from '../../context/OnboardingContext';
 
 const categoryDescriptions: { [key: string]: string } = {
@@ -61,7 +61,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+            <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
           </TouchableOpacity>
           <View style={styles.progressContainer}>
             <View style={[styles.progressBar, styles.progressActive]} />
@@ -112,7 +112,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
                   </View>
                 </View>
                 {selectedType === type.id && (
-                  <Ionicons name="checkmark-circle" size={24} color="#3B82F6" />
+                  <FlynnIcon name="checkmark-circle" size={24} color="#3B82F6" />
                 )}
               </TouchableOpacity>
             ))}
@@ -145,7 +145,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
             <Text style={[styles.nextButtonText, !canProceed && styles.disabledButtonText]}>
               Continue
             </Text>
-            <Ionicons 
+            <FlynnIcon 
               name="arrow-forward" 
               size={20} 
               color={canProceed ? "white" : "#9ca3af"} 

@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { businessTypes } from '../../context/OnboardingContext';
@@ -221,7 +221,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
             },
           ]}
         >
-          <Ionicons name={sourceMeta.icon} size={14} color={sourceMeta.text} />
+          <FlynnIcon name={sourceMeta.icon} size={14} color={sourceMeta.text} />
           <Text style={[styles.sourceBadgeText, { color: sourceMeta.text }]}>
             {sourceMeta.label}
           </Text>
@@ -240,21 +240,21 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
 
       <View style={styles.detailsRow}>
         <View style={styles.dateTimeContainer}>
-          <Ionicons name="calendar-outline" size={16} color={colors.gray500} />
+          <FlynnIcon name="calendar-outline" size={16} color={colors.gray500} />
           <Text style={styles.dateTime}>
             {formatDate(job.date)} at {formatTime(job.time)}
           </Text>
         </View>
         {job.estimatedDuration && (
           <View style={styles.durationContainer}>
-            <Ionicons name="timer-outline" size={16} color={colors.gray500} />
+            <FlynnIcon name="timer-outline" size={16} color={colors.gray500} />
             <Text style={styles.duration}>{job.estimatedDuration}</Text>
           </View>
         )}
       </View>
 
       <View style={styles.locationRow}>
-        <Ionicons name="location-outline" size={16} color={colors.gray500} />
+        <FlynnIcon name="location-outline" size={16} color={colors.gray500} />
         <Text style={styles.location} numberOfLines={1}>
           {job.location}
         </Text>

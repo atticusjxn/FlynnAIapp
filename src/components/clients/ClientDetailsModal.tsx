@@ -9,7 +9,7 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { FlynnButton } from '../ui/FlynnButton';
@@ -140,7 +140,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
         <View style={styles.header}>
           <Text style={styles.modalTitle}>Client Details</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={colors.gray600} />
+            <FlynnIcon name="close" size={24} color={colors.gray600} />
           </TouchableOpacity>
         </View>
 
@@ -154,14 +154,14 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
                 ) : null}
               </View>
               <TouchableOpacity style={styles.editButton} onPress={() => onEditClient(client)}>
-                <Ionicons name="create-outline" size={20} color={colors.primary} />
+                <FlynnIcon name="create-outline" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.contactSection}>
               {client.phone ? (
                 <View style={styles.contactRow}>
-                  <Ionicons name="call-outline" size={20} color={colors.primary} />
+                  <FlynnIcon name="call-outline" size={20} color={colors.primary} />
                   <TouchableOpacity onPress={handleCall} style={styles.contactInfo}>
                     <Text style={[styles.contactText, styles.phoneLink]}>{client.phone}</Text>
                     {client.preferredContactMethod ? (
@@ -175,7 +175,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
 
               {client.email ? (
                 <View style={styles.contactRow}>
-                  <Ionicons name="mail-outline" size={20} color={colors.primary} />
+                  <FlynnIcon name="mail-outline" size={20} color={colors.primary} />
                   <View style={styles.contactInfo}>
                     <Text style={styles.contactText}>{client.email}</Text>
                   </View>
@@ -248,7 +248,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
                 ))
               ) : (
                 <View style={styles.emptyState}>
-                  <Ionicons name="briefcase-outline" size={48} color={colors.gray400} />
+                  <FlynnIcon name="briefcase-outline" size={48} color={colors.gray400} />
                   <Text style={styles.emptyTitle}>No job history yet</Text>
                   <Text style={styles.emptyDescription}>
                     Jobs linked to this client will appear here once created.
@@ -267,7 +267,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
                         { backgroundColor: `${getCommunicationColor(entry.type, colors)}20` },
                       ]}
                     >
-                      <Ionicons
+                      <FlynnIcon
                         name={getCommunicationIcon(entry.type) as any}
                         size={16}
                         color={getCommunicationColor(entry.type, colors)}
@@ -287,7 +287,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
                 ))
               ) : (
                 <View style={styles.emptyState}>
-                  <Ionicons name="chatbubbles-outline" size={48} color={colors.gray400} />
+                  <FlynnIcon name="chatbubbles-outline" size={48} color={colors.gray400} />
                   <Text style={styles.emptyTitle}>No communication yet</Text>
                   <Text style={styles.emptyDescription}>
                     Messages and calls linked to this client will appear here.
@@ -304,18 +304,18 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
             onPress={() => onScheduleJob(client)}
             variant="primary"
             size="large"
-            icon={<Ionicons name="calendar-outline" size={20} color={colors.white} />}
+            icon={<FlynnIcon name="calendar-outline" size={20} color={colors.white} />}
             style={styles.scheduleButton}
           />
 
           <View style={styles.communicationActions}>
             <TouchableOpacity style={styles.commActionButton} onPress={handleCall}>
-              <Ionicons name="call" size={20} color={colors.success} />
+              <FlynnIcon name="call" size={20} color={colors.success} />
               <Text style={[styles.commActionText, { color: colors.success }]}>Call</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.commActionButton} onPress={() => onSendText(client)}>
-              <Ionicons name="chatbubble" size={20} color={colors.primary} />
+              <FlynnIcon name="chatbubble" size={20} color={colors.primary} />
               <Text style={[styles.commActionText, { color: colors.primary }]}>Text</Text>
             </TouchableOpacity>
 
@@ -324,7 +324,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
               onPress={handleEmail}
               disabled={!client.email}
             >
-              <Ionicons
+              <FlynnIcon
                 name="mail"
                 size={20}
                 color={client.email ? colors.warning : colors.gray400}

@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { colors, spacing, typography } from '../../theme';
 import { FilterType } from './JobFilterBar';
 
@@ -19,38 +19,38 @@ const getEmptyStateContent = (filter: FilterType) => {
     case 'today':
       return {
         icon: 'calendar-outline',
-        title: 'No jobs today',
+        title: 'No events today',
         subtitle: 'Your schedule is clear for today',
-        actionText: 'Add a job for today',
+        actionText: 'Add an event for today',
       };
     case 'this-week':
       return {
         icon: 'calendar-outline',
-        title: 'No jobs this week',
+        title: 'No events this week',
         subtitle: 'You have a light week ahead',
-        actionText: 'Schedule a job',
+        actionText: 'Schedule an event',
       };
     case 'pending':
       return {
         icon: 'time-outline',
-        title: 'No pending jobs',
-        subtitle: 'All your jobs are either complete or in progress',
-        actionText: 'Add a new job',
+        title: 'No pending events',
+        subtitle: 'All your events are either complete or in progress',
+        actionText: 'Add a new event',
       };
     case 'complete':
       return {
         icon: 'checkmark-circle-outline',
-        title: 'No completed jobs',
-        subtitle: 'Completed jobs will appear here',
-        actionText: 'View all jobs',
+        title: 'No completed events',
+        subtitle: 'Completed events will appear here',
+        actionText: 'View all events',
       };
     case 'all':
     default:
       return {
         icon: 'briefcase-outline',
-        title: 'No jobs yet',
-        subtitle: 'Get started by uploading a screenshot or adding your first job',
-        actionText: 'Upload screenshot',
+        title: 'No events yet',
+        subtitle: 'Create an event to track upcoming work and follow-ups',
+        actionText: 'Create first event',
       };
   }
 };
@@ -61,7 +61,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ filter, onAddJob }) => {
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
-        <Ionicons 
+        <FlynnIcon 
           name={content.icon as any} 
           size={64} 
           color={colors.gray400} 
@@ -77,7 +77,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ filter, onAddJob }) => {
           onPress={onAddJob}
           activeOpacity={0.7}
         >
-          <Ionicons 
+          <FlynnIcon 
             name="add-circle-outline" 
             size={20} 
             color={colors.primary} 

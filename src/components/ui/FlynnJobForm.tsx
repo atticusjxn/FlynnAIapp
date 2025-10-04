@@ -7,7 +7,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from './FlynnIcon';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnInput } from './FlynnInput';
 
@@ -132,7 +132,7 @@ const FlynnDropdown: React.FC<DropdownProps> = ({
         <Text style={[styles.dropdownText, !value && styles.placeholderText]}>
           {value || placeholder}
         </Text>
-        <Ionicons 
+        <FlynnIcon 
           name={isOpen ? "chevron-up" : "chevron-down"} 
           size={20} 
           color={colors.gray500} 
@@ -171,7 +171,7 @@ const FlynnDropdown: React.FC<DropdownProps> = ({
                   {option}
                 </Text>
                 {value === option && (
-                  <Ionicons name="checkmark" size={16} color={colors.primary} />
+                  <FlynnIcon name="checkmark" size={16} color={colors.primary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -221,7 +221,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.clientName}
         onChangeText={(text) => updateField('clientName', text)}
         placeholder="Enter client name"
-        leftIcon={<Ionicons name="person-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="person-outline" size={20} color={colors.gray500} />}
         required
       />
 
@@ -230,7 +230,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.phone}
         onChangeText={(text) => updateField('phone', text)}
         placeholder="+1 (555) 123-4567"
-        leftIcon={<Ionicons name="call-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="call-outline" size={20} color={colors.gray500} />}
         keyboardType="phone-pad"
         required
       />
@@ -242,7 +242,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
             value={formData.date}
             onChangeText={(text) => updateField('date', text)}
             placeholder="Select date"
-            leftIcon={<Ionicons name="calendar-outline" size={20} color={colors.gray500} />}
+            leftIcon={<FlynnIcon name="calendar-outline" size={20} color={colors.gray500} />}
             required
           />
         </View>
@@ -252,7 +252,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
             value={formData.time}
             onChangeText={(text) => updateField('time', text)}
             placeholder="Select time"
-            leftIcon={<Ionicons name="time-outline" size={20} color={colors.gray500} />}
+            leftIcon={<FlynnIcon name="time-outline" size={20} color={colors.gray500} />}
             required
           />
         </View>
@@ -267,7 +267,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.propertyAddress || ''}
         onChangeText={(text) => updateField('propertyAddress', text)}
         placeholder="Enter property address"
-        leftIcon={<Ionicons name="home-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="home-outline" size={20} color={colors.gray500} />}
       />
 
       <FlynnDropdown
@@ -284,7 +284,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.issueDescription || ''}
         onChangeText={(text) => updateField('issueDescription', text)}
         placeholder="Describe the issue or work needed"
-        leftIcon={<Ionicons name="document-text-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="document-text-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={3}
       />
@@ -296,7 +296,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
             value={formData.estimatedDuration || ''}
             onChangeText={(text) => updateField('estimatedDuration', text)}
             placeholder="e.g., 2 hours"
-            leftIcon={<Ionicons name="timer-outline" size={20} color={colors.gray500} />}
+            leftIcon={<FlynnIcon name="timer-outline" size={20} color={colors.gray500} />}
           />
         </View>
         <View style={styles.halfInput}>
@@ -315,7 +315,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.accessInstructions || ''}
         onChangeText={(text) => updateField('accessInstructions', text)}
         placeholder="How to access the property"
-        leftIcon={<Ionicons name="key-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="key-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={2}
       />
@@ -325,7 +325,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.materialsNeeded || ''}
         onChangeText={(text) => updateField('materialsNeeded', text)}
         placeholder="List any materials or parts needed"
-        leftIcon={<Ionicons name="construct-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="construct-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={2}
       />
@@ -348,7 +348,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.appointmentDuration || ''}
         onChangeText={(text) => updateField('appointmentDuration', text)}
         placeholder="e.g., 90 minutes"
-        leftIcon={<Ionicons name="timer-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="timer-outline" size={20} color={colors.gray500} />}
       />
 
       <FlynnInput
@@ -356,7 +356,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.clientPreferences || ''}
         onChangeText={(text) => updateField('clientPreferences', text)}
         placeholder="Hair color, style preferences, allergies, etc."
-        leftIcon={<Ionicons name="heart-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="heart-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={3}
       />
@@ -370,7 +370,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
             ]}
             onPress={() => updateField('isRecurring', !formData.isRecurring)}
           >
-            <Ionicons 
+            <FlynnIcon 
               name={formData.isRecurring ? "checkbox" : "checkbox-outline"} 
               size={20} 
               color={formData.isRecurring ? colors.primary : colors.gray500} 
@@ -391,7 +391,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
           value={formData.nextAppointment || ''}
           onChangeText={(text) => updateField('nextAppointment', text)}
           placeholder="e.g., 6-8 weeks"
-          leftIcon={<Ionicons name="calendar-outline" size={20} color={colors.gray500} />}
+          leftIcon={<FlynnIcon name="calendar-outline" size={20} color={colors.gray500} />}
         />
       )}
 
@@ -400,7 +400,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.specialRequirements || ''}
         onChangeText={(text) => updateField('specialRequirements', text)}
         placeholder="Any special accommodations needed"
-        leftIcon={<Ionicons name="medical-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="medical-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={2}
       />
@@ -416,7 +416,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
             value={formData.vehicleMake || ''}
             onChangeText={(text) => updateField('vehicleMake', text)}
             placeholder="e.g., Toyota"
-            leftIcon={<Ionicons name="car-outline" size={20} color={colors.gray500} />}
+            leftIcon={<FlynnIcon name="car-outline" size={20} color={colors.gray500} />}
           />
         </View>
         <View style={styles.halfInput}>
@@ -455,7 +455,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.serviceLocation || ''}
         onChangeText={(text) => updateField('serviceLocation', text)}
         placeholder="Shop address or mobile service location"
-        leftIcon={<Ionicons name="location-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="location-outline" size={20} color={colors.gray500} />}
       />
 
       <FlynnInput
@@ -463,7 +463,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.issueDescriptionAuto || ''}
         onChangeText={(text) => updateField('issueDescriptionAuto', text)}
         placeholder="Describe the problem or service needed"
-        leftIcon={<Ionicons name="build-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="build-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={3}
       />
@@ -473,7 +473,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.diagnosticCodes || ''}
         onChangeText={(text) => updateField('diagnosticCodes', text)}
         placeholder="P0XXX codes if available"
-        leftIcon={<Ionicons name="code-working-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="code-working-outline" size={20} color={colors.gray500} />}
       />
 
       <FlynnInput
@@ -481,7 +481,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.partsRequired || ''}
         onChangeText={(text) => updateField('partsRequired', text)}
         placeholder="List any known parts needed"
-        leftIcon={<Ionicons name="settings-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="settings-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={2}
       />
@@ -495,7 +495,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.projectTitle || ''}
         onChangeText={(text) => updateField('projectTitle', text)}
         placeholder="Brief title for the project or meeting"
-        leftIcon={<Ionicons name="briefcase-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="briefcase-outline" size={20} color={colors.gray500} />}
       />
 
       <View style={styles.row}>
@@ -505,7 +505,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
             value={formData.meetingLocation || ''}
             onChangeText={(text) => updateField('meetingLocation', text)}
             placeholder="Address or 'Video Call'"
-            leftIcon={<Ionicons name="location-outline" size={20} color={colors.gray500} />}
+            leftIcon={<FlynnIcon name="location-outline" size={20} color={colors.gray500} />}
           />
         </View>
         <View style={styles.halfInput}>
@@ -524,7 +524,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.projectScope || ''}
         onChangeText={(text) => updateField('projectScope', text)}
         placeholder="Brief overview of the project scope"
-        leftIcon={<Ionicons name="document-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="document-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={3}
       />
@@ -534,7 +534,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.deliverables || ''}
         onChangeText={(text) => updateField('deliverables', text)}
         placeholder="What will be delivered to the client"
-        leftIcon={<Ionicons name="checkmark-done-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="checkmark-done-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={2}
       />
@@ -546,7 +546,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
             value={formData.estimatedHours || ''}
             onChangeText={(text) => updateField('estimatedHours', text)}
             placeholder="e.g., 8 hours"
-            leftIcon={<Ionicons name="timer-outline" size={20} color={colors.gray500} />}
+            leftIcon={<FlynnIcon name="timer-outline" size={20} color={colors.gray500} />}
           />
         </View>
         <View style={styles.halfInput}>
@@ -569,7 +569,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
             ]}
             onPress={() => updateField('followupRequired', !formData.followupRequired)}
           >
-            <Ionicons 
+            <FlynnIcon 
               name={formData.followupRequired ? "checkbox" : "checkbox-outline"} 
               size={20} 
               color={formData.followupRequired ? colors.primary : colors.gray500} 
@@ -602,7 +602,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.pickupAddress || ''}
         onChangeText={(text) => updateField('pickupAddress', text)}
         placeholder="Enter pickup address"
-        leftIcon={<Ionicons name="location-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="location-outline" size={20} color={colors.gray500} />}
       />
 
       <FlynnInput
@@ -610,7 +610,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.deliveryAddress || ''}
         onChangeText={(text) => updateField('deliveryAddress', text)}
         placeholder="Enter delivery address"
-        leftIcon={<Ionicons name="navigate-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="navigate-outline" size={20} color={colors.gray500} />}
       />
 
       <FlynnInput
@@ -618,7 +618,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.itemDescription || ''}
         onChangeText={(text) => updateField('itemDescription', text)}
         placeholder="Describe items to be moved or delivered"
-        leftIcon={<Ionicons name="list-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="list-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={3}
       />
@@ -630,7 +630,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
             value={formData.vehicleRequired || ''}
             onChangeText={(text) => updateField('vehicleRequired', text)}
             placeholder="e.g., Moving Truck, Van"
-            leftIcon={<Ionicons name="car-outline" size={20} color={colors.gray500} />}
+            leftIcon={<FlynnIcon name="car-outline" size={20} color={colors.gray500} />}
           />
         </View>
         <View style={styles.halfInput}>
@@ -649,7 +649,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.pickupAccessRequirements || ''}
         onChangeText={(text) => updateField('pickupAccessRequirements', text)}
         placeholder="Stairs, elevator, parking, etc."
-        leftIcon={<Ionicons name="home-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="home-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={2}
       />
@@ -659,7 +659,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.deliveryAccessRequirements || ''}
         onChangeText={(text) => updateField('deliveryAccessRequirements', text)}
         placeholder="Stairs, elevator, parking, etc."
-        leftIcon={<Ionicons name="business-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="business-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={2}
       />
@@ -693,7 +693,7 @@ export const FlynnJobForm: React.FC<FlynnJobFormProps> = ({
         value={formData.notes}
         onChangeText={(text) => updateField('notes', text)}
         placeholder="Any additional notes about the job"
-        leftIcon={<Ionicons name="document-text-outline" size={20} color={colors.gray500} />}
+        leftIcon={<FlynnIcon name="document-text-outline" size={20} color={colors.gray500} />}
         multiline
         numberOfLines={3}
       />

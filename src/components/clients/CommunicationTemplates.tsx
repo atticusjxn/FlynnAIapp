@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { FlynnButton } from '../ui/FlynnButton';
@@ -109,7 +109,7 @@ export const CommunicationTemplates: React.FC<CommunicationTemplatesProps> = ({
             {type === 'text' ? 'Text' : 'Email'} Templates
           </Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={colors.gray600} />
+            <FlynnIcon name="close" size={24} color={colors.gray600} />
           </TouchableOpacity>
         </View>
 
@@ -131,7 +131,7 @@ export const CommunicationTemplates: React.FC<CommunicationTemplatesProps> = ({
             >
               <View style={styles.templateHeader}>
                 <Text style={styles.templateTitle}>{template.title}</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
+                <FlynnIcon name="chevron-forward" size={20} color={colors.gray400} />
               </View>
               <Text style={styles.templatePreview}>
                 {replaceVariables(template.message).substring(0, 120)}
@@ -150,7 +150,7 @@ export const CommunicationTemplates: React.FC<CommunicationTemplatesProps> = ({
             }}
             variant="secondary"
             size="large"
-            icon={<Ionicons name="create-outline" size={20} color={colors.primary} />}
+            icon={<FlynnIcon name="create-outline" size={20} color={colors.primary} />}
           />
         </View>
       </View>

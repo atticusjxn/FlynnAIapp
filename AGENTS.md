@@ -1,5 +1,8 @@
 # Repository Guidelines
 
+## Product Focus
+FlynnAI now centres on the koala concierge experience—an AI receptionist that answers calls, captures event details, and hands structured summaries back to teams. Screens and copy should reflect “events” (formerly “jobs”) and highlight receptionist controls such as voice selection, greeting scripts, and intake questions.
+
 ## Project Structure & Module Organization
 The Expo app lives in `src/`, with feature screens under `src/screens` and shared UI widgets in `src/components`. Domain data models sit in `src/data` and `src/types`, while API and Supabase accessors are under `src/services`. Theme tokens live in `src/theme` and cross-cutting helpers in `src/utils`. Native shells for device builds are kept in `android/` and `ios/`. Assets such as icons and fonts are in `assets/`, and product briefs plus integration notes live in `docs/`. Twilio helper functions are maintained separately in `flynnai-lookup/`; keep its dependencies isolated from the mobile app.
 

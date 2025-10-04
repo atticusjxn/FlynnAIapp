@@ -9,7 +9,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnButton } from '../ui/FlynnButton';
 import { FlynnKeyboardAvoidingView } from '../ui/FlynnKeyboardAvoidingView';
@@ -139,7 +139,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
       <FlynnKeyboardAvoidingView style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Ionicons 
+            <FlynnIcon 
               name={getIcon() as any} 
               size={24} 
               color={colors.primary} 
@@ -150,7 +150,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
             onPress={onClose}
             style={styles.closeButton}
           >
-            <Ionicons name="close" size={24} color={colors.gray600} />
+            <FlynnIcon name="close" size={24} color={colors.gray600} />
           </TouchableOpacity>
         </View>
 
@@ -169,9 +169,9 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
             </View>
           </View>
 
-          {/* Job Summary */}
+          {/* Event Summary */}
           <View style={styles.jobSummary}>
-            <Text style={styles.sectionTitle}>Job Summary:</Text>
+            <Text style={styles.sectionTitle}>Event Summary:</Text>
             <Text style={styles.jobDetails}>
               {job.serviceType} • {formatDate(job.date)} at {formatTime(job.time)}
             </Text>
@@ -227,7 +227,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
             icon={
               isLoading ? 
                 undefined : 
-                <Ionicons 
+                <FlynnIcon 
                   name="send-outline" 
                   size={18} 
                   color={colors.white} 

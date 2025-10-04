@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { GettingStartedScreen } from './GettingStartedScreen';
 import { BusinessTypeScreen } from './BusinessTypeScreen';
 import { BusinessGoalsScreen } from './BusinessGoalsScreen';
-import { CalendarIntegrationScreen } from './CalendarIntegrationScreen';
+import { ReceptionistSetupScreen } from './ReceptionistSetupScreen';
 import { useOnboarding } from '../../context/OnboardingContext';
 
 import { TwilioProvisioningScreen } from './TwilioProvisioningScreen';
@@ -45,7 +45,7 @@ export const OnboardingNavigator: React.FC = () => {
       case 4:
         return <CarrierSetupScreen onNext={handleNext} onBack={handleBack} />;
       case 5:
-        return <CalendarIntegrationScreen onComplete={handleCompleteOnboarding} onBack={handleBack} />;
+        return <ReceptionistSetupScreen onComplete={handleCompleteOnboarding} onBack={handleBack} />;
       default:
         return <GettingStartedScreen onStartOnboarding={handleStartOnboarding} />;
     }

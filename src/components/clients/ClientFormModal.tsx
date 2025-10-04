@@ -10,7 +10,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, borderRadius } from '../../theme';
 import { FlynnInput } from '../ui/FlynnInput';
@@ -117,7 +117,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         <View style={styles.header}>
           <Text style={styles.title}>{initialClient ? 'Edit Client' : 'Add Client'}</Text>
           <TouchableOpacity onPress={onDismiss} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={colors.gray600} />
+            <FlynnIcon name="close" size={24} color={colors.gray600} />
           </TouchableOpacity>
         </View>
 
@@ -216,7 +216,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         <View style={styles.footer}>
           {initialClient && onDelete ? (
             <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-              <Ionicons name="trash" size={18} color={colors.error} />
+              <FlynnIcon name="trash" size={18} color={colors.error} />
               <Text style={styles.deleteText}>Delete client</Text>
             </TouchableOpacity>
           ) : null}

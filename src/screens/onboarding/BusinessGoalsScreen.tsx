@@ -7,7 +7,7 @@ import {
   SafeAreaView,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { businessGoals, useOnboarding } from '../../context/OnboardingContext';
 
 interface BusinessGoalsScreenProps {
@@ -40,7 +40,7 @@ export const BusinessGoalsScreen: React.FC<BusinessGoalsScreenProps> = ({ onNext
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+          <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
         </TouchableOpacity>
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, styles.progressActive]} />
@@ -82,7 +82,7 @@ export const BusinessGoalsScreen: React.FC<BusinessGoalsScreenProps> = ({ onNext
                     </Text>
                     <View style={[styles.checkbox, isSelected && styles.selectedCheckbox]}>
                       {isSelected && (
-                        <Ionicons name="checkmark" size={16} color="white" />
+                        <FlynnIcon name="checkmark" size={16} color="white" />
                       )}
                     </View>
                   </View>
@@ -116,7 +116,7 @@ export const BusinessGoalsScreen: React.FC<BusinessGoalsScreenProps> = ({ onNext
           <Text style={[styles.nextButtonText, !canProceed && styles.disabledButtonText]}>
             Continue
           </Text>
-          <Ionicons 
+          <FlynnIcon 
             name="arrow-forward" 
             size={20} 
             color={canProceed ? "white" : "#9ca3af"} 

@@ -1,3 +1,4 @@
+import type { FlynnIconName } from '../components/ui/FlynnIcon';
 import { supabase } from './supabase';
 
 export type DashboardActivityType =
@@ -24,7 +25,7 @@ export interface DashboardActivity {
   title: string;
   description: string;
   timestamp: string;
-  icon: string;
+  icon: FlynnIconName;
   metadata?: DashboardActivityMetadata;
 }
 

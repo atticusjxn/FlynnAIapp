@@ -10,7 +10,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnButton } from '../ui/FlynnButton';
 import { FlynnKeyboardAvoidingView } from '../ui/FlynnKeyboardAvoidingView';
@@ -83,7 +83,7 @@ const getModalTitle = (businessType: string) => {
   const isPersonalCare = personalCareTypes.some(type => 
     businessType.toLowerCase().includes(type)
   );
-  return isPersonalCare ? 'Booking Details' : 'Job Details';
+  return isPersonalCare ? 'Booking Details' : 'Event Details';
 };
 
 const formatRelativeTime = (timestamp?: string) => {
@@ -154,7 +154,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
       setSavingEdits(true);
       await onUpdateJob(editedJob);
       setIsEditing(false);
-      Alert.alert('Success', 'Job details updated successfully!');
+      Alert.alert('Success', 'Event details updated successfully!');
     } catch (error) {
       console.error('[JobDetailsModal] Failed to save edits', error);
       Alert.alert('Error', 'Unable to save changes right now.');
@@ -227,7 +227,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   };
 
   const handleDeleteJob = () => {
-    const deleteText = getModalTitle(job.businessType).includes('Booking') ? 'Delete Booking' : 'Delete Job';
+    const deleteText = getModalTitle(job.businessType).includes('Booking') ? 'Delete Booking' : 'Delete Event';
     const confirmText = getModalTitle(job.businessType).includes('Booking') 
       ? 'Are you sure you want to delete this booking? This action cannot be undone.'
       : 'Are you sure you want to delete this job? This action cannot be undone.';
@@ -263,7 +263,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
             onPress={onClose}
             style={styles.closeButton}
           >
-            <Ionicons name="close" size={24} color={colors.gray600} />
+            <FlynnIcon name="close" size={24} color={colors.gray600} />
           </TouchableOpacity>
         </View>
 
@@ -317,7 +317,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
             <View style={styles.voicemailCard}>
               <View style={styles.voicemailHeader}>
                 <View style={styles.voicemailBadge}>
-                  <Ionicons name="mic-outline" size={16} color={colors.primary} />
+                  <FlynnIcon name="mic-outline" size={16} color={colors.primary} />
                   <Text style={styles.voicemailBadgeText}>Captured via voicemail</Text>
                 </View>
                 <Text style={styles.voicemailTimestamp}>
@@ -334,7 +334,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
 
               {currentJob.voicemailRecordingUrl && !isEditing && (
                 <TouchableOpacity style={styles.playButton} onPress={handlePlayVoicemail}>
-                  <Ionicons name="play-circle" size={20} color={colors.primary} />
+                  <FlynnIcon name="play-circle" size={20} color={colors.primary} />
                   <Text style={styles.playButtonText}>Listen to voicemail</Text>
                 </TouchableOpacity>
               )}
@@ -342,7 +342,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               {currentJob.followUpDraft && !isEditing && (
                 <View style={styles.followUpCard}>
                   <View style={styles.followUpHeader}>
-                    <Ionicons name="paper-plane-outline" size={18} color={colors.primary} />
+                    <FlynnIcon name="paper-plane-outline" size={18} color={colors.primary} />
                     <Text style={styles.sectionSubtitle}>Suggested follow-up</Text>
                   </View>
                   <Text style={styles.followUpText}>{currentJob.followUpDraft}</Text>
@@ -351,7 +351,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                     onPress={() => onSendTextConfirmation(currentJob)}
                     variant="ghost"
                     size="small"
-                    icon={<Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.primary} />}
+                    icon={<FlynnIcon name="chatbubble-ellipses-outline" size={16} color={colors.primary} />}
                     style={styles.followUpButton}
                   />
                 </View>
@@ -359,7 +359,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
             </View>
           )}
 
-          {/* Job Details */}
+          {/* Event Details */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Service Details</Text>
             {isEditing ? (
@@ -382,20 +382,20 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               label="Date"
               value={isEditing ? currentJob.date : formatDate(currentJob.date)}
               field="date"
-              icon={<Ionicons name="calendar-outline" size={20} color={colors.primary} />}
+              icon={<FlynnIcon name="calendar-outline" size={20} color={colors.primary} />}
             />
             <EditableField
               label="Time"
               value={isEditing ? currentJob.time : formatTime(currentJob.time)}
               field="time"
-              icon={<Ionicons name="time-outline" size={20} color={colors.primary} />}
+              icon={<FlynnIcon name="time-outline" size={20} color={colors.primary} />}
             />
             {(currentJob.estimatedDuration || isEditing) && (
               <EditableField
                 label="Duration"
                 value={currentJob.estimatedDuration || ''}
                 field="estimatedDuration"
-                icon={<Ionicons name="timer-outline" size={20} color={colors.primary} />}
+                icon={<FlynnIcon name="timer-outline" size={20} color={colors.primary} />}
               />
             )}
           </View>
@@ -404,7 +404,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Contact & Location</Text>
             <View style={styles.detailRow}>
-              <Ionicons name="call-outline" size={20} color={colors.primary} />
+              <FlynnIcon name="call-outline" size={20} color={colors.primary} />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Phone</Text>
                 {isEditing ? (
@@ -429,14 +429,14 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 label="Email"
                 value={currentJob.clientEmail || ''}
                 field="clientEmail"
-                icon={<Ionicons name="mail-outline" size={20} color={colors.primary} />}
+                icon={<FlynnIcon name="mail-outline" size={20} color={colors.primary} />}
               />
             )}
             <EditableField
               label="Location"
               value={currentJob.location}
               field="location"
-              icon={<Ionicons name="location-outline" size={20} color={colors.primary} />}
+              icon={<FlynnIcon name="location-outline" size={20} color={colors.primary} />}
             />
           </View>
 
@@ -469,7 +469,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 onPress={handleCancelEditing}
                 variant="secondary"
                 size="medium"
-                icon={<Ionicons name="close-outline" size={18} color={colors.primary} />}
+                icon={<FlynnIcon name="close-outline" size={18} color={colors.primary} />}
                 style={styles.editButton}
               />
               
@@ -479,7 +479,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                 disabled={savingEdits}
                 variant="primary"
                 size="medium"
-                icon={<Ionicons name="checkmark-outline" size={18} color={colors.white} />}
+                icon={<FlynnIcon name="checkmark-outline" size={18} color={colors.white} />}
                 style={styles.editButton}
               />
             </View>
@@ -492,7 +492,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   onPress={() => onSendTextConfirmation(currentJob)}
                   variant="primary"
                   size="medium"
-                  icon={<Ionicons name="chatbubble-outline" size={18} color={colors.white} />}
+                  icon={<FlynnIcon name="chatbubble-outline" size={18} color={colors.white} />}
                   style={styles.communicationButton}
                 />
                 
@@ -501,7 +501,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   onPress={() => onSendEmailConfirmation(currentJob)}
                   variant="secondary"
                   size="medium"
-                  icon={<Ionicons name="mail-outline" size={18} color={colors.primary} />}
+                  icon={<FlynnIcon name="mail-outline" size={18} color={colors.primary} />}
                   style={styles.communicationButton}
                 />
                 
@@ -510,7 +510,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   onPress={handleCallClient}
                   variant="success"
                   size="medium"
-                  icon={<Ionicons name="call-outline" size={18} color={colors.white} />}
+                  icon={<FlynnIcon name="call-outline" size={18} color={colors.white} />}
                   style={styles.communicationButton}
                 />
               </View>
@@ -524,7 +524,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                     activeOpacity={0.8}
                   >
                     <Text style={styles.accountingSectionTitle}>Accounting Actions</Text>
-                    <Ionicons
+                    <FlynnIcon
                       name={isAccountingExpanded ? 'chevron-up' : 'chevron-down'}
                       size={18}
                       color={colors.primary}
@@ -538,7 +538,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                         onPress={() => Alert.alert('Send Invoice', 'Invoice will be sent to MYOB for processing')}
                       >
                         <View style={styles.accountingActionIcon}>
-                          <Ionicons name="receipt-outline" size={20} color={colors.success} />
+                          <FlynnIcon name="receipt-outline" size={20} color={colors.success} />
                         </View>
                         <Text style={[styles.accountingActionText, { color: colors.success }]}>
                           Send Invoice
@@ -551,7 +551,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                         onPress={() => Alert.alert('Create Quote', 'Quote template will be created in MYOB')}
                       >
                         <View style={styles.accountingActionIcon}>
-                          <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+                          <FlynnIcon name="document-text-outline" size={20} color={colors.primary} />
                         </View>
                         <Text style={[styles.accountingActionText, { color: colors.primary }]}>
                           Create Quote
@@ -564,7 +564,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                         onPress={() => Alert.alert('Log Expenses', 'Expense tracking for this job will be logged in MYOB')}
                       >
                         <View style={styles.accountingActionIcon}>
-                          <Ionicons name="calculator-outline" size={20} color={colors.warning} />
+                          <FlynnIcon name="calculator-outline" size={20} color={colors.warning} />
                         </View>
                         <Text style={[styles.accountingActionText, { color: colors.warning }]}>
                           Log Expenses
@@ -582,7 +582,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   style={styles.secondaryAction}
                   onPress={handleStartEditing}
                 >
-                  <Ionicons name="create-outline" size={20} color={colors.primary} />
+                  <FlynnIcon name="create-outline" size={20} color={colors.primary} />
                   <Text style={[styles.secondaryActionText, { color: colors.primary }]}>
                     Edit Details
                   </Text>
@@ -592,9 +592,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   style={styles.secondaryAction}
                   onPress={handleDeleteJob}
                 >
-                  <Ionicons name="trash-outline" size={20} color={colors.error} />
+                  <FlynnIcon name="trash-outline" size={20} color={colors.error} />
                   <Text style={[styles.secondaryActionText, { color: colors.error }]}>
-                    Delete Job
+                    Delete Event
                   </Text>
                 </TouchableOpacity>
               </View>

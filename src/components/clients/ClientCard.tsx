@@ -7,7 +7,7 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Client } from '../../types/client';
@@ -111,7 +111,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
               styles.businessIcon,
               { backgroundColor: `${getBusinessTypeColor(client.businessType, colors)}20` }
             ]}>
-              <Ionicons 
+              <FlynnIcon 
                 name={getBusinessTypeIcon(client.businessType) as any} 
                 size={16} 
                 color={getBusinessTypeColor(client.businessType, colors)} 
@@ -146,7 +146,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
           style={[styles.actionButton, styles.callButton]}
           onPress={handleCall}
         >
-          <Ionicons name="call" size={18} color={colors.white} />
+          <FlynnIcon name="call" size={18} color={colors.white} />
           <Text style={[styles.actionText, styles.callText]}>Call</Text>
         </TouchableOpacity>
 
@@ -154,7 +154,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
           style={[styles.actionButton, styles.textButton]}
           onPress={() => onSendText(client)}
         >
-          <Ionicons name="chatbubble" size={18} color={colors.white} />
+          <FlynnIcon name="chatbubble" size={18} color={colors.white} />
           <Text style={[styles.actionText, styles.textText]}>Text</Text>
         </TouchableOpacity>
 
@@ -166,7 +166,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
           onPress={handleEmail}
           disabled={!client.email}
         >
-          <Ionicons 
+          <FlynnIcon 
             name="mail" 
             size={18} 
             color={client.email ? colors.primary : colors.gray400} 

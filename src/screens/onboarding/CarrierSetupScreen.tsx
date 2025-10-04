@@ -12,7 +12,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { useOnboarding } from '../../context/OnboardingContext';
 import {
   callForwardingGuides,
@@ -376,7 +376,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#3B82F6" />
+          <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
         </TouchableOpacity>
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, styles.progressActive]} />
@@ -393,7 +393,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
       >
         <View style={styles.titleContainer}>
           <View style={styles.iconContainer}>
-            <Ionicons name="call" size={32} color="#3B82F6" />
+            <FlynnIcon name="call" size={32} color="#3B82F6" />
           </View>
           <Text style={styles.title}>Forward missed calls to Flynn</Text>
           <Text style={styles.subtitle}>
@@ -404,7 +404,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
         <View style={styles.infoCard}>
           <View style={styles.infoCardHeader}>
             <View style={styles.infoCardIcon}>
-              <Ionicons name="shield-checkmark" size={20} color="#2563eb" />
+              <FlynnIcon name="shield-checkmark" size={20} color="#2563eb" />
             </View>
             <Text style={styles.infoCardTitle}>Your Flynn voicemail number</Text>
           </View>
@@ -456,7 +456,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
         {carrierDetectionState.status === 'success' && detectedCarrier && (
           <View style={[styles.detectionBanner, styles.detectionBannerSuccess]}>
-            <Ionicons name="sparkles" size={18} color="#166534" />
+            <FlynnIcon name="sparkles" size={18} color="#166534" />
             <View style={styles.detectionTextWrapper}>
               <Text style={styles.detectionText}>
                 {carrierDetectionState.source === 'lookup'
@@ -475,7 +475,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
                     onPress={handleUseDetectedCarrier}
                     style={styles.detectionAction}
                   >
-                    <Ionicons name="flash" size={14} color="#166534" />
+                    <FlynnIcon name="flash" size={14} color="#166534" />
                     <Text style={styles.detectionActionText}>Use suggestion</Text>
                   </TouchableOpacity>
                 )}
@@ -485,7 +485,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
           {carrierDetectionState.status === 'none' && (
             <View style={[styles.detectionBanner, styles.detectionBannerNeutral]}>
-              <Ionicons name="information-circle" size={18} color="#1d4ed8" />
+              <FlynnIcon name="information-circle" size={18} color="#1d4ed8" />
               <Text style={styles.detectionText}>
                 We couldn't match the carrier automatically. Choose it from the list below.
               </Text>
@@ -494,7 +494,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
           {carrierDetectionState.status === 'error' && (
             <View style={[styles.detectionBanner, styles.detectionBannerError]}>
-              <Ionicons name="alert-circle" size={18} color="#991b1b" />
+              <FlynnIcon name="alert-circle" size={18} color="#991b1b" />
               <Text style={styles.detectionText}>
                 {carrierDetectionState.message ||
                   'Carrier lookup failed. Pick your provider below.'}
@@ -523,7 +523,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
               style={styles.showMoreButton}
               onPress={() => setShowAllCarriers(true)}
             >
-              <Ionicons name="add-circle-outline" size={18} color="#2563eb" />
+              <FlynnIcon name="add-circle-outline" size={18} color="#2563eb" />
               <Text style={styles.showMoreText}>Show more carriers</Text>
             </TouchableOpacity>
           )}
@@ -531,7 +531,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
         <View style={styles.stepsCard}>
           <View style={styles.stepsHeader}>
-            <Ionicons name="trail-sign-outline" size={20} color="#2563eb" />
+            <FlynnIcon name="trail-sign-outline" size={20} color="#2563eb" />
             <Text style={styles.sectionLabel}>Forwarding checklist</Text>
           </View>
 
@@ -542,7 +542,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
               </View>
               <View style={styles.stepContent}>
                 <View style={styles.stepTitleRow}>
-                  <Ionicons name={step.icon} size={18} color="#2563eb" />
+                  <FlynnIcon name={step.icon} size={18} color="#2563eb" />
                   <Text style={styles.stepTitle}>{step.title}</Text>
                 </View>
                 <Text style={styles.stepDescription}>{step.description}</Text>
@@ -554,7 +554,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
         {selectedCarrier && (
           <View style={styles.codesCard}>
             <View style={styles.codesHeader}>
-              <Ionicons name="keypad-outline" size={20} color="#2563eb" />
+              <FlynnIcon name="keypad-outline" size={20} color="#2563eb" />
               <Text style={styles.sectionLabel}>
                 Dial codes for {selectedCarrier.name}
               </Text>
@@ -589,7 +589,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
                     disabled={!onboardingData.twilioPhoneNumber || carrierCode.type === 'all'}
                     onPress={() => handleDialCode(carrierCode)}
                   >
-                    <Ionicons name="call" size={18} color="white" />
+                    <FlynnIcon name="call" size={18} color="white" />
                     <Text style={styles.codeActionText}>Dial</Text>
                   </TouchableOpacity>
                 </View>
@@ -598,7 +598,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
             {selectedCarrier.notes && (
               <View style={styles.notesContainer}>
-                <Ionicons name="sparkles-outline" size={16} color="#2563eb" />
+                <FlynnIcon name="sparkles-outline" size={16} color="#2563eb" />
                 <Text style={styles.notesText}>{selectedCarrier.notes}</Text>
               </View>
             )}
@@ -609,7 +609,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
                 onPress={() => Linking.openURL(selectedCarrier.supportUrl!)}
               >
                 <Text style={styles.supportLinkText}>View official carrier help</Text>
-                <Ionicons name="open-outline" size={16} color="#2563eb" />
+                <FlynnIcon name="open-outline" size={16} color="#2563eb" />
               </TouchableOpacity>
             )}
           </View>
@@ -626,7 +626,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
             ) : (
               <>
                 <Text style={styles.primaryButtonText}>Mark forwarding verified</Text>
-                <Ionicons name="checkmark-circle" size={20} color="white" />
+                <FlynnIcon name="checkmark-circle" size={20} color="white" />
               </>
             )}
           </TouchableOpacity>

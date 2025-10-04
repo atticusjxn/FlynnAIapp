@@ -10,7 +10,8 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
+import { FlynnIcon, FlynnIconName } from '../components/ui/FlynnIcon';
 import { useAuth } from '../context/AuthContext';
 import { typography, spacing, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -233,7 +234,7 @@ export const DashboardScreen = () => {
       {/* Upcoming Event Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+          <FlynnIcon name="calendar-outline" size={20} color={colors.primary} />
           <Text style={styles.sectionTitle}>Upcoming Event</Text>
         </View>
         {upcomingJob ? (
@@ -245,12 +246,12 @@ export const DashboardScreen = () => {
             <Text style={styles.eventTime}>{formatJobDateTime(upcomingJob.date, upcomingJob.time)}</Text>
             <Text style={styles.eventTitle}>{upcomingJob.serviceType} - {upcomingJob.clientName}</Text>
             <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+              <FlynnIcon name="location-outline" size={16} color={colors.textSecondary} />
               <Text style={styles.eventLocation}>{upcomingJob.location}</Text>
             </View>
             {upcomingJob.estimatedDuration && (
               <View style={styles.durationRow}>
-                <Ionicons name="timer-outline" size={16} color={colors.textSecondary} />
+                <FlynnIcon name="timer-outline" size={16} color={colors.textSecondary} />
                 <Text style={styles.eventDuration}>{upcomingJob.estimatedDuration}</Text>
               </View>
             )}
@@ -262,13 +263,13 @@ export const DashboardScreen = () => {
                 handleCallClient(upcomingJob.clientPhone);
               }}
             >
-              <Ionicons name="call-outline" size={16} color={colors.primary} />
+              <FlynnIcon name="call-outline" size={16} color={colors.primary} />
               <Text style={styles.callClientText}>Call {upcomingJob.clientName.split(' ')[0]}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         ) : (
           <View style={styles.emptyEventCard}>
-            <Ionicons name="calendar-outline" size={32} color={colors.gray400} />
+            <FlynnIcon name="calendar-outline" size={32} color={colors.gray400} />
             <Text style={styles.emptyEventTitle}>No upcoming events</Text>
             <Text style={styles.emptyEventDescription}>Your next scheduled job will appear here</Text>
           </View>
@@ -278,14 +279,14 @@ export const DashboardScreen = () => {
       {/* Recent Activity Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="time-outline" size={20} color={colors.primary} />
+          <FlynnIcon name="time-outline" size={20} color={colors.primary} />
           <Text style={styles.sectionTitle}>Recent Activity</Text>
           <TouchableOpacity 
             style={styles.viewAllButton}
             onPress={() => setShowActivityHistory(true)}
           >
             <Text style={styles.viewAllText}>View All</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            <FlynnIcon name="chevron-forward" size={16} color={colors.primary} />
           </TouchableOpacity>
         </View>
         {activitiesLoading && recentActivities.length === 0 ? (
@@ -310,7 +311,7 @@ export const DashboardScreen = () => {
                     styles.activityTypeIcon,
                     { backgroundColor: colors.primary + '20' }
                   ]}>
-                    <Ionicons name={activity.icon as any} size={16} color={colors.primary} />
+                    <FlynnIcon name={activity.icon} size={16} color={colors.primary} />
                   </View>
                   <View style={styles.activityDetails}>
                     <View style={styles.activityHeader}>
@@ -321,14 +322,14 @@ export const DashboardScreen = () => {
                       {activity.description}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                  <FlynnIcon name="chevron-forward" size={20} color={colors.textTertiary} />
                 </View>
               </TouchableOpacity>
             ))}
           </View>
         ) : (
           <View style={styles.emptyActivityCard}>
-            <Ionicons name="time-outline" size={32} color={colors.gray400} />
+            <FlynnIcon name="time-outline" size={32} color={colors.gray400} />
             <Text style={styles.emptyActivityTitle}>No recent activity</Text>
             <Text style={styles.emptyActivityDescription}>Your business activity will appear here</Text>
           </View>

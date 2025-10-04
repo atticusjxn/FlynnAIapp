@@ -5,6 +5,8 @@ const { randomUUID } = require('crypto');
 const OpenAI = require('openai');
 const { toFile } = require('openai');
 const { createClient } = require('@supabase/supabase-js');
+const FormData = require('form-data');
+const path = require('path');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
 
@@ -78,6 +80,10 @@ const openaiClient = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
 const twilioMessagingClient = twilioAccountSid && twilioAuthToken
   ? twilio(twilioAccountSid, twilioAuthToken)
   : null;
+
+const voiceProfileBucket = process.env.VOICE_PROFILE_BUCKET || 'voice-profiles';
+const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+const elevenLabsModelId = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -403,6 +409,135 @@ const handleInboundVoice = (req, res) => {
 
 app.post('/telephony/inbound-voice', handleInboundVoice);
 app.get('/telephony/inbound-voice', handleInboundVoice);
+
+app.post('/voice/profiles/:voiceProfileId/clone', authenticateJwt, async (req, res) => {
+  if (!supabaseStorageClient) {
+    console.error('[VoiceClone] Supabase client not configured');
+    return res.status(500).json({ error: 'Voice cloning unavailable' });
+  }
+
+  if (!elevenLabsApiKey) {
+    console.error('[VoiceClone] ELEVENLABS_API_KEY not configured');
+    return res.status(500).json({ error: 'Voice cloning not configured' });
+  }
+
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const voiceProfileId = req.params.voiceProfileId;
+
+  try {
+    const { data: profile, error: fetchError } = await supabaseStorageClient
+      .from('voice_profiles')
+      .select('id, user_id, label, status, sample_path, voice_id, created_at, updated_at')
+      .eq('id', voiceProfileId)
+      .single();
+
+    if (fetchError || !profile) {
+      console.warn('[VoiceClone] Voice profile not found', { voiceProfileId, fetchError });
+      return res.status(404).json({ error: 'Voice profile not found' });
+    }
+
+    if (profile.user_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    if (!profile.sample_path) {
+      return res.status(400).json({ error: 'Voice sample missing' });
+    }
+
+    await supabaseStorageClient
+      .from('voice_profiles')
+      .update({ status: 'cloning', updated_at: new Date().toISOString() })
+      .eq('id', voiceProfileId);
+
+    const { data: sampleData, error: downloadError } = await supabaseStorageClient
+      .storage
+      .from(voiceProfileBucket)
+      .download(profile.sample_path);
+
+    if (downloadError || !sampleData) {
+      console.error('[VoiceClone] Failed to download voice sample', { voiceProfileId, downloadError });
+      await supabaseStorageClient
+        .from('voice_profiles')
+        .update({ status: 'error', updated_at: new Date().toISOString() })
+        .eq('id', voiceProfileId);
+      return res.status(500).json({ error: 'Failed to download voice sample' });
+    }
+
+    const sampleBuffer = Buffer.from(await sampleData.arrayBuffer());
+    const fileName = path.basename(profile.sample_path) || `voice-sample-${voiceProfileId}.m4a`;
+
+    const form = new FormData();
+    form.append('name', profile.label || `Flynn voice ${voiceProfileId}`);
+    if (elevenLabsModelId) {
+      form.append('model_id', elevenLabsModelId);
+    }
+    form.append('files', sampleBuffer, {
+      filename: fileName,
+      contentType: 'audio/m4a',
+    });
+
+    const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
+      method: 'POST',
+      headers: {
+        'xi-api-key': elevenLabsApiKey,
+        ...form.getHeaders(),
+      },
+      body: form,
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.text();
+      console.error('[VoiceClone] ElevenLabs clone request failed', {
+        status: response.status,
+        body: errorPayload,
+      });
+
+      await supabaseStorageClient
+        .from('voice_profiles')
+        .update({ status: 'error', updated_at: new Date().toISOString() })
+        .eq('id', voiceProfileId);
+
+      return res.status(response.status).json({ error: 'Voice clone request failed', details: errorPayload });
+    }
+
+    const payload = await response.json();
+    const voiceId = payload?.voice_id || payload?.voice?.id || payload?.voice?.voice_id || null;
+
+    const { data: updatedProfile, error: updateError } = await supabaseStorageClient
+      .from('voice_profiles')
+      .update({
+        status: voiceId ? 'ready' : 'processed',
+        voice_id: voiceId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', voiceProfileId)
+      .select('id, user_id, label, provider, status, sample_path, voice_id, created_at, updated_at')
+      .single();
+
+    if (updateError) {
+      console.error('[VoiceClone] Failed to update voice profile after cloning', { updateError });
+      return res.status(500).json({ error: 'Voice clone completed but failed to update profile' });
+    }
+
+    return res.json({ profile: updatedProfile, providerResponse: payload });
+  } catch (error) {
+    console.error('[VoiceClone] Unexpected error during cloning', { error });
+    try {
+      await supabaseStorageClient
+        .from('voice_profiles')
+        .update({ status: 'error', updated_at: new Date().toISOString() })
+        .eq('id', voiceProfileId);
+    } catch (updateError) {
+      console.error('[VoiceClone] Failed to set error status on voice profile', { updateError });
+    }
+
+    return res.status(500).json({ error: 'Failed to clone voice profile' });
+  }
+});
 
 app.get('/telephony/calls/:callSid/recording', authenticateJwt, async (req, res) => {
   const callSid = req.params?.callSid;

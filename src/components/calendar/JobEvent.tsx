@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Job } from '../jobs/JobCard';
@@ -129,12 +129,12 @@ export const JobEvent: React.FC<JobEventProps> = ({
     >
       <View style={styles.fullHeader}>
         <View style={styles.fullTimeContainer}>
-          <Ionicons name="time-outline" size={16} color={colors.primary} />
+          <FlynnIcon name="time-outline" size={16} color={colors.primary} />
           <Text style={styles.fullTime}>{job.time}</Text>
         </View>
         
         <View style={styles.fullStatusContainer}>
-          <Ionicons 
+          <FlynnIcon 
             name={getStatusIcon(job.status) as any} 
             size={16} 
             color={getStatusColor(job.status)} 
@@ -150,7 +150,7 @@ export const JobEvent: React.FC<JobEventProps> = ({
       
       <View style={styles.fullDetails}>
         <View style={styles.fullDetailRow}>
-          <Ionicons name="location-outline" size={14} color={colors.gray500} />
+          <FlynnIcon name="location-outline" size={14} color={colors.gray500} />
           <Text style={styles.fullDetailText} numberOfLines={1}>
             {job.location}
           </Text>
@@ -158,7 +158,7 @@ export const JobEvent: React.FC<JobEventProps> = ({
         
         {job.estimatedDuration && (
           <View style={styles.fullDetailRow}>
-            <Ionicons name="timer-outline" size={14} color={colors.gray500} />
+            <FlynnIcon name="timer-outline" size={14} color={colors.gray500} />
             <Text style={styles.fullDetailText}>
               {job.estimatedDuration}
             </Text>

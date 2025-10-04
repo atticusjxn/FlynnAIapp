@@ -8,7 +8,7 @@ import {
   Linking,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { FlynnCard } from '../../components/ui/FlynnCard';
@@ -256,7 +256,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
     <FlynnCard style={styles.stepCard}>
       <View style={styles.stepHeader}>
         <View style={[styles.stepIcon, { backgroundColor: colors.primaryLight }]}>
-          <Ionicons name="phone-portrait-outline" size={24} color={colors.primary} />
+          <FlynnIcon name="phone-portrait-outline" size={24} color={colors.primary} />
         </View>
         <Text style={styles.stepTitle}>Get Your Flynn AI Number</Text>
       </View>
@@ -269,7 +269,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         loading={setupState.isLoading}
         variant="primary"
         fullWidth
-        icon={<Ionicons name="add-circle-outline" size={20} color="white" />}
+        icon={<FlynnIcon name="add-circle-outline" size={20} color="white" />}
       />
     </FlynnCard>
   );
@@ -278,7 +278,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
     <FlynnCard style={styles.stepCard}>
       <View style={styles.stepHeader}>
         <View style={[styles.stepIcon, { backgroundColor: colors.warningLight }]}>
-          <Ionicons name="call-outline" size={24} color={colors.warning} />
+          <FlynnIcon name="call-outline" size={24} color={colors.warning} />
         </View>
         <Text style={styles.stepTitle}>Setup Call Forwarding</Text>
       </View>
@@ -299,7 +299,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         loading={setupState.isLoading}
         variant="primary"
         fullWidth
-        icon={<Ionicons name="call-outline" size={20} color="white" />}
+        icon={<FlynnIcon name="call-outline" size={20} color="white" />}
       />
     </FlynnCard>
   );
@@ -308,7 +308,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
     <FlynnCard style={styles.stepCard}>
       <View style={styles.stepHeader}>
         <View style={[styles.stepIcon, { backgroundColor: colors.successLight }]}>
-          <Ionicons name="checkmark-circle-outline" size={24} color={colors.success} />
+          <FlynnIcon name="checkmark-circle-outline" size={24} color={colors.success} />
         </View>
         <Text style={styles.stepTitle}>Test Your Setup</Text>
       </View>
@@ -321,7 +321,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         onPress={handleTestCall}
         variant="success"
         fullWidth
-        icon={<Ionicons name="call-outline" size={20} color="white" />}
+        icon={<FlynnIcon name="call-outline" size={20} color="white" />}
       />
     </FlynnCard>
   );
@@ -331,7 +331,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
       <FlynnCard style={[styles.stepCard, styles.successCard]}>
         <View style={styles.stepHeader}>
           <View style={[styles.stepIcon, { backgroundColor: colors.successLight }]}>
-            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+            <FlynnIcon name="checkmark-circle" size={24} color={colors.success} />
           </View>
           <Text style={styles.stepTitle}>Setup Complete!</Text>
         </View>
@@ -353,14 +353,14 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
           onPress={handleTestCall}
           variant="secondary"
           style={styles.actionButton}
-          icon={<Ionicons name="call-outline" size={18} color={colors.primary} />}
+          icon={<FlynnIcon name="call-outline" size={18} color={colors.primary} />}
         />
         <FlynnButton
           title="View Call History"
           onPress={() => navigation.navigate('CallHistory')}
           variant="secondary"
           style={styles.actionButton}
-          icon={<Ionicons name="time-outline" size={18} color={colors.primary} />}
+          icon={<FlynnIcon name="time-outline" size={18} color={colors.primary} />}
         />
       </View>
 
@@ -390,7 +390,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
 
         {setupState.error && (
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={20} color={colors.error} />
+            <FlynnIcon name="alert-circle" size={20} color={colors.error} />
             <Text style={styles.errorText}>{setupState.error}</Text>
           </View>
         )}

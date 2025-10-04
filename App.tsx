@@ -12,18 +12,19 @@ import { JobsProvider } from './src/context/JobsContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { JobsScreen } from './src/screens/JobsScreen';
-import { CalendarScreen } from './src/screens/CalendarScreen';
+import { ReceptionistScreen } from './src/screens/ReceptionistScreen';
 import { ClientsScreen } from './src/screens/ClientsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { OnboardingNavigator } from './src/screens/onboarding/OnboardingNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { AppInitLogger } from './src/utils/AppInitLogger';
 import { useNavigationLogger } from './src/utils/NavigationLogger';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon, FlynnIconName } from './src/components/ui/FlynnIcon';
 import { JobFormDemo } from './src/components/ui/JobFormDemo';
 import CallSetupScreen from './src/screens/calls/CallSetupScreen';
 import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
 import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
+// import { useFonts } from 'expo-font';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -35,21 +36,21 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'home';
+          let iconName: FlynnIconName = 'home';
 
           if (route.name === 'Dashboard') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Jobs') {
-            iconName = focused ? 'briefcase' : 'briefcase-outline';
-          } else if (route.name === 'Calendar') {
+          } else if (route.name === 'Events') {
             iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Receptionist') {
+            iconName = focused ? 'sparkles' : 'sparkles-outline';
           } else if (route.name === 'Clients') {
             iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'Settings') {
             iconName = focused ? 'settings' : 'settings-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <FlynnIcon name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.gray400,
@@ -67,8 +68,8 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Jobs" component={JobsScreen} />
-      <Tab.Screen name="Calendar" component={CalendarScreen} />
+      <Tab.Screen name="Events" component={JobsScreen} />
+      <Tab.Screen name="Receptionist" component={ReceptionistScreen} />
       <Tab.Screen name="Clients" component={ClientsScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
@@ -160,8 +161,9 @@ function AppNavigator() {
 }
 
 export default function App() {
+
   console.log('[App] Root component rendering - React 19 compatible');
-  
+
   return (
     <ErrorBoundary>
       <AppInitLogger>

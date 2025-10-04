@@ -4,6 +4,7 @@ export default {
       "expo-asset",
       "expo-secure-store",
       "expo-notifications",
+      "expo-font",
     ],
     name: "FlynnAI",
     slug: "FlynnAI",

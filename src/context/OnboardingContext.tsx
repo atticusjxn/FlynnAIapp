@@ -12,7 +12,11 @@ export interface OnboardingData {
   businessType?: string;
   goals?: string[];
   phoneSetupComplete: boolean;
-  calendarIntegrationComplete: boolean;
+  receptionistConfigured: boolean;
+  receptionistVoice?: string | null;
+  receptionistGreeting?: string | null;
+  receptionistQuestions?: string[];
+  receptionistVoiceProfileId?: string | null;
   twilioPhoneNumber?: string | null;
   phoneNumber?: string | null;
 }
@@ -30,7 +34,11 @@ const defaultOnboardingData: OnboardingData = {
   businessType: '',
   goals: [],
   phoneSetupComplete: false,
-  calendarIntegrationComplete: false,
+  receptionistConfigured: false,
+  receptionistVoice: null,
+  receptionistGreeting: null,
+  receptionistQuestions: [],
+  receptionistVoiceProfileId: null,
   twilioPhoneNumber: null,
   phoneNumber: null,
 };
@@ -97,7 +105,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('business_type, onboarding_complete, business_goals, phone_setup_complete, calendar_integration_complete, twilio_phone_number, phone_number')
+        .select('business_type, onboarding_complete, business_goals, phone_setup_complete, receptionist_configured, twilio_phone_number, phone_number, receptionist_voice, receptionist_greeting, receptionist_questions, receptionist_voice_profile_id')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -121,7 +129,11 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         businessType: data.business_type || '',
         goals: data.business_goals || [],
         phoneSetupComplete: data.phone_setup_complete || false,
-        calendarIntegrationComplete: data.calendar_integration_complete || false,
+        receptionistConfigured: data.receptionist_configured || false,
+        receptionistVoice: data.receptionist_voice || null,
+        receptionistGreeting: data.receptionist_greeting || null,
+        receptionistQuestions: data.receptionist_questions ? (Array.isArray(data.receptionist_questions) ? data.receptionist_questions : []) : [],
+        receptionistVoiceProfileId: data.receptionist_voice_profile_id || null,
         twilioPhoneNumber: data.twilio_phone_number || null,
         phoneNumber: data.phone_number || null,
       });
@@ -146,9 +158,13 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           business_type: onboardingData.businessType,
           business_goals: onboardingData.goals,
           phone_setup_complete: onboardingData.phoneSetupComplete,
-          calendar_integration_complete: onboardingData.calendarIntegrationComplete,
+          receptionist_configured: onboardingData.receptionistConfigured,
           twilio_phone_number: onboardingData.twilioPhoneNumber,
           phone_number: onboardingData.phoneNumber,
+          receptionist_voice: onboardingData.receptionistVoice,
+          receptionist_greeting: onboardingData.receptionistGreeting,
+          receptionist_questions: onboardingData.receptionistQuestions ?? [],
+          receptionist_voice_profile_id: onboardingData.receptionistVoiceProfileId ?? null,
           onboarding_complete: true,
         })
         .eq('id', user.id);

@@ -8,7 +8,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Job } from '../jobs/JobCard';
@@ -154,7 +154,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIcon}>
-              <Ionicons name="warning" size={24} color={colors.error} />
+              <FlynnIcon name="warning" size={24} color={colors.error} />
             </View>
             <View style={styles.headerText}>
               <Text style={styles.title}>Scheduling Conflict</Text>
@@ -163,7 +163,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={colors.gray600} />
+              <FlynnIcon name="close" size={24} color={colors.gray600} />
             </TouchableOpacity>
           </View>
 
@@ -205,7 +205,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                 onPress={onKeepBothJobs}
               >
                 <View style={styles.optionIcon}>
-                  <Ionicons name="checkmark-circle-outline" size={20} color={colors.warning} />
+                  <FlynnIcon name="checkmark-circle-outline" size={20} color={colors.warning} />
                 </View>
                 <View style={styles.optionContent}>
                   <Text style={styles.optionTitle}>Keep Both Appointments</Text>
@@ -218,7 +218,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
               {/* Reschedule Option */}
               <View style={styles.optionCard}>
                 <View style={styles.optionIcon}>
-                  <Ionicons name="time-outline" size={20} color={colors.primary} />
+                  <FlynnIcon name="time-outline" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.optionContent}>
                   <Text style={styles.optionTitle}>Reschedule "{conflictedJob.clientName}"</Text>
@@ -252,7 +252,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                     style={styles.customTimeButton}
                     onPress={() => setShowCustomPicker(!showCustomPicker)}
                   >
-                    <Ionicons 
+                    <FlynnIcon 
                       name={showCustomPicker ? "chevron-up" : "calendar-outline"} 
                       size={16} 
                       color={colors.primary} 
@@ -279,7 +279,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                         setSelectedDate(newDate);
                       }}
                     >
-                      <Ionicons name="chevron-back" size={20} color={colors.primary} />
+                      <FlynnIcon name="chevron-back" size={20} color={colors.primary} />
                     </TouchableOpacity>
                     
                     <Text style={styles.selectedDateText}>
@@ -298,7 +298,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
                         setSelectedDate(newDate);
                       }}
                     >
-                      <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+                      <FlynnIcon name="chevron-forward" size={20} color={colors.primary} />
                     </TouchableOpacity>
                   </View>
                   

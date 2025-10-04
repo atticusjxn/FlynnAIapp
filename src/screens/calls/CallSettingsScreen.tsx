@@ -9,7 +9,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlynnCard } from '../../components/ui/FlynnCard';
 import { FlynnButton } from '../../components/ui/FlynnButton';
@@ -173,7 +173,7 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
     return (
       <FlynnCard>
         <View style={styles.sectionHeader}>
-          <Ionicons name="mic-outline" size={20} color={colors.primary} />
+          <FlynnIcon name="mic-outline" size={20} color={colors.primary} />
           <Text style={styles.sectionTitle}>Recording Preferences</Text>
         </View>
         <Text style={styles.sectionDescription}>
@@ -192,14 +192,14 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
           >
             <View style={styles.optionContent}>
               <View style={styles.optionLeft}>
-                <Ionicons name={option.icon as any} size={24} color={option.iconColor} />
+                <FlynnIcon name={option.icon as any} size={24} color={option.iconColor} />
                 <View style={styles.optionText}>
                   <Text style={styles.optionTitle}>{option.title}</Text>
                   <Text style={styles.optionDescription}>{option.description}</Text>
                 </View>
               </View>
               {userStatus?.recordingPreference === option.value && (
-                <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+                <FlynnIcon name="checkmark-circle" size={20} color={colors.success} />
               )}
             </View>
           </TouchableOpacity>
@@ -211,7 +211,7 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
   const renderForwardingSettings = () => (
     <FlynnCard>
       <View style={styles.sectionHeader}>
-        <Ionicons name="call-outline" size={20} color={colors.primary} />
+        <FlynnIcon name="call-outline" size={20} color={colors.primary} />
         <Text style={styles.sectionTitle}>Call Forwarding</Text>
       </View>
       
@@ -260,7 +260,7 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
   const renderQuickActions = () => (
     <FlynnCard>
       <View style={styles.sectionHeader}>
-        <Ionicons name="flash-outline" size={20} color={colors.primary} />
+        <FlynnIcon name="flash-outline" size={20} color={colors.primary} />
         <Text style={styles.sectionTitle}>Quick Actions</Text>
       </View>
       
@@ -271,7 +271,7 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
           variant="secondary"
           size="small"
           style={styles.actionButton}
-          icon={<Ionicons name="call-outline" size={16} color={colors.primary} />}
+          icon={<FlynnIcon name="call-outline" size={16} color={colors.primary} />}
           disabled={!userStatus?.twilioPhoneNumber}
         />
         
@@ -281,7 +281,7 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
           variant="secondary"
           size="small"
           style={styles.actionButton}
-          icon={<Ionicons name="time-outline" size={16} color={colors.primary} />}
+          icon={<FlynnIcon name="time-outline" size={16} color={colors.primary} />}
         />
       </View>
     </FlynnCard>
@@ -290,34 +290,34 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
   const renderUsageInfo = () => (
     <FlynnCard>
       <View style={styles.sectionHeader}>
-        <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
+        <FlynnIcon name="information-circle-outline" size={20} color={colors.primary} />
         <Text style={styles.sectionTitle}>How It Works</Text>
       </View>
       
       <View style={styles.infoList}>
         <View style={styles.infoItem}>
-          <Ionicons name="phone-portrait-outline" size={16} color={colors.textTertiary} />
+          <FlynnIcon name="phone-portrait-outline" size={16} color={colors.textTertiary} />
           <Text style={styles.infoText}>
             Forward your business calls to your Flynn AI number
           </Text>
         </View>
         
         <View style={styles.infoItem}>
-          <Ionicons name="mic-outline" size={16} color={colors.textTertiary} />
+          <FlynnIcon name="mic-outline" size={16} color={colors.textTertiary} />
           <Text style={styles.infoText}>
             Calls are automatically recorded and transcribed
           </Text>
         </View>
         
         <View style={styles.infoItem}>
-          <Ionicons name="sparkles-outline" size={16} color={colors.textTertiary} />
+          <FlynnIcon name="sparkles-outline" size={16} color={colors.textTertiary} />
           <Text style={styles.infoText}>
             AI extracts job details and creates calendar events
           </Text>
         </View>
         
         <View style={styles.infoItem}>
-          <Ionicons name="checkmark-circle-outline" size={16} color={colors.textTertiary} />
+          <FlynnIcon name="checkmark-circle-outline" size={16} color={colors.textTertiary} />
           <Text style={styles.infoText}>
             Client confirmations are sent automatically
           </Text>
@@ -343,7 +343,7 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          <FlynnIcon name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Call Settings</Text>
         <View style={styles.placeholder} />
