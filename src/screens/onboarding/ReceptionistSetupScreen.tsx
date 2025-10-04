@@ -21,9 +21,9 @@ interface ReceptionistSetupScreenProps {
 }
 
 const voiceOptions = [
-  { id: 'koala_warm', label: 'Koala — Warm & Friendly', description: 'Balanced tone ideal for inbound service calls.' },
-  { id: 'koala_expert', label: 'Koala — Expert Concierge', description: 'Calm, confident delivery for premium services.' },
-  { id: 'koala_hype', label: 'Koala — High Energy', description: 'Upbeat tone that keeps callers engaged.' },
+  { id: 'koala_warm', label: 'Avery — Warm & Friendly', description: 'Balanced tone ideal for inbound service calls.' },
+  { id: 'koala_expert', label: 'Sloane — Expert Concierge', description: 'Calm, confident delivery for premium services.' },
+  { id: 'koala_hype', label: 'Maya — High Energy', description: 'Upbeat tone that keeps callers engaged.' },
   { id: 'custom_voice', label: 'Record Your Own', description: 'Clone your voice so it sounds like you answering.' },
 ];
 

@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { apiRequest } from './apiClient';
 import { Buffer } from 'buffer';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 
 const VOICE_BUCKET = 'voice-profiles';
 
@@ -102,9 +102,8 @@ export const ReceptionistService = {
       throw new Error('You must be signed in to create a voice profile.');
     }
 
-    const base64 = await FileSystem.readAsStringAsync(fileUri, {
-      encoding: 'base64',
-    });
+    const recordingFile = new File(fileUri);
+    const base64 = await recordingFile.base64();
 
     const buffer = Buffer.from(base64, 'base64');
     const extension = contentType.includes('wav') ? 'wav' : contentType.includes('mp3') ? 'mp3' : 'm4a';
@@ -148,8 +147,8 @@ export const ReceptionistService = {
     }
 
     try {
-      if (fileUri.startsWith('file://')) {
-        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      if (recordingFile.uri.startsWith('file://') && recordingFile.exists) {
+        recordingFile.delete();
       }
     } catch (cleanupError) {
       console.warn('[ReceptionistService] Failed to delete temporary recording', cleanupError);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -19,17 +19,59 @@ import ReceptionistService, { VoiceProfile } from '../services/ReceptionistServi
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 
 const BASE_VOICE_OPTIONS = [
-  { id: 'koala_warm', label: 'Koala — Warm & Friendly' },
-  { id: 'koala_expert', label: 'Koala — Expert Concierge' },
-  { id: 'koala_hype', label: 'Koala — High Energy' },
+  { id: 'koala_warm', label: 'Avery — Warm & Friendly' },
+  { id: 'koala_expert', label: 'Sloane — Expert Concierge' },
+  { id: 'koala_hype', label: 'Maya — High Energy' },
 ];
 
-const defaultScript = [
-  'Welcome callers with a warm greeting and brand promise.',
-  'Capture their name and the best callback number.',
-  'Understand the service request and location.',
-  'Offer to book an appointment or promise a follow-up with ETA.',
+const FOLLOW_UP_TEMPLATES = [
+  {
+    id: 'general',
+    label: 'General service',
+    description: 'Works for most customer service teams.',
+    questions: [
+      'What can we help you with today?',
+      'Where should we send the team or service pro?',
+      'When do you need this completed?',
+      'What is the best number or email to reach you?',
+    ],
+  },
+  {
+    id: 'trades',
+    label: 'Trades & repairs',
+    description: 'Tailored for electricians, plumbers, and contractors.',
+    questions: [
+      'What project or repair do you need help with?',
+      'How urgent is the request?',
+      'What time would you like the work handled?',
+      'Where is the job located and are there access instructions?',
+    ],
+  },
+  {
+    id: 'events',
+    label: 'Events & venues',
+    description: 'Great for planners, venues, and hospitality teams.',
+    questions: [
+      'What type of event are you planning?',
+      'When is the event and how flexible is the date?',
+      'How many guests are you expecting?',
+      'Is there anything special we should prepare for?',
+    ],
+  },
 ];
+
+const DEFAULT_FOLLOW_UP_QUESTIONS = FOLLOW_UP_TEMPLATES[0].questions;
+
+const matchTemplateId = (questions: string[]): string => {
+  const normalized = questions.map(question => question.trim()).filter(Boolean);
+  const match = FOLLOW_UP_TEMPLATES.find(template => {
+    if (template.questions.length !== normalized.length) {
+      return false;
+    }
+    return template.questions.every((question, index) => question === normalized[index]);
+  });
+  return match?.id ?? 'custom';
+};
 
 export const ReceptionistScreen: React.FC = () => {
   const { onboardingData, updateOnboardingData } = useOnboarding();
@@ -39,11 +81,16 @@ export const ReceptionistScreen: React.FC = () => {
   const [greeting, setGreeting] = useState(
     onboardingData.receptionistGreeting || 'Hi, you have reached Flynn — how can we lend a hand today?'
   );
-  const [script, setScript] = useState(
-    onboardingData.receptionistQuestions && onboardingData.receptionistQuestions.length > 0
-      ? onboardingData.receptionistQuestions.join('\n')
-      : defaultScript.join('\n')
-  );
+  const [followUpQuestions, setFollowUpQuestions] = useState<string[]>(() => {
+    const existing = onboardingData.receptionistQuestions;
+    const source = existing && existing.length > 0 ? existing : DEFAULT_FOLLOW_UP_QUESTIONS;
+    return source.map(question => question);
+  });
+  const [activeTemplateId, setActiveTemplateId] = useState<string>(() => {
+    const existing = onboardingData.receptionistQuestions;
+    const source = existing && existing.length > 0 ? existing : DEFAULT_FOLLOW_UP_QUESTIONS;
+    return matchTemplateId(source);
+  });
   const [callRecordingEnabled, setCallRecordingEnabled] = useState(true);
   const [autoSummaryEnabled, setAutoSummaryEnabled] = useState(true);
   const [voiceProfiles, setVoiceProfiles] = useState<VoiceProfile[]>([]);
@@ -57,7 +104,6 @@ export const ReceptionistScreen: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isUploadingSample, setIsUploadingSample] = useState(false);
-  const recordingStatusInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     refreshVoiceProfiles();
@@ -71,7 +117,8 @@ export const ReceptionistScreen: React.FC = () => {
       setGreeting(onboardingData.receptionistGreeting);
     }
     if (onboardingData.receptionistQuestions && onboardingData.receptionistQuestions.length > 0) {
-      setScript(onboardingData.receptionistQuestions.join('\n'));
+      setFollowUpQuestions(onboardingData.receptionistQuestions.map(question => question));
+      setActiveTemplateId(matchTemplateId(onboardingData.receptionistQuestions));
     }
     if (onboardingData.receptionistVoiceProfileId) {
       setActiveVoiceProfileId(onboardingData.receptionistVoiceProfileId);
@@ -131,21 +178,71 @@ export const ReceptionistScreen: React.FC = () => {
   }, [customVoiceStatusLabel]);
 
   const selectedVoiceLabel = useMemo(
-    () => voiceOptions.find(v => v.id === selectedVoice)?.label || 'Koala — Warm & Friendly',
+    () => voiceOptions.find(v => v.id === selectedVoice)?.label || 'Avery — Warm & Friendly',
     [selectedVoice, voiceOptions]
   );
 
-  const parseScriptToQuestions = useCallback((value: string) => {
-    return value
-      .split(/\n+/)
-      .map(line => line.trim())
-      .filter(Boolean);
+  const handleQuestionChange = useCallback((index: number, value: string) => {
+    setFollowUpQuestions(prev => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+    setActiveTemplateId('custom');
   }, []);
+
+  const handleRemoveQuestion = useCallback((index: number) => {
+    setFollowUpQuestions(prev => prev.filter((_, questionIndex) => questionIndex !== index));
+    setActiveTemplateId('custom');
+  }, []);
+
+  const handleAddQuestion = useCallback(() => {
+    setFollowUpQuestions(prev => [...prev, '']);
+    setActiveTemplateId('custom');
+  }, []);
+
+  const handleApplyTemplate = useCallback(
+    (templateId: string) => {
+      const template = FOLLOW_UP_TEMPLATES.find(option => option.id === templateId);
+      if (!template) {
+        return;
+      }
+
+      const templateQuestions = template.questions.map(question => question);
+      const cleanedCurrent = followUpQuestions.map(question => question.trim()).filter(Boolean);
+      const differs =
+        cleanedCurrent.length !== templateQuestions.length ||
+        cleanedCurrent.some((question, index) => question !== templateQuestions[index]);
+
+      if (differs && cleanedCurrent.length > 0) {
+        Alert.alert(
+          'Replace follow-up questions?',
+          'Applying this template will replace the questions you have customised.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Use template',
+              style: 'destructive',
+              onPress: () => {
+                setFollowUpQuestions(templateQuestions);
+                setActiveTemplateId(templateId);
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      setFollowUpQuestions(templateQuestions);
+      setActiveTemplateId(templateId);
+    },
+    [followUpQuestions]
+  );
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
-      const questions = parseScriptToQuestions(script);
+      const questions = followUpQuestions.map(question => question.trim()).filter(Boolean);
       const voiceProfileId = selectedVoice === 'custom_voice' ? activeVoiceProfileId : null;
 
       await ReceptionistService.savePreferences({
@@ -174,10 +271,14 @@ export const ReceptionistScreen: React.FC = () => {
   };
 
   const handleSimulateCall = () => {
+    const talkingPoints = followUpQuestions
+      .map(question => question.trim())
+      .filter(Boolean);
+
     Alert.alert(
       'Call simulation',
       `${selectedVoiceLabel} will say:\n\n"${greeting}"` +
-        `\n\nTalking points:\n${script.split('\n').map(line => `• ${line}`).join('\n')}`,
+        (talkingPoints.length ? `\n\nTalking points:\n${talkingPoints.map(point => `• ${point}`).join('\n')}` : ''),
       [{ text: 'Okay' }]
     );
   };
@@ -265,14 +366,70 @@ export const ReceptionistScreen: React.FC = () => {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Conversation flow</Text>
         <Text style={styles.cardHint}>
-          These talking points keep Flynn on-brand while capturing the details you need.
+          Choose a template and tailor the follow-up questions Flynn uses to capture event details.
         </Text>
-        <FlynnInput
-          multiline
-          numberOfLines={6}
-          value={script}
-          onChangeText={setScript}
-          placeholder={defaultScript.join('\n')}
+
+        <Text style={styles.sectionLabel}>Start from a template</Text>
+        <View style={styles.templateList}>
+          {FOLLOW_UP_TEMPLATES.map(template => {
+            const isSelected = activeTemplateId === template.id;
+            return (
+              <TouchableOpacity
+                key={template.id}
+                style={[styles.templateChip, isSelected && styles.templateChipSelected]}
+                onPress={() => handleApplyTemplate(template.id)}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.templateChipLabel, isSelected && styles.templateChipLabelSelected]}>
+                  {template.label}
+                </Text>
+                <Text
+                  style={[styles.templateChipDescription, isSelected && styles.templateChipDescriptionSelected]}
+                >
+                  {template.description}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={styles.sectionLabel}>Customise the questions</Text>
+        {followUpQuestions.map((question, index) => {
+          const canRemove = followUpQuestions.length > 1;
+          return (
+            <View key={`question-${index}`} style={styles.questionRow}>
+              <FlynnInput
+                multiline
+                numberOfLines={2}
+                value={question}
+                onChangeText={value => handleQuestionChange(index, value)}
+                placeholder={`Follow-up question ${index + 1}`}
+                containerStyle={styles.questionInputContainer}
+              />
+              <TouchableOpacity
+                onPress={() => handleRemoveQuestion(index)}
+                style={[styles.removeQuestionButton, !canRemove && styles.removeQuestionButtonDisabled]}
+                disabled={!canRemove}
+                activeOpacity={0.7}
+              >
+                <FlynnIcon
+                  name="trash"
+                  size={18}
+                  color={canRemove ? '#dc2626' : '#94a3b8'}
+                />
+              </TouchableOpacity>
+            </View>
+          );
+        })}
+
+        <FlynnButton
+          title="Add question"
+          variant="secondary"
+          icon={<FlynnIcon name="add" size={18} color="#2563eb" />}
+          onPress={handleAddQuestion}
+          size="small"
+          style={styles.addQuestionButton}
+          textStyle={styles.addQuestionButtonText}
         />
       </View>
 
@@ -304,7 +461,7 @@ export const ReceptionistScreen: React.FC = () => {
         </View>
       </View>
 
-     <View style={styles.actions}>
+      <View style={styles.actions}>
         <FlynnButton title="Play test message" onPress={handleSimulateCall} variant="secondary" />
         <FlynnButton title={isSaving ? 'Saving…' : 'Save profile'} onPress={handleSaveProfile} variant="primary" disabled={isSaving} />
       </View>
@@ -524,6 +681,75 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: '#64748b',
     marginBottom: spacing.md,
+  },
+  sectionLabel: {
+    ...typography.caption,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: '#1d4ed8',
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  templateList: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  templateChip: {
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    backgroundColor: '#f8fbff',
+  },
+  templateChipSelected: {
+    borderColor: '#2563eb',
+    backgroundColor: '#e0f2fe',
+  },
+  templateChipLabel: {
+    ...typography.bodyMedium,
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  templateChipLabelSelected: {
+    color: '#1d4ed8',
+  },
+  templateChipDescription: {
+    ...typography.bodySmall,
+    color: '#475569',
+    marginTop: spacing.xxxs,
+  },
+  templateChipDescriptionSelected: {
+    color: '#1d4ed8',
+  },
+  questionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  questionInputContainer: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  removeQuestionButton: {
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: '#fee2e2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 48,
+    width: 48,
+  },
+  removeQuestionButtonDisabled: {
+    backgroundColor: '#f1f5f9',
+  },
+  addQuestionButton: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+  },
+  addQuestionButtonText: {
+    color: '#2563eb',
+    fontWeight: '600',
   },
   listItem: {
     flexDirection: 'row',
