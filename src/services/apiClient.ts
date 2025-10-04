@@ -1,6 +1,5 @@
 import { AuthTokenStorage } from './authTokenStorage';
-import { APP_BASE_URL } from '@env';
-import Constants from 'expo-constants';
+import { API_BASE_URL } from '../config/env';
 import NetInfo from '@react-native-community/netinfo';
 
 declare const __DEV__: boolean | undefined;
@@ -16,15 +15,12 @@ const normalizeBaseUrl = (url?: string | null) => {
 };
 
 const resolveBaseUrl = () => {
-  const configBaseUrl = (Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined)?.apiBaseUrl;
-  const runtimeBaseUrl = APP_BASE_URL || configBaseUrl;
-
-  if (!runtimeBaseUrl) {
-    console.warn('[API] APP_BASE_URL is not set. Requests will fail until configured.');
+  if (!API_BASE_URL) {
+    console.warn('[API] API_BASE_URL is not set. Requests will fail until configured.');
     return '';
   }
 
-  return normalizeBaseUrl(runtimeBaseUrl);
+  return normalizeBaseUrl(API_BASE_URL);
 };
 
 const baseUrl = resolveBaseUrl();
@@ -104,7 +100,7 @@ const isRetryableError = (error: unknown): boolean => {
 
 const buildUrl = (path: string) => {
   if (!baseUrl) {
-    throw new Error('API base URL is not configured. Set APP_BASE_URL in your environment.');
+    throw new Error('API base URL is not configured. Set API_BASE_URL in your environment.');
   }
 
   if (!path.startsWith('/')) {
