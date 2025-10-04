@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { OPENAI_API_KEY } from '@env';
+import { OPENAI_API_KEY } from '../config/env';
 
 // Lazy initialization of OpenAI client
 let openai: OpenAI | null = null;
