@@ -171,6 +171,26 @@ export const ReceptionistService = {
 
     return data ?? null;
   },
+
+  async previewGreeting(text: string, voiceOption: string, voiceProfileId?: string | null) {
+    if (!text?.trim()) {
+      throw new Error('Enter a greeting script before playing a preview.');
+    }
+
+    const payload: Record<string, unknown> = {
+      text,
+      voiceOption,
+    };
+
+    if (voiceProfileId) {
+      payload.voiceProfileId = voiceProfileId;
+    }
+
+    return apiRequest<{ audio: string; contentType: string }>('/voice/preview', {
+      method: 'POST',
+      body: payload,
+    });
+  },
 };
 
 export default ReceptionistService;

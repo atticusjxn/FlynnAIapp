@@ -5,7 +5,6 @@ const { randomUUID } = require('crypto');
 const OpenAI = require('openai');
 const { toFile } = require('openai');
 const { createClient } = require('@supabase/supabase-js');
-const FormData = require('form-data');
 const path = require('path');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
@@ -30,6 +29,22 @@ const {
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 
 dotenv.config();
+
+const decodeSupabaseRole = (key) => {
+  if (!key) {
+    console.warn('[Supabase] SUPABASE_SERVICE_ROLE_KEY is not set');
+    return;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(key.split('.')[1], 'base64url').toString());
+    console.log('[Supabase] Service key role detected:', payload?.role || 'unknown');
+  } catch (error) {
+    console.warn('[Supabase] Failed to decode service key role', error);
+  }
+};
+
+decodeSupabaseRole(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 if (process.env.SERVER_PUBLIC_URL) {
   console.log('[Telephony] SERVER_PUBLIC_URL configured:', process.env.SERVER_PUBLIC_URL);
@@ -60,8 +75,21 @@ const voicemailBucket = process.env.VOICEMAIL_STORAGE_BUCKET || 'voicemails';
 const voicemailSignedUrlTtlSeconds = parseIntegerEnv(process.env.VOICEMAIL_SIGNED_URL_TTL_SECONDS, 3600);
 const voicemailRetentionDays = parseIntegerEnv(process.env.VOICEMAIL_RETENTION_DAYS, 30);
 
+const supabaseClientOptions = {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+  global: {
+    headers: {
+      apikey: supabaseServiceKey,
+      Authorization: `Bearer ${supabaseServiceKey}`,
+    },
+  },
+};
+
 const supabaseStorageClient = supabaseUrl && supabaseServiceKey
-  ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
+  ? createClient(supabaseUrl, supabaseServiceKey, supabaseClientOptions)
   : null;
 
 if (!twilioAccountSid || !twilioAuthToken) {
@@ -84,6 +112,11 @@ const twilioMessagingClient = twilioAccountSid && twilioAuthToken
 const voiceProfileBucket = process.env.VOICE_PROFILE_BUCKET || 'voice-profiles';
 const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
 const elevenLabsModelId = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
+const presetReceptionistVoices = {
+  koala_warm: process.env.ELEVENLABS_VOICE_KOALA_WARM_ID,
+  koala_expert: process.env.ELEVENLABS_VOICE_KOALA_EXPERT_ID,
+  koala_hype: process.env.ELEVENLABS_VOICE_KOALA_HYPE_ID,
+};
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -475,16 +508,25 @@ app.post('/voice/profiles/:voiceProfileId/clone', authenticateJwt, async (req, r
     if (elevenLabsModelId) {
       form.append('model_id', elevenLabsModelId);
     }
-    form.append('files', sampleBuffer, {
-      filename: fileName,
-      contentType: 'audio/m4a',
-    });
+
+    let filePart;
+    if (typeof File !== 'undefined') {
+      filePart = new File([sampleBuffer], fileName, { type: 'audio/m4a' });
+    } else if (typeof Blob !== 'undefined') {
+      filePart = new Blob([sampleBuffer], { type: 'audio/m4a' });
+    } else {
+      filePart = sampleBuffer;
+    }
+
+    form.append('files', filePart, fileName);
+
+    const formHeaders = typeof form.getHeaders === 'function' ? form.getHeaders() : undefined;
 
     const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
       method: 'POST',
       headers: {
         'xi-api-key': elevenLabsApiKey,
-        ...form.getHeaders(),
+        ...(formHeaders || {}),
       },
       body: form,
     });
@@ -536,6 +578,106 @@ app.post('/voice/profiles/:voiceProfileId/clone', authenticateJwt, async (req, r
     }
 
     return res.status(500).json({ error: 'Failed to clone voice profile' });
+  }
+});
+
+app.post('/voice/preview', authenticateJwt, async (req, res) => {
+  if (!elevenLabsApiKey) {
+    console.error('[VoicePreview] ELEVENLABS_API_KEY not configured');
+    return res.status(500).json({ error: 'Voice preview unavailable' });
+  }
+
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { text, voiceOption, voiceProfileId } = req.body || {};
+
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    return res.status(400).json({ error: 'Preview text is required' });
+  }
+
+  if (!voiceOption || typeof voiceOption !== 'string') {
+    return res.status(400).json({ error: 'Voice option is required' });
+  }
+
+  try {
+    let voiceId;
+
+    if (voiceOption === 'custom_voice') {
+      if (!voiceProfileId) {
+        return res.status(400).json({ error: 'Custom voice profile is required' });
+      }
+
+      if (!supabaseStorageClient) {
+        console.error('[VoicePreview] Supabase client not configured');
+        return res.status(500).json({ error: 'Voice preview unavailable' });
+      }
+
+      const { data: profile, error: profileError } = await supabaseStorageClient
+        .from('voice_profiles')
+        .select('id, user_id, status, voice_id')
+        .eq('id', voiceProfileId)
+        .single();
+
+      if (profileError || !profile) {
+        console.warn('[VoicePreview] Voice profile not found', { voiceProfileId, profileError });
+        return res.status(404).json({ error: 'Voice profile not found' });
+      }
+
+      if (profile.user_id !== userId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      if (profile.status !== 'ready' || !profile.voice_id) {
+        return res.status(400).json({ error: 'Voice profile is not ready for playback' });
+      }
+
+      voiceId = profile.voice_id;
+    } else {
+      voiceId = presetReceptionistVoices[voiceOption];
+
+      if (!voiceId) {
+        console.warn('[VoicePreview] No preset voice configured for option', voiceOption);
+        return res.status(400).json({ error: 'This voice does not support previews yet' });
+      }
+    }
+
+    const previewResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': elevenLabsApiKey,
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: elevenLabsModelId,
+        voice_settings: {
+          stability: 0.4,
+          similarity_boost: 0.8,
+        },
+      }),
+    });
+
+    if (!previewResponse.ok) {
+      const errorPayload = await previewResponse.text();
+      console.error('[VoicePreview] ElevenLabs preview failed', {
+        status: previewResponse.status,
+        body: errorPayload,
+      });
+      return res.status(previewResponse.status).json({ error: 'Voice preview failed', details: errorPayload });
+    }
+
+    const arrayBuffer = await previewResponse.arrayBuffer();
+    const base64Audio = Buffer.from(arrayBuffer).toString('base64');
+    const contentType = previewResponse.headers.get('content-type') || 'audio/mpeg';
+
+    return res.json({ audio: base64Audio, contentType });
+  } catch (error) {
+    console.error('[VoicePreview] Unexpected error', { error });
+    return res.status(500).json({ error: 'Failed to generate voice preview' });
   }
 });
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Switch,
   Modal,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { FlynnIcon } from '../components/ui/FlynnIcon';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -17,6 +18,10 @@ import { FlynnButton } from '../components/ui/FlynnButton';
 import { spacing, typography, borderRadius } from '../theme';
 import ReceptionistService, { VoiceProfile } from '../services/ReceptionistService';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import * as FileSystem from 'expo-file-system/legacy';
+
+const KOALA_ANIMATION = require('../../assets/images/koala3s.gif');
+const KOALA_STATIC = require('../../assets/images/icon.png');
 
 const BASE_VOICE_OPTIONS = [
   { id: 'koala_warm', label: 'Avery — Warm & Friendly' },
@@ -104,9 +109,27 @@ export const ReceptionistScreen: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isUploadingSample, setIsUploadingSample] = useState(false);
+  const [isKoalaTalking, setIsKoalaTalking] = useState(false);
+  const previewSoundRef = useRef<Audio.Sound | null>(null);
+  const previewUriRef = useRef<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
 
   useEffect(() => {
     refreshVoiceProfiles();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (previewSoundRef.current) {
+        previewSoundRef.current.unloadAsync().catch(() => {});
+        previewSoundRef.current = null;
+      }
+      if (previewUriRef.current) {
+        FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        previewUriRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -270,7 +293,130 @@ export const ReceptionistScreen: React.FC = () => {
     }
   };
 
+  const stopPreview = useCallback(async () => {
+    const sound = previewSoundRef.current;
+    if (!sound) {
+      return;
+    }
+
+    try {
+      const status = await sound.getStatusAsync();
+      if (status.isLoaded) {
+        await sound.stopAsync();
+      }
+    } catch (error) {
+      console.warn('[ReceptionistScreen] Failed to stop preview', error);
+    } finally {
+      sound.unloadAsync().catch(() => {});
+      previewSoundRef.current = null;
+      if (previewUriRef.current) {
+        FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        previewUriRef.current = null;
+      }
+      setIsKoalaTalking(false);
+      setIsPreviewPlaying(false);
+    }
+  }, []);
+
+  const handlePlayGreeting = useCallback(async () => {
+    if (isPreviewLoading) {
+      return;
+    }
+
+    if (isPreviewPlaying) {
+      await stopPreview();
+      return;
+    }
+
+    const trimmedGreeting = greeting.trim();
+    if (!trimmedGreeting) {
+      Alert.alert('Greeting missing', 'Add a greeting script before playing a preview.');
+      return;
+    }
+
+    const voiceProfileId = selectedVoice === 'custom_voice'
+      ? (customVoiceProfile?.id ?? activeVoiceProfileId ?? undefined)
+      : undefined;
+
+    if (selectedVoice === 'custom_voice' && customVoiceProfile?.status !== 'ready') {
+      Alert.alert('Voice not ready', 'Finish cloning your custom voice before playing a preview.');
+      return;
+    }
+
+    setIsPreviewLoading(true);
+
+    try {
+      if (previewSoundRef.current) {
+        await stopPreview();
+      }
+
+      const preview = await ReceptionistService.previewGreeting(trimmedGreeting, selectedVoice, voiceProfileId);
+
+      if (previewUriRef.current) {
+        await FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        previewUriRef.current = null;
+      }
+
+      const extension = preview.contentType.includes('wav') ? 'wav' : preview.contentType.includes('ogg') ? 'ogg' : 'mp3';
+      const base64Encoding = (FileSystem as any).EncodingType?.Base64 ?? 'base64';
+      const fileUri = `${FileSystem.cacheDirectory}receptionist-preview-${Date.now()}.${extension}`;
+      await FileSystem.writeAsStringAsync(fileUri, preview.audio, { encoding: base64Encoding });
+      previewUriRef.current = fileUri;
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+      });
+
+      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+      previewSoundRef.current = sound;
+      setIsPreviewPlaying(true);
+      setIsKoalaTalking(true);
+
+      sound.setOnPlaybackStatusUpdate(status => {
+        if (!status.isLoaded) {
+          if (status.error) {
+            console.warn('[ReceptionistScreen] Preview playback error', status.error);
+          }
+          return;
+        }
+
+        if (status.didJustFinish) {
+          stopPreview().catch(() => {});
+        }
+      });
+
+      await sound.playAsync();
+    } catch (error) {
+      console.error('[ReceptionistScreen] Failed to play greeting preview', error);
+      stopPreview().catch(() => {});
+      Alert.alert('Preview failed', error instanceof Error ? error.message : 'Unable to play the greeting right now.');
+      setIsKoalaTalking(false);
+      setIsPreviewPlaying(false);
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  }, [
+    activeVoiceProfileId,
+    customVoiceProfile,
+    greeting,
+    isPreviewLoading,
+    isPreviewPlaying,
+    selectedVoice,
+    stopPreview,
+  ]);
+
   const handleSimulateCall = () => {
+    if (isPreviewPlaying) {
+      stopPreview().catch(() => {});
+    }
+
+    setIsKoalaTalking(true);
     const talkingPoints = followUpQuestions
       .map(question => question.trim())
       .filter(Boolean);
@@ -279,7 +425,15 @@ export const ReceptionistScreen: React.FC = () => {
       'Call simulation',
       `${selectedVoiceLabel} will say:\n\n"${greeting}"` +
         (talkingPoints.length ? `\n\nTalking points:\n${talkingPoints.map(point => `• ${point}`).join('\n')}` : ''),
-      [{ text: 'Okay' }]
+      [
+        {
+          text: 'Okay',
+          onPress: () => setIsKoalaTalking(false),
+        },
+      ],
+      {
+        onDismiss: () => setIsKoalaTalking(false),
+      }
     );
   };
 
@@ -287,7 +441,11 @@ export const ReceptionistScreen: React.FC = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.heroCard}>
         <View style={styles.heroAvatar}>
-          <FlynnIcon name="paw" size={32} color="#fb923c" />
+          <Image
+            source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
+            style={styles.heroAvatarImage}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.heroTextWrapper}>
           <Text style={styles.heroTitle}>Koala Concierge</Text>
@@ -295,6 +453,27 @@ export const ReceptionistScreen: React.FC = () => {
             Manage the voice, behaviour, and scripts your AI receptionist uses on every call.
           </Text>
         </View>
+        <TouchableOpacity
+          style={styles.previewButton}
+          onPress={handlePlayGreeting}
+          activeOpacity={0.85}
+          disabled={isPreviewLoading}
+        >
+          {isPreviewLoading ? (
+            <ActivityIndicator color="#2563eb" size="small" />
+          ) : (
+            <View style={styles.previewButtonContent}>
+              <FlynnIcon
+                name={isPreviewPlaying ? 'pause-circle' : 'play-circle'}
+                size={22}
+                color="#2563eb"
+              />
+              <Text style={styles.previewButtonLabel}>
+                {isPreviewPlaying ? 'Stop' : 'Play greeting'}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       <View style={styles.card}>
@@ -309,11 +488,6 @@ export const ReceptionistScreen: React.FC = () => {
               onPress={() => setSelectedVoice(option.id)}
               activeOpacity={0.85}
             >
-              <FlynnIcon
-                name={isSelected ? 'radio-button-on' : 'radio-button-off'}
-                size={22}
-                color={isSelected ? '#3B82F6' : '#94a3b8'}
-              />
               <Text style={styles.listItemLabel}>{option.label}</Text>
             </TouchableOpacity>
           );
@@ -639,14 +813,22 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1,
     borderColor: '#fed7aa',
+    alignItems: 'center',
   },
   heroAvatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#fb923c',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+  },
+  heroAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
   heroTextWrapper: {
     flex: 1,
@@ -659,6 +841,25 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     color: '#b45309',
     marginTop: spacing.xs,
+  },
+  previewButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.lg,
+    backgroundColor: '#eef2ff',
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+  },
+  previewButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxxs,
+  },
+  previewButtonLabel: {
+    ...typography.caption,
+    color: '#2563eb',
+    fontWeight: '600',
+    marginLeft: spacing.xxxs,
   },
   card: {
     backgroundColor: '#ffffff',
