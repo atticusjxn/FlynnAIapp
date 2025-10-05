@@ -10,9 +10,12 @@ import {
   Modal,
   ActivityIndicator,
   Image,
+  Animated,
 } from 'react-native';
 import { FlynnIcon } from '../components/ui/FlynnIcon';
 import { useOnboarding } from '../context/OnboardingContext';
+import { useAuth } from '../context/AuthContext';
+import { buildDefaultGreeting } from '../utils/greetingDefaults';
 import { FlynnInput } from '../components/ui/FlynnInput';
 import { FlynnButton } from '../components/ui/FlynnButton';
 import { spacing, typography, borderRadius } from '../theme';
@@ -22,6 +25,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 const KOALA_ANIMATION = require('../../assets/images/koala3s.gif');
 const KOALA_STATIC = require('../../assets/images/icon.png');
+const KOALA_LOOP_DURATION_MS = 3000;
 
 const BASE_VOICE_OPTIONS = [
   { id: 'koala_warm', label: 'Avery — Warm & Friendly' },
@@ -79,13 +83,14 @@ const matchTemplateId = (questions: string[]): string => {
 };
 
 export const ReceptionistScreen: React.FC = () => {
+  const { user } = useAuth();
   const { onboardingData, updateOnboardingData } = useOnboarding();
   const [selectedVoice, setSelectedVoice] = useState<string>(
     onboardingData.receptionistVoice || BASE_VOICE_OPTIONS[0].id
   );
-  const [greeting, setGreeting] = useState(
-    onboardingData.receptionistGreeting || 'Hi, you have reached Flynn — how can we lend a hand today?'
-  );
+  const defaultGreeting = useMemo(() => buildDefaultGreeting(user), [user]);
+
+  const [greeting, setGreeting] = useState(onboardingData.receptionistGreeting || defaultGreeting);
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>(() => {
     const existing = onboardingData.receptionistQuestions;
     const source = existing && existing.length > 0 ? existing : DEFAULT_FOLLOW_UP_QUESTIONS;
@@ -110,10 +115,17 @@ export const ReceptionistScreen: React.FC = () => {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isUploadingSample, setIsUploadingSample] = useState(false);
   const [isKoalaTalking, setIsKoalaTalking] = useState(false);
+  const [koalaAnimationKey, setKoalaAnimationKey] = useState(0);
   const previewSoundRef = useRef<Audio.Sound | null>(null);
   const previewUriRef = useRef<string | null>(null);
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [isGreetingPreviewLoading, setIsGreetingPreviewLoading] = useState(false);
+  const [isGreetingPreviewPlaying, setIsGreetingPreviewPlaying] = useState(false);
+  const [questionPreviewLoadingIndex, setQuestionPreviewLoadingIndex] = useState<number | null>(null);
+  const [questionPreviewPlayingIndex, setQuestionPreviewPlayingIndex] = useState<number | null>(null);
+  const [toastState, setToastState] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
+  const koalaLoopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const koalaScale = useRef(new Animated.Value(1)).current;
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     refreshVoiceProfiles();
@@ -129,8 +141,19 @@ export const ReceptionistScreen: React.FC = () => {
         FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
         previewUriRef.current = null;
       }
+      if (koalaLoopTimerRef.current) {
+        clearTimeout(koalaLoopTimerRef.current);
+        koalaLoopTimerRef.current = null;
+      }
+      koalaScale.stopAnimation(() => {
+        koalaScale.setValue(1);
+      });
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
     };
-  }, []);
+  }, [koalaScale]);
 
   useEffect(() => {
     if (onboardingData.receptionistVoice) {
@@ -138,6 +161,8 @@ export const ReceptionistScreen: React.FC = () => {
     }
     if (onboardingData.receptionistGreeting) {
       setGreeting(onboardingData.receptionistGreeting);
+    } else {
+      setGreeting(defaultGreeting);
     }
     if (onboardingData.receptionistQuestions && onboardingData.receptionistQuestions.length > 0) {
       setFollowUpQuestions(onboardingData.receptionistQuestions.map(question => question));
@@ -147,6 +172,7 @@ export const ReceptionistScreen: React.FC = () => {
       setActiveVoiceProfileId(onboardingData.receptionistVoiceProfileId);
     }
   }, [
+    defaultGreeting,
     onboardingData.receptionistVoice,
     onboardingData.receptionistGreeting,
     onboardingData.receptionistQuestions,
@@ -199,11 +225,6 @@ export const ReceptionistScreen: React.FC = () => {
       { id: 'custom_voice', label: customVoiceStatusLabel },
     ];
   }, [customVoiceStatusLabel]);
-
-  const selectedVoiceLabel = useMemo(
-    () => voiceOptions.find(v => v.id === selectedVoice)?.label || 'Avery — Warm & Friendly',
-    [selectedVoice, voiceOptions]
-  );
 
   const handleQuestionChange = useCallback((index: number, value: string) => {
     setFollowUpQuestions(prev => {
@@ -262,6 +283,20 @@ export const ReceptionistScreen: React.FC = () => {
     [followUpQuestions]
   );
 
+  const showToast = useCallback((message: string, tone: 'success' | 'error') => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+
+    setToastState({ message, tone });
+
+    toastTimerRef.current = setTimeout(() => {
+      setToastState(null);
+      toastTimerRef.current = null;
+    }, 4000);
+  }, []);
+
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
@@ -283,15 +318,74 @@ export const ReceptionistScreen: React.FC = () => {
         receptionistQuestions: questions,
         receptionistVoiceProfileId: voiceProfileId,
       });
-
-      Alert.alert('Receptionist updated', 'Your koala concierge will use the new settings on the next call.');
+      showToast('Receptionist settings saved. Flynn will use the new script on the next call.', 'success');
     } catch (error) {
       console.error('[ReceptionistScreen] Failed to save receptionist profile', error);
-      Alert.alert('Save failed', error instanceof Error ? error.message : 'Unable to save receptionist settings.');
+      showToast(
+        error instanceof Error ? error.message : 'Unable to save receptionist settings right now.',
+        'error'
+      );
     } finally {
       setIsSaving(false);
     }
   };
+
+  const clearKoalaLoopTimer = useCallback(() => {
+    if (koalaLoopTimerRef.current) {
+      clearTimeout(koalaLoopTimerRef.current);
+      koalaLoopTimerRef.current = null;
+    }
+  }, []);
+
+  const animateKoalaScale = useCallback(
+    (toValue: number) => {
+      Animated.timing(koalaScale, {
+        toValue,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    },
+    [koalaScale]
+  );
+
+  const stopKoalaAnimation = useCallback(() => {
+    clearKoalaLoopTimer();
+    setIsKoalaTalking(false);
+    animateKoalaScale(1);
+  }, [animateKoalaScale, clearKoalaLoopTimer]);
+
+  const startKoalaAnimationLoop = useCallback(
+    (durationMillis?: number) => {
+      clearKoalaLoopTimer();
+      const loops = durationMillis
+        ? Math.max(1, Math.round(durationMillis / KOALA_LOOP_DURATION_MS))
+        : 1;
+
+      if (!loops) {
+        setIsKoalaTalking(false);
+        return;
+      }
+
+      let remaining = loops;
+      setIsKoalaTalking(true);
+      setKoalaAnimationKey(prev => prev + 1);
+      animateKoalaScale(1.35);
+
+      const scheduleNext = () => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          koalaLoopTimerRef.current = null;
+          return;
+        }
+
+        setKoalaAnimationKey(prev => prev + 1);
+        koalaLoopTimerRef.current = setTimeout(scheduleNext, KOALA_LOOP_DURATION_MS);
+      };
+
+      koalaLoopTimerRef.current = setTimeout(scheduleNext, KOALA_LOOP_DURATION_MS);
+    },
+    [animateKoalaScale, clearKoalaLoopTimer]
+  );
 
   const stopPreview = useCallback(async () => {
     const sound = previewSoundRef.current;
@@ -313,17 +407,20 @@ export const ReceptionistScreen: React.FC = () => {
         FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
         previewUriRef.current = null;
       }
-      setIsKoalaTalking(false);
-      setIsPreviewPlaying(false);
+      stopKoalaAnimation();
+      setIsGreetingPreviewPlaying(false);
+      setIsGreetingPreviewLoading(false);
+      setQuestionPreviewPlayingIndex(null);
+      setQuestionPreviewLoadingIndex(null);
     }
-  }, []);
+  }, [stopKoalaAnimation]);
 
   const handlePlayGreeting = useCallback(async () => {
-    if (isPreviewLoading) {
+    if (isGreetingPreviewLoading) {
       return;
     }
 
-    if (isPreviewPlaying) {
+    if (isGreetingPreviewPlaying) {
       await stopPreview();
       return;
     }
@@ -343,7 +440,9 @@ export const ReceptionistScreen: React.FC = () => {
       return;
     }
 
-    setIsPreviewLoading(true);
+    setIsGreetingPreviewLoading(true);
+    setQuestionPreviewPlayingIndex(null);
+    setQuestionPreviewLoadingIndex(null);
 
     try {
       if (previewSoundRef.current) {
@@ -375,8 +474,12 @@ export const ReceptionistScreen: React.FC = () => {
 
       const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
       previewSoundRef.current = sound;
-      setIsPreviewPlaying(true);
-      setIsKoalaTalking(true);
+      setIsGreetingPreviewPlaying(true);
+      setIsGreetingPreviewLoading(false);
+
+      const playbackStatus = await sound.getStatusAsync();
+      const durationMillis = playbackStatus.isLoaded ? playbackStatus.durationMillis ?? undefined : undefined;
+      startKoalaAnimationLoop(durationMillis);
 
       sound.setOnPlaybackStatusUpdate(status => {
         if (!status.isLoaded) {
@@ -397,56 +500,135 @@ export const ReceptionistScreen: React.FC = () => {
       stopPreview().catch(() => {});
       Alert.alert('Preview failed', error instanceof Error ? error.message : 'Unable to play the greeting right now.');
       setIsKoalaTalking(false);
-      setIsPreviewPlaying(false);
+      setIsGreetingPreviewPlaying(false);
     } finally {
-      setIsPreviewLoading(false);
+      setIsGreetingPreviewLoading(false);
     }
   }, [
     activeVoiceProfileId,
     customVoiceProfile,
     greeting,
-    isPreviewLoading,
-    isPreviewPlaying,
+    isGreetingPreviewLoading,
+    isGreetingPreviewPlaying,
     selectedVoice,
+    stopPreview,
+    startKoalaAnimationLoop,
+  ]);
+
+  const handlePlayQuestion = useCallback(async (index: number) => {
+    const questionText = followUpQuestions[index]?.trim();
+
+    if (questionPreviewLoadingIndex !== null) {
+      return;
+    }
+
+    if (!questionText) {
+      Alert.alert('Question missing', 'Add text to this question before playing a preview.');
+      return;
+    }
+
+    if (questionPreviewPlayingIndex === index) {
+      await stopPreview();
+      return;
+    }
+
+    setIsGreetingPreviewPlaying(false);
+    setQuestionPreviewLoadingIndex(index);
+
+    const voiceProfileId = selectedVoice === 'custom_voice'
+      ? (customVoiceProfile?.id ?? activeVoiceProfileId ?? undefined)
+      : undefined;
+
+    if (selectedVoice === 'custom_voice' && customVoiceProfile?.status !== 'ready') {
+      Alert.alert('Voice not ready', 'Finish cloning your custom voice before playing a preview.');
+      setQuestionPreviewLoadingIndex(null);
+      return;
+    }
+
+    try {
+      if (previewSoundRef.current) {
+        await stopPreview();
+      }
+
+      setQuestionPreviewLoadingIndex(index);
+
+      const preview = await ReceptionistService.previewGreeting(questionText, selectedVoice, voiceProfileId);
+
+      if (previewUriRef.current) {
+        await FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        previewUriRef.current = null;
+      }
+
+      const extension = preview.contentType.includes('wav') ? 'wav' : preview.contentType.includes('ogg') ? 'ogg' : 'mp3';
+      const base64Encoding = (FileSystem as any).EncodingType?.Base64 ?? 'base64';
+      const fileUri = `${FileSystem.cacheDirectory}receptionist-question-${index}-${Date.now()}.${extension}`;
+      await FileSystem.writeAsStringAsync(fileUri, preview.audio, { encoding: base64Encoding });
+      previewUriRef.current = fileUri;
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+      });
+
+      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+      previewSoundRef.current = sound;
+      setQuestionPreviewPlayingIndex(index);
+      setQuestionPreviewLoadingIndex(null);
+
+      const playbackStatus = await sound.getStatusAsync();
+      const durationMillis = playbackStatus.isLoaded ? playbackStatus.durationMillis ?? undefined : undefined;
+      startKoalaAnimationLoop(durationMillis);
+
+      sound.setOnPlaybackStatusUpdate(status => {
+        if (!status.isLoaded) {
+          if (status.error) {
+            console.warn('[ReceptionistScreen] Question preview playback error', status.error);
+          }
+          return;
+        }
+
+        if (status.didJustFinish) {
+          stopPreview().catch(() => {});
+        }
+      });
+
+      await sound.playAsync();
+    } catch (error) {
+      console.error('[ReceptionistScreen] Failed to play question preview', error);
+      stopPreview().catch(() => {});
+      Alert.alert('Preview failed', error instanceof Error ? error.message : 'Unable to play this question right now.');
+      setIsKoalaTalking(false);
+    } finally {
+      setQuestionPreviewLoadingIndex(prev => (prev === index ? null : prev));
+    }
+  }, [
+    activeVoiceProfileId,
+    customVoiceProfile,
+    followUpQuestions,
+    questionPreviewLoadingIndex,
+    questionPreviewPlayingIndex,
+    selectedVoice,
+    startKoalaAnimationLoop,
     stopPreview,
   ]);
 
-  const handleSimulateCall = () => {
-    if (isPreviewPlaying) {
-      stopPreview().catch(() => {});
-    }
-
-    setIsKoalaTalking(true);
-    const talkingPoints = followUpQuestions
-      .map(question => question.trim())
-      .filter(Boolean);
-
-    Alert.alert(
-      'Call simulation',
-      `${selectedVoiceLabel} will say:\n\n"${greeting}"` +
-        (talkingPoints.length ? `\n\nTalking points:\n${talkingPoints.map(point => `• ${point}`).join('\n')}` : ''),
-      [
-        {
-          text: 'Okay',
-          onPress: () => setIsKoalaTalking(false),
-        },
-      ],
-      {
-        onDismiss: () => setIsKoalaTalking(false),
-      }
-    );
-  };
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.heroCard}>
-        <View style={styles.heroAvatar}>
-          <Image
-            source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
+    <View style={styles.screen}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={styles.heroCard}>
+          <Animated.View style={[styles.heroAvatar, { transform: [{ scale: koalaScale }] }]}>
+            <Image
+              key={isKoalaTalking ? `koala-${koalaAnimationKey}` : 'koala-static'}
+              source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
             style={styles.heroAvatarImage}
             resizeMode="contain"
           />
-        </View>
+        </Animated.View>
         <View style={styles.heroTextWrapper}>
           <Text style={styles.heroTitle}>Koala Concierge</Text>
           <Text style={styles.heroSubtitle}>
@@ -457,19 +639,19 @@ export const ReceptionistScreen: React.FC = () => {
           style={styles.previewButton}
           onPress={handlePlayGreeting}
           activeOpacity={0.85}
-          disabled={isPreviewLoading}
+          disabled={isGreetingPreviewLoading}
         >
-          {isPreviewLoading ? (
+          {isGreetingPreviewLoading ? (
             <ActivityIndicator color="#2563eb" size="small" />
           ) : (
             <View style={styles.previewButtonContent}>
               <FlynnIcon
-                name={isPreviewPlaying ? 'pause-circle' : 'play-circle'}
+                name={isGreetingPreviewPlaying ? 'pause-circle' : 'play-circle'}
                 size={22}
                 color="#2563eb"
               />
               <Text style={styles.previewButtonLabel}>
-                {isPreviewPlaying ? 'Stop' : 'Play greeting'}
+                {isGreetingPreviewPlaying ? 'Stop' : 'Play greeting'}
               </Text>
             </View>
           )}
@@ -580,18 +762,36 @@ export const ReceptionistScreen: React.FC = () => {
                 placeholder={`Follow-up question ${index + 1}`}
                 containerStyle={styles.questionInputContainer}
               />
-              <TouchableOpacity
-                onPress={() => handleRemoveQuestion(index)}
-                style={[styles.removeQuestionButton, !canRemove && styles.removeQuestionButtonDisabled]}
-                disabled={!canRemove}
-                activeOpacity={0.7}
-              >
-                <FlynnIcon
-                  name="trash"
-                  size={18}
-                  color={canRemove ? '#dc2626' : '#94a3b8'}
-                />
-              </TouchableOpacity>
+              <View style={styles.questionActions}>
+                <TouchableOpacity
+                  onPress={() => handlePlayQuestion(index)}
+                  style={styles.questionActionButton}
+                  activeOpacity={0.7}
+                  disabled={questionPreviewLoadingIndex !== null && questionPreviewLoadingIndex !== index}
+                >
+                  {questionPreviewLoadingIndex === index ? (
+                    <ActivityIndicator size="small" color="#2563eb" />
+                  ) : (
+                    <FlynnIcon
+                      name={questionPreviewPlayingIndex === index ? 'pause-circle' : 'play-circle'}
+                      size={22}
+                      color="#2563eb"
+                    />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleRemoveQuestion(index)}
+                  style={[styles.removeQuestionButton, !canRemove && styles.removeQuestionButtonDisabled]}
+                  disabled={!canRemove}
+                  activeOpacity={0.7}
+                >
+                  <FlynnIcon
+                    name="trash"
+                    size={18}
+                    color={canRemove ? '#dc2626' : '#94a3b8'}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           );
         })}
@@ -636,7 +836,6 @@ export const ReceptionistScreen: React.FC = () => {
       </View>
 
       <View style={styles.actions}>
-        <FlynnButton title="Play test message" onPress={handleSimulateCall} variant="secondary" />
         <FlynnButton title={isSaving ? 'Saving…' : 'Save profile'} onPress={handleSaveProfile} variant="primary" disabled={isSaving} />
       </View>
 
@@ -728,7 +927,26 @@ export const ReceptionistScreen: React.FC = () => {
         durationMillis={recordingDuration}
         uploading={isUploadingSample}
       />
-    </ScrollView>
+      </ScrollView>
+
+      {toastState && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.toast,
+            toastState.tone === 'success' ? styles.toastSuccess : styles.toastError,
+          ]}
+        >
+          <FlynnIcon
+            name={toastState.tone === 'success' ? 'checkmark-circle' : 'alert-circle'}
+            size={18}
+            color={toastState.tone === 'success' ? '#15803d' : '#b91c1c'}
+            style={styles.toastIcon}
+          />
+          <Text style={styles.toastText}>{toastState.message}</Text>
+        </View>
+      )}
+    </View>
   );
 };
 
@@ -796,6 +1014,10 @@ const RecordVoiceModal: React.FC<RecordVoiceModalProps> = ({
 };
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -932,6 +1154,20 @@ const styles = StyleSheet.create({
     flex: 1,
     marginBottom: 0,
   },
+  questionActions: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: spacing.xs,
+  },
+  questionActionButton: {
+    height: 48,
+    width: 48,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: '#e0f2fe',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   removeQuestionButton: {
     padding: spacing.sm,
     borderRadius: borderRadius.md,
@@ -951,6 +1187,39 @@ const styles = StyleSheet.create({
   addQuestionButtonText: {
     color: '#2563eb',
     fontWeight: '600',
+  },
+  toast: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.lg,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    borderWidth: 1,
+  },
+  toastSuccess: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#bbf7d0',
+  },
+  toastError: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  toastIcon: {
+    marginRight: spacing.xs,
+  },
+  toastText: {
+    ...typography.bodySmall,
+    color: '#0f172a',
+    flex: 1,
   },
   listItem: {
     flexDirection: 'row',

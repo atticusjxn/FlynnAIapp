@@ -233,9 +233,10 @@ export const SettingsScreen: React.FC = () => {
     subtitle?: string,
     rightElement?: React.ReactNode,
     onPress?: () => void,
+    isLast: boolean = false,
   ) => (
     <TouchableOpacity
-      style={styles.settingRow}
+      style={[styles.settingRow, isLast && styles.rowLast]}
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
     >
@@ -250,7 +251,7 @@ export const SettingsScreen: React.FC = () => {
       </View>
       <View style={styles.settingRight}>
         {rightElement}
-        {onPress && <FlynnIcon name="chevron-forward" size={20} color={colors.gray400} />}
+        {onPress ? <FlynnIcon name="chevron-forward" size={20} color={colors.gray400} /> : null}
       </View>
     </TouchableOpacity>
   );
@@ -306,119 +307,85 @@ export const SettingsScreen: React.FC = () => {
         {/* Business configuration */}
         {renderSection('Business configuration', (
           <View style={styles.settingsGroup}>
-            <View style={styles.settingRowStatic}>
-              <View style={styles.settingLeft}>
-                <View style={styles.settingIcon}>
-                  <FlynnIcon name="business-outline" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>Business type</Text>
-                  <Text style={styles.settingSubtitle}>{businessTypeLabel}</Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={handleBusinessSettings}>
-                <FlynnIcon name="chevron-forward" size={20} color={colors.gray400} />
-              </TouchableOpacity>
-            </View>
-
-            {profile?.twilioPhoneNumber ? ( // Check if a Twilio phone number is present
-              <View style={styles.toggleRow}>
-                <View style={styles.settingLeft}>
-                  <View style={styles.settingIcon}>
-                    <FlynnIcon name="call-outline" size={20} color={colors.primary} />
-                  </View>
-                  <View style={styles.settingContent}>
-                    <Text style={styles.settingTitle}>Call forwarding</Text>
-                    <Text style={styles.settingSubtitle}>
-                      {profile?.forwardingActive ? 'Forwarding enabled' : 'Forwarding off'}
-                    </Text>
-                  </View>
-                </View>
-                <Switch
-                  value={profile?.forwardingActive ?? false}
-                  onValueChange={handleForwardingToggle}
-                />
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.settingRow} onPress={handleSetupCallForwarding}>
-                <View style={styles.settingLeft}>
-                  <View style={styles.settingIcon}>
-                    <FlynnIcon name="call-outline" size={20} color={colors.primary} />
-                  </View>
-                  <View style={styles.settingContent}>
-                    <Text style={styles.settingTitle}>Set up call forwarding</Text>
-                    <Text style={styles.settingSubtitle}>Provision a new number for your business</Text>
-                  </View>
-                </View>
-                <FlynnIcon name="chevron-forward" size={20} color={colors.gray400} />
-              </TouchableOpacity>
+            {renderSettingRow(
+              'business-outline',
+              'Business type',
+              businessTypeLabel,
+              undefined,
+              profile ? handleBusinessSettings : undefined,
+              !profile?.twilioPhoneNumber,
             )}
+
+            {profile?.twilioPhoneNumber
+              ? renderSettingRow(
+                  'call-outline',
+                  'Call forwarding',
+                  profile.forwardingActive ? 'Forwarding enabled' : 'Forwarding off',
+                  <Switch
+                    value={profile.forwardingActive}
+                    onValueChange={handleForwardingToggle}
+                  />,
+                  undefined,
+                  true,
+                )
+              : renderSettingRow(
+                  'call-outline',
+                  'Set up call forwarding',
+                  'Provision a new number for your business',
+                  undefined,
+                  handleSetupCallForwarding,
+                  true,
+                )}
           </View>
         ))}
 
         {/* Notification preferences */}
         {renderSection('Notifications', (
           <View style={styles.settingsGroup}>
-            <View style={styles.toggleRow}>
-              <View style={styles.settingLeft}>
-                <View style={styles.settingIcon}>
-                  <FlynnIcon name="notifications-outline" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>Push notifications</Text>
-                  <Text style={styles.settingSubtitle}>
-                    {pushStatus ? (
-                      !pushStatus.isDevice
-                        ? 'Only available on physical devices'
-                        : !pushStatus.permissionGranted
-                        ? 'Permission not granted - tap to enable'
-                        : pushStatus.tokenRegistered
-                        ? 'Active and registered'
-                        : 'Permission granted - registration pending'
-                    ) : (
-                      'Device alerts about new jobs and activity'
-                    )}
-                  </Text>
-                </View>
-              </View>
+            {renderSettingRow(
+              'notifications-outline',
+              'Push notifications',
+              pushStatus
+                ? !pushStatus.isDevice
+                  ? 'Only available on physical devices'
+                  : !pushStatus.permissionGranted
+                    ? 'Permission not granted - tap to enable'
+                    : pushStatus.tokenRegistered
+                      ? 'Active and registered'
+                      : 'Permission granted - registration pending'
+                : 'Device alerts about new jobs and activity',
               <Switch
                 value={notificationPrefs.push}
                 onValueChange={value => handleNotificationToggle('push', value)}
                 disabled={!pushStatus?.isDevice || !pushStatus?.permissionGranted}
-              />
-            </View>
+              />,
+              undefined,
+              false,
+            )}
 
-            <View style={styles.toggleRow}>
-              <View style={styles.settingLeft}>
-                <View style={styles.settingIcon}>
-                  <FlynnIcon name="mail-outline" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>Email updates</Text>
-                  <Text style={styles.settingSubtitle}>Receive booking confirmations via email</Text>
-                </View>
-              </View>
+            {renderSettingRow(
+              'mail-outline',
+              'Email updates',
+              'Receive booking confirmations via email',
               <Switch
                 value={notificationPrefs.email}
                 onValueChange={value => handleNotificationToggle('email', value)}
-              />
-            </View>
+              />,
+              undefined,
+              false,
+            )}
 
-            <View style={styles.toggleRow}>
-              <View style={styles.settingLeft}>
-                <View style={styles.settingIcon}>
-                  <FlynnIcon name="chatbubble-outline" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingTitle}>SMS alerts</Text>
-                  <Text style={styles.settingSubtitle}>Text message reminders for key activity</Text>
-                </View>
-              </View>
+            {renderSettingRow(
+              'chatbubble-outline',
+              'SMS alerts',
+              'Text message reminders for key activity',
               <Switch
                 value={notificationPrefs.sms}
                 onValueChange={value => handleNotificationToggle('sms', value)}
-              />
-            </View>
+              />,
+              undefined,
+              true,
+            )}
 
             {savingNotifications && (
               <Text style={styles.savingText}>Saving notification preferences…</Text>
@@ -427,26 +394,24 @@ export const SettingsScreen: React.FC = () => {
         ))}
         {/* Appearance */}
         {renderSection('Appearance', (
-          <View style={styles.toggleRow}>
-            <View style={styles.settingLeft}>
-              <View style={styles.settingIcon}>
-                <FlynnIcon name="moon-outline" size={20} color={colors.primary} />
-              </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Dark mode</Text>
-                <Text style={styles.settingSubtitle}>{isDark ? 'Enabled' : 'Disabled'}</Text>
-              </View>
-            </View>
-            <Switch value={isDark} onValueChange={toggleTheme} />
+          <View style={styles.settingsGroup}>
+            {renderSettingRow(
+              'moon-outline',
+              'Dark mode',
+              isDark ? 'Enabled' : 'Disabled',
+              <Switch value={isDark} onValueChange={toggleTheme} />,
+              undefined,
+              true,
+            )}
           </View>
         ))}
 
         {/* Support */}
         {renderSection('Support', (
           <View style={styles.settingsGroup}>
-            {renderSettingRow('information-circle-outline', 'Help center', 'Guides and FAQs', undefined, () => Alert.alert('Help', 'Visit flynn.ai/help for more information.'))}
-            {renderSettingRow('chatbubbles-outline', 'Contact support', 'support@flynnai.com', undefined, () => Alert.alert('Support', 'Email support@flynnai.com with any issues.'))}
-            {renderSettingRow('document-text-outline', 'Data export', 'Download your data as CSV or PDF', undefined, handleDataExport)}
+            {renderSettingRow('information-circle-outline', 'Help center', 'Guides and FAQs', undefined, () => Alert.alert('Help', 'Visit flynn.ai/help for more information.'), false)}
+            {renderSettingRow('chatbubbles-outline', 'Contact support', 'support@flynnai.com', undefined, () => Alert.alert('Support', 'Email support@flynnai.com with any issues.'), false)}
+            {renderSettingRow('document-text-outline', 'Data export', 'Download your data as CSV or PDF', undefined, handleDataExport, true)}
           </View>
         ))}
 
@@ -481,8 +446,8 @@ export const SettingsScreen: React.FC = () => {
                   },
                 ]
               );
-            })}
-            {renderSettingRow('log-out-outline', 'Sign out', undefined, undefined, handleSignOut)}
+            }, false)}
+            {renderSettingRow('log-out-outline', 'Sign out', undefined, undefined, handleSignOut, true)}
           </View>
         ))}
 
@@ -656,17 +621,8 @@ const createStyles = (colors: any) => StyleSheet.create({
   settingsGroup: {
     backgroundColor: colors.card,
     borderRadius: borderRadius.lg,
-    paddingVertical: spacing.sm,
+    overflow: 'hidden',
     ...shadows.sm,
-  },
-  settingRowStatic: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   settingRow: {
     flexDirection: 'row',
@@ -676,6 +632,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  rowLast: {
+    borderBottomWidth: 0,
   },
   settingLeft: {
     flexDirection: 'row',
@@ -707,15 +666,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   savingText: {
     ...typography.bodySmall,

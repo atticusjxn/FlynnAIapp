@@ -14,6 +14,8 @@ import { FlynnButton } from '../../components/ui/FlynnButton';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { spacing, typography, borderRadius } from '../../theme';
 import ReceptionistService from '../../services/ReceptionistService';
+import { useAuth } from '../../context/AuthContext';
+import { buildDefaultGreeting } from '../../utils/greetingDefaults';
 
 interface ReceptionistSetupScreenProps {
   onComplete: () => void;
@@ -38,12 +40,14 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
   onComplete,
   onBack,
 }) => {
+  const { user } = useAuth();
   const { onboardingData, updateOnboardingData } = useOnboarding();
   const [selectedVoice, setSelectedVoice] = useState<string>(
     onboardingData.receptionistVoice || voiceOptions[0].id
   );
+  const defaultGreeting = useMemo(() => buildDefaultGreeting(user), [user]);
   const [greeting, setGreeting] = useState(
-    onboardingData.receptionistGreeting || 'Hi, you have reached Flynn — how can I help you today?'
+    onboardingData.receptionistGreeting || defaultGreeting
   );
   const [customQuestion, setCustomQuestion] = useState('');
   const [questions, setQuestions] = useState<string[]>(
@@ -58,6 +62,14 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
       setQuestions(onboardingData.receptionistQuestions);
     }
   }, [onboardingData.receptionistQuestions]);
+
+  useEffect(() => {
+    if (onboardingData.receptionistGreeting) {
+      setGreeting(onboardingData.receptionistGreeting);
+    } else {
+      setGreeting(defaultGreeting);
+    }
+  }, [defaultGreeting, onboardingData.receptionistGreeting]);
 
   const canRecordOwnVoice = useMemo(() => selectedVoice === 'custom_voice', [selectedVoice]);
 
