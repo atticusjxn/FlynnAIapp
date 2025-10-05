@@ -25,7 +25,8 @@ const clearModule = (modulePath) => {
   }
 };
 
-const loadServer = (envOverrides = {}) => {
+const loadServer = (envOverrides = {}, options = {}) => {
+  const { setupMocks } = options;
   jest.resetModules();
 
   Object.keys(BASE_ENV).forEach((key) => {
@@ -46,6 +47,10 @@ const loadServer = (envOverrides = {}) => {
   clearModule('@supabase/supabase-js');
   clearModule('openai');
   clearModule('../telephony/jobCreation');
+
+  if (typeof setupMocks === 'function') {
+    setupMocks();
+  }
 
   const mocks = require('./testAppMocks');
   mocks.resetAllMocks();

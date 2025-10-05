@@ -24,6 +24,11 @@ import {
   resolveBusinessTypeLabel,
   updateNotificationSettings,
   updateUserProfile,
+  SmartRoutingSettings,
+  SmartRoutingMode,
+  AfterHoursMode,
+  SmartRoutingScheduleConfig,
+  updateSmartRoutingSettings,
 } from '../services/settingsService';
 
 interface NotificationPrefs {
@@ -31,6 +36,11 @@ interface NotificationPrefs {
   email: boolean;
   sms: boolean;
 }
+
+type ScheduleValidationResult = {
+  schedule: SmartRoutingScheduleConfig | null;
+  error: 'invalid_time' | null;
+};
 
 const getInitials = (name?: string, email?: string) => {
   const source = name || email || '';
@@ -62,6 +72,7 @@ export const SettingsScreen: React.FC = () => {
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({ push: false, email: true, sms: true });
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
+  const [savingRouting, setSavingRouting] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editBusinessName, setEditBusinessName] = useState('');
   const [editBusinessType, setEditBusinessType] = useState('');
@@ -71,6 +82,13 @@ export const SettingsScreen: React.FC = () => {
     tokenRegistered: boolean;
     isDevice: boolean;
   } | null>(null);
+  const [smartRouting, setSmartRouting] = useState<SmartRoutingSettings | null>(null);
+  const [routingMode, setRoutingMode] = useState<SmartRoutingMode>('smart_auto');
+  const [afterHoursMode, setAfterHoursMode] = useState<AfterHoursMode>('voicemail');
+  const [routingEnabled, setRoutingEnabled] = useState(true);
+  const [businessTimezone, setBusinessTimezone] = useState('America/Los_Angeles');
+  const [businessHoursStart, setBusinessHoursStart] = useState('09:00');
+  const [businessHoursEnd, setBusinessHoursEnd] = useState('17:00');
 
   const loadSettings = async () => {
     if (!user?.id) {
@@ -90,6 +108,20 @@ export const SettingsScreen: React.FC = () => {
         email: notifications.email ?? true,
         sms: notifications.sms ?? true,
       });
+      setSmartRouting(data.smartRouting);
+      if (data.smartRouting) {
+        setRoutingMode(data.smartRouting.mode);
+        setAfterHoursMode(data.smartRouting.afterHoursMode);
+        setRoutingEnabled(data.smartRouting.featureEnabled !== false);
+        if (data.smartRouting.schedule) {
+          setBusinessTimezone(data.smartRouting.schedule.timezone);
+          const firstWindow = data.smartRouting.schedule.windows[0];
+          if (firstWindow) {
+            setBusinessHoursStart(firstWindow.start || '09:00');
+            setBusinessHoursEnd(firstWindow.end || '17:00');
+          }
+        }
+      }
     } catch (error) {
       console.error('[Settings] Failed to load settings', error);
       setProfileError('Unable to load your settings right now. Pull to refresh or try again later.');
@@ -171,6 +203,81 @@ export const SettingsScreen: React.FC = () => {
       Alert.alert('Update failed', 'Unable to update notification settings right now.');
     } finally {
       setSavingNotifications(false);
+    }
+  };
+
+  const TIME_INPUT_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+  const buildSchedulePayload = (): ScheduleValidationResult => {
+    if (!routingEnabled) {
+      return { schedule: null, error: null };
+    }
+
+    const timezone = businessTimezone.trim();
+    const start = businessHoursStart.trim();
+    const end = businessHoursEnd.trim();
+
+    if (!timezone || !start || !end) {
+      return { schedule: null, error: null };
+    }
+
+    if (!TIME_INPUT_REGEX.test(start) || !TIME_INPUT_REGEX.test(end)) {
+      return { schedule: null, error: 'invalid_time' };
+    }
+
+    return {
+      schedule: {
+        timezone,
+        windows: [
+          {
+            days: ['mon', 'tue', 'wed', 'thu', 'fri'],
+            start,
+            end,
+          },
+        ],
+      },
+      error: null,
+    };
+  };
+
+  const handleSaveRoutingSettings = async () => {
+    if (!user?.id) {
+      return;
+    }
+
+    const { schedule, error } = buildSchedulePayload();
+
+    if (error === 'invalid_time') {
+      Alert.alert(
+        'Invalid hours',
+        'Enter business hours using 24-hour HH:MM format (for example 09:00 to 17:30).',
+      );
+      return;
+    }
+
+    try {
+      setSavingRouting(true);
+      await updateSmartRoutingSettings(user.id, {
+        mode: routingMode,
+        afterHoursMode,
+        featureEnabled: routingEnabled,
+        schedule,
+      });
+
+      setSmartRouting({
+        mode: routingMode,
+        afterHoursMode,
+        featureEnabled: routingEnabled,
+        schedule,
+        updatedAt: new Date().toISOString(),
+      });
+
+      Alert.alert('Routing updated', 'Call routing preferences saved.');
+    } catch (error) {
+      console.error('[Settings] Failed to update smart routing', error);
+      Alert.alert('Update failed', 'Unable to update call routing right now.');
+    } finally {
+      setSavingRouting(false);
     }
   };
 
@@ -256,6 +363,67 @@ export const SettingsScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
+  const modeOptions: Array<{ value: SmartRoutingMode; label: string; description: string }> = [
+    {
+      value: 'smart_auto',
+      label: 'Smart auto',
+      description: 'New callers go to AI intake while known callers skip to voicemail.',
+    },
+    {
+      value: 'intake',
+      label: 'AI intake',
+      description: 'Every call is answered by the AI receptionist for lead capture.',
+    },
+    {
+      value: 'voicemail',
+      label: 'Voicemail',
+      description: 'All callers hear your voicemail greeting and leave a message.',
+    },
+  ];
+
+  const afterHoursOptions: Array<{ value: AfterHoursMode; label: string }> = [
+    { value: 'voicemail', label: 'Voicemail' },
+    { value: 'intake', label: 'AI intake' },
+  ];
+
+  const renderModeOption = (option: { value: SmartRoutingMode; label: string; description: string }) => {
+    const isActive = routingMode === option.value;
+    return (
+      <TouchableOpacity
+        key={option.value}
+        style={[styles.modeOption, isActive && styles.modeOptionActive]}
+        onPress={() => setRoutingMode(option.value)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.modeOptionHeader}>
+          <Text style={styles.modeOptionLabel}>{option.label}</Text>
+          <FlynnIcon
+            name={isActive ? 'radio-button-on' : 'radio-button-off'}
+            size={18}
+            color={isActive ? colors.primary : colors.gray400}
+          />
+        </View>
+        <Text style={styles.modeOptionDescription}>{option.description}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderAfterHoursOption = (option: { value: AfterHoursMode; label: string }) => {
+    const isActive = afterHoursMode === option.value;
+    return (
+      <TouchableOpacity
+        key={option.value}
+        style={[styles.afterHoursChip, isActive && styles.afterHoursChipActive]}
+        onPress={() => setAfterHoursMode(option.value)}
+        activeOpacity={0.8}
+      >
+        <Text style={[styles.afterHoursChipText, isActive && styles.afterHoursChipTextActive]}>
+          {option.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   if (profileLoading) {
     return (
       <SafeAreaView style={styles.loaderContainer}>
@@ -336,6 +504,76 @@ export const SettingsScreen: React.FC = () => {
                   handleSetupCallForwarding,
                   true,
                 )}
+          </View>
+        ))}
+
+        {/* Call routing */}
+        {renderSection('Call routing', (
+          <View style={styles.routingCard}>
+            <Text style={styles.routingDescription}>
+              Decide who hears the AI receptionist versus voicemail and keep after-hours under control.
+            </Text>
+
+            <View style={styles.modeList}>
+              {modeOptions.map(renderModeOption)}
+            </View>
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleCopy}>
+                <Text style={styles.toggleLabel}>Business hours schedule</Text>
+                <Text style={styles.toggleDescription}>
+                  Outside these hours callers follow the after-hours route.
+                </Text>
+              </View>
+              <Switch value={routingEnabled} onValueChange={setRoutingEnabled} />
+            </View>
+
+            {routingEnabled && (
+              <View>
+                <FlynnInput
+                  label="Timezone"
+                  placeholder="e.g. America/Los_Angeles"
+                  value={businessTimezone}
+                  onChangeText={setBusinessTimezone}
+                  autoCapitalize="none"
+                  containerStyle={styles.routingInput}
+                />
+                <View style={styles.inlineInputs}>
+                  <FlynnInput
+                    label="Start time"
+                    placeholder="09:00"
+                    value={businessHoursStart}
+                    onChangeText={setBusinessHoursStart}
+                    autoCapitalize="none"
+                    keyboardType="numbers-and-punctuation"
+                    containerStyle={styles.routingInlineInput}
+                  />
+                  <FlynnInput
+                    label="End time"
+                    placeholder="17:00"
+                    value={businessHoursEnd}
+                    onChangeText={setBusinessHoursEnd}
+                    autoCapitalize="none"
+                    keyboardType="numbers-and-punctuation"
+                    containerStyle={styles.routingInlineInput}
+                  />
+                </View>
+
+                <Text style={styles.afterHoursLabel}>After-hours route</Text>
+                <View style={styles.afterHoursRow}>
+                  {afterHoursOptions.map(renderAfterHoursOption)}
+                </View>
+              </View>
+            )}
+
+            <FlynnButton
+              title={savingRouting ? 'Saving…' : 'Save routing'}
+              onPress={handleSaveRoutingSettings}
+              loading={savingRouting}
+              disabled={savingRouting}
+              fullWidth
+              style={styles.routingSaveButton}
+            />
           </View>
         ))}
 
@@ -623,6 +861,116 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     ...shadows.sm,
+  },
+  routingCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    ...shadows.sm,
+  },
+  routingDescription: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  modeList: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  modeOption: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    backgroundColor: colors.background,
+  },
+  modeOptionActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
+  },
+  modeOptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  modeOptionLabel: {
+    ...typography.bodyLarge,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  modeOptionDescription: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+  },
+  toggleCopy: {
+    flex: 1,
+    paddingRight: spacing.md,
+  },
+  toggleLabel: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  toggleDescription: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.xxxs,
+  },
+  routingInput: {
+    marginBottom: spacing.md,
+  },
+  inlineInputs: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  routingInlineInput: {
+    flex: 1,
+    marginBottom: spacing.md,
+  },
+  afterHoursLabel: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  afterHoursRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  afterHoursChip: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  afterHoursChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  afterHoursChipText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  afterHoursChipTextActive: {
+    color: colors.white,
+  },
+  routingSaveButton: {
+    marginTop: spacing.sm,
   },
   settingRow: {
     flexDirection: 'row',

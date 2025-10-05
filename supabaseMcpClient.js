@@ -1,5 +1,6 @@
 const { once } = require('events');
 const { randomUUID } = require('crypto');
+const { parsePhoneNumberFromString } = require('libphonenumber-js');
 
 let clientPromise;
 
@@ -12,6 +13,10 @@ const sqlString = (value) => {
 };
 
 const VALID_NOTIFICATION_PLATFORMS = new Set(['ios', 'android']);
+
+const CALL_ROUTING_MODES = new Set(['intake', 'voicemail', 'smart_auto']);
+const CALLER_LABELS = new Set(['lead', 'client', 'personal', 'spam']);
+const CALLER_ROUTING_OVERRIDES = new Set(['intake', 'voicemail', 'auto']);
 
 const parseResultRows = (result) => {
   if (!result) {
@@ -38,6 +43,41 @@ const parseResultRows = (result) => {
   }
 
   return [];
+};
+
+const normalizePhoneNumber = (value, defaultCountry = 'US') => {
+  if (!value || typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const parsed = parsePhoneNumberFromString(trimmed, defaultCountry);
+    if (parsed?.isValid()) {
+      return parsed.number;
+    }
+  } catch (error) {
+    console.warn('[Supabase] Failed to normalize phone number', { value, error: error?.message });
+  }
+
+  const digits = trimmed.replace(/[^0-9]/g, '');
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+
+  if (digits.startsWith('1') && digits.length === 11) {
+    return `+${digits}`;
+  }
+
+  if (trimmed.startsWith('+') && digits.length >= 10) {
+    return `+${digits}`;
+  }
+
+  return null;
 };
 
 const getSupabaseConfig = () => {
@@ -305,6 +345,231 @@ const ensureClient = async () => {
       },
     });
 
+    const createCallersSql = `
+      create table if not exists public.callers (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid references public.users(id) on delete cascade,
+        phone_number text not null,
+        label text not null default 'lead' check (label in ('lead', 'client', 'personal', 'spam')),
+        display_name text,
+        routing_override text check (routing_override in ('intake', 'voicemail', 'auto')),
+        first_seen_at timestamptz not null default now(),
+        last_seen_at timestamptz,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      );
+
+      create unique index if not exists callers_user_phone_idx
+        on public.callers(user_id, phone_number);
+
+      create index if not exists callers_user_label_idx
+        on public.callers(user_id, label);
+    `;
+
+    await client.callTool({
+      name: 'execute_sql',
+      arguments: {
+        project_id: config.projectId,
+        query: createCallersSql,
+      },
+    });
+
+    const alterCallsForRoutingSql = `
+      alter table public.calls
+        add column if not exists caller_id uuid references public.callers(id) on delete set null,
+        add column if not exists route_mode text,
+        add column if not exists route_decision text,
+        add column if not exists route_reason text,
+        add column if not exists route_fallback boolean default false,
+        add column if not exists route_evaluated_at timestamptz,
+        add column if not exists feature_flag_version text,
+        add column if not exists metadata jsonb default '{}'::jsonb;
+
+      create index if not exists calls_user_route_idx
+        on public.calls(user_id, route_decision, recorded_at desc nulls last);
+
+      create index if not exists calls_caller_idx
+        on public.calls(caller_id);
+    `;
+
+    await client.callTool({
+      name: 'execute_sql',
+      arguments: {
+        project_id: config.projectId,
+        query: alterCallsForRoutingSql,
+      },
+    });
+
+    const createCallRoutingSettingsSql = `
+      create table if not exists public.call_routing_settings (
+        user_id uuid primary key references public.users(id) on delete cascade,
+        mode text not null default 'smart_auto' check (mode in ('intake', 'voicemail', 'smart_auto')),
+        after_hours_mode text not null default 'voicemail' check (after_hours_mode in ('intake', 'voicemail')),
+        schedule jsonb,
+        schedule_timezone text,
+        feature_enabled boolean default true,
+        updated_at timestamptz not null default now(),
+        created_at timestamptz not null default now()
+      );
+    `;
+
+    await client.callTool({
+      name: 'execute_sql',
+      arguments: {
+        project_id: config.projectId,
+        query: createCallRoutingSettingsSql,
+      },
+    });
+
+    const createVoicemailsSql = `
+      create table if not exists public.call_voicemails (
+        id uuid primary key default gen_random_uuid(),
+        call_sid text unique references public.calls(call_sid) on delete cascade,
+        user_id uuid references public.users(id) on delete cascade,
+        caller_id uuid references public.callers(id) on delete set null,
+        transcription_id uuid references public.transcriptions(id) on delete set null,
+        recording_url text,
+        transcription_text text,
+        created_at timestamptz default now(),
+        updated_at timestamptz default now()
+      );
+
+      create index if not exists call_voicemails_user_idx on public.call_voicemails(user_id, created_at desc);
+    `;
+
+    await client.callTool({
+      name: 'execute_sql',
+      arguments: {
+        project_id: config.projectId,
+        query: createVoicemailsSql,
+      },
+    });
+
+    const ensureCallRoutingRlsSql = `
+      alter table public.callers enable row level security;
+      alter table public.callers force row level security;
+      do $$
+      begin
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'callers'
+             and policyname = 'Callers owner select'
+        ) then
+          execute $$create policy "Callers owner select" on public.callers for select using (user_id = auth.uid())$$;
+        end if;
+
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'callers'
+             and policyname = 'Callers owner insert'
+        ) then
+          execute $$create policy "Callers owner insert" on public.callers for insert with check (user_id = auth.uid())$$;
+        end if;
+
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'callers'
+             and policyname = 'Callers owner update'
+        ) then
+          execute $$create policy "Callers owner update" on public.callers for update using (user_id = auth.uid()) with check (user_id = auth.uid())$$;
+        end if;
+
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'callers'
+             and policyname = 'Callers owner delete'
+        ) then
+          execute $$create policy "Callers owner delete" on public.callers for delete using (user_id = auth.uid())$$;
+        end if;
+      end
+      $$;
+
+      alter table public.call_routing_settings enable row level security;
+      alter table public.call_routing_settings force row level security;
+      do $$
+      begin
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'call_routing_settings'
+             and policyname = 'Call routing settings select'
+        ) then
+          execute $$create policy "Call routing settings select" on public.call_routing_settings for select using (user_id = auth.uid())$$;
+        end if;
+
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'call_routing_settings'
+             and policyname = 'Call routing settings insert'
+        ) then
+          execute $$create policy "Call routing settings insert" on public.call_routing_settings for insert with check (user_id = auth.uid())$$;
+        end if;
+
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'call_routing_settings'
+             and policyname = 'Call routing settings update'
+        ) then
+          execute $$create policy "Call routing settings update" on public.call_routing_settings for update using (user_id = auth.uid()) with check (user_id = auth.uid())$$;
+        end if;
+
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'call_routing_settings'
+             and policyname = 'Call routing settings delete'
+        ) then
+          execute $$create policy "Call routing settings delete" on public.call_routing_settings for delete using (user_id = auth.uid())$$;
+        end if;
+      end
+      $$;
+
+      alter table public.call_voicemails enable row level security;
+      alter table public.call_voicemails force row level security;
+      do $$
+      begin
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'call_voicemails'
+             and policyname = 'Call voicemails select'
+        ) then
+          execute $$create policy "Call voicemails select" on public.call_voicemails for select using (
+            user_id = auth.uid()
+            or exists (
+              select 1 from public.calls c
+               where c.call_sid = call_sid
+                 and c.user_id = auth.uid()
+            )
+          )$$;
+        end if;
+
+        if not exists (
+          select 1 from pg_policies
+           where schemaname = 'public'
+             and tablename = 'call_voicemails'
+             and policyname = 'Call voicemails delete'
+        ) then
+          execute $$create policy "Call voicemails delete" on public.call_voicemails for delete using (user_id = auth.uid())$$;
+        end if;
+      end
+      $$;
+    `;
+
+    await client.callTool({
+      name: 'execute_sql',
+      arguments: {
+        project_id: config.projectId,
+        query: ensureCallRoutingRlsSql,
+      },
+    });
+
     return { client, transport, config };
   })();
 
@@ -332,6 +597,308 @@ const executeSql = async (query) => {
   return result;
 };
 
+const getUserByTwilioNumber = async (phoneNumber) => {
+  const normalized = normalizePhoneNumber(phoneNumber);
+  if (!normalized) {
+    return null;
+  }
+
+  const query = `
+    select id, business_name, twilio_phone_number
+      from public.users
+     where twilio_phone_number = ${sqlString(normalized)}
+     limit 1;
+  `;
+
+  const result = await executeSql(query);
+  return result.rows?.[0] || null;
+};
+
+const getRoutingSettingsForUser = async (userId) => {
+  if (!userId) {
+    return null;
+  }
+
+  const query = `
+    select user_id,
+           mode,
+           after_hours_mode,
+           schedule,
+           schedule_timezone,
+           feature_enabled,
+           updated_at
+      from public.call_routing_settings
+     where user_id = ${sqlString(userId)}
+     limit 1;
+  `;
+
+  const result = await executeSql(query);
+  return result.rows?.[0] || null;
+};
+
+const upsertRoutingSettings = async ({
+  userId,
+  mode,
+  afterHoursMode,
+  schedule,
+  scheduleTimezone,
+  featureEnabled,
+}) => {
+  if (!userId) {
+    throw new Error('userId is required to upsert routing settings.');
+  }
+
+  const normalizedMode = mode && CALL_ROUTING_MODES.has(mode) ? mode : undefined;
+  const normalizedAfterHours = afterHoursMode && ['intake', 'voicemail'].includes(afterHoursMode)
+    ? afterHoursMode
+    : undefined;
+
+  const scheduleJson = schedule ? JSON.stringify(schedule) : null;
+
+  const query = `
+    insert into public.call_routing_settings (
+      user_id,
+      mode,
+      after_hours_mode,
+      schedule,
+      schedule_timezone,
+      feature_enabled,
+      updated_at
+    )
+    values (
+      ${sqlString(userId)},
+      ${sqlString(normalizedMode || mode || 'smart_auto')},
+      ${sqlString(normalizedAfterHours || afterHoursMode || 'voicemail')},
+      ${scheduleJson ? sqlString(scheduleJson) : 'NULL'},
+      ${sqlString(scheduleTimezone)},
+      ${featureEnabled === undefined ? 'true' : (featureEnabled ? 'true' : 'false')},
+      now()
+    )
+    on conflict (user_id) do update set
+      mode = excluded.mode,
+      after_hours_mode = excluded.after_hours_mode,
+      schedule = excluded.schedule,
+      schedule_timezone = excluded.schedule_timezone,
+      feature_enabled = excluded.feature_enabled,
+      updated_at = excluded.updated_at
+    returning *;
+  `;
+
+  const result = await executeSql(query);
+  return result.rows?.[0] || null;
+};
+
+const getCallerByPhone = async ({ userId, phoneNumber }) => {
+  if (!userId) {
+    throw new Error('userId is required to look up caller.');
+  }
+
+  const normalized = normalizePhoneNumber(phoneNumber);
+  if (!normalized) {
+    return null;
+  }
+
+  const query = `
+    select id,
+           user_id,
+           phone_number,
+           label,
+           display_name,
+           routing_override,
+           first_seen_at,
+           last_seen_at,
+           created_at,
+           updated_at
+      from public.callers
+     where user_id = ${sqlString(userId)}
+       and phone_number = ${sqlString(normalized)}
+     limit 1;
+  `;
+
+  const result = await executeSql(query);
+  return result.rows?.[0] || null;
+};
+
+const upsertCaller = async ({
+  userId,
+  phoneNumber,
+  label,
+  displayName,
+  routingOverride,
+  seenAt,
+}) => {
+  if (!userId) {
+    throw new Error('userId is required to upsert caller.');
+  }
+
+  const normalized = normalizePhoneNumber(phoneNumber);
+  if (!normalized) {
+    throw new Error('phoneNumber must be provided in E.164 format.');
+  }
+
+  const normalizedLabel = label && CALLER_LABELS.has(label) ? label : undefined;
+  const normalizedOverride = routingOverride && CALLER_ROUTING_OVERRIDES.has(routingOverride)
+    ? routingOverride
+    : undefined;
+
+  const nowIso = new Date().toISOString();
+
+  const query = `
+    insert into public.callers (
+      id,
+      user_id,
+      phone_number,
+      label,
+      display_name,
+      routing_override,
+      first_seen_at,
+      last_seen_at,
+      created_at,
+      updated_at
+    )
+    values (
+      ${sqlString(randomUUID())},
+      ${sqlString(userId)},
+      ${sqlString(normalized)},
+      ${sqlString(normalizedLabel || 'lead')},
+      ${sqlString(displayName)},
+      ${sqlString(normalizedOverride)},
+      ${sqlString(seenAt || nowIso)},
+      ${sqlString(seenAt || nowIso)},
+      ${sqlString(nowIso)},
+      ${sqlString(nowIso)}
+    )
+    on conflict (user_id, phone_number) do update set
+      label = coalesce(excluded.label, public.callers.label),
+      display_name = coalesce(excluded.display_name, public.callers.display_name),
+      routing_override = coalesce(excluded.routing_override, public.callers.routing_override),
+      last_seen_at = greatest(public.callers.last_seen_at, excluded.last_seen_at),
+      updated_at = excluded.updated_at
+    returning *;
+  `;
+
+  const result = await executeSql(query);
+  return result.rows?.[0] || null;
+};
+
+const updateCallerRouting = async ({ callerId, label, routingOverride }) => {
+  if (!callerId) {
+    throw new Error('callerId is required to update caller routing.');
+  }
+
+  const normalizedLabel = label && CALLER_LABELS.has(label) ? label : undefined;
+  const normalizedOverride = routingOverride && CALLER_ROUTING_OVERRIDES.has(routingOverride)
+    ? routingOverride
+    : undefined;
+
+  const updates = [];
+  if (normalizedLabel) {
+    updates.push(`label = ${sqlString(normalizedLabel)}`);
+  }
+  if (routingOverride !== undefined) {
+    updates.push(`routing_override = ${normalizedOverride ? sqlString(normalizedOverride) : 'NULL'}`);
+  }
+
+  if (updates.length === 0) {
+    return null;
+  }
+
+  const query = `
+    update public.callers
+       set ${updates.join(', ')},
+           updated_at = now()
+     where id = ${sqlString(callerId)}
+     returning *;
+  `;
+
+  const result = await executeSql(query);
+  return result.rows?.[0] || null;
+};
+
+const insertVoicemail = async ({
+  callSid,
+  userId,
+  callerId,
+  transcriptionId,
+  recordingUrl,
+  transcriptionText,
+}) => {
+  if (!callSid) {
+    throw new Error('callSid is required to store voicemail.');
+  }
+
+  const fallbackUserSelect = `(select user_id from public.calls where call_sid = ${sqlString(callSid)} limit 1)`;
+  const userIdValue = userId ? sqlString(userId) : fallbackUserSelect;
+
+  const query = `
+    insert into public.call_voicemails (
+      id,
+      call_sid,
+      user_id,
+      caller_id,
+      transcription_id,
+      recording_url,
+      transcription_text,
+      created_at,
+      updated_at
+    )
+    values (
+      ${sqlString(randomUUID())},
+      ${sqlString(callSid)},
+      ${userIdValue},
+      ${sqlString(callerId)},
+      ${sqlString(transcriptionId)},
+      ${sqlString(recordingUrl)},
+      ${sqlString(transcriptionText)},
+      now(),
+      now()
+    )
+    on conflict (call_sid) do update set
+      caller_id = coalesce(excluded.caller_id, public.call_voicemails.caller_id),
+      transcription_id = coalesce(excluded.transcription_id, public.call_voicemails.transcription_id),
+      recording_url = coalesce(excluded.recording_url, public.call_voicemails.recording_url),
+      transcription_text = coalesce(excluded.transcription_text, public.call_voicemails.transcription_text),
+      user_id = coalesce(
+        excluded.user_id,
+        public.call_voicemails.user_id,
+        (select user_id from public.calls where call_sid = excluded.call_sid limit 1)
+      ),
+      updated_at = now()
+    returning *;
+  `;
+
+  const result = await executeSql(query);
+  return result.rows?.[0] || null;
+};
+
+const listVoicemailsForUser = async ({ userId, limit = 20, offset = 0 }) => {
+  if (!userId) {
+    throw new Error('userId is required to list voicemails.');
+  }
+
+  const query = `
+    select v.id,
+           v.call_sid,
+           v.user_id,
+           v.caller_id,
+           v.transcription_id,
+           v.recording_url,
+           v.transcription_text,
+           v.created_at,
+           v.updated_at,
+           c.phone_number as caller_phone,
+           c.label as caller_label
+      from public.call_voicemails v
+      left join public.callers c on c.id = v.caller_id
+     where v.user_id = ${sqlString(userId)}
+     order by v.created_at desc
+     limit ${Math.max(1, limit)} offset ${Math.max(0, offset)};
+  `;
+
+  const result = await executeSql(query);
+  return result.rows || [];
+};
+
 const upsertCallRecord = async ({
   callSid,
   userId,
@@ -346,12 +913,22 @@ const upsertCallRecord = async ({
   recordedAt,
   transcriptionStatus,
   status,
+  callerId,
+  routeMode,
+  routeDecision,
+  routeReason,
+  routeFallback,
+  routeEvaluatedAt,
+  featureFlagVersion,
+  metadata,
 }) => {
   if (!callSid) {
     throw new Error('callSid is required for upsert.');
   }
 
   const durationValue = Number.isFinite(durationSec) ? Number(durationSec) : null;
+  const metadataJson = metadata ? JSON.stringify(metadata) : null;
+  const normalizedMode = routeMode && CALL_ROUTING_MODES.has(routeMode) ? routeMode : routeMode;
 
   const query = `
     insert into public.calls (
@@ -368,7 +945,15 @@ const upsertCallRecord = async ({
       recorded_at,
       transcription_status,
       transcription_updated_at,
-      status
+      status,
+      caller_id,
+      route_mode,
+      route_decision,
+      route_reason,
+      route_fallback,
+      route_evaluated_at,
+      feature_flag_version,
+      metadata
     )
     values (
       ${sqlString(callSid)},
@@ -384,7 +969,15 @@ const upsertCallRecord = async ({
       ${sqlString(recordedAt)},
       ${sqlString(transcriptionStatus)},
       ${transcriptionStatus ? 'now()' : 'NULL'},
-      ${sqlString(status)}
+      ${sqlString(status)},
+      ${sqlString(callerId)},
+      ${sqlString(normalizedMode)},
+      ${sqlString(routeDecision)},
+      ${sqlString(routeReason)},
+      ${routeFallback ? 'true' : 'false'},
+      ${sqlString(routeEvaluatedAt)},
+      ${sqlString(featureFlagVersion)},
+      ${metadataJson ? sqlString(metadataJson) : "'{}'::jsonb"}
     )
     on conflict (call_sid) do update set
       user_id = coalesce(excluded.user_id, public.calls.user_id),
@@ -406,7 +999,15 @@ const upsertCallRecord = async ({
           and excluded.transcription_status is distinct from public.calls.transcription_status then now()
         else public.calls.transcription_updated_at
       end,
-      status = coalesce(excluded.status, public.calls.status);
+      status = coalesce(excluded.status, public.calls.status),
+      caller_id = coalesce(excluded.caller_id, public.calls.caller_id),
+      route_mode = coalesce(excluded.route_mode, public.calls.route_mode),
+      route_decision = coalesce(excluded.route_decision, public.calls.route_decision),
+      route_reason = coalesce(excluded.route_reason, public.calls.route_reason),
+      route_fallback = excluded.route_fallback,
+      route_evaluated_at = coalesce(excluded.route_evaluated_at, public.calls.route_evaluated_at),
+      feature_flag_version = coalesce(excluded.feature_flag_version, public.calls.feature_flag_version),
+      metadata = coalesce(excluded.metadata, public.calls.metadata);
   `;
 
   await executeSql(query);
@@ -852,8 +1453,20 @@ const listNotificationTokensForUser = async ({ userId }) => {
 };
 
 module.exports = {
-  upsertCallRecord,
+  normalizePhoneNumber,
+  CALLER_LABELS,
+  CALLER_ROUTING_OVERRIDES,
+  CALL_ROUTING_MODES,
   executeSql,
+  getUserByTwilioNumber,
+  getRoutingSettingsForUser,
+  upsertRoutingSettings,
+  getCallerByPhone,
+  upsertCaller,
+  updateCallerRouting,
+  insertVoicemail,
+  listVoicemailsForUser,
+  upsertCallRecord,
   getTranscriptByCallSid,
   insertTranscription,
   updateCallTranscriptionStatus,

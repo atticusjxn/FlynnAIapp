@@ -22,6 +22,138 @@ const buildRecordingResponse = () => {
 describe('Telephony API', () => {
   const CALL_SID = 'CA555';
 
+  describe('POST /telephony/inbound-voice', () => {
+    const basePayload = {
+      CallSid: CALL_SID,
+      From: '+15550009999',
+      To: '+15550001234',
+    };
+
+    let determineInboundRouteMock;
+    const ROUTING_FEATURE_VERSION = 'smart-routing-test';
+    const setupRoutingMock = () => {
+      determineInboundRouteMock = jest.fn();
+      jest.doMock('../telephony/routing', () => ({
+        determineInboundRoute: determineInboundRouteMock,
+        FEATURE_VERSION: ROUTING_FEATURE_VERSION,
+      }));
+    };
+
+    test('routes unknown callers to AI intake and persists metadata', async () => {
+      const {
+        app,
+        mocks: { mockSupabaseClient, voiceResponseInstance },
+      } = loadServer({}, { setupMocks: setupRoutingMock });
+
+      determineInboundRouteMock.mockResolvedValue({
+        route: 'intake',
+        reason: 'smart_unknown',
+        mode: 'smart_auto',
+        user: { id: 'user-123' },
+        caller: null,
+        fallback: false,
+        schedule: { active: true },
+      });
+
+      const request = require('supertest')(app);
+      const response = await request
+        .post('/telephony/inbound-voice')
+        .send(basePayload)
+        .set('content-type', 'application/x-www-form-urlencoded');
+
+      expect(response.status).toBe(200);
+      expect(voiceResponseInstance.say).toHaveBeenCalledWith(
+        'Hi, you have reached FlynnAI. I am the AI receptionist and will take down the details for the team.',
+      );
+      expect(voiceResponseInstance.record).toHaveBeenCalledWith(
+        expect.objectContaining({ playBeep: true }),
+      );
+      expect(determineInboundRouteMock).toHaveBeenCalledWith({
+        toNumber: basePayload.To,
+        fromNumber: basePayload.From,
+        now: expect.any(Date),
+      });
+      expect(mockSupabaseClient.upsertCallRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          callSid: CALL_SID,
+          userId: 'user-123',
+          routeDecision: 'intake',
+          routeReason: 'smart_unknown',
+          routeFallback: false,
+          featureFlagVersion: ROUTING_FEATURE_VERSION,
+        }),
+      );
+    });
+
+    test('routes known callers to voicemail path', async () => {
+      const {
+        app,
+        mocks: { mockSupabaseClient, voiceResponseInstance },
+      } = loadServer({}, { setupMocks: setupRoutingMock });
+
+      determineInboundRouteMock.mockResolvedValue({
+        route: 'voicemail',
+        reason: 'smart_known',
+        mode: 'smart_auto',
+        user: { id: 'user-456' },
+        caller: { id: 'caller-99' },
+        fallback: false,
+      });
+
+      const request = require('supertest')(app);
+      const response = await request
+        .post('/telephony/inbound-voice')
+        .send(basePayload)
+        .set('content-type', 'application/x-www-form-urlencoded');
+
+      expect(response.status).toBe(200);
+      expect(voiceResponseInstance.say).toHaveBeenCalledWith(
+        "Hi, you've reached FlynnAI. Please leave a message after the tone.",
+      );
+      expect(determineInboundRouteMock).toHaveBeenCalledTimes(1);
+      expect(mockSupabaseClient.upsertCallRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          callSid: CALL_SID,
+          userId: 'user-456',
+          callerId: 'caller-99',
+          routeDecision: 'voicemail',
+          routeReason: 'smart_known',
+          featureFlagVersion: ROUTING_FEATURE_VERSION,
+        }),
+      );
+    });
+
+    test('falls back to voicemail when routing evaluation fails', async () => {
+      const {
+        app,
+        mocks: { mockSupabaseClient, voiceResponseInstance },
+      } = loadServer({}, { setupMocks: setupRoutingMock });
+
+      determineInboundRouteMock.mockRejectedValue(new Error('db unavailable'));
+
+      const request = require('supertest')(app);
+      const response = await request
+        .post('/telephony/inbound-voice')
+        .send(basePayload)
+        .set('content-type', 'application/x-www-form-urlencoded');
+
+      expect(response.status).toBe(200);
+      expect(voiceResponseInstance.say).toHaveBeenCalledWith(
+        "Hi, you've reached FlynnAI. Please leave a message after the tone.",
+      );
+      expect(determineInboundRouteMock).toHaveBeenCalledTimes(1);
+      expect(mockSupabaseClient.upsertCallRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          callSid: CALL_SID,
+          routeDecision: 'voicemail',
+          routeReason: 'evaluation_error',
+          routeFallback: true,
+          featureFlagVersion: ROUTING_FEATURE_VERSION,
+        }),
+      );
+    });
+  });
+
   describe('POST /telephony/recording-complete', () => {
     const basePayload = {
       CallSid: CALL_SID,
@@ -48,6 +180,11 @@ describe('Telephony API', () => {
       mockSupabaseClient.getTranscriptByCallSid.mockResolvedValue(null);
       mockSupabaseClient.insertTranscription.mockResolvedValue({ id: 'transcription-1' });
       mockSupabaseClient.upsertCallRecord.mockResolvedValue(undefined);
+      mockSupabaseClient.getCallBySid.mockResolvedValue({
+        call_sid: CALL_SID,
+        route_decision: 'intake',
+        user_id: 'user-123',
+      });
 
       const request = require('supertest')(app);
       const response = await request
@@ -228,9 +365,7 @@ describe('Telephony API', () => {
       const response = await request.post(`/jobs/${JOB_ID}/confirm`);
 
       expect(response.status).toBe(500);
-      expect(response.body).toEqual({
-        error: 'Configure TWILIO_MESSAGING_SERVICE_SID or TWILIO_SMS_FROM_NUMBER to send SMS.',
-      });
+      expect(response.body).toEqual({ error: 'Messaging not configured' });
     });
 
     test('returns 404 when job not found', async () => {

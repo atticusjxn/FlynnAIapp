@@ -162,6 +162,73 @@ When an event is created or updated, the backend records the activity and attemp
 - `APNS_BUNDLE_ID` – iOS bundle identifier used for APNs topics (defaults to `com.flynnai.app`).
 - `APNS_HOST` *(optional)* – Override (`https://api.sandbox.push.apple.com` vs production).
 
+## Smart call routing
+
+### Overview
+Smart call routing classifies every inbound caller as a new lead, existing client, personal contact, or spam. The server evaluates the active routing mode, manual overrides, and after-hours schedule to decide whether the AI receptionist should answer or the caller should hear voicemail. Voicemail calls still store recordings and transcripts, while AI intake calls continue to create event/job cards.
+
+### Database objects
+
+| Table | Purpose |
+| --- | --- |
+| `callers` | Per-user caller directory with label (`lead`, `client`, `personal`, `spam`), optional display name, and routing override. |
+| `call_routing_settings` | Routing mode (`smart_auto`, `intake`, `voicemail`), after-hours override, JSON business-hours schedule, and feature toggle. |
+| `call_voicemails` | Normalised voicemail metadata linking a call SID to its stored recording and transcript. |
+
+Canonical DDL lives in `supabase/migrations/20250118_smart_call_routing.sql`. A sample seed is available at `supabase/seeds/20250118_smart_call_routing_seed.sql`.
+
+### Required environment variables
+
+| Variable | Description |
+| --- | --- |
+| `FEATURE_SMART_CALL_ROUTING` | Set to `disabled` to turn the feature off globally. Any other value keeps it enabled. |
+| `FEATURE_SMART_CALL_ROUTING_FALLBACK_MODE` | Optional fallback route (`voicemail` or `intake`) when evaluation fails (default `voicemail`). |
+| `VOICEMAIL_STORAGE_BUCKET` | Supabase storage bucket for voicemail audio (defaults to `voicemails`). |
+| `VOICEMAIL_SIGNED_URL_TTL_SECONDS` | TTL for signed voicemail URLs (default 3600 seconds). |
+| `VOICEMAIL_RETENTION_DAYS` | Retention period before pruning stored recordings (default 30 days). |
+| Existing Supabase, Twilio, and OpenAI keys remain required. |
+
+### Local migration workflow
+
+```
+supabase db push
+supabase db seed -f supabase/seeds/20250118_smart_call_routing_seed.sql
+```
+
+### Manual test plan
+
+1. **Prepare data**
+   - Create or reuse a test user and seed the database with one known caller: `+15555550100` labelled `client`.
+   - Leave `+15555550199` absent from `callers` to represent an unknown lead.
+2. **Smart auto mode**
+   - From *Settings → Call routing*, choose **Smart auto** with a business-hours window that includes the current time.
+   - Simulate a call from `+15555550199`. Expect the webhook to announce the AI receptionist, create a new lead/job card, and queue the confirmation SMS/email flow.
+   - Call again from the known number `+15555550100`. Expect the friendly voicemail greeting, a stored recording/transcription in `call_voicemails`, and a timeline entry on the caller detail screen.
+3. **Voicemail mode** – Switch to **Voicemail** mode and confirm both numbers go straight to voicemail with recordings saved.
+4. **AI intake mode** – Switch to **AI intake** mode and confirm both numbers trigger the intake script and job creation.
+5. **After-hours override** – Configure a schedule that excludes the current time (for example 09:00–17:00) and set the after-hours route to voicemail. With mode still on Smart auto, both callers should now reach voicemail.
+6. **Manual overrides** – From the caller detail screen, set `+15555550100` to routing override **AI intake** and `label=personal`. Confirm subsequent calls follow the override regardless of global mode.
+7. **Failure handling** – Temporarily block Supabase (e.g. stop the local emulator) or export `FEATURE_SMART_CALL_ROUTING=disabled` before hitting `/telephony/inbound-voice`. TwiML should default to voicemail and the call record should mark `routeFallback=true`.
+8. **Observability** – Tail the server process and verify `[Telephony] Routing decision` logs include `routeDecision`, `routeReason`, `routeFallback`, and latency metadata. Forward these events to dashboards to monitor intake vs voicemail volume.
+
+Capture these steps in your PR notes when verifying the flow.
+
+### Automated tests
+
+- Run `npm test` to execute the Jest suite, including smart routing webhook coverage.
+- Run `npx tsc --noEmit` to perform a full TypeScript check before committing.
+
+### Observability
+
+- **Routing decision log** – `server.js` emits `[Telephony] Routing decision` with `route`, `reason`, `userId`, and `callerId`; alerts can key off `routeFallback=true`.
+- **Evaluation errors** – look for `[Telephony] Failed to evaluate smart routing; falling back to voicemail` to spot upstream issues (Supabase/Twilio outages).
+- **Voicemail persistence** – `[Telephony] Voicemail record stored for call.` confirms the transcription + metadata write succeeded.
+- **Metrics** – Forward the routing decision logs (and their structured payload) to your observability stack to chart intake vs voicemail volume and fallback counts.
+
+### Rollback plan
+
+If the feature must be reverted, run `psql -f supabase/sql/rollback_smart_call_routing.sql` (or the equivalent via Supabase SQL editor) to drop the smart routing tables, indexes, and `calls` columns introduced by the migration. Follow with `supabase db reset` to restore seeds if continuing local development.
+
 **Registering a device token**
 ```bash
 curl -X POST "http://localhost:3000/me/notifications/token" \\

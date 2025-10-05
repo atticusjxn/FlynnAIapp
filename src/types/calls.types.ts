@@ -41,6 +41,8 @@ export type TranscriptionStatus =
 
 export type RecordingPreference = 'auto' | 'manual' | 'off';
 
+export type SmartRoutingMode = 'intake' | 'voicemail' | 'smart_auto';
+
 export interface UserTwilioSettings {
   phoneNumber: string | null; // Added for backward compatibility
   twilioPhoneNumber: string | null;
@@ -66,6 +68,10 @@ export interface CallRecord {
   jobExtracted?: JobExtraction;
   jobId?: string;
   clientId?: string;
+  callerId?: string;
+  routeDecision?: 'intake' | 'voicemail';
+  routeMode?: SmartRoutingMode;
+  routeReason?: string | null;
   createdAt: string;
   updatedAt: string;
   processedAt?: string;

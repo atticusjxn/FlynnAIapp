@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { businessTypes } from '../context/OnboardingContext';
+import { SmartRoutingMode as CallsSmartRoutingMode } from '../types/calls.types';
 
 export interface UserSettingsPayload {
   id: string;
@@ -12,6 +13,28 @@ export interface UserSettingsPayload {
   twilio_phone_number: string | null; // Added
   twilio_number_sid: string | null; // Added
   settings: Record<string, any> | null;
+}
+
+export type SmartRoutingMode = CallsSmartRoutingMode;
+export type AfterHoursMode = 'intake' | 'voicemail';
+
+export interface SmartRoutingScheduleWindow {
+  days: string[];
+  start: string;
+  end: string;
+}
+
+export interface SmartRoutingScheduleConfig {
+  timezone: string;
+  windows: SmartRoutingScheduleWindow[];
+}
+
+export interface SmartRoutingSettings {
+  mode: SmartRoutingMode;
+  afterHoursMode: AfterHoursMode;
+  featureEnabled: boolean;
+  schedule: SmartRoutingScheduleConfig | null;
+  updatedAt?: string | null;
 }
 
 export interface SettingsData {
@@ -28,10 +51,46 @@ export interface SettingsData {
   } | null;
   pushEnabled: boolean;
   notificationSettings: Record<string, any> | null;
+  smartRouting: SmartRoutingSettings;
 }
 
+const parseSchedule = (value: any): SmartRoutingScheduleConfig | null => {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+
+    const timezone = typeof parsed.timezone === 'string' ? parsed.timezone : undefined;
+    const windows = Array.isArray(parsed.windows)
+      ? parsed.windows.map((window: any) => ({
+          days: Array.isArray(window.days)
+            ? window.days.map((day: any) => String(day || '').toLowerCase())
+            : typeof window.day === 'string'
+              ? [window.day.toLowerCase()]
+              : [],
+          start: String(window.start || window.startTime || ''),
+          end: String(window.end || window.endTime || ''),
+        }))
+      : [];
+
+    if (!timezone || windows.length === 0) {
+      return null;
+    }
+
+    return { timezone, windows };
+  } catch (error) {
+    console.warn('[SettingsService] Failed to parse routing schedule', error);
+    return null;
+  }
+};
+
 export const fetchUserSettings = async (userId: string): Promise<SettingsData> => {
-  const [profileRes, tokensRes] = await Promise.all([
+  const [profileRes, tokensRes, routingRes] = await Promise.all([
     supabase
       .from('users')
       .select('id, business_name, business_type, email, phone_number, forwarding_active, call_features_enabled, settings, twilio_phone_number, twilio_number_sid') // Added Twilio fields
@@ -41,6 +100,11 @@ export const fetchUserSettings = async (userId: string): Promise<SettingsData> =
       .from('notification_tokens')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId),
+    supabase
+      .from('call_routing_settings')
+      .select('mode, after_hours_mode, feature_enabled, schedule, schedule_timezone, updated_at')
+      .eq('user_id', userId)
+      .maybeSingle(),
   ]);
 
   const profileRow = profileRes.data;
@@ -60,10 +124,25 @@ export const fetchUserSettings = async (userId: string): Promise<SettingsData> =
 
   const pushEnabled = (tokensRes.count ?? 0) > 0;
 
+  const routingRow = routingRes.data;
+  const smartRouting: SmartRoutingSettings = {
+    mode: (routingRow?.mode as SmartRoutingMode) ?? 'smart_auto',
+    afterHoursMode: (routingRow?.after_hours_mode as AfterHoursMode) ?? 'voicemail',
+    featureEnabled: routingRow?.feature_enabled !== false,
+    schedule: parseSchedule(routingRow?.schedule) || (routingRow?.schedule_timezone
+      ? {
+          timezone: routingRow.schedule_timezone,
+          windows: [],
+        }
+      : null),
+    updatedAt: routingRow?.updated_at ?? null,
+  };
+
   return {
     profile,
     pushEnabled,
     notificationSettings: (profileRow?.settings as Record<string, any>) ?? null,
+    smartRouting,
   };
 };
 
@@ -98,6 +177,38 @@ export const updateNotificationSettings = async (
     .from('users')
     .update({ settings: { ...settings, notifications: next }, updated_at: new Date().toISOString() })
     .eq('id', userId);
+};
+
+export const updateSmartRoutingSettings = async (
+  userId: string,
+  settings: Partial<SmartRoutingSettings>,
+) => {
+  const payload: Record<string, any> = {
+    user_id: userId,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (settings.mode) {
+    payload.mode = settings.mode;
+  }
+
+  if (settings.afterHoursMode) {
+    payload.after_hours_mode = settings.afterHoursMode;
+  }
+
+  if (settings.featureEnabled !== undefined) {
+    payload.feature_enabled = settings.featureEnabled;
+  }
+
+  if (settings.schedule) {
+    payload.schedule = JSON.stringify(settings.schedule);
+    payload.schedule_timezone = settings.schedule.timezone;
+  } else if (settings.schedule === null) {
+    payload.schedule = null;
+    payload.schedule_timezone = null;
+  }
+
+  return supabase.from('call_routing_settings').upsert(payload, { onConflict: 'user_id' });
 };
 
 export const resolveBusinessTypeLabel = (businessType: string) => {
