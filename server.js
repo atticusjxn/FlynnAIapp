@@ -25,8 +25,10 @@ const {
   findExpiredRecordingCalls,
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,
+  insertVoicemail,
 } = require('./supabaseMcpClient');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
+const { determineInboundRoute, FEATURE_VERSION } = require('./telephony/routing');
 
 dotenv.config();
 
@@ -74,6 +76,9 @@ const parseIntegerEnv = (value, fallback) => {
 const voicemailBucket = process.env.VOICEMAIL_STORAGE_BUCKET || 'voicemails';
 const voicemailSignedUrlTtlSeconds = parseIntegerEnv(process.env.VOICEMAIL_SIGNED_URL_TTL_SECONDS, 3600);
 const voicemailRetentionDays = parseIntegerEnv(process.env.VOICEMAIL_RETENTION_DAYS, 30);
+
+const SMART_ROUTING_ENABLED = process.env.FEATURE_SMART_CALL_ROUTING !== 'disabled';
+const SMART_ROUTING_FALLBACK_MODE = process.env.FEATURE_SMART_CALL_ROUTING_FALLBACK_MODE || 'voicemail';
 
 const supabaseClientOptions = {
   auth: {
@@ -398,7 +403,7 @@ const sendConfirmationSms = async ({ to, body }) => {
   return message;
 };
 
-const handleInboundVoice = (req, res) => {
+const handleInboundVoice = async (req, res) => {
   console.log('[Telephony] Inbound voice webhook request received.', { method: req.method });
 
   const inboundParams = req.method === 'GET' ? req.query || {} : req.body || {};
@@ -429,11 +434,100 @@ const handleInboundVoice = (req, res) => {
   console.log('[Telephony] Request params:', inboundParams);
 
   const response = new twilio.twiml.VoiceResponse();
-  response.say('Hi, you\'ve reached FlynnAI. Please leave a message after the tone.');
+
+  const callSid = inboundParams.CallSid || randomUUID();
+  const fromNumber = inboundParams.From || null;
+  const toNumber = inboundParams.To || null;
+
+  let evaluation = {
+    route: SMART_ROUTING_FALLBACK_MODE,
+    reason: 'feature_disabled',
+    mode: 'voicemail',
+    user: null,
+    caller: null,
+    fallback: true,
+    featureEnabled: false,
+  };
+
+  if (SMART_ROUTING_ENABLED) {
+    try {
+      evaluation = await determineInboundRoute({
+        toNumber,
+        fromNumber,
+        now: new Date(),
+      });
+
+      if (!evaluation || !evaluation.route) {
+        evaluation = {
+          route: SMART_ROUTING_FALLBACK_MODE,
+          reason: 'empty_evaluation',
+          mode: 'voicemail',
+          user: evaluation?.user || null,
+          caller: evaluation?.caller || null,
+          fallback: true,
+          featureEnabled: evaluation?.featureEnabled ?? true,
+        };
+      }
+    } catch (error) {
+      console.error('[Telephony] Failed to evaluate smart routing; falling back to voicemail.', {
+        callSid,
+        error,
+      });
+      evaluation = {
+        route: SMART_ROUTING_FALLBACK_MODE,
+        reason: 'evaluation_error',
+        mode: 'voicemail',
+        user: null,
+        caller: null,
+        fallback: true,
+        featureEnabled: false,
+      };
+    }
+  }
+
+  const routeDecision = evaluation.route === 'intake' ? 'intake' : 'voicemail';
+  const announceMessage = routeDecision === 'intake'
+    ? 'Hi, you have reached FlynnAI. I am the AI receptionist and will take down the details for the team.'
+    : 'Hi, you\'ve reached FlynnAI. Please leave a message after the tone.';
+
+  response.say(announceMessage);
   response.record({
     action: buildRecordingCallbackUrl(req),
     method: 'POST',
     playBeep: true,
+  });
+
+  const metadata = {
+    schedule: evaluation.schedule || null,
+    reason: evaluation.reason,
+  };
+
+  try {
+    await upsertCallRecord({
+      callSid,
+      userId: evaluation.user?.id || null,
+      fromNumber,
+      toNumber,
+      status: 'inbound',
+      callerId: evaluation.caller?.id || null,
+      routeMode: evaluation.mode,
+      routeDecision,
+      routeReason: evaluation.reason,
+      routeFallback: Boolean(evaluation.fallback),
+      routeEvaluatedAt: new Date().toISOString(),
+      featureFlagVersion: SMART_ROUTING_ENABLED ? FEATURE_VERSION : null,
+      metadata,
+    });
+  } catch (error) {
+    console.error('[Telephony] Failed to persist call record for inbound voice.', { callSid, error });
+  }
+
+  console.log('[Telephony] Routing decision', {
+    callSid,
+    route: routeDecision,
+    reason: evaluation.reason,
+    userId: evaluation.user?.id,
+    callerId: evaluation.caller?.id,
   });
 
   res.type('text/xml');
@@ -895,7 +989,7 @@ app.post('/telephony/recording-complete', async (req, res) => {
         throw new Error('Transcription response did not include text.');
       }
 
-      await insertTranscription({
+      const insertedTranscript = await insertTranscription({
         id: randomUUID(),
         callSid: CallSid,
         engine: 'whisper',
@@ -908,17 +1002,45 @@ app.post('/telephony/recording-complete', async (req, res) => {
 
       console.log('[Telephony] Transcription stored successfully for call.', { callSid: CallSid });
 
+      let callRecordForRouting = null;
       try {
-        await ensureJobForTranscript({
-          callSid: CallSid,
-          transcriptText,
-          openaiClient,
-        });
-      } catch (jobCreationError) {
-        console.error('[Jobs] Failed to create job from transcript.', {
-          callSid: CallSid,
-          error: jobCreationError,
-        });
+        callRecordForRouting = await getCallBySid(CallSid);
+      } catch (lookupError) {
+        console.warn('[Telephony] Failed to reload call before post-processing.', { callSid: CallSid, lookupError });
+      }
+
+      const shouldCreateJob = callRecordForRouting?.route_decision === 'intake';
+
+      if (shouldCreateJob) {
+        try {
+          await ensureJobForTranscript({
+            callSid: CallSid,
+            transcriptText,
+            openaiClient,
+          });
+        } catch (jobCreationError) {
+          console.error('[Jobs] Failed to create job from transcript.', {
+            callSid: CallSid,
+            error: jobCreationError,
+          });
+        }
+      } else {
+        try {
+          await insertVoicemail({
+            callSid: CallSid,
+            userId: callRecordForRouting?.user_id || null,
+            callerId: callRecordForRouting?.caller_id || null,
+            transcriptionId: insertedTranscript?.id || null,
+            recordingUrl: storageMetadata?.signedUrl || callRecordForRouting?.recording_url || null,
+            transcriptionText: transcriptText,
+          });
+          console.log('[Telephony] Voicemail record stored for call.', { callSid: CallSid });
+        } catch (voicemailError) {
+          console.error('[Telephony] Failed to store voicemail record.', {
+            callSid: CallSid,
+            voicemailError,
+          });
+        }
       }
 
       return res.status(200).json({ status: 'transcribed' });
