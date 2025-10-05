@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
   TouchableOpacity,
   Alert,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnInput } from '../../components/ui/FlynnInput';
 import { FlynnButton } from '../../components/ui/FlynnButton';
+import { FlynnKeyboardAvoidingView, FlynnKeyboardAwareScrollView } from '../../components/ui';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { spacing, typography, borderRadius } from '../../theme';
 import ReceptionistService from '../../services/ReceptionistService';
@@ -138,19 +138,27 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
+      <FlynnKeyboardAvoidingView
+        contentContainerStyle={styles.keyboardContent}
+        dismissOnTapOutside
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
+          </TouchableOpacity>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+          </View>
         </View>
-      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <FlynnKeyboardAwareScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.titleContainer}>
           <View style={styles.iconContainer}>
             <FlynnIcon name="sparkles" size={32} color="#3B82F6" />
@@ -262,12 +270,13 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
           </View>
           <FlynnButton title="Play test message" onPress={handlePreviewCall} variant="primary" />
         </View>
-      </ScrollView>
+        </FlynnKeyboardAwareScrollView>
 
-      <View style={styles.buttonRow}>
-        <FlynnButton title="Skip for now" onPress={handleSkip} variant="secondary" disabled={isSaving} />
-        <FlynnButton title={isSaving ? 'Saving…' : 'Finish onboarding'} onPress={handleComplete} variant="primary" disabled={isSaving} />
-      </View>
+        <View style={styles.buttonRow}>
+          <FlynnButton title="Skip for now" onPress={handleSkip} variant="secondary" disabled={isSaving} />
+          <FlynnButton title={isSaving ? 'Saving…' : 'Finish onboarding'} onPress={handleComplete} variant="primary" disabled={isSaving} />
+        </View>
+      </FlynnKeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -276,6 +285,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardContent: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -304,6 +316,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xxl,
   },
   titleContainer: {
     alignItems: 'center',

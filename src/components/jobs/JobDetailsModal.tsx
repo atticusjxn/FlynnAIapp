@@ -8,12 +8,12 @@ import {
   Linking,
   Alert,
   TextInput,
-  ScrollView,
 } from 'react-native';
 import { FlynnIcon } from '../ui/FlynnIcon';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnButton } from '../ui/FlynnButton';
 import { FlynnKeyboardAvoidingView } from '../ui/FlynnKeyboardAvoidingView';
+import { FlynnKeyboardAwareScrollView } from '../ui/FlynnKeyboardAwareScrollView';
 import { Job } from './JobCard';
 
 interface JobDetailsModalProps {
@@ -267,11 +267,10 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView
+        <FlynnKeyboardAwareScrollView
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
         >
           {/* Client Information */}
           <View style={styles.section}>
@@ -457,7 +456,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               )}
             </View>
           )}
-        </ScrollView>
+        </FlynnKeyboardAwareScrollView>
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
