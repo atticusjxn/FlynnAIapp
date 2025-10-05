@@ -5,11 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { FlynnKeyboardAvoidingView, FlynnKeyboardAwareScrollView } from '../../components/ui';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { businessTypes, useOnboarding } from '../../context/OnboardingContext';
 
@@ -54,10 +52,10 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <FlynnKeyboardAvoidingView
         style={styles.keyboardAvoidingContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        contentContainerStyle={styles.keyboardContent}
+        dismissOnTapOutside
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -71,10 +69,10 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
           </View>
         </View>
 
-        <ScrollView 
-          style={styles.content} 
+        <FlynnKeyboardAwareScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.titleContainer}>
             <Text style={styles.title}>What type of services do you provide?</Text>
@@ -134,7 +132,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
           
           {/* Add extra padding at bottom when keyboard is shown */}
           {showCustomInput && <View style={{ height: 100 }} />}
-        </ScrollView>
+        </FlynnKeyboardAwareScrollView>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -152,7 +150,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
             />
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </FlynnKeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -163,6 +161,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   keyboardAvoidingContainer: {
+    flex: 1,
+  },
+  keyboardContent: {
     flex: 1,
   },
   header: {
@@ -192,6 +193,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
+  },
+  scrollContent: {
+    paddingBottom: 120,
   },
   titleContainer: {
     marginBottom: 32,

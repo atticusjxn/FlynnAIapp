@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  ScrollView,
 } from 'react-native';
+import type { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { FlynnIcon } from '../ui/FlynnIcon';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnButton } from '../ui/FlynnButton';
 import { FlynnKeyboardAvoidingView } from '../ui/FlynnKeyboardAvoidingView';
+import { FlynnKeyboardAwareScrollView } from '../ui/FlynnKeyboardAwareScrollView';
 import { Job } from './JobCard';
 
 type CommunicationType = 'text' | 'email';
@@ -86,7 +87,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messageSectionOffset, setMessageSectionOffset] = useState(0);
-  const scrollViewRef = React.useRef<ScrollView>(null);
+  const scrollViewRef = React.useRef<KeyboardAwareScrollView | null>(null);
 
   React.useEffect(() => {
     if (job && visible) {
@@ -154,11 +155,10 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView
+        <FlynnKeyboardAwareScrollView
           ref={scrollViewRef}
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
         >
           {/* Recipient Info */}
           <View style={styles.recipientSection}>
@@ -207,7 +207,7 @@ export const CommunicationModal: React.FC<CommunicationModalProps> = ({
               }
             </Text>
           </View>
-        </ScrollView>
+        </FlynnKeyboardAwareScrollView>
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>

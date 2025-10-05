@@ -25,6 +25,10 @@ import {
   updateNotificationSettings,
   updateUserProfile,
 } from '../services/settingsService';
+import {
+  FlynnKeyboardAwareScrollView,
+  FlynnKeyboardAvoidingView,
+} from '../components/ui';
 
 interface NotificationPrefs {
   push: boolean;
@@ -460,7 +464,10 @@ export const SettingsScreen: React.FC = () => {
         presentationStyle="pageSheet"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.editModalContainer}>
+        <FlynnKeyboardAvoidingView
+          style={styles.editModalContainer}
+          dismissOnTapOutside
+        >
           <View style={styles.editModalHeader}>
             <Text style={styles.editModalTitle}>Edit profile</Text>
             <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.closeButton}>
@@ -468,7 +475,10 @@ export const SettingsScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.editModalContent} showsVerticalScrollIndicator={false}>
+          <FlynnKeyboardAwareScrollView
+            contentContainerStyle={styles.editModalContent}
+            showsVerticalScrollIndicator={false}
+          >
             <FlynnInput
               label="Business name"
               value={editBusinessName}
@@ -502,7 +512,7 @@ export const SettingsScreen: React.FC = () => {
                 );
               })}
             </View>
-          </ScrollView>
+          </FlynnKeyboardAwareScrollView>
 
           <View style={styles.editModalFooter}>
             <FlynnButton
@@ -519,7 +529,7 @@ export const SettingsScreen: React.FC = () => {
               style={styles.editModalButton}
             />
           </View>
-        </View>
+        </FlynnKeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

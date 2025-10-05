@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Alert,
   Switch,
@@ -22,6 +21,10 @@ import { spacing, typography, borderRadius } from '../theme';
 import ReceptionistService, { VoiceProfile } from '../services/ReceptionistService';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
+import {
+  FlynnKeyboardAwareScrollView,
+  FlynnKeyboardAvoidingView,
+} from '../components/ui';
 
 const KOALA_ANIMATION = require('../../assets/images/koala3s.gif');
 const KOALA_STATIC = require('../../assets/images/icon.png');
@@ -618,45 +621,48 @@ export const ReceptionistScreen: React.FC = () => {
   ]);
 
   return (
-    <View style={styles.screen}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <FlynnKeyboardAvoidingView style={styles.screen} dismissOnTapOutside>
+      <FlynnKeyboardAwareScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+      >
         <View style={styles.heroCard}>
           <Animated.View style={[styles.heroAvatar, { transform: [{ scale: koalaScale }] }]}>
             <Image
               key={isKoalaTalking ? `koala-${koalaAnimationKey}` : 'koala-static'}
               source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
-            style={styles.heroAvatarImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
-        <View style={styles.heroTextWrapper}>
-          <Text style={styles.heroTitle}>Koala Concierge</Text>
-          <Text style={styles.heroSubtitle}>
-            Manage the voice, behaviour, and scripts your AI receptionist uses on every call.
-          </Text>
+              style={styles.heroAvatarImage}
+              resizeMode="contain"
+            />
+          </Animated.View>
+          <View style={styles.heroTextWrapper}>
+            <Text style={styles.heroTitle}>Koala Concierge</Text>
+            <Text style={styles.heroSubtitle}>
+              Manage the voice, behaviour, and scripts your AI receptionist uses on every call.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.previewButton}
+            onPress={handlePlayGreeting}
+            activeOpacity={0.85}
+            disabled={isGreetingPreviewLoading}
+          >
+            {isGreetingPreviewLoading ? (
+              <ActivityIndicator color="#2563eb" size="small" />
+            ) : (
+              <View style={styles.previewButtonContent}>
+                <FlynnIcon
+                  name={isGreetingPreviewPlaying ? 'pause-circle' : 'play-circle'}
+                  size={22}
+                  color="#2563eb"
+                />
+                <Text style={styles.previewButtonLabel}>
+                  {isGreetingPreviewPlaying ? 'Stop' : 'Play greeting'}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.previewButton}
-          onPress={handlePlayGreeting}
-          activeOpacity={0.85}
-          disabled={isGreetingPreviewLoading}
-        >
-          {isGreetingPreviewLoading ? (
-            <ActivityIndicator color="#2563eb" size="small" />
-          ) : (
-            <View style={styles.previewButtonContent}>
-              <FlynnIcon
-                name={isGreetingPreviewPlaying ? 'pause-circle' : 'play-circle'}
-                size={22}
-                color="#2563eb"
-              />
-              <Text style={styles.previewButtonLabel}>
-                {isGreetingPreviewPlaying ? 'Stop' : 'Play greeting'}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Voice profile</Text>
@@ -927,7 +933,7 @@ export const ReceptionistScreen: React.FC = () => {
         durationMillis={recordingDuration}
         uploading={isUploadingSample}
       />
-      </ScrollView>
+      </FlynnKeyboardAwareScrollView>
 
       {toastState && (
         <View
@@ -946,7 +952,7 @@ export const ReceptionistScreen: React.FC = () => {
           <Text style={styles.toastText}>{toastState.message}</Text>
         </View>
       )}
-    </View>
+    </FlynnKeyboardAvoidingView>
   );
 };
 
