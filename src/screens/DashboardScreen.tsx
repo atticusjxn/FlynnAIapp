@@ -10,8 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { FlynnIcon, FlynnIconName } from '../components/ui/FlynnIcon';
+import { FlynnIcon } from '../components/ui/FlynnIcon';
 import { useAuth } from '../context/AuthContext';
 import { typography, spacing, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -23,6 +22,8 @@ import { ActivityDetailsModal } from '../components/dashboard/ActivityDetailsMod
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { useJobs } from '../context/JobsContext';
 import { FloatingActionButton } from '../components/common/FloatingActionButton';
+import { VoicemailPreviewCard } from '../components/dashboard/VoicemailPreviewCard';
+import { DashboardVoicemail, fetchRecentVoicemails } from '../services/voicemailService';
 
 export const DashboardScreen = () => {
   const { user } = useAuth();
@@ -44,7 +45,10 @@ export const DashboardScreen = () => {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<DashboardActivity | null>(null);
   const [activityModalVisible, setActivityModalVisible] = useState(false);
+  const [voicemails, setVoicemails] = useState<DashboardVoicemail[]>([]);
+  const [voicemailsLoading, setVoicemailsLoading] = useState(false);
   const styles = createStyles(colors);
+  const isRefreshing = jobsLoading || activitiesLoading || voicemailsLoading;
 
   // Get real data
   const getUpcomingJob = (): Job | null => {
@@ -68,7 +72,7 @@ export const DashboardScreen = () => {
 
   const onRefresh = async () => {
     try {
-      await Promise.all([refreshJobs(), loadActivities()]);
+      await Promise.all([refreshJobs(), loadActivities(), loadVoicemails()]);
     } catch (error) {
       console.error('[Dashboard] Refresh failed:', error);
     }
@@ -92,14 +96,39 @@ export const DashboardScreen = () => {
     }
   };
 
+  const loadVoicemails = async () => {
+    if (!user?.id) {
+      setVoicemails([]);
+      return;
+    }
+
+    setVoicemailsLoading(true);
+    try {
+      const recent = await fetchRecentVoicemails(user.id, 5);
+      setVoicemails(recent);
+    } catch (error) {
+      console.error('[Dashboard] Failed to load voicemails', error);
+      setVoicemails([]);
+    } finally {
+      setVoicemailsLoading(false);
+    }
+  };
+
   useEffect(() => {
     void loadActivities();
+    void loadVoicemails();
   }, [user?.id]);
 
   const handleCallClient = (phone: string) => {
     const phoneUrl = `tel:${phone}`;
     Linking.openURL(phoneUrl).catch(() => {
       Alert.alert('Error', 'Unable to make phone call');
+    });
+  };
+
+  const handlePlayVoicemail = (recordingUrl: string) => {
+    Linking.openURL(recordingUrl).catch(() => {
+      Alert.alert('Playback unavailable', 'Could not open the voicemail audio. Try again later.');
     });
   };
 
@@ -173,6 +202,10 @@ export const DashboardScreen = () => {
     }
   };
 
+  const handleOpenVoicemailJob = (jobId: string) => {
+    handleNavigateToJobFromActivity(jobId);
+  };
+
   const handleActivityHistoryPress = (activity: DashboardActivity) => {
     // Keep activity history modal open and let it handle the details internally
     // The ActivityHistoryModal now handles showing details within itself
@@ -223,12 +256,43 @@ export const DashboardScreen = () => {
       <ScrollView
         style={styles.container}
         refreshControl={
-          <RefreshControl refreshing={jobsLoading} onRefresh={onRefresh} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         }
       >
       {/* Welcome Section */}
       <View style={styles.welcomeSection}>
         <Text style={styles.welcomeText}>Welcome back, {getUserName()} 👋</Text>
+      </View>
+
+      {/* Recent Voicemails */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <FlynnIcon name="mic-outline" size={20} color={colors.primary} />
+          <Text style={styles.sectionTitle}>Recent Voicemails</Text>
+        </View>
+        {voicemailsLoading && voicemails.length === 0 ? (
+          <View style={styles.emptyActivityCard}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.emptyActivityDescription}>Loading voicemails…</Text>
+          </View>
+        ) : voicemails.length > 0 ? (
+          <View style={styles.voicemailList}>
+            {voicemails.map(voicemail => (
+              <VoicemailPreviewCard
+                key={voicemail.id}
+                voicemail={voicemail}
+                onPlayRecording={handlePlayVoicemail}
+                onOpenJob={voicemail.jobId ? handleOpenVoicemailJob : undefined}
+              />
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyActivityCard}>
+            <FlynnIcon name="mic-outline" size={32} color={colors.gray400} />
+            <Text style={styles.emptyActivityTitle}>No voicemails yet</Text>
+            <Text style={styles.emptyActivityDescription}>New voicemails will appear here instantly.</Text>
+          </View>
+        )}
       </View>
 
       {/* Upcoming Event Section */}
@@ -255,8 +319,36 @@ export const DashboardScreen = () => {
                 <Text style={styles.eventDuration}>{upcomingJob.estimatedDuration}</Text>
               </View>
             )}
-            <TouchableOpacity 
-              style={styles.callClientButton} 
+            {(upcomingJob.voicemailTranscript || upcomingJob.voicemailRecordingUrl) && (
+              <View style={styles.voicemailPreview}>
+                <View style={styles.voicemailPreviewHeader}>
+                  <FlynnIcon name="mic-outline" size={16} color={colors.primary} />
+                  <Text style={styles.voicemailPreviewTitle}>Voicemail summary</Text>
+                </View>
+                {upcomingJob.voicemailTranscript ? (
+                  <Text style={styles.voicemailPreviewText} numberOfLines={4}>
+                    “{upcomingJob.voicemailTranscript.trim()}”
+                  </Text>
+                ) : (
+                  <Text style={styles.voicemailPlaceholder}>Transcript not available yet.</Text>
+                )}
+                {upcomingJob.voicemailRecordingUrl && (
+                  <TouchableOpacity
+                    style={styles.voicemailButton}
+                    activeOpacity={0.7}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handlePlayVoicemail(upcomingJob.voicemailRecordingUrl!);
+                    }}
+                  >
+                    <FlynnIcon name="play-outline" size={16} color={colors.primary} />
+                    <Text style={styles.voicemailButtonText}>Listen to voicemail</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.callClientButton}
               activeOpacity={0.7}
               onPress={(e) => {
                 e.stopPropagation();
@@ -457,6 +549,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.sm,
     ...shadows.sm,
   },
+  voicemailList: {
+    gap: spacing.sm,
+  },
   activitiesContainer: {
     gap: 0,
   },
@@ -542,6 +637,48 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.textTertiary,
     textAlign: 'center',
+  },
+  voicemailPreview: {
+    backgroundColor: colors.gray50,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  voicemailPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  voicemailPreviewTitle: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  voicemailPreviewText: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
+  voicemailPlaceholder: {
+    ...typography.bodySmall,
+    color: colors.textTertiary,
+  },
+  voicemailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary + '12',
+  },
+  voicemailButtonText: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.primary,
   },
   
   // Activity type row
