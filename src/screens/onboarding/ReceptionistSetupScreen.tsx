@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,35 +6,31 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import * as FileSystem from 'expo-file-system/legacy';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnInput } from '../../components/ui/FlynnInput';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { FlynnKeyboardAvoidingView, FlynnKeyboardAwareScrollView } from '../../components/ui';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { spacing, typography, borderRadius } from '../../theme';
-import ReceptionistService from '../../services/ReceptionistService';
+import ReceptionistService, { VoiceProfile } from '../../services/ReceptionistService';
 import { useAuth } from '../../context/AuthContext';
 import { buildDefaultGreeting } from '../../utils/greetingDefaults';
+import {
+  DEFAULT_FOLLOW_UP_QUESTIONS,
+  DEFAULT_VOICE_ID,
+  KOALA_ASSETS,
+  VOICE_OPTIONS,
+} from '../../data/receptionist';
+import { RecordVoiceModal } from '../../components/receptionist/RecordVoiceModal';
 
 interface ReceptionistSetupScreenProps {
   onComplete: () => void;
   onBack: () => void;
 }
-
-const voiceOptions = [
-  { id: 'koala_warm', label: 'Avery — Warm & Friendly', description: 'Balanced tone ideal for inbound service calls.' },
-  { id: 'koala_expert', label: 'Sloane — Expert Concierge', description: 'Calm, confident delivery for premium services.' },
-  { id: 'koala_hype', label: 'Maya — High Energy', description: 'Upbeat tone that keeps callers engaged.' },
-  { id: 'custom_voice', label: 'Record Your Own', description: 'Clone your voice so it sounds like you answering.' },
-];
-
-const starterQuestions = [
-  'What can we help you with today?',
-  'Where should we send the team?',
-  'When do you need the work done?',
-  'What is the best number to reach you on?',
-];
 
 export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = ({
   onComplete,
@@ -43,7 +39,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
   const { user } = useAuth();
   const { onboardingData, updateOnboardingData } = useOnboarding();
   const [selectedVoice, setSelectedVoice] = useState<string>(
-    onboardingData.receptionistVoice || voiceOptions[0].id
+    onboardingData.receptionistVoice || DEFAULT_VOICE_ID
   );
   const defaultGreeting = useMemo(() => buildDefaultGreeting(user), [user]);
   const [greeting, setGreeting] = useState(
@@ -53,9 +49,22 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
   const [questions, setQuestions] = useState<string[]>(
     onboardingData.receptionistQuestions && onboardingData.receptionistQuestions.length > 0
       ? onboardingData.receptionistQuestions
-      : starterQuestions
+      : DEFAULT_FOLLOW_UP_QUESTIONS.map(question => question)
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [voiceProfile, setVoiceProfile] = useState<VoiceProfile | null>(null);
+  const [loadingVoiceProfile, setLoadingVoiceProfile] = useState(false);
+  const previewSoundRef = useRef<Audio.Sound | null>(null);
+  const previewUriRef = useRef<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [koalaAnimationKey, setKoalaAnimationKey] = useState(0);
+  const [recordModalVisible, setRecordModalVisible] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isUploadingSample, setIsUploadingSample] = useState(false);
+  const voiceProfileId = onboardingData.receptionistVoiceProfileId ?? null;
 
   useEffect(() => {
     if (onboardingData.receptionistQuestions && onboardingData.receptionistQuestions.length > 0) {
@@ -71,7 +80,80 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
     }
   }, [defaultGreeting, onboardingData.receptionistGreeting]);
 
+  const loadVoiceProfile = useCallback(async (targetProfileId?: string | null) => {
+    const nextProfileId = targetProfileId ?? voiceProfileId;
+
+    if (!nextProfileId) {
+      setVoiceProfile(null);
+      return;
+    }
+
+    setLoadingVoiceProfile(true);
+    try {
+      const profile = await ReceptionistService.refreshVoiceProfile(nextProfileId);
+      setVoiceProfile(profile);
+    } catch (error) {
+      console.error('[ReceptionistSetupScreen] Failed to refresh voice profile', error);
+    } finally {
+      setLoadingVoiceProfile(false);
+    }
+  }, [voiceProfileId]);
+
+  useEffect(() => {
+    if (voiceProfileId) {
+      loadVoiceProfile();
+    } else {
+      setVoiceProfile(null);
+    }
+  }, [loadVoiceProfile, voiceProfileId]);
+
+  useEffect(() => {
+    return () => {
+      if (previewSoundRef.current) {
+        previewSoundRef.current.unloadAsync().catch(() => {});
+        previewSoundRef.current = null;
+      }
+      if (previewUriRef.current) {
+        FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        previewUriRef.current = null;
+      }
+    };
+  }, []);
+
   const canRecordOwnVoice = useMemo(() => selectedVoice === 'custom_voice', [selectedVoice]);
+
+  const handleQuestionChange = useCallback((index: number, value: string) => {
+    setQuestions(prev => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  }, []);
+
+  const stopPreview = useCallback(async () => {
+    const sound = previewSoundRef.current;
+    if (sound) {
+      try {
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded) {
+          await sound.stopAsync();
+        }
+      } catch (error) {
+        console.warn('[ReceptionistSetupScreen] Failed to stop preview playback', error);
+      } finally {
+        sound.unloadAsync().catch(() => {});
+        previewSoundRef.current = null;
+      }
+    }
+
+    if (previewUriRef.current) {
+      FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+      previewUriRef.current = null;
+    }
+
+    setIsPreviewPlaying(false);
+    setIsPreviewLoading(false);
+  }, []);
 
   const handleAddQuestion = () => {
     const trimmed = customQuestion.trim();
@@ -82,27 +164,238 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
     setCustomQuestion('');
   };
 
-  const handleRemoveQuestion = (question: string) => {
-    setQuestions(prev => prev.filter(q => q !== question));
-  };
+  const handleRemoveQuestion = useCallback((index: number) => {
+    setQuestions(prev => prev.filter((_, itemIndex) => itemIndex !== index));
+  }, []);
 
-  const handlePreviewCall = () => {
-    Alert.alert(
-      'Preview call',
-      `${voiceOptions.find(v => v.id === selectedVoice)?.label || 'Selected voice'} will say:\n\n"${greeting}"` +
-        (questions.length ? `\n\nFollow up with:\n• ${questions.join('\n• ')}` : ''),
-      [{ text: 'Sounds good!' }]
-    );
-  };
+  const handleStartRecording = useCallback(async () => {
+    try {
+      setRecordingDuration(0);
+      setIsRecording(true);
+
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) {
+        setIsRecording(false);
+        Alert.alert('Microphone permission', 'We need microphone access to capture your voice sample.');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+      });
+
+      const recordingInstance = new Audio.Recording();
+      recordingInstance.setOnRecordingStatusUpdate(status => {
+        if (status?.isRecording) {
+          setRecordingDuration(status.durationMillis ?? 0);
+        }
+      });
+
+      await recordingInstance.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await recordingInstance.startAsync();
+      setRecording(recordingInstance);
+    } catch (error) {
+      console.error('[ReceptionistSetupScreen] Failed to start recording', error);
+      setIsRecording(false);
+      setRecording(null);
+      Alert.alert('Recording failed', error instanceof Error ? error.message : 'Unable to start recording.');
+    }
+  }, []);
+
+  const handleStopRecording = useCallback(async () => {
+    const activeRecording = recording;
+    if (!activeRecording) {
+      setRecordModalVisible(false);
+      setIsRecording(false);
+      return;
+    }
+
+    try {
+      await activeRecording.stopAndUnloadAsync();
+      const uri = activeRecording.getURI();
+      setRecording(null);
+      setIsRecording(false);
+
+      if (!uri) {
+        throw new Error('Recording file unavailable.');
+      }
+
+      setIsUploadingSample(true);
+
+      const profile = await ReceptionistService.createVoiceProfile(
+        `Your voice ${new Date().toLocaleDateString()}`,
+        uri
+      );
+
+      updateOnboardingData({ receptionistVoiceProfileId: profile.id, receptionistVoice: 'custom_voice' });
+      setSelectedVoice('custom_voice');
+      setVoiceProfile(profile);
+      await loadVoiceProfile(profile.id);
+      setRecordModalVisible(false);
+      Alert.alert('Voice sample uploaded', 'We are cloning your voice. This usually takes a few minutes.');
+    } catch (error) {
+      console.error('[ReceptionistSetupScreen] Voice sample upload failed', error);
+      Alert.alert('Upload failed', error instanceof Error ? error.message : 'Unable to upload voice sample.');
+    } finally {
+      setIsUploadingSample(false);
+      setRecordingDuration(0);
+      setRecording(null);
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+          interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+        });
+      } catch (audioError) {
+        console.warn('[ReceptionistSetupScreen] Failed to reset audio mode', audioError);
+      }
+    }
+  }, [loadVoiceProfile, recording, updateOnboardingData]);
+
+  const handleDismissRecordModal = useCallback(() => {
+    if (isRecording || isUploadingSample) {
+      return;
+    }
+    setRecordModalVisible(false);
+    setRecording(null);
+    setIsRecording(false);
+    setRecordingDuration(0);
+  }, [isRecording, isUploadingSample]);
+
+  const handlePreviewCall = useCallback(async () => {
+    if (isPreviewLoading) {
+      return;
+    }
+
+    if (isPreviewPlaying) {
+      await stopPreview();
+      return;
+    }
+
+    const trimmedGreeting = greeting.trim();
+    if (!trimmedGreeting) {
+      Alert.alert('Greeting missing', 'Add a greeting script before playing a preview.');
+      return;
+    }
+
+    if (selectedVoice === 'custom_voice') {
+      if (!voiceProfileId && !voiceProfile?.id) {
+        Alert.alert('Voice not ready', 'Record your custom voice before playing a preview.');
+        return;
+      }
+
+      if (loadingVoiceProfile) {
+        Alert.alert('Voice cloning', 'We are still checking on your voice clone. Try again in a moment.');
+        return;
+      }
+
+      if (!voiceProfile || voiceProfile.status !== 'ready') {
+        Alert.alert('Voice not ready', 'We are still cloning your voice. Refresh the status or record a new sample.');
+        return;
+      }
+    }
+
+    try {
+      if (previewSoundRef.current) {
+        await stopPreview();
+      }
+
+      setIsPreviewLoading(true);
+
+      const preview = await ReceptionistService.previewGreeting(
+        trimmedGreeting,
+        selectedVoice,
+        selectedVoice === 'custom_voice'
+          ? (voiceProfile?.id ?? voiceProfileId ?? undefined)
+          : undefined
+      );
+
+      if (previewUriRef.current) {
+        await FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        previewUriRef.current = null;
+      }
+
+      const extension = preview.contentType.includes('wav')
+        ? 'wav'
+        : preview.contentType.includes('ogg')
+        ? 'ogg'
+        : 'mp3';
+      const base64Encoding = (FileSystem as any).EncodingType?.Base64 ?? 'base64';
+      const fileUri = `${FileSystem.cacheDirectory}receptionist-preview-${Date.now()}.${extension}`;
+      await FileSystem.writeAsStringAsync(fileUri, preview.audio, { encoding: base64Encoding });
+      previewUriRef.current = fileUri;
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+      });
+
+      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+      previewSoundRef.current = sound;
+      setIsPreviewPlaying(true);
+      setIsPreviewLoading(false);
+      setKoalaAnimationKey(prev => prev + 1);
+
+      sound.setOnPlaybackStatusUpdate(status => {
+        if (!status.isLoaded) {
+          if (status.error) {
+            console.warn('[ReceptionistSetupScreen] Preview playback error', status.error);
+          }
+          return;
+        }
+
+        if (status.didJustFinish) {
+          stopPreview().catch(() => {});
+        }
+      });
+
+      await sound.playAsync();
+    } catch (error) {
+      console.error('[ReceptionistSetupScreen] Failed to play receptionist preview', error);
+      Alert.alert(
+        'Preview unavailable',
+        error instanceof Error ? error.message : 'Unable to play the preview right now. Please try again.'
+      );
+      await stopPreview();
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  }, [
+    greeting,
+    isPreviewLoading,
+    isPreviewPlaying,
+    loadingVoiceProfile,
+    selectedVoice,
+    stopPreview,
+    voiceProfile,
+    voiceProfileId,
+  ]);
 
   const persistPreferences = async (configured: boolean) => {
     setIsSaving(true);
     try {
+      const profileIdToPersist = configured ? (voiceProfile?.id ?? voiceProfileId ?? null) : null;
+
       await ReceptionistService.savePreferences({
         voiceId: configured ? selectedVoice : null,
         greeting: configured ? greeting : null,
         questions: configured ? questions : [],
-        voiceProfileId: onboardingData.receptionistVoiceProfileId ?? null,
+        voiceProfileId: profileIdToPersist,
         configured,
       });
       updateOnboardingData({
@@ -110,6 +403,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
         receptionistVoice: configured ? selectedVoice : null,
         receptionistGreeting: configured ? greeting : null,
         receptionistQuestions: configured ? questions : [],
+        receptionistVoiceProfileId: profileIdToPersist,
       });
     } catch (error) {
       console.error('[ReceptionistSetupScreen] Failed to save receptionist settings', error);
@@ -135,6 +429,87 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
       onComplete();
     }
   };
+
+  const customVoiceStatusLabel = useMemo(() => {
+    if (isUploadingSample) {
+      return 'Your Voice — Uploading';
+    }
+
+    if (!voiceProfileId) {
+      return 'Record Your Own';
+    }
+
+    if (loadingVoiceProfile) {
+      return 'Your Voice — Checking status…';
+    }
+
+    if (!voiceProfile) {
+      return 'Your Voice — Pending';
+    }
+
+    switch (voiceProfile.status) {
+      case 'ready':
+        return 'Your Voice — Ready';
+      case 'processing':
+      case 'cloning':
+        return 'Your Voice — Cloning';
+      case 'uploaded':
+        return 'Your Voice — Queued';
+      case 'error':
+        return 'Your Voice — Needs attention';
+      default:
+        return `Your Voice — ${voiceProfile.status}`;
+    }
+  }, [isUploadingSample, loadingVoiceProfile, voiceProfile, voiceProfileId]);
+
+  const displayVoiceOptions = useMemo(
+    () =>
+      VOICE_OPTIONS.map(option =>
+        option.id === 'custom_voice'
+          ? {
+              ...option,
+              label: customVoiceStatusLabel,
+            }
+          : option
+      ),
+    [customVoiceStatusLabel]
+  );
+
+  const customVoiceStatusMessage = useMemo(() => {
+    if (isUploadingSample) {
+      return 'Uploading your sample. Hang tight while we send it to Flynn.';
+    }
+
+    if (!voiceProfileId) {
+      return 'Record a short greeting so Flynn can match your voice tone on every call.';
+    }
+
+    if (loadingVoiceProfile) {
+      return 'Checking on your voice clone… this usually takes under a minute.';
+    }
+
+    if (!voiceProfile) {
+      return 'We saved your sample. Refresh to see the latest cloning status.';
+    }
+
+    switch (voiceProfile.status) {
+      case 'ready':
+        return 'Your voice is ready. Flynn will now greet callers using your tone.';
+      case 'processing':
+      case 'cloning':
+        return 'We are cloning your voice right now. You will get a notification once it is ready.';
+      case 'uploaded':
+        return 'Sample received. We are submitting it for cloning.';
+      case 'error':
+        return 'The last clone attempt hit a snag. Record a new sample when you can.';
+      default:
+        return 'Voice status updated. Preview will be available once cloning is complete.';
+    }
+  }, [isUploadingSample, loadingVoiceProfile, voiceProfile, voiceProfileId]);
+
+  const disableVoiceActions = isRecording || isUploadingSample;
+
+  const isKoalaActive = isPreviewPlaying || isPreviewLoading;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -171,7 +546,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>1. Pick a voice</Text>
-          {voiceOptions.map(option => {
+          {displayVoiceOptions.map(option => {
             const isSelected = option.id === selectedVoice;
             return (
               <TouchableOpacity
@@ -189,21 +564,45 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
                 </View>
                 <View style={styles.voiceContent}>
                   <Text style={styles.voiceTitle}>{option.label}</Text>
-                  <Text style={styles.voiceDescription}>{option.description}</Text>
+                  {option.description ? (
+                    <Text style={styles.voiceDescription}>{option.description}</Text>
+                  ) : null}
                 </View>
-                {option.id === 'koala_warm' && (
-                  <Text style={styles.voiceBadge}>Popular</Text>
-                )}
+                {option.tag ? <Text style={styles.voiceBadge}>{option.tag}</Text> : null}
               </TouchableOpacity>
             );
           })}
 
           {canRecordOwnVoice && (
             <View style={styles.customVoiceNotice}>
-              <FlynnIcon name="mic" size={20} color="#3B82F6" />
-              <Text style={styles.customVoiceText}>
-                We will guide you through a quick recording after onboarding so Flynn can mimic your tone perfectly.
-              </Text>
+              <View style={styles.customVoiceIconWrapper}>
+                <FlynnIcon name="mic" size={22} color="#1d4ed8" />
+              </View>
+              <View style={styles.customVoiceContent}>
+                <Text style={styles.customVoiceTitle}>Clone your voice</Text>
+                <Text style={styles.customVoiceText}>{customVoiceStatusMessage}</Text>
+                <View style={styles.customVoiceActions}>
+                  <FlynnButton
+                    title={voiceProfileId ? 'Record new sample' : 'Record sample'}
+                    variant="secondary"
+                    size="small"
+                    onPress={() => setRecordModalVisible(true)}
+                    disabled={disableVoiceActions}
+                    loading={disableVoiceActions}
+                  />
+                  {voiceProfileId ? (
+                    <TouchableOpacity
+                      onPress={() => loadVoiceProfile()}
+                      disabled={loadingVoiceProfile || disableVoiceActions}
+                      style={styles.customVoiceRefreshButton}
+                    >
+                      <Text style={styles.customVoiceRefreshText}>
+                        {loadingVoiceProfile ? 'Refreshing…' : 'Refresh status'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
             </View>
           )}
         </View>
@@ -229,15 +628,36 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
             Flynn will confirm these details before handing the call back to you or creating an event.
           </Text>
           <View style={styles.questionList}>
-            {questions.map(question => (
-              <View key={question} style={styles.questionItem}>
-                <FlynnIcon name="chatbubble-ellipses-outline" size={18} color="#3B82F6" />
-                <Text style={styles.questionText}>{question}</Text>
-                <TouchableOpacity onPress={() => handleRemoveQuestion(question)}>
-                  <FlynnIcon name="close" size={18} color="#94a3b8" />
-                </TouchableOpacity>
-              </View>
-            ))}
+            {questions.map((question, index) => {
+              const disableRemoval = questions.length === 1;
+              return (
+                <FlynnInput
+                  key={`question-${index}`}
+                  value={question}
+                  onChangeText={text => handleQuestionChange(index, text)}
+                  placeholder={`Question ${index + 1}`}
+                  multiline
+                  numberOfLines={2}
+                  leftIcon={<FlynnIcon name="chatbubble-ellipses-outline" size={18} color="#3B82F6" />}
+                  rightIcon={
+                    <TouchableOpacity
+                      onPress={() => handleRemoveQuestion(index)}
+                      disabled={disableRemoval}
+                      style={styles.questionRemoveButton}
+                    >
+                      <FlynnIcon
+                        name="close"
+                        size={18}
+                        color={disableRemoval ? '#cbd5f5' : '#94a3b8'}
+                      />
+                    </TouchableOpacity>
+                  }
+                  containerStyle={styles.questionInputContainer}
+                  inputStyle={styles.questionInput}
+                  returnKeyType="done"
+                />
+              );
+            })}
           </View>
           <FlynnInput
             value={customQuestion}
@@ -259,8 +679,12 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
           <Text style={styles.sectionHint}>See how your koala concierge responds to callers.</Text>
           <View style={styles.previewContainer}>
             <View style={styles.previewAvatar}>
-              <FlynnIcon name="paw" size={28} color="#f97316" />
-              <Text style={styles.previewAvatarLabel}>Koala</Text>
+              <Image
+                key={isKoalaActive ? `koala-preview-${koalaAnimationKey}` : 'koala-static' }
+                source={isKoalaActive ? KOALA_ASSETS.animation : KOALA_ASSETS.static}
+                style={styles.previewKoalaImage}
+                resizeMode="contain"
+              />
             </View>
             <View style={styles.previewBubble}>
               <Text style={styles.previewBubbleText} numberOfLines={3}>
@@ -268,7 +692,12 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
               </Text>
             </View>
           </View>
-          <FlynnButton title="Play test message" onPress={handlePreviewCall} variant="primary" />
+          <FlynnButton
+            title={isPreviewPlaying ? 'Stop preview' : 'Play test message'}
+            onPress={handlePreviewCall}
+            variant="primary"
+            loading={isPreviewLoading}
+          />
         </View>
         </FlynnKeyboardAwareScrollView>
 
@@ -276,6 +705,16 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
           <FlynnButton title="Skip for now" onPress={handleSkip} variant="secondary" disabled={isSaving} />
           <FlynnButton title={isSaving ? 'Saving…' : 'Finish onboarding'} onPress={handleComplete} variant="primary" disabled={isSaving} />
         </View>
+
+        <RecordVoiceModal
+          visible={recordModalVisible}
+          isRecording={isRecording}
+          durationMillis={recordingDuration}
+          uploading={isUploadingSample}
+          onStartRecording={handleStartRecording}
+          onStopRecording={handleStopRecording}
+          onDismiss={handleDismissRecordModal}
+        />
       </FlynnKeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -403,37 +842,63 @@ const styles = StyleSheet.create({
   customVoiceNotice: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
+    gap: spacing.md,
     backgroundColor: '#e0f2fe',
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginTop: spacing.sm,
   },
+  customVoiceIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#c7d2fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customVoiceContent: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  customVoiceTitle: {
+    ...typography.bodyMedium,
+    color: '#1d4ed8',
+    fontWeight: '600',
+  },
   customVoiceText: {
     ...typography.bodySmall,
     color: '#1d4ed8',
-    flex: 1,
+  },
+  customVoiceActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  customVoiceRefreshButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  customVoiceRefreshText: {
+    ...typography.bodySmall,
+    color: '#1d4ed8',
+    fontWeight: '600',
   },
   greetingInput: {
     marginTop: spacing.sm,
   },
   questionList: {
     marginBottom: spacing.md,
-    gap: spacing.xs,
-  },
-  questionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    backgroundColor: '#f1f5f9',
   },
-  questionText: {
-    flex: 1,
-    ...typography.bodyMedium,
-    color: '#334155',
+  questionInputContainer: {
+    marginBottom: 0,
+  },
+  questionInput: {
+    minHeight: 52,
+  },
+  questionRemoveButton: {
+    padding: spacing.xs,
   },
   addQuestionButton: {
     marginTop: spacing.sm,
@@ -446,13 +911,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   previewAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#e0f2fe',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  previewAvatarLabel: {
-    ...typography.caption,
-    color: '#475569',
-    marginTop: spacing.xxxs,
+  previewKoalaImage: {
+    width: 52,
+    height: 52,
   },
   previewBubble: {
     flex: 1,

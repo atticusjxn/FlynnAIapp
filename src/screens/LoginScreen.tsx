@@ -40,7 +40,11 @@ export const LoginScreen = () => {
 
   return (
     <FlynnKeyboardAvoidingView style={styles.container} dismissOnTapOutside>
-        <FlynnKeyboardAwareScrollView contentContainerStyle={styles.scrollContent}>
+        <FlynnKeyboardAwareScrollView
+          contentContainerStyle={styles.scrollContent}
+          enableAutomaticScroll={false}
+          extraScrollHeight={0}
+        >
           <View style={styles.formWrapper}>
             <View style={styles.formContainer}>
               <Image source={KOALA_LOGO} style={styles.logo} accessibilityLabel="FlynnAI koala" />

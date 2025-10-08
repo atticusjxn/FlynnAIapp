@@ -82,22 +82,38 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
           </View>
 
           <View style={styles.optionsContainer}>
-            {businessTypes.map((type) => (
+            {businessTypes.map((type) => {
+              const isSelected = selectedType === type.id;
+              const iconColor = isSelected ? '#1d4ed8' : '#1f2937';
+
+              return (
               <TouchableOpacity
                 key={type.id}
                 style={[
                   styles.option,
-                  selectedType === type.id && styles.selectedOption,
+                  isSelected && styles.selectedOption,
                 ]}
                 onPress={() => handleTypeSelect(type.id)}
               >
                 <View style={styles.optionContent}>
-                  <Text style={styles.emoji}>{type.emoji}</Text>
+                  <View
+                    style={[
+                      styles.iconBadge,
+                      isSelected && styles.selectedIconBadge,
+                    ]}
+                  >
+                    <FlynnIcon
+                      name={type.icon}
+                      size={22}
+                      color={iconColor}
+                      strokeWidth={2}
+                    />
+                  </View>
                   <View style={styles.textContainer}>
                     <Text
                       style={[
                         styles.optionText,
-                        selectedType === type.id && styles.selectedOptionText,
+                        isSelected && styles.selectedOptionText,
                       ]}
                     >
                       {type.label}
@@ -109,11 +125,12 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
                     )}
                   </View>
                 </View>
-                {selectedType === type.id && (
+                {isSelected && (
                   <FlynnIcon name="checkmark-circle" size={24} color="#3B82F6" />
                 )}
               </TouchableOpacity>
-            ))}
+            );
+            })}
           </View>
 
           {showCustomInput && (
@@ -233,9 +250,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  emoji: {
-    fontSize: 24,
+  iconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 16,
+  },
+  selectedIconBadge: {
+    backgroundColor: '#e0f2fe',
   },
   textContainer: {
     flex: 1,

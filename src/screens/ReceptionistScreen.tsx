@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
-  Modal,
   ActivityIndicator,
   Image,
   Animated,
@@ -25,71 +24,23 @@ import {
   FlynnKeyboardAwareScrollView,
   FlynnKeyboardAvoidingView,
 } from '../components/ui';
+import {
+  DEFAULT_FOLLOW_UP_QUESTIONS,
+  DEFAULT_VOICE_ID,
+  FOLLOW_UP_TEMPLATES,
+  KOALA_ASSETS,
+  VOICE_OPTIONS,
+  matchTemplateId,
+} from '../data/receptionist';
+import { RecordVoiceModal } from '../components/receptionist/RecordVoiceModal';
 
-const KOALA_ANIMATION = require('../../assets/images/koala3s.gif');
-const KOALA_STATIC = require('../../assets/images/icon.png');
 const KOALA_LOOP_DURATION_MS = 3000;
-
-const BASE_VOICE_OPTIONS = [
-  { id: 'koala_warm', label: 'Avery — Warm & Friendly' },
-  { id: 'koala_expert', label: 'Sloane — Expert Concierge' },
-  { id: 'koala_hype', label: 'Maya — High Energy' },
-];
-
-const FOLLOW_UP_TEMPLATES = [
-  {
-    id: 'general',
-    label: 'General service',
-    description: 'Works for most customer service teams.',
-    questions: [
-      'What can we help you with today?',
-      'Where should we send the team or service pro?',
-      'When do you need this completed?',
-      'What is the best number or email to reach you?',
-    ],
-  },
-  {
-    id: 'trades',
-    label: 'Trades & repairs',
-    description: 'Tailored for electricians, plumbers, and contractors.',
-    questions: [
-      'What project or repair do you need help with?',
-      'How urgent is the request?',
-      'What time would you like the work handled?',
-      'Where is the job located and are there access instructions?',
-    ],
-  },
-  {
-    id: 'events',
-    label: 'Events & venues',
-    description: 'Great for planners, venues, and hospitality teams.',
-    questions: [
-      'What type of event are you planning?',
-      'When is the event and how flexible is the date?',
-      'How many guests are you expecting?',
-      'Is there anything special we should prepare for?',
-    ],
-  },
-];
-
-const DEFAULT_FOLLOW_UP_QUESTIONS = FOLLOW_UP_TEMPLATES[0].questions;
-
-const matchTemplateId = (questions: string[]): string => {
-  const normalized = questions.map(question => question.trim()).filter(Boolean);
-  const match = FOLLOW_UP_TEMPLATES.find(template => {
-    if (template.questions.length !== normalized.length) {
-      return false;
-    }
-    return template.questions.every((question, index) => question === normalized[index]);
-  });
-  return match?.id ?? 'custom';
-};
 
 export const ReceptionistScreen: React.FC = () => {
   const { user } = useAuth();
   const { onboardingData, updateOnboardingData } = useOnboarding();
   const [selectedVoice, setSelectedVoice] = useState<string>(
-    onboardingData.receptionistVoice || BASE_VOICE_OPTIONS[0].id
+    onboardingData.receptionistVoice || DEFAULT_VOICE_ID
   );
   const defaultGreeting = useMemo(() => buildDefaultGreeting(user), [user]);
 
@@ -222,12 +173,23 @@ export const ReceptionistScreen: React.FC = () => {
     }
   }, [customVoiceProfile]);
 
+  const baseVoiceOptions = useMemo(
+    () => VOICE_OPTIONS.filter(option => option.id !== 'custom_voice'),
+    []
+  );
+
+  const customVoiceDefinition = useMemo(
+    () => VOICE_OPTIONS.find(option => option.id === 'custom_voice'),
+    []
+  );
+
   const voiceOptions = useMemo(() => {
-    return [
-      ...BASE_VOICE_OPTIONS,
-      { id: 'custom_voice', label: customVoiceStatusLabel },
-    ];
-  }, [customVoiceStatusLabel]);
+    const customOption = customVoiceDefinition
+      ? { ...customVoiceDefinition, label: customVoiceStatusLabel }
+      : { id: 'custom_voice', label: customVoiceStatusLabel };
+
+    return [...baseVoiceOptions, customOption];
+  }, [baseVoiceOptions, customVoiceDefinition, customVoiceStatusLabel]);
 
   const handleQuestionChange = useCallback((index: number, value: string) => {
     setFollowUpQuestions(prev => {
@@ -630,7 +592,7 @@ export const ReceptionistScreen: React.FC = () => {
           <Animated.View style={[styles.heroAvatar, { transform: [{ scale: koalaScale }] }]}>
             <Image
               key={isKoalaTalking ? `koala-${koalaAnimationKey}` : 'koala-static'}
-              source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
+              source={isKoalaTalking ? KOALA_ASSETS.animation : KOALA_ASSETS.static}
               style={styles.heroAvatarImage}
               resizeMode="contain"
             />
@@ -956,69 +918,6 @@ export const ReceptionistScreen: React.FC = () => {
   );
 };
 
-const formatDuration = (millis: number): string => {
-  const seconds = Math.floor(millis / 1000);
-  const mins = Math.floor(seconds / 60);
-  const remaining = seconds % 60;
-  return `${String(mins).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
-};
-
-interface RecordVoiceModalProps {
-  visible: boolean;
-  isRecording: boolean;
-  durationMillis: number;
-  uploading: boolean;
-  onStartRecording: () => Promise<void>;
-  onStopRecording: () => Promise<void>;
-  onDismiss: () => void;
-}
-
-const RecordVoiceModal: React.FC<RecordVoiceModalProps> = ({
-  visible,
-  isRecording,
-  durationMillis,
-  uploading,
-  onStartRecording,
-  onStopRecording,
-  onDismiss,
-}) => {
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onDismiss}>
-      <View style={modalStyles.overlay}>
-        <View style={modalStyles.card}>
-          <Text style={modalStyles.title}>Record your voice</Text>
-          <Text style={modalStyles.subtitle}>
-            Find a quiet space and read one of your typical phone greetings for at least 45 seconds. Flynn needs a clean sample to mimic your tone.
-          </Text>
-
-          <View style={modalStyles.timerContainer}>
-            <View style={[modalStyles.timerBadge, isRecording ? modalStyles.timerBadgeActive : null]}>
-              <FlynnIcon name={isRecording ? 'recording' : 'mic-outline'} size={18} color={isRecording ? '#f87171' : '#2563eb'} />
-              <Text style={modalStyles.timerText}>{formatDuration(durationMillis)}</Text>
-            </View>
-            {uploading && (
-              <View style={modalStyles.uploadRow}>
-                <ActivityIndicator size="small" color="#2563eb" />
-                <Text style={modalStyles.uploadText}>Uploading sample…</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={modalStyles.actions}>
-            <FlynnButton
-              title={isRecording ? 'Stop recording' : uploading ? 'Uploading…' : 'Start recording'}
-              variant={isRecording ? 'danger' : 'primary'}
-              onPress={isRecording ? onStopRecording : onStartRecording}
-              disabled={uploading}
-            />
-            <FlynnButton title="Cancel" variant="secondary" onPress={onDismiss} disabled={isRecording || uploading} />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -1292,67 +1191,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: '#64748b',
     marginTop: spacing.xxxs,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    justifyContent: 'space-between',
-  },
-});
-
-const modalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  card: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  title: {
-    ...typography.h3,
-    color: '#0f172a',
-  },
-  subtitle: {
-    ...typography.bodyMedium,
-    color: '#475569',
-    lineHeight: 20,
-  },
-  timerContainer: {
-    gap: spacing.sm,
-  },
-  timerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    alignSelf: 'flex-start',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    backgroundColor: '#e2e8f0',
-  },
-  timerBadgeActive: {
-    backgroundColor: '#fee2e2',
-  },
-  timerText: {
-    ...typography.bodyMedium,
-    color: '#0f172a',
-    fontVariant: ['tabular-nums'],
-  },
-  uploadRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  uploadText: {
-    ...typography.bodySmall,
-    color: '#2563eb',
   },
   actions: {
     flexDirection: 'row',

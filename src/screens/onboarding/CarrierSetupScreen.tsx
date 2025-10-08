@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnKeyboardAvoidingView, FlynnKeyboardAwareScrollView } from '../../components/ui';
 import { useOnboarding } from '../../context/OnboardingContext';
@@ -24,7 +25,7 @@ import {
   detectCarrierFromNumber,
   CarrierDetectionConfidence,
 } from '../../services/CarrierDetectionService';
-import { sanitizeDigits, normalizeNumberForDetection } from '../../utils/phone';
+import { normalizeNumberForDetection } from '../../utils/phone';
 
 interface CarrierSetupScreenProps {
   onNext: () => void;
@@ -33,26 +34,58 @@ interface CarrierSetupScreenProps {
 
 const DEFAULT_CARRIER_COUNT = 3;
 
+const normalizeForwardingTarget = (forwardingNumber: string | null): string | null => {
+  if (!forwardingNumber) {
+    return null;
+  }
+
+  const cleaned = forwardingNumber.replace(/[^0-9+]/g, '');
+  if (!cleaned) {
+    return null;
+  }
+
+  const hasPlus = cleaned.startsWith('+');
+  const digitsOnly = cleaned.replace(/[^0-9]/g, '');
+  if (!digitsOnly) {
+    return null;
+  }
+
+  return hasPlus ? `+${digitsOnly}` : digitsOnly;
+};
+
+const encodeDialSequence = (sequence: string) =>
+  sequence.replace(/\+/g, '%2B').replace(/#/g, '%23');
+
 const replaceForwardingPlaceholder = (
   code: string,
   forwardingNumber: string | null
 ) => {
-  if (!forwardingNumber) {
+  if (!code.includes('{forwarding}')) {
+    return code;
+  }
+
+  const normalized = normalizeForwardingTarget(forwardingNumber);
+  if (!normalized) {
     return code.replace('{forwarding}', 'your Flynn number');
   }
 
-  const digits = sanitizeDigits(forwardingNumber);
-  return code.replace('{forwarding}', digits || forwardingNumber);
+  return code.replace('{forwarding}', normalized);
 };
 
 const getDialableCode = (code: string, forwardingNumber: string | null) => {
-  if (!forwardingNumber) return null;
-  const digits = sanitizeDigits(forwardingNumber);
-  if (!digits) return null;
+  const needsForwardingNumber = code.includes('{forwarding}');
 
-  const replaced = code.replace('{forwarding}', digits);
-  // Encode # for tel URLs while keeping * characters intact
-  return replaced.replace(/#/g, '%23');
+  if (!needsForwardingNumber) {
+    return encodeDialSequence(code);
+  }
+
+  const normalized = normalizeForwardingTarget(forwardingNumber);
+  if (!normalized) {
+    return null;
+  }
+
+  const replaced = code.replace('{forwarding}', normalized);
+  return encodeDialSequence(replaced);
 };
 
 export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
@@ -60,6 +93,9 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
   onBack,
 }) => {
   const { updateOnboardingData, onboardingData } = useOnboarding();
+  const insets = useSafeAreaInsets();
+  const isIOS = Platform.OS === 'ios';
+  const keyboardOffset = isIOS ? insets.top + 120 : 0;
   const [phoneNumber, setPhoneNumber] = useState(onboardingData.phoneNumber || '');
   const [selectedCarrierId, setSelectedCarrierId] = useState(
     callForwardingGuides[0]?.id || ''
@@ -345,7 +381,10 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
       return 'Provision a Flynn number to unlock forwarding instructions.';
     }
 
-    return onboardingData.twilioPhoneNumber;
+    return (
+      normalizeForwardingTarget(onboardingData.twilioPhoneNumber) ??
+      onboardingData.twilioPhoneNumber
+    );
   }, [onboardingData.twilioPhoneNumber]);
 
 
@@ -376,7 +415,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
     <SafeAreaView style={styles.container}>
       <FlynnKeyboardAvoidingView
         contentContainerStyle={styles.keyboardContent}
-        dismissOnTapOutside
+        keyboardVerticalOffset={keyboardOffset}
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -391,9 +430,12 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
         </View>
 
         <FlynnKeyboardAwareScrollView
+          enableAutomaticScroll={!isIOS}
+          extraScrollHeight={isIOS ? 0 : 24}
           style={styles.content}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
         >
           <View style={styles.titleContainer}>
             <View style={styles.iconContainer}>
