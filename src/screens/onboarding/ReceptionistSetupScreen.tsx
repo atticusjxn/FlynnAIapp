@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  Keyboard,
 } from 'react-native';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -554,6 +555,16 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
                 style={[styles.voiceOption, isSelected && styles.voiceOptionSelected]}
                 onPress={() => setSelectedVoice(option.id)}
                 activeOpacity={0.8}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={[
+                  option.label,
+                  option.description,
+                  option.tag ? `${option.tag} voice` : undefined,
+                ]
+                  .filter(Boolean)
+                  .join('. ')}
+                accessibilityHint="Select this voice for your concierge"
               >
                 <View style={styles.voiceIconContainer}>
                   <FlynnIcon
@@ -619,6 +630,9 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
             onChangeText={setGreeting}
             placeholder="Hi, you have reached..."
             containerStyle={styles.greetingInput}
+            blurOnSubmit
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
           />
         </View>
 
@@ -644,6 +658,9 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
                       onPress={() => handleRemoveQuestion(index)}
                       disabled={disableRemoval}
                       style={styles.questionRemoveButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove question ${index + 1}`}
+                      accessibilityState={{ disabled: disableRemoval }}
                     >
                       <FlynnIcon
                         name="close"
@@ -655,6 +672,8 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
                   containerStyle={styles.questionInputContainer}
                   inputStyle={styles.questionInput}
                   returnKeyType="done"
+                  blurOnSubmit
+                  onSubmitEditing={() => Keyboard.dismiss()}
                 />
               );
             })}
@@ -678,7 +697,16 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
           <Text style={styles.sectionTitle}>Preview</Text>
           <Text style={styles.sectionHint}>See how your koala concierge responds to callers.</Text>
           <View style={styles.previewContainer}>
-            <View style={styles.previewAvatar}>
+            <View
+              style={styles.previewAvatar}
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={
+                isKoalaActive
+                  ? 'Koala concierge preview animation playing'
+                  : 'Koala concierge avatar'
+              }
+            >
               <Image
                 key={isKoalaActive ? `koala-preview-${koalaAnimationKey}` : 'koala-static' }
                 source={isKoalaActive ? KOALA_ASSETS.animation : KOALA_ASSETS.static}
