@@ -215,7 +215,12 @@ export const ReceptionistService = {
     });
   },
 
-  async searchBusinesses(businessName: string, location?: string): Promise<BusinessSearchResult[]> {
+  async searchBusinesses(
+    businessName: string,
+    location?: string,
+    latitude?: number,
+    longitude?: number
+  ): Promise<BusinessSearchResult[]> {
     const response = await apiRequest<{ success: boolean; businesses: BusinessSearchResult[] }>(
       '/receptionist/business-context/search',
       {
@@ -223,6 +228,8 @@ export const ReceptionistService = {
         body: {
           businessName,
           location: location || '',
+          latitude,
+          longitude,
         },
       }
     );

@@ -653,16 +653,16 @@ app.post('/receptionist/business-context/search', authenticateJwt, async (req, r
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { businessName, location } = req.body || {};
+  const { businessName, location, latitude, longitude } = req.body || {};
 
   if (!businessName || typeof businessName !== 'string') {
     return res.status(400).json({ error: 'Business name is required' });
   }
 
   try {
-    console.log('[BusinessSearch] Searching for:', { businessName, location });
+    console.log('[BusinessSearch] Searching for:', { businessName, location, latitude, longitude });
 
-    const businesses = await searchBusinesses(businessName, location || '');
+    const businesses = await searchBusinesses(businessName, location || '', latitude || null, longitude || null);
 
     return res.json({
       success: true,

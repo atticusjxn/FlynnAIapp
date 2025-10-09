@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { FlynnIcon } from '../ui/FlynnIcon';
 import { FlynnInput } from '../ui/FlynnInput';
 import { FlynnButton } from '../ui/FlynnButton';
@@ -24,6 +25,8 @@ export const BusinessContextCard: React.FC<BusinessContextCardProps> = ({ onCont
 
   const [businessName, setBusinessName] = useState('');
   const [location, setLocation] = useState('');
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<BusinessSearchResult[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessSearchResult | null>(null);
@@ -31,10 +34,32 @@ export const BusinessContextCard: React.FC<BusinessContextCardProps> = ({ onCont
   const [businessContext, setBusinessContext] = useState<BusinessContext | null>(null);
   const [isLoadingContext, setIsLoadingContext] = useState(true);
 
-  // Load existing business context on mount
-  React.useEffect(() => {
+  // Load existing business context and request location on mount
+  useEffect(() => {
     loadBusinessContext();
+    requestLocationPermission();
   }, []);
+
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermission(status === 'granted');
+
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+        console.log('[BusinessContext] Location obtained:', {
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+        });
+      }
+    } catch (error) {
+      console.error('[BusinessContext] Failed to get location:', error);
+    }
+  };
 
   const loadBusinessContext = async () => {
     try {
@@ -61,7 +86,21 @@ export const BusinessContextCard: React.FC<BusinessContextCardProps> = ({ onCont
       setSearchResults([]);
       setSelectedBusiness(null);
 
-      const results = await ReceptionistService.searchBusinesses(businessName, location);
+      // Use current location if available, otherwise use manual location input
+      const searchLocation = userLocation || undefined;
+
+      console.log('[BusinessSearch] Searching with:', {
+        businessName,
+        location,
+        userLocation: searchLocation,
+      });
+
+      const results = await ReceptionistService.searchBusinesses(
+        businessName,
+        location,
+        searchLocation?.latitude,
+        searchLocation?.longitude
+      );
 
       if (results.length === 0) {
         Alert.alert(
@@ -73,7 +112,8 @@ export const BusinessContextCard: React.FC<BusinessContextCardProps> = ({ onCont
       }
     } catch (error) {
       console.error('[BusinessSearch] Search failed:', error);
-      Alert.alert('Error', 'Failed to search for businesses. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to search for businesses. Please try again.';
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsSearching(false);
     }

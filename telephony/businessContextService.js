@@ -18,67 +18,65 @@ const getOpenAIClient = () => {
 };
 
 /**
- * Search for businesses on Google Maps by name and location
+ * Search for businesses using Google Places API Text Search
  * Returns a list of potential matches for the user to select from
  */
-const searchBusinesses = async (businessName, location = '') => {
-  const openai = getOpenAIClient();
-  if (!openai) {
-    throw new Error('OpenAI API key not configured');
+const searchBusinesses = async (businessName, location = '', latitude = null, longitude = null) => {
+  const googlePlacesApiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+  if (!googlePlacesApiKey) {
+    console.error('[BusinessSearch] GOOGLE_PLACES_API_KEY not configured');
+    throw new Error('Google Places API key not configured. Please add GOOGLE_PLACES_API_KEY to your .env file.');
   }
 
   try {
-    // Construct Google Maps search URL
+    // Build search query
     const searchQuery = location
       ? `${businessName} ${location}`
       : businessName;
 
-    const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`;
-
     console.log('[BusinessSearch] Searching for:', searchQuery);
 
-    // Fetch the search results page
-    const response = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    });
+    // Build API URL with location bias if coordinates provided
+    let apiUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${googlePlacesApiKey}`;
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch search results: ${response.status}`);
+    if (latitude && longitude) {
+      // Add location bias to prioritize nearby results
+      apiUrl += `&location=${latitude},${longitude}&radius=50000`; // 50km radius
+      console.log('[BusinessSearch] Using location bias:', { latitude, longitude });
     }
 
-    const html = await response.text();
+    // Call Google Places API
+    const response = await fetch(apiUrl);
 
-    // Use OpenAI to extract business listings from the search results HTML
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a Google Maps search results parser. Extract business listings from the HTML and return them as a JSON object with a "businesses" array.
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[BusinessSearch] Google Places API error:', {
+        status: response.status,
+        error: errorText,
+      });
+      throw new Error(`Google Places API error: ${response.status}`);
+    }
 
-For each business, extract:
-- name: Business name
-- address: Full address
-- rating: Star rating if available (number)
-- reviewCount: Number of reviews if available (number)
-- businessType: Type of business (e.g., "Restaurant", "Plumber")
-- url: The Google Maps URL for this business if you can find it
+    const data = await response.json();
 
-Return ONLY valid JSON like: {"businesses": [...]} with up to 5 results. If no results found, return {"businesses": []}.`,
-        },
-        {
-          role: 'user',
-          content: `Extract business listings from this Google Maps search HTML:\n\n${html.substring(0, 30000)}`,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-    });
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.error('[BusinessSearch] API returned error status:', data.status);
+      throw new Error(`Google Places API error: ${data.status}`);
+    }
 
-    const result = JSON.parse(completion.choices[0].message.content);
-    const businesses = result.businesses || [];
+    // Transform results to our format
+    const businesses = (data.results || []).slice(0, 5).map(place => ({
+      name: place.name,
+      address: place.formatted_address,
+      rating: place.rating,
+      reviewCount: place.user_ratings_total,
+      businessType: place.types?.[0]?.replace(/_/g, ' '),
+      placeId: place.place_id,
+      location: place.geometry?.location,
+      // Construct Google Maps URL
+      url: `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
+    }));
 
     console.log('[BusinessSearch] Found', businesses.length, 'businesses');
 
