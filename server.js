@@ -7,6 +7,7 @@ const { toFile } = require('openai');
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
+const { handleInboundCall, handleConversationContinue, handleRecordingStatus } = require('./telephony/conversationHandler');
 const authenticateJwt = require('./middleware/authenticateJwt');
 
 const {
@@ -398,50 +399,10 @@ const sendConfirmationSms = async ({ to, body }) => {
   return message;
 };
 
-const handleInboundVoice = (req, res) => {
-  console.log('[Telephony] Inbound voice webhook request received.', { method: req.method });
-
-  const inboundParams = req.method === 'GET' ? req.query || {} : req.body || {};
-
-  if (shouldValidateSignature && twilioAuthToken) {
-    const signature = req.headers['x-twilio-signature'];
-    if (!signature) {
-      console.warn('[Telephony] Missing X-Twilio-Signature header on inbound request.');
-      return res.status(403).send('Twilio signature missing');
-    }
-
-    const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-    const isValid = twilio.validateRequest(twilioAuthToken, signature, url, inboundParams);
-
-    if (!isValid) {
-      console.warn('[Telephony] Twilio signature validation failed for inbound voice webhook.', {
-        url,
-        signature,
-      });
-      return res.status(403).send('Twilio signature validation failed');
-    }
-  } else if (!twilioAuthToken) {
-    console.warn('[Telephony] TWILIO_AUTH_TOKEN is not set; skipping signature validation.');
-  } else {
-    console.warn('[Telephony] Twilio signature validation disabled via TWILIO_VALIDATE_SIGNATURE=false.');
-  }
-
-  console.log('[Telephony] Request params:', inboundParams);
-
-  const response = new twilio.twiml.VoiceResponse();
-  response.say('Hi, you\'ve reached FlynnAI. Please leave a message after the tone.');
-  response.record({
-    action: buildRecordingCallbackUrl(req),
-    method: 'POST',
-    playBeep: true,
-  });
-
-  res.type('text/xml');
-  res.send(response.toString());
-};
-
-app.post('/telephony/inbound-voice', handleInboundVoice);
-app.get('/telephony/inbound-voice', handleInboundVoice);
+app.post('/telephony/inbound-voice', handleInboundCall);
+app.get('/telephony/inbound-voice', handleInboundCall);
+app.post('/telephony/conversation-continue', handleConversationContinue);
+app.post('/telephony/recording-status', handleRecordingStatus);
 
 app.post('/voice/profiles/:voiceProfileId/clone', authenticateJwt, async (req, res) => {
   if (!supabaseStorageClient) {
