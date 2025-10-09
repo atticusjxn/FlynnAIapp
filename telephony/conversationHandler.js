@@ -1,5 +1,6 @@
 const twilio = require('twilio');
 const { randomUUID } = require('crypto');
+const { createClient } = require('@supabase/supabase-js');
 
 /**
  * Conversation handler for AI receptionist interactions
@@ -13,6 +14,25 @@ const {
   updateConversationState,
   upsertCallRecord,
 } = require('../supabaseMcpClient');
+
+// Supabase client for storage
+let supabaseStorageClient = null;
+
+const initializeStorage = () => {
+  if (!supabaseStorageClient && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    supabaseStorageClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+  }
+  return supabaseStorageClient;
+};
 
 // Helper functions to load env vars after dotenv loads
 const getServerPublicUrl = () => process.env.SERVER_PUBLIC_URL;
@@ -83,6 +103,75 @@ const resolveVoiceId = (voiceOption, customVoiceId) => {
   }
 
   return presetReceptionistVoices[voiceOption] || presetReceptionistVoices.koala_warm;
+};
+
+/**
+ * Generate audio and upload to Supabase, returning a public URL
+ */
+const generateAndUploadAudio = async (text, voiceId, userId) => {
+  const storage = initializeStorage();
+  if (!storage) {
+    console.warn('[ConversationHandler] Storage not configured, falling back to Polly');
+    return null;
+  }
+
+  try {
+    // Generate audio using ElevenLabs
+    const audioBuffer = await generateSpeech(text, voiceId);
+
+    // Create a unique filename based on hash of text + voice ID
+    const crypto = require('crypto');
+    const hash = crypto.createHash('md5').update(`${text}-${voiceId}`).digest('hex');
+    const filename = `receptionist-audio/${userId}/${hash}.mp3`;
+
+    // Check if this audio already exists (caching)
+    const { data: existingFile } = await storage
+      .storage
+      .from('voicemail')
+      .list(`receptionist-audio/${userId}`, {
+        search: `${hash}.mp3`,
+      });
+
+    let publicUrl;
+
+    if (existingFile && existingFile.length > 0) {
+      // Audio already exists, get public URL
+      console.log('[ConversationHandler] Using cached audio:', filename);
+      const { data } = storage
+        .storage
+        .from('voicemail')
+        .getPublicUrl(filename);
+      publicUrl = data?.publicUrl;
+    } else {
+      // Upload new audio
+      console.log('[ConversationHandler] Uploading new audio:', filename);
+      const { error: uploadError } = await storage
+        .storage
+        .from('voicemail')
+        .upload(filename, Buffer.from(audioBuffer), {
+          contentType: 'audio/mpeg',
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('[ConversationHandler] Failed to upload audio:', uploadError);
+        return null;
+      }
+
+      // Get public URL
+      const { data } = storage
+        .storage
+        .from('voicemail')
+        .getPublicUrl(filename);
+      publicUrl = data?.publicUrl;
+    }
+
+    return publicUrl;
+  } catch (error) {
+    console.error('[ConversationHandler] Failed to generate/upload audio:', error);
+    return null;
+  }
 };
 
 /**
@@ -177,8 +266,14 @@ const handleInboundCall = async (req, res) => {
       trim: 'trim-silence',
     });
 
-    // Say greeting using Polly voice (we'll upgrade to ElevenLabs cached audio later)
-    response.say({ voice: 'Polly.Amy' }, greeting);
+    // Generate and play greeting using ElevenLabs
+    const greetingAudioUrl = await generateAndUploadAudio(greeting, voiceId, user.id);
+    if (greetingAudioUrl) {
+      response.play(greetingAudioUrl);
+    } else {
+      // Fallback to Polly if audio generation fails
+      response.say({ voice: 'Polly.Amy' }, greeting);
+    }
 
     // Pause briefly
     response.pause({ length: 1 });
@@ -193,7 +288,14 @@ const handleInboundCall = async (req, res) => {
       language: 'en-AU',
     });
 
-    gather.say({ voice: 'Polly.Amy' }, questions[0]);
+    // Generate and play first question using ElevenLabs
+    const questionAudioUrl = await generateAndUploadAudio(questions[0], voiceId, user.id);
+    if (questionAudioUrl) {
+      gather.play(questionAudioUrl);
+    } else {
+      // Fallback to Polly if audio generation fails
+      gather.say({ voice: 'Polly.Amy' }, questions[0]);
+    }
 
     // If no input, prompt again
     response.say({ voice: 'Polly.Amy' }, "I didn't catch that. Let me ask again.");
@@ -234,7 +336,7 @@ const handleConversationContinue = async (req, res) => {
       return sendFallbackVoicemail(res);
     }
 
-    const { currentStep, totalSteps, questions, responses, voiceId } = conversation;
+    const { currentStep, totalSteps, questions, responses, voiceId, user_id } = conversation;
 
     // Store the response if we have one
     if (SpeechResult) {
@@ -276,7 +378,14 @@ const handleConversationContinue = async (req, res) => {
         language: 'en-AU',
       });
 
-      gather.say({ voice: 'Polly.Amy' }, questions[nextStep]);
+      // Generate and play next question using ElevenLabs
+      const questionAudioUrl = await generateAndUploadAudio(questions[nextStep], voiceId, user_id);
+      if (questionAudioUrl) {
+        gather.play(questionAudioUrl);
+      } else {
+        // Fallback to Polly if audio generation fails
+        gather.say({ voice: 'Polly.Amy' }, questions[nextStep]);
+      }
 
       response.redirect(`${serverPublicUrl}/telephony/conversation-continue`);
 
@@ -312,10 +421,17 @@ const handleConversationContinue = async (req, res) => {
 
       // Build final TwiML
       const response = new twilio.twiml.VoiceResponse();
-      response.say(
-        { voice: 'Polly.Amy' },
-        "Thank you for your details. We'll be in touch shortly to confirm your booking. Goodbye!"
-      );
+      const closingMessage = "Thank you for your details. We'll be in touch shortly to confirm your booking. Goodbye!";
+
+      // Generate and play closing message using ElevenLabs
+      const closingAudioUrl = await generateAndUploadAudio(closingMessage, voiceId, user_id);
+      if (closingAudioUrl) {
+        response.play(closingAudioUrl);
+      } else {
+        // Fallback to Polly if audio generation fails
+        response.say({ voice: 'Polly.Amy' }, closingMessage);
+      }
+
       response.hangup();
 
       res.type('text/xml');
