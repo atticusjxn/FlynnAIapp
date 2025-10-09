@@ -33,6 +33,7 @@ import {
   matchTemplateId,
 } from '../data/receptionist';
 import { RecordVoiceModal } from '../components/receptionist/RecordVoiceModal';
+import { BusinessContextCard } from '../components/receptionist/BusinessContextCard';
 
 const KOALA_LOOP_DURATION_MS = 3000;
 
@@ -686,6 +687,8 @@ export const ReceptionistScreen: React.FC = () => {
           placeholder="Hello! You've reached ..."
         />
       </View>
+
+      <BusinessContextCard />
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Conversation flow</Text>
