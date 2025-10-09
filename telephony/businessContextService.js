@@ -2,8 +2,8 @@ const OpenAI = require('openai');
 
 /**
  * Business Context Service
- * Extracts business information from Google Business Profile URLs
- * and stores structured context for AI receptionist conversations
+ * Searches for businesses and extracts business information
+ * from Google Business Profile for AI receptionist conversations
  */
 
 let openaiClient = null;
@@ -15,6 +15,78 @@ const getOpenAIClient = () => {
     });
   }
   return openaiClient;
+};
+
+/**
+ * Search for businesses on Google Maps by name and location
+ * Returns a list of potential matches for the user to select from
+ */
+const searchBusinesses = async (businessName, location = '') => {
+  const openai = getOpenAIClient();
+  if (!openai) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  try {
+    // Construct Google Maps search URL
+    const searchQuery = location
+      ? `${businessName} ${location}`
+      : businessName;
+
+    const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`;
+
+    console.log('[BusinessSearch] Searching for:', searchQuery);
+
+    // Fetch the search results page
+    const response = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch search results: ${response.status}`);
+    }
+
+    const html = await response.text();
+
+    // Use OpenAI to extract business listings from the search results HTML
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a Google Maps search results parser. Extract business listings from the HTML and return them as a JSON object with a "businesses" array.
+
+For each business, extract:
+- name: Business name
+- address: Full address
+- rating: Star rating if available (number)
+- reviewCount: Number of reviews if available (number)
+- businessType: Type of business (e.g., "Restaurant", "Plumber")
+- url: The Google Maps URL for this business if you can find it
+
+Return ONLY valid JSON like: {"businesses": [...]} with up to 5 results. If no results found, return {"businesses": []}.`,
+        },
+        {
+          role: 'user',
+          content: `Extract business listings from this Google Maps search HTML:\n\n${html.substring(0, 30000)}`,
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.3,
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content);
+    const businesses = result.businesses || [];
+
+    console.log('[BusinessSearch] Found', businesses.length, 'businesses');
+
+    return businesses;
+  } catch (error) {
+    console.error('[BusinessSearch] Failed to search businesses:', error);
+    throw error;
+  }
 };
 
 /**
@@ -138,6 +210,7 @@ Remember: You represent ${businessName}. Be knowledgeable, helpful, and aim to c
 };
 
 module.exports = {
+  searchBusinesses,
   extractBusinessContext,
   generateConversationPrompt,
 };

@@ -8,7 +8,7 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const { handleInboundCall, handleConversationContinue, handleRecordingStatus } = require('./telephony/conversationHandler');
-const { extractBusinessContext } = require('./telephony/businessContextService');
+const { searchBusinesses, extractBusinessContext } = require('./telephony/businessContextService');
 const authenticateJwt = require('./middleware/authenticateJwt');
 
 const {
@@ -646,6 +646,37 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
 });
 
 // Business context extraction endpoint
+// Search for businesses on Google Maps
+app.post('/receptionist/business-context/search', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { businessName, location } = req.body || {};
+
+  if (!businessName || typeof businessName !== 'string') {
+    return res.status(400).json({ error: 'Business name is required' });
+  }
+
+  try {
+    console.log('[BusinessSearch] Searching for:', { businessName, location });
+
+    const businesses = await searchBusinesses(businessName, location || '');
+
+    return res.json({
+      success: true,
+      businesses,
+    });
+  } catch (error) {
+    console.error('[BusinessSearch] Search failed:', error);
+    return res.status(500).json({
+      error: 'Failed to search for businesses. Please try again.',
+    });
+  }
+});
+
+
 app.post('/receptionist/business-context/extract', authenticateJwt, async (req, res) => {
   const userId = req.user?.id;
   if (!userId) {
