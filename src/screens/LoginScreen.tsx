@@ -11,7 +11,6 @@ import {
   FlynnButton,
   FlynnInput,
   FlynnKeyboardAwareScrollView,
-  FlynnKeyboardAvoidingView,
   colors,
   typography,
   spacing,
@@ -39,12 +38,12 @@ export const LoginScreen = () => {
   };
 
   return (
-    <FlynnKeyboardAvoidingView style={styles.container} dismissOnTapOutside>
-        <FlynnKeyboardAwareScrollView
-          contentContainerStyle={styles.scrollContent}
-          enableAutomaticScroll={false}
-          extraScrollHeight={0}
-        >
+    <FlynnKeyboardAwareScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid={true}
+    >
           <View style={styles.formWrapper}>
             <View style={styles.formContainer}>
               <Image source={KOALA_LOGO} style={styles.logo} accessibilityLabel="FlynnAI koala" />
@@ -100,8 +99,7 @@ export const LoginScreen = () => {
               />
             </View>
           </View>
-        </FlynnKeyboardAwareScrollView>
-    </FlynnKeyboardAvoidingView>
+    </FlynnKeyboardAwareScrollView>
   );
 };
 

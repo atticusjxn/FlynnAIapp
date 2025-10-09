@@ -25,10 +25,7 @@ import {
   updateNotificationSettings,
   updateUserProfile,
 } from '../services/settingsService';
-import {
-  FlynnKeyboardAwareScrollView,
-  FlynnKeyboardAvoidingView,
-} from '../components/ui';
+import { FlynnKeyboardAwareScrollView } from '../components/ui';
 
 interface NotificationPrefs {
   push: boolean;
@@ -464,10 +461,7 @@ export const SettingsScreen: React.FC = () => {
         presentationStyle="pageSheet"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <FlynnKeyboardAvoidingView
-          style={styles.editModalContainer}
-          dismissOnTapOutside
-        >
+        <View style={styles.editModalContainer}>
           <View style={styles.editModalHeader}>
             <Text style={styles.editModalTitle}>Edit profile</Text>
             <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.closeButton}>
@@ -476,7 +470,10 @@ export const SettingsScreen: React.FC = () => {
           </View>
 
           <FlynnKeyboardAwareScrollView
+            style={styles.editModalScrollView}
             contentContainerStyle={styles.editModalContent}
+            keyboardShouldPersistTaps="handled"
+            enableOnAndroid={true}
             showsVerticalScrollIndicator={false}
           >
             <FlynnInput
@@ -512,24 +509,24 @@ export const SettingsScreen: React.FC = () => {
                 );
               })}
             </View>
-          </FlynnKeyboardAwareScrollView>
 
-          <View style={styles.editModalFooter}>
-            <FlynnButton
-              title="Cancel"
-              variant="secondary"
-              onPress={() => setEditModalVisible(false)}
-              style={styles.editModalButton}
-            />
-            <FlynnButton
-              title={savingProfile ? 'Saving…' : 'Save profile'}
-              variant="primary"
-              onPress={handleSaveProfile}
-              disabled={savingProfile}
-              style={styles.editModalButton}
-            />
-          </View>
-        </FlynnKeyboardAvoidingView>
+            <View style={styles.editModalFooter}>
+              <FlynnButton
+                title="Cancel"
+                variant="secondary"
+                onPress={() => setEditModalVisible(false)}
+                style={styles.editModalButton}
+              />
+              <FlynnButton
+                title={savingProfile ? 'Saving…' : 'Save profile'}
+                variant="primary"
+                onPress={handleSaveProfile}
+                disabled={savingProfile}
+                style={styles.editModalButton}
+              />
+            </View>
+          </FlynnKeyboardAwareScrollView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -752,10 +749,13 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.h3,
     color: colors.textPrimary,
   },
-  editModalContent: {
+  editModalScrollView: {
     flex: 1,
+  },
+  editModalContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
   },
   businessTypeLabel: {
     ...typography.bodyMedium,

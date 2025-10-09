@@ -20,10 +20,7 @@ import { spacing, typography, borderRadius } from '../theme';
 import ReceptionistService, { VoiceProfile } from '../services/ReceptionistService';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
-import {
-  FlynnKeyboardAwareScrollView,
-  FlynnKeyboardAvoidingView,
-} from '../components/ui';
+import { FlynnKeyboardAwareScrollView } from '../components/ui';
 import {
   DEFAULT_FOLLOW_UP_QUESTIONS,
   DEFAULT_VOICE_ID,
@@ -584,11 +581,12 @@ export const ReceptionistScreen: React.FC = () => {
   ]);
 
   return (
-    <FlynnKeyboardAvoidingView style={styles.screen} dismissOnTapOutside>
-      <FlynnKeyboardAwareScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-      >
+    <FlynnKeyboardAwareScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid={true}
+    >
         <View style={styles.heroCard}>
           <Animated.View style={[styles.heroAvatar, { transform: [{ scale: koalaScale }] }]}>
             <Image
@@ -898,26 +896,24 @@ export const ReceptionistScreen: React.FC = () => {
         durationMillis={recordingDuration}
         uploading={isUploadingSample}
       />
+        {toastState && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.toast,
+              toastState.tone === 'success' ? styles.toastSuccess : styles.toastError,
+            ]}
+          >
+            <FlynnIcon
+              name={toastState.tone === 'success' ? 'checkmark-circle' : 'alert-circle'}
+              size={18}
+              color={toastState.tone === 'success' ? '#15803d' : '#b91c1c'}
+              style={styles.toastIcon}
+            />
+            <Text style={styles.toastText}>{toastState.message}</Text>
+          </View>
+        )}
       </FlynnKeyboardAwareScrollView>
-
-      {toastState && (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.toast,
-            toastState.tone === 'success' ? styles.toastSuccess : styles.toastError,
-          ]}
-        >
-          <FlynnIcon
-            name={toastState.tone === 'success' ? 'checkmark-circle' : 'alert-circle'}
-            size={18}
-            color={toastState.tone === 'success' ? '#15803d' : '#b91c1c'}
-            style={styles.toastIcon}
-          />
-          <Text style={styles.toastText}>{toastState.message}</Text>
-        </View>
-      )}
-    </FlynnKeyboardAvoidingView>
   );
 };
 
