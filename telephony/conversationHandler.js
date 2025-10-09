@@ -13,7 +13,14 @@ const {
   getConversationState,
   updateConversationState,
   upsertCallRecord,
+  getBusinessContext,
 } = require('../supabaseMcpClient');
+
+const {
+  processCallerMessage,
+  getNextQuestion,
+  generateClosingMessage,
+} = require('./aiConversationService');
 
 // Supabase client for storage
 let supabaseStorageClient = null;
@@ -195,18 +202,26 @@ const handleInboundCall = async (req, res) => {
       return sendFallbackVoicemail(res);
     }
 
+    // Get user's business context for AI-powered conversations
+    const businessContextData = await getBusinessContext(user.id);
+    const businessContext = businessContextData?.business_context || null;
+
+    console.log('[ConversationHandler] Business context loaded:', {
+      hasContext: !!businessContext,
+      businessName: businessContext?.businessName,
+    });
+
     // Get user's receptionist settings
     const {
       receptionist_greeting,
-      receptionist_questions,
       receptionist_voice,
       receptionist_voice_profile_id,
     } = user;
 
-    const greeting = receptionist_greeting || "Hi, you've reached FlynnAI. Please leave your details after the tone.";
-    const questions = Array.isArray(receptionist_questions) && receptionist_questions.length > 0
-      ? receptionist_questions
-      : ['What is your name?', 'What is your phone number?', 'What service do you need?'];
+    const greeting = receptionist_greeting ||
+      (businessContext?.businessName
+        ? `Hi, thanks for calling ${businessContext.businessName}! How can I help you today?`
+        : "Hi, thanks for calling! How can I help you today?");
 
     const voiceOption = receptionist_voice || 'koala_warm';
 
@@ -219,7 +234,7 @@ const handleInboundCall = async (req, res) => {
 
     const voiceId = resolveVoiceId(voiceOption, customVoiceId);
 
-    // Create conversation state
+    // Create conversation state with AI-powered flow
     const conversationId = randomUUID();
     await upsertConversationState({
       id: conversationId,
@@ -228,8 +243,8 @@ const handleInboundCall = async (req, res) => {
       fromNumber: From,
       toNumber: To,
       currentStep: 0,
-      totalSteps: questions.length,
-      questions,
+      totalSteps: 0, // AI-powered conversations don't have fixed steps
+      questions: [], // Will be generated dynamically by AI
       responses: [],
       voiceId,
       greeting,
@@ -275,10 +290,10 @@ const handleInboundCall = async (req, res) => {
       response.say({ voice: 'Polly.Amy' }, greeting);
     }
 
-    // Pause briefly
-    response.pause({ length: 1 });
+    // Pause briefly for caller to start speaking
+    response.pause({ length: 2 });
 
-    // Gather first response
+    // Gather caller's response - AI will process whatever they say
     const gather = response.gather({
       input: 'speech',
       action: `${serverPublicUrl}/telephony/conversation-continue`,
@@ -286,19 +301,12 @@ const handleInboundCall = async (req, res) => {
       speechTimeout: 'auto',
       speechModel: 'phone_call',
       language: 'en-AU',
+      maxSpeechTime: 60, // Allow up to 60 seconds for initial response
     });
 
-    // Generate and play first question using ElevenLabs
-    const questionAudioUrl = await generateAndUploadAudio(questions[0], voiceId, user.id);
-    if (questionAudioUrl) {
-      gather.play(questionAudioUrl);
-    } else {
-      // Fallback to Polly if audio generation fails
-      gather.say({ voice: 'Polly.Amy' }, questions[0]);
-    }
-
-    // If no input, prompt again
-    response.say({ voice: 'Polly.Amy' }, "I didn't catch that. Let me ask again.");
+    // The greeting already asks "How can I help you?" so we just listen
+    // If no input after the pause, prompt the caller
+    response.say({ voice: 'Polly.Amy' }, "I'm here to help. What can I do for you today?");
     response.redirect(`${serverPublicUrl}/telephony/inbound-voice`);
 
     const twiml = response.toString();
@@ -315,7 +323,7 @@ const handleInboundCall = async (req, res) => {
 };
 
 /**
- * Handle conversation continuation - process responses and ask next question
+ * Handle conversation continuation - AI-powered intelligent conversation
  */
 const handleConversationContinue = async (req, res) => {
   console.log('[ConversationHandler] Conversation continue', {
@@ -336,37 +344,12 @@ const handleConversationContinue = async (req, res) => {
       return sendFallbackVoicemail(res);
     }
 
-    const { currentStep, totalSteps, questions, responses, voiceId, user_id } = conversation;
+    const { responses, voiceId, user_id } = conversation;
 
-    // Store the response if we have one
-    if (SpeechResult) {
-      responses.push({
-        question: questions[currentStep],
-        answer: SpeechResult,
-        confidence: parseFloat(Confidence) || 0,
-        timestamp: new Date().toISOString(),
-      });
-
-      console.log('[ConversationHandler] Response recorded', {
-        CallSid,
-        step: currentStep,
-        question: questions[currentStep],
-        answer: SpeechResult,
-      });
-    }
-
-    const nextStep = currentStep + 1;
-
-    // Check if we have more questions
-    if (nextStep < totalSteps) {
-      // Update state
-      await updateConversationState(CallSid, {
-        currentStep: nextStep,
-        responses,
-      });
-
-      // Build TwiML for next question
+    // If no speech input, ask them to speak
+    if (!SpeechResult) {
       const response = new twilio.twiml.VoiceResponse();
+      response.say({ voice: 'Polly.Amy' }, "I'm sorry, I didn't hear anything. Please tell me how I can help you.");
 
       const serverPublicUrl = getServerPublicUrl();
       const gather = response.gather({
@@ -378,70 +361,126 @@ const handleConversationContinue = async (req, res) => {
         language: 'en-AU',
       });
 
-      // Generate and play next question using ElevenLabs
-      const questionAudioUrl = await generateAndUploadAudio(questions[nextStep], voiceId, user_id);
-      if (questionAudioUrl) {
-        gather.play(questionAudioUrl);
-      } else {
-        // Fallback to Polly if audio generation fails
-        gather.say({ voice: 'Polly.Amy' }, questions[nextStep]);
-      }
-
       response.redirect(`${serverPublicUrl}/telephony/conversation-continue`);
 
       res.type('text/xml');
       res.send(response.toString());
+      return;
+    }
 
-      console.log('[ConversationHandler] Next question sent', {
-        CallSid,
-        nextStep,
-        question: questions[nextStep],
-      });
-    } else {
-      // Conversation complete
+    // Get user and business context for AI processing
+    const user = await getUserByTwilioNumber(conversation.to_number);
+    const businessContextData = await getBusinessContext(user_id);
+    const businessContext = businessContextData?.business_context || null;
+
+    // Build conversation history for AI context
+    const conversationHistory = responses.map(r => [
+      { role: 'assistant', content: r.question || '' },
+      { role: 'user', content: r.answer },
+    ]).flat().filter(msg => msg.content);
+
+    // Process caller's message with AI
+    const aiResult = await processCallerMessage({
+      callerMessage: SpeechResult,
+      conversationHistory,
+      businessContext,
+      user,
+    });
+
+    console.log('[ConversationHandler] AI processed message', {
+      CallSid,
+      aiReply: aiResult.aiReply,
+      hasBookingInfo: !!aiResult.bookingInfo,
+      conversationComplete: aiResult.conversationComplete,
+    });
+
+    // Store this exchange in conversation history
+    responses.push({
+      question: '', // AI doesn't ask fixed questions
+      answer: SpeechResult,
+      aiReply: aiResult.aiReply,
+      bookingInfo: aiResult.bookingInfo,
+      confidence: parseFloat(Confidence) || 0,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Build TwiML response
+    const response = new twilio.twiml.VoiceResponse();
+    const serverPublicUrl = getServerPublicUrl();
+
+    if (aiResult.conversationComplete) {
+      // We have all the info we need - close the conversation
       await updateConversationState(CallSid, {
-        currentStep: nextStep,
         responses,
         status: 'completed',
         completedAt: new Date().toISOString(),
       });
 
-      // Update call record status
+      // Update call record with booking info
       try {
-        console.log('[ConversationHandler] Updating call record to completed', { CallSid });
         await upsertCallRecord({
           callSid: CallSid,
           status: 'completed',
           transcriptionStatus: 'conversation_completed',
         });
-        console.log('[ConversationHandler] Call record updated to completed');
       } catch (callRecordError) {
         console.error('[ConversationHandler] Failed to update call record:', callRecordError);
       }
 
-      // Build final TwiML
-      const response = new twilio.twiml.VoiceResponse();
-      const closingMessage = "Thank you for your details. We'll be in touch shortly to confirm your booking. Goodbye!";
-
-      // Generate and play closing message using ElevenLabs
+      // Generate personalized closing message
+      const closingMessage = generateClosingMessage(aiResult.bookingInfo, businessContext);
       const closingAudioUrl = await generateAndUploadAudio(closingMessage, voiceId, user_id);
+
       if (closingAudioUrl) {
         response.play(closingAudioUrl);
       } else {
-        // Fallback to Polly if audio generation fails
         response.say({ voice: 'Polly.Amy' }, closingMessage);
       }
 
       response.hangup();
 
-      res.type('text/xml');
-      res.send(response.toString());
+      console.log('[ConversationHandler] Conversation completed', {
+        CallSid,
+        bookingInfo: aiResult.bookingInfo,
+      });
 
-      console.log('[ConversationHandler] Conversation completed', { CallSid, responses });
+      // TODO: Create job card from booking info
+    } else {
+      // Conversation continues - play AI's response and gather next input
+      await updateConversationState(CallSid, {
+        responses,
+      });
 
-      // TODO: Create job card from conversation responses
-      // This will be handled by a background job that processes completed conversations
+      // Generate and play AI's response
+      const aiReplyAudioUrl = await generateAndUploadAudio(aiResult.aiReply, voiceId, user_id);
+
+      if (aiReplyAudioUrl) {
+        response.play(aiReplyAudioUrl);
+      } else {
+        response.say({ voice: 'Polly.Amy' }, aiResult.aiReply);
+      }
+
+      // Gather next response
+      const gather = response.gather({
+        input: 'speech',
+        action: `${serverPublicUrl}/telephony/conversation-continue`,
+        method: 'POST',
+        speechTimeout: 'auto',
+        speechModel: 'phone_call',
+        language: 'en-AU',
+      });
+
+      // If no response, ask a follow-up question
+      const nextQuestion = getNextQuestion(aiResult.bookingInfo || {});
+      if (nextQuestion) {
+        gather.say({ voice: 'Polly.Amy' }, nextQuestion);
+      }
+
+      response.redirect(`${serverPublicUrl}/telephony/conversation-continue`);
     }
+
+    res.type('text/xml');
+    res.send(response.toString());
   } catch (error) {
     console.error('[ConversationHandler] Error handling conversation continue', { error, CallSid });
     return sendFallbackVoicemail(res);

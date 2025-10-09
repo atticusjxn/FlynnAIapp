@@ -1075,6 +1075,52 @@ const updateConversationState = async (callSid, updates) => {
   await executeSql(query);
 };
 
+const updateBusinessContext = async (userId, businessProfileUrl, businessContext) => {
+  if (!userId) {
+    throw new Error('userId is required to update business context.');
+  }
+
+  const query = `
+    update public.users
+    set
+      business_profile_url = ${sqlString(businessProfileUrl)},
+      business_context = ${sqlString(JSON.stringify(businessContext))},
+      business_context_updated_at = now()
+    where id = ${sqlString(userId)};
+  `;
+
+  await executeSql(query);
+};
+
+const getBusinessContext = async (userId) => {
+  if (!userId) {
+    throw new Error('userId is required to get business context.');
+  }
+
+  const query = `
+    select
+      business_profile_url,
+      business_context,
+      business_context_updated_at
+    from public.users
+    where id = ${sqlString(userId)}
+    limit 1;
+  `;
+
+  const result = await executeSql(query);
+  const row = Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+
+  if (row && typeof row.business_context === 'string') {
+    try {
+      row.business_context = JSON.parse(row.business_context);
+    } catch (e) {
+      row.business_context = {};
+    }
+  }
+
+  return row;
+};
+
 module.exports = {
   upsertCallRecord,
   executeSql,
@@ -1098,4 +1144,6 @@ module.exports = {
   upsertConversationState,
   getConversationState,
   updateConversationState,
+  updateBusinessContext,
+  getBusinessContext,
 };

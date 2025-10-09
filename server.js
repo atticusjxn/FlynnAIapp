@@ -8,6 +8,7 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const { handleInboundCall, handleConversationContinue, handleRecordingStatus } = require('./telephony/conversationHandler');
+const { extractBusinessContext } = require('./telephony/businessContextService');
 const authenticateJwt = require('./middleware/authenticateJwt');
 
 const {
@@ -26,6 +27,8 @@ const {
   findExpiredRecordingCalls,
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,
+  updateBusinessContext,
+  getBusinessContext,
 } = require('./supabaseMcpClient');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 
@@ -639,6 +642,66 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
   } catch (error) {
     console.error('[VoicePreview] Unexpected error', { error });
     return res.status(500).json({ error: 'Failed to generate voice preview' });
+  }
+});
+
+// Business context extraction endpoint
+app.post('/receptionist/business-context/extract', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { businessProfileUrl } = req.body || {};
+
+  if (!businessProfileUrl || typeof businessProfileUrl !== 'string') {
+    return res.status(400).json({ error: 'Business profile URL is required' });
+  }
+
+  // Validate it's a Google Maps/Business Profile URL
+  if (!businessProfileUrl.includes('google.com/maps') && !businessProfileUrl.includes('google.com/business')) {
+    return res.status(400).json({ error: 'Please provide a valid Google Business Profile or Google Maps URL' });
+  }
+
+  try {
+    console.log('[BusinessContext] Extracting context from URL:', businessProfileUrl);
+
+    // Extract business context using AI
+    const businessContext = await extractBusinessContext(businessProfileUrl);
+
+    // Save to database
+    await updateBusinessContext(userId, businessProfileUrl, businessContext);
+
+    console.log('[BusinessContext] Successfully extracted and saved context:', {
+      userId,
+      businessName: businessContext.businessName,
+    });
+
+    return res.json({
+      success: true,
+      businessContext,
+    });
+  } catch (error) {
+    console.error('[BusinessContext] Failed to extract business context:', error);
+    return res.status(500).json({
+      error: 'Failed to extract business information. Please check the URL and try again.',
+    });
+  }
+});
+
+// Get current business context
+app.get('/receptionist/business-context', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const data = await getBusinessContext(userId);
+    return res.json(data || {});
+  } catch (error) {
+    console.error('[BusinessContext] Failed to get business context:', error);
+    return res.status(500).json({ error: 'Failed to retrieve business context' });
   }
 });
 
