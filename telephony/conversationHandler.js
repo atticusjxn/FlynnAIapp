@@ -46,11 +46,14 @@ const getServerPublicUrl = () => process.env.SERVER_PUBLIC_URL;
 const getElevenLabsApiKey = () => process.env.ELEVENLABS_API_KEY;
 const getElevenLabsModelId = () => process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
 
-const presetReceptionistVoices = {
+/**
+ * Get preset voice IDs (loaded from env at runtime)
+ */
+const getPresetReceptionistVoices = () => ({
   koala_warm: process.env.ELEVENLABS_VOICE_KOALA_WARM_ID,
   koala_expert: process.env.ELEVENLABS_VOICE_KOALA_EXPERT_ID,
   koala_hype: process.env.ELEVENLABS_VOICE_KOALA_HYPE_ID,
-};
+});
 
 /**
  * Generate audio using ElevenLabs TTS
@@ -109,7 +112,8 @@ const resolveVoiceId = (voiceOption, customVoiceId) => {
     return customVoiceId;
   }
 
-  return presetReceptionistVoices[voiceOption] || presetReceptionistVoices.koala_warm;
+  const presetVoices = getPresetReceptionistVoices();
+  return presetVoices[voiceOption] || presetVoices.koala_warm;
 };
 
 /**
@@ -233,6 +237,11 @@ const handleInboundCall = async (req, res) => {
     }
 
     const voiceId = resolveVoiceId(voiceOption, customVoiceId);
+    console.log('[ConversationHandler] Voice configuration:', {
+      voiceOption,
+      customVoiceId,
+      resolvedVoiceId: voiceId,
+    });
 
     // Create conversation state with AI-powered flow
     const conversationId = randomUUID();
@@ -274,7 +283,7 @@ const handleInboundCall = async (req, res) => {
     // Start recording the call
     const serverPublicUrl = getServerPublicUrl();
     response.record({
-      recordingStatusCallback: `${serverPublicUrl}/telephony/recording-status`,
+      recordingStatusCallback: `${serverPublicUrl}/telephony/recording-complete`,
       recordingStatusCallbackMethod: 'POST',
       recordingStatusCallbackEvent: ['completed'],
       maxLength: 600, // 10 minutes max
