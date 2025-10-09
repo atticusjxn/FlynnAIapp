@@ -831,8 +831,25 @@ const insertJob = async ({
     returning id;
   `;
 
-  const result = await executeSql(query);
-  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : { id: jobId };
+  console.log('[insertJob] Executing query for callSid:', callSid);
+  try {
+    const result = await executeSql(query);
+    console.log('[insertJob] Query result:', result);
+    console.log('[insertJob] Result rows:', result.rows);
+
+    if (Array.isArray(result.rows) && result.rows.length > 0) {
+      console.log('[insertJob] Successfully inserted job:', result.rows[0]);
+      return result.rows[0];
+    } else {
+      console.error('[insertJob] Insert failed - no rows returned. This means the SQL failed silently.');
+      console.error('[insertJob] Query was:', query);
+      throw new Error('Job insertion failed - no rows returned from database');
+    }
+  } catch (error) {
+    console.error('[insertJob] Query execution failed:', error);
+    console.error('[insertJob] Query was:', query);
+    throw error;
+  }
 };
 
 const upsertNotificationToken = async ({ userId, platform, token }) => {

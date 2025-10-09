@@ -7,6 +7,56 @@ const { createClient } = require('@supabase/supabase-js');
  * Manages state-based conversation flow with callers
  */
 
+/**
+ * Convert relative date strings (like "Saturday", "tomorrow") to ISO date strings
+ * @param {string} dateStr - The relative date string
+ * @returns {string|null} - ISO date string (YYYY-MM-DD) or null if can't parse
+ */
+function parseRelativeDateToISO(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+
+  const today = new Date();
+  const normalized = dateStr.toLowerCase().trim();
+
+  // Handle "today"
+  if (normalized === 'today') {
+    return today.toISOString().split('T')[0];
+  }
+
+  // Handle "tomorrow"
+  if (normalized === 'tomorrow') {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  }
+
+  // Handle day names (Monday, Tuesday, etc.)
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayIndex = dayNames.findIndex(day => normalized.includes(day));
+
+  if (dayIndex !== -1) {
+    const currentDay = today.getDay();
+    let daysUntilTarget = dayIndex - currentDay;
+
+    // If the day has already passed this week, schedule for next week
+    if (daysUntilTarget <= 0) {
+      daysUntilTarget += 7;
+    }
+
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + daysUntilTarget);
+    return targetDate.toISOString().split('T')[0];
+  }
+
+  // Try to parse as actual date
+  const parsed = new Date(dateStr);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+
+  return null;
+}
+
 const {
   getUserByTwilioNumber,
   upsertConversationState,
@@ -138,27 +188,31 @@ const generateAndUploadAudio = async (text, voiceId, userId) => {
     // Check if this audio already exists (caching)
     const { data: existingFile } = await storage
       .storage
-      .from('voicemail')
+      .from('voicemails')
       .list(`receptionist-audio/${userId}`, {
         search: `${hash}.mp3`,
       });
 
-    let publicUrl;
-
     if (existingFile && existingFile.length > 0) {
-      // Audio already exists, get public URL
+      // Audio already exists, get signed URL
       console.log('[ConversationHandler] Using cached audio:', filename);
-      const { data } = storage
+      const { data: signedData, error: signedError } = await storage
         .storage
-        .from('voicemail')
-        .getPublicUrl(filename);
-      publicUrl = data?.publicUrl;
+        .from('voicemails')
+        .createSignedUrl(filename, 3600); // 1 hour expiry
+
+      if (signedError) {
+        console.error('[ConversationHandler] Failed to create signed URL:', signedError);
+        return null;
+      }
+
+      return signedData?.signedUrl;
     } else {
       // Upload new audio
       console.log('[ConversationHandler] Uploading new audio:', filename);
       const { error: uploadError } = await storage
         .storage
-        .from('voicemail')
+        .from('voicemails')
         .upload(filename, Buffer.from(audioBuffer), {
           contentType: 'audio/mpeg',
           cacheControl: '3600',
@@ -170,15 +224,19 @@ const generateAndUploadAudio = async (text, voiceId, userId) => {
         return null;
       }
 
-      // Get public URL
-      const { data } = storage
+      // Get signed URL
+      const { data: signedData, error: signedError } = await storage
         .storage
-        .from('voicemail')
-        .getPublicUrl(filename);
-      publicUrl = data?.publicUrl;
-    }
+        .from('voicemails')
+        .createSignedUrl(filename, 3600); // 1 hour expiry
 
-    return publicUrl;
+      if (signedError) {
+        console.error('[ConversationHandler] Failed to create signed URL:', signedError);
+        return null;
+      }
+
+      return signedData?.signedUrl;
+    }
   } catch (error) {
     console.error('[ConversationHandler] Failed to generate/upload audio:', error);
     return null;
@@ -189,15 +247,44 @@ const generateAndUploadAudio = async (text, voiceId, userId) => {
  * Handle initial inbound call - play greeting and start conversation
  */
 const handleInboundCall = async (req, res) => {
+  // Extract params from both GET and POST
+  const CallSid = req.body.CallSid || req.query.CallSid;
+  const From = req.body.From || req.query.From;
+  const To = req.body.To || req.query.To;
+
   console.log('[ConversationHandler] Inbound call received', {
-    CallSid: req.body.CallSid,
-    From: req.body.From,
-    To: req.body.To,
+    CallSid,
+    From,
+    To,
   });
 
-  const { CallSid, From, To } = req.body;
-
   try {
+    // Check if conversation already exists to prevent duplicate initialization
+    const existingConversation = await getConversationState(CallSid);
+    if (existingConversation && existingConversation.status === 'active') {
+      console.log('[ConversationHandler] Conversation already active, redirecting to continue');
+      const response = new twilio.twiml.VoiceResponse();
+      const serverPublicUrl = getServerPublicUrl();
+      response.say({ voice: 'Polly.Amy' }, "I'm listening. How can I help you?");
+
+      const gather = response.gather({
+        input: 'speech',
+        action: `${serverPublicUrl}/telephony/conversation-continue`,
+        method: 'POST',
+        speechTimeout: 'auto',
+        speechModel: 'phone_call',
+        language: 'en-AU',
+        maxSpeechTime: 60,
+      });
+
+      gather.say({ voice: 'Polly.Amy' }, "Please tell me what you need.");
+      response.redirect(`${serverPublicUrl}/telephony/conversation-continue`);
+
+      res.type('text/xml');
+      res.send(response.toString());
+      return;
+    }
+
     // Find user by their Twilio number
     const user = await getUserByTwilioNumber(To);
 
@@ -269,7 +356,7 @@ const handleInboundCall = async (req, res) => {
         fromNumber: From,
         toNumber: To,
         recordedAt: new Date().toISOString(),
-        status: 'in-progress',
+        status: 'active',
         transcriptionStatus: 'conversation_active',
       });
       console.log('[ConversationHandler] Call record created successfully');
@@ -279,28 +366,10 @@ const handleInboundCall = async (req, res) => {
 
     // Build TwiML response
     const response = new twilio.twiml.VoiceResponse();
-
-    // Start recording the call
     const serverPublicUrl = getServerPublicUrl();
-    response.record({
-      recordingStatusCallback: `${serverPublicUrl}/telephony/recording-complete`,
-      recordingStatusCallbackMethod: 'POST',
-      recordingStatusCallbackEvent: ['completed'],
-      maxLength: 600, // 10 minutes max
-      trim: 'trim-silence',
-    });
 
-    // Generate and play greeting using ElevenLabs
+    // Generate greeting audio using ElevenLabs
     const greetingAudioUrl = await generateAndUploadAudio(greeting, voiceId, user.id);
-    if (greetingAudioUrl) {
-      response.play(greetingAudioUrl);
-    } else {
-      // Fallback to Polly if audio generation fails
-      response.say({ voice: 'Polly.Amy' }, greeting);
-    }
-
-    // Pause briefly for caller to start speaking
-    response.pause({ length: 2 });
 
     // Gather caller's response - AI will process whatever they say
     const gather = response.gather({
@@ -313,9 +382,18 @@ const handleInboundCall = async (req, res) => {
       maxSpeechTime: 60, // Allow up to 60 seconds for initial response
     });
 
-    // The greeting already asks "How can I help you?" so we just listen
-    // If no input after the pause, prompt the caller
-    response.say({ voice: 'Polly.Amy' }, "I'm here to help. What can I do for you today?");
+    // Play greeting INSIDE the gather to avoid overlap
+    if (greetingAudioUrl) {
+      gather.play(greetingAudioUrl);
+    } else {
+      // Fallback to Polly only if ElevenLabs fails
+      gather.say({ voice: 'Polly.Amy' }, greeting);
+    }
+
+    // Pause briefly for caller to start speaking
+    gather.pause({ length: 2 });
+
+    // If gather times out or caller hangs up, redirect to this endpoint
     response.redirect(`${serverPublicUrl}/telephony/inbound-voice`);
 
     const twiml = response.toString();
@@ -353,7 +431,7 @@ const handleConversationContinue = async (req, res) => {
       return sendFallbackVoicemail(res);
     }
 
-    const { responses, voiceId, user_id } = conversation;
+    const { responses, voice_id: voiceId, user_id } = conversation;
 
     // If no speech input, ask them to speak
     if (!SpeechResult) {
@@ -425,13 +503,35 @@ const handleConversationContinue = async (req, res) => {
         completedAt: new Date().toISOString(),
       });
 
-      // Update call record with booking info
+      // Update call record with conversation transcript
       try {
+        const { insertTranscription } = require('../supabaseMcpClient');
+        const { randomUUID } = require('crypto');
+
+        // Build full conversation transcript
+        const conversationTranscript = responses.map((r, idx) => {
+          const speaker1 = r.aiReply || r.question || 'AI';
+          const speaker2 = r.answer || 'Caller';
+          return `[Turn ${idx + 1}]\nAI: ${speaker1}\nCaller: ${speaker2}`;
+        }).join('\n\n');
+
+        // Insert as transcription so it shows in the app
+        await insertTranscription({
+          id: randomUUID(),
+          callSid: CallSid,
+          engine: 'ai_conversation',
+          text: conversationTranscript,
+          confidence: 0.95, // AI conversations have high confidence
+          language: 'en',
+        });
+
         await upsertCallRecord({
           callSid: CallSid,
           status: 'completed',
-          transcriptionStatus: 'conversation_completed',
+          transcriptionStatus: 'completed',
         });
+
+        console.log('[ConversationHandler] Conversation transcript saved to database');
       } catch (callRecordError) {
         console.error('[ConversationHandler] Failed to update call record:', callRecordError);
       }
@@ -453,23 +553,80 @@ const handleConversationContinue = async (req, res) => {
         bookingInfo: aiResult.bookingInfo,
       });
 
-      // TODO: Create job card from booking info
+      // Create job card from booking info
+      try {
+        const { insertJob } = require('../supabaseMcpClient');
+        const { sendJobCreatedNotification } = require('../notifications/pushService');
+
+        const bookingInfo = aiResult.bookingInfo || {};
+
+        // Convert relative date strings to ISO dates
+        const scheduledDate = bookingInfo.preferredDate
+          ? parseRelativeDateToISO(bookingInfo.preferredDate)
+          : null;
+
+        const jobPayload = {
+          userId: user_id,
+          callSid: CallSid,
+          customerName: bookingInfo.customerName || null,
+          customerPhone: bookingInfo.phoneNumber || null,
+          customerEmail: null,
+          summary: `${bookingInfo.serviceRequested || 'Service'} - ${bookingInfo.preferredDate || 'Date TBD'}`,
+          serviceType: bookingInfo.serviceRequested || null,
+          status: 'new',
+          businessType: user?.business_type || null,
+          source: 'ai_receptionist',
+          capturedAt: new Date().toISOString(),
+          voicemailTranscript: responses.map(r => `Q: ${r.question || r.aiReply}\nA: ${r.answer}`).join('\n\n'),
+          voicemailRecordingUrl: null,
+          scheduledDate: scheduledDate,
+          scheduledTime: bookingInfo.preferredTime || null,
+          location: bookingInfo.location || null,
+          notes: `Urgency: ${bookingInfo.urgency || 'medium'}${bookingInfo.preferredDate ? `\nRequested: ${bookingInfo.preferredDate}` : ''}`,
+          estimatedDuration: null,
+          followUpDraft: null,
+          lastFollowUpAt: null,
+        };
+
+        const inserted = await insertJob(jobPayload);
+        console.log('[ConversationHandler] Job created from AI conversation', {
+          CallSid,
+          jobId: inserted?.id,
+        });
+
+        // Send push notification
+        const jobRecord = {
+          id: inserted?.id,
+          call_sid: CallSid,
+          customer_name: jobPayload.customerName,
+          status: jobPayload.status || 'new',
+        };
+
+        sendJobCreatedNotification({ userId: user_id, job: jobRecord })
+          .then((result) => {
+            if (result.sent > 0) {
+              console.log('[Push] Job notification sent for AI conversation.', {
+                jobId: jobRecord.id,
+                sent: result.sent,
+              });
+            }
+          })
+          .catch((error) => {
+            console.warn('[Push] Failed to send job notification.', { jobId: jobRecord.id, error });
+          });
+      } catch (jobError) {
+        console.error('[ConversationHandler] Failed to create job from conversation:', jobError);
+      }
     } else {
       // Conversation continues - play AI's response and gather next input
       await updateConversationState(CallSid, {
         responses,
       });
 
-      // Generate and play AI's response
+      // Generate and play AI's response using ElevenLabs
       const aiReplyAudioUrl = await generateAndUploadAudio(aiResult.aiReply, voiceId, user_id);
 
-      if (aiReplyAudioUrl) {
-        response.play(aiReplyAudioUrl);
-      } else {
-        response.say({ voice: 'Polly.Amy' }, aiResult.aiReply);
-      }
-
-      // Gather next response
+      // Gather with the AI's response - no additional prompts
       const gather = response.gather({
         input: 'speech',
         action: `${serverPublicUrl}/telephony/conversation-continue`,
@@ -479,12 +636,15 @@ const handleConversationContinue = async (req, res) => {
         language: 'en-AU',
       });
 
-      // If no response, ask a follow-up question
-      const nextQuestion = getNextQuestion(aiResult.bookingInfo || {});
-      if (nextQuestion) {
-        gather.say({ voice: 'Polly.Amy' }, nextQuestion);
+      // Play the AI's response INSIDE the gather so it doesn't overlap
+      if (aiReplyAudioUrl) {
+        gather.play(aiReplyAudioUrl);
+      } else {
+        // Fallback to Polly only if ElevenLabs fails
+        gather.say({ voice: 'Polly.Amy' }, aiResult.aiReply);
       }
 
+      // If gather times out (no response), loop back to continue
       response.redirect(`${serverPublicUrl}/telephony/conversation-continue`);
     }
 
