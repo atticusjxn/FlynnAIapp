@@ -15,13 +15,17 @@ import { FlynnButton } from '../ui/FlynnButton';
 import { FlynnKeyboardAvoidingView } from '../ui/FlynnKeyboardAvoidingView';
 import { FlynnKeyboardAwareScrollView } from '../ui/FlynnKeyboardAwareScrollView';
 import { Job } from './JobCard';
+import {
+  generateTextConfirmation,
+  generateEmailConfirmation,
+  createSMSUrl,
+  createEmailUrl,
+} from '../../utils/messageTemplates';
 
 interface JobDetailsModalProps {
   job: Job | null;
   visible: boolean;
   onClose: () => void;
-  onSendTextConfirmation: (job: Job) => void;
-  onSendEmailConfirmation: (job: Job) => void;
   onMarkComplete: (job: Job) => void;
   onReschedule: (job: Job) => void;
   onEditDetails: (job: Job) => void;
@@ -113,8 +117,6 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   job,
   visible,
   onClose,
-  onSendTextConfirmation,
-  onSendEmailConfirmation,
   onMarkComplete,
   onReschedule,
   onEditDetails,
@@ -217,6 +219,45 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     Linking.openURL(phoneUrl).catch(() => {
       Alert.alert('Error', 'Unable to make phone call');
     });
+  };
+
+  const handleSendTextConfirmation = () => {
+    const message = generateTextConfirmation(currentJob);
+    const smsUrl = createSMSUrl(currentJob.clientPhone, message);
+
+    Linking.canOpenURL(smsUrl)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(smsUrl);
+        } else {
+          Alert.alert('Error', 'SMS is not available on this device');
+        }
+      })
+      .catch(() => {
+        Alert.alert('Error', 'Unable to open messaging app');
+      });
+  };
+
+  const handleSendEmailConfirmation = () => {
+    if (!currentJob.clientEmail) {
+      Alert.alert('No Email', 'This client does not have an email address on file.');
+      return;
+    }
+
+    const { subject, body } = generateEmailConfirmation(currentJob);
+    const emailUrl = createEmailUrl(currentJob.clientEmail, subject, body);
+
+    Linking.canOpenURL(emailUrl)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(emailUrl);
+        } else {
+          Alert.alert('Error', 'Email is not available on this device');
+        }
+      })
+      .catch(() => {
+        Alert.alert('Error', 'Unable to open email app');
+      });
   };
 
   const handlePlayVoicemail = () => {
@@ -347,7 +388,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   <Text style={styles.followUpText}>{currentJob.followUpDraft}</Text>
                   <FlynnButton
                     title="Use this message"
-                    onPress={() => onSendTextConfirmation(currentJob)}
+                    onPress={handleSendTextConfirmation}
                     variant="ghost"
                     size="small"
                     icon={<FlynnIcon name="chatbubble-ellipses-outline" size={16} color={colors.primary} />}
@@ -488,22 +529,22 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               <View style={styles.primaryActions}>
                 <FlynnButton
                   title="Text"
-                  onPress={() => onSendTextConfirmation(currentJob)}
+                  onPress={handleSendTextConfirmation}
                   variant="primary"
                   size="medium"
                   icon={<FlynnIcon name="chatbubble-outline" size={18} color={colors.white} />}
                   style={styles.communicationButton}
                 />
-                
+
                 <FlynnButton
                   title="Email"
-                  onPress={() => onSendEmailConfirmation(currentJob)}
+                  onPress={handleSendEmailConfirmation}
                   variant="secondary"
                   size="medium"
                   icon={<FlynnIcon name="mail-outline" size={18} color={colors.primary} />}
                   style={styles.communicationButton}
                 />
-                
+
                 <FlynnButton
                   title="Call"
                   onPress={handleCallClient}

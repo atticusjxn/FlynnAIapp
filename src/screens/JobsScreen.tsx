@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Text,
   TouchableOpacity,
+  Linking,
 } from 'react-native';
 import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -16,10 +17,15 @@ import { apiClient } from '../services/apiClient';
 import { JobCard, Job } from '../components/jobs/JobCard';
 import { JobFilterBar, FilterType } from '../components/jobs/JobFilterBar';
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
-import { CommunicationModal } from '../components/jobs/CommunicationModal';
 import { EmptyState } from '../components/jobs/EmptyState';
 import { useNavigation } from '@react-navigation/native';
 import { FlynnIcon } from '../components/ui/FlynnIcon';
+import {
+  generateTextConfirmation,
+  generateEmailConfirmation,
+  createSMSUrl,
+  createEmailUrl,
+} from '../utils/messageTemplates';
 
 const formatRelativeTime = (timestamp?: string) => {
   if (!timestamp) return 'just now';
@@ -48,8 +54,6 @@ export const JobsScreen = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState(false);
-  const [showCommunication, setShowCommunication] = useState(false);
-  const [communicationType, setCommunicationType] = useState<'text' | 'email'>('text');
 
   const pendingFollowUps = useMemo(() =>
     jobs.filter(
@@ -103,9 +107,20 @@ export const JobsScreen = () => {
   };
 
   const handleSendTextConfirmation = (job: Job) => {
-    setSelectedJob(job);
-    setCommunicationType('text');
-    setShowCommunication(true);
+    const message = generateTextConfirmation(job);
+    const smsUrl = createSMSUrl(job.clientPhone, message);
+
+    Linking.canOpenURL(smsUrl)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(smsUrl);
+        } else {
+          Alert.alert('Error', 'SMS is not available on this device');
+        }
+      })
+      .catch(() => {
+        Alert.alert('Error', 'Unable to open messaging app');
+      });
   };
 
   const handleSendEmailConfirmation = (job: Job) => {
@@ -113,49 +128,31 @@ export const JobsScreen = () => {
       Alert.alert('No Email', 'This client does not have an email address on file.');
       return;
     }
-    setSelectedJob(job);
-    setCommunicationType('email');
-    setShowCommunication(true);
+
+    const { subject, body } = generateEmailConfirmation(job);
+    const emailUrl = createEmailUrl(job.clientEmail, subject, body);
+
+    Linking.canOpenURL(emailUrl)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(emailUrl);
+        } else {
+          Alert.alert('Error', 'Email is not available on this device');
+        }
+      })
+      .catch(() => {
+        Alert.alert('Error', 'Unable to open email app');
+      });
   };
 
   const handleReviewFollowUp = (job: Job) => {
-    setSelectedJob(job);
-    setCommunicationType('text');
-    setShowCommunication(true);
+    // Open native SMS with the follow-up draft pre-filled
+    handleSendTextConfirmation(job);
   };
 
   const handleSendFollowUpDraft = async (job: Job) => {
-    if (!job.followUpDraft) {
-      handleReviewFollowUp(job);
-      return;
-    }
-
-    try {
-      await handleSendMessage(job, job.followUpDraft, 'text');
-      Alert.alert('Sent', `Follow-up text sent to ${job.clientName}.`);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to send the follow-up. Please try again.');
-    }
-  };
-
-  const handleSendMessage = async (job: Job, message: string, type: 'text' | 'email') => {
-    try {
-      await apiClient.post(`/jobs/${job.id}/confirm`, {
-        channel: type,
-        message,
-      });
-
-      if (type === 'text') {
-        updateJob({
-          ...job,
-          followUpDraft: message,
-          lastFollowUpAt: new Date().toISOString(),
-        });
-      }
-    } catch (error) {
-      console.error('[JobsScreen] Confirmation request failed:', error);
-      throw error;
-    }
+    // Open native SMS with the AI-generated follow-up draft
+    handleSendTextConfirmation(job);
   };
 
   const handleMarkComplete = async (job: Job) => {
@@ -300,25 +297,11 @@ export const JobsScreen = () => {
           setShowJobDetails(false);
           setSelectedJob(null);
         }}
-        onSendTextConfirmation={handleSendTextConfirmation}
-        onSendEmailConfirmation={handleSendEmailConfirmation}
         onMarkComplete={handleMarkComplete}
         onReschedule={handleReschedule}
         onEditDetails={handleEditDetails}
         onDeleteJob={handleDeleteJob}
         onUpdateJob={handleUpdateJob}
-      />
-
-      {/* Communication Modal */}
-      <CommunicationModal
-        job={selectedJob}
-        visible={showCommunication}
-        type={communicationType}
-        onClose={() => {
-          setShowCommunication(false);
-          setSelectedJob(null);
-        }}
-        onSend={handleSendMessage}
       />
     </SafeAreaView>
   );

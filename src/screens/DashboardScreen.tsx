@@ -23,6 +23,12 @@ import { ActivityDetailsModal } from '../components/dashboard/ActivityDetailsMod
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { useJobs } from '../context/JobsContext';
 import { FloatingActionButton } from '../components/common/FloatingActionButton';
+import {
+  generateTextConfirmation,
+  generateEmailConfirmation,
+  createSMSUrl,
+  createEmailUrl,
+} from '../utils/messageTemplates';
 
 export const DashboardScreen = () => {
   const { user } = useAuth();
@@ -114,11 +120,42 @@ export const DashboardScreen = () => {
   };
 
   const handleSendTextConfirmation = (job: Job) => {
-    Alert.alert('Text Sent', `Confirmation text sent to ${job.clientName}`);
+    const message = generateTextConfirmation(job);
+    const smsUrl = createSMSUrl(job.clientPhone, message);
+
+    Linking.canOpenURL(smsUrl)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(smsUrl);
+        } else {
+          Alert.alert('Error', 'SMS is not available on this device');
+        }
+      })
+      .catch(() => {
+        Alert.alert('Error', 'Unable to open messaging app');
+      });
   };
 
   const handleSendEmailConfirmation = (job: Job) => {
-    Alert.alert('Email Sent', `Confirmation email sent to ${job.clientName}`);
+    if (!job.clientEmail) {
+      Alert.alert('No Email', 'This client does not have an email address on file.');
+      return;
+    }
+
+    const { subject, body } = generateEmailConfirmation(job);
+    const emailUrl = createEmailUrl(job.clientEmail, subject, body);
+
+    Linking.canOpenURL(emailUrl)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(emailUrl);
+        } else {
+          Alert.alert('Error', 'Email is not available on this device');
+        }
+      })
+      .catch(() => {
+        Alert.alert('Error', 'Unable to open email app');
+      });
   };
 
   const handleMarkComplete = (job: Job) => {
