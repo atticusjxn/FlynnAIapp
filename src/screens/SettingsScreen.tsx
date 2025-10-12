@@ -28,6 +28,7 @@ import {
 } from '../services/settingsService';
 import { FlynnKeyboardAwareScrollView } from '../components/ui';
 import CalendarService, { CalendarIntegration } from '../services/CalendarService';
+import Constants from 'expo-constants';
 
 interface NotificationPrefs {
   push: boolean;
@@ -229,6 +230,18 @@ export const SettingsScreen: React.FC = () => {
   };
 
   const handleConnectGoogleCalendar = async () => {
+    // Check if running in Expo Go
+    const isExpoGo = Constants.appOwnership === 'expo';
+
+    if (isExpoGo) {
+      Alert.alert(
+        'Native Build Required',
+        'Google Calendar integration requires a native development build.\n\nTo use this feature, please run:\n\nnpx expo run:ios\n\nThis will create a development build with native modules enabled.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     try {
       setConnectingCalendar(true);
       const integration = await CalendarService.connectGoogleCalendar();
@@ -238,9 +251,9 @@ export const SettingsScreen: React.FC = () => {
       } else {
         Alert.alert('Connection failed', 'Unable to connect Google Calendar. Please try again.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Settings] Failed to connect Google Calendar', error);
-      Alert.alert('Error', 'An error occurred while connecting Google Calendar.');
+      Alert.alert('Error', error?.message || 'An error occurred while connecting Google Calendar.');
     } finally {
       setConnectingCalendar(false);
     }

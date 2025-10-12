@@ -1,8 +1,20 @@
 import * as Calendar from 'expo-calendar';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 import { apiRequest } from './apiClient';
+import Constants from 'expo-constants';
+
+// Conditionally import Google Sign-In only for native builds
+let GoogleSignin: any = null;
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (!isExpoGo) {
+  try {
+    GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+  } catch (error) {
+    console.warn('[CalendarService] Google Sign-In not available in this environment');
+  }
+}
 
 /**
  * CalendarService
@@ -55,8 +67,15 @@ export const CalendarService = {
 
   /**
    * Connect to Google Calendar via OAuth
+   * Note: Only available in native builds (not Expo Go)
    */
   async connectGoogleCalendar(): Promise<CalendarIntegration | null> {
+    // Check if Google Sign-In is available (not in Expo Go)
+    if (!GoogleSignin || isExpoGo) {
+      console.warn('[CalendarService] Google Sign-In requires a native build. Please create a development build with: npx expo run:ios');
+      throw new Error('Google Sign-In is only available in native builds. Please use "npx expo run:ios" to create a development build.');
+    }
+
     try {
       // Configure Google Sign-In
       GoogleSignin.configure({
