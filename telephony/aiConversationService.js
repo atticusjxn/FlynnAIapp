@@ -1,5 +1,6 @@
 const OpenAI = require('openai');
 const { generateConversationPrompt } = require('./businessContextService');
+const { getAvailabilitySummary } = require('./availabilityService');
 
 /**
  * AI Conversation Service
@@ -34,6 +35,30 @@ const processCallerMessage = async ({
   }
 
   try {
+    // Get availability information for scheduling context
+    let availabilityContext = '';
+    if (user?.id) {
+      try {
+        const availability = await getAvailabilitySummary(user.id, 7);
+
+        if (availability.enabled && availability.available) {
+          availabilityContext = `\n\nCURRENT AVAILABILITY:
+${availability.summary}
+Business hours: ${availability.businessHours?.start} - ${availability.businessHours?.end}
+
+IMPORTANT: When a customer requests a specific date/time, check if it falls within business hours and mention if it conflicts with existing bookings. Suggest the next available time if their requested time isn't available.`;
+        } else if (availability.enabled && !availability.available) {
+          availabilityContext = `\n\nCURRENT AVAILABILITY:
+${availability.summary}
+
+Let the customer know we're currently fully booked and will need to call them back to schedule.`;
+        }
+      } catch (error) {
+        console.error('[AIConversation] Failed to get availability', error);
+        // Continue without availability context
+      }
+    }
+
     // Build system prompt with business context
     let systemPrompt = generateConversationPrompt(businessContext);
 
@@ -54,6 +79,9 @@ CONVERSATION GOALS:
 3. Confirm we can help them
 4. Schedule or promise a callback`;
     }
+
+    // Append availability context to system prompt
+    systemPrompt += availabilityContext;
 
     // Build conversation messages
     const messages = [

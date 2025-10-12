@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 import { FlynnIcon, FlynnIconName } from '../components/ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../theme';
@@ -26,6 +27,7 @@ import {
   updateUserProfile,
 } from '../services/settingsService';
 import { FlynnKeyboardAwareScrollView } from '../components/ui';
+import CalendarService, { CalendarIntegration } from '../services/CalendarService';
 
 interface NotificationPrefs {
   push: boolean;
@@ -72,6 +74,9 @@ export const SettingsScreen: React.FC = () => {
     tokenRegistered: boolean;
     isDevice: boolean;
   } | null>(null);
+  const [calendarIntegrations, setCalendarIntegrations] = useState<CalendarIntegration[]>([]);
+  const [loadingCalendars, setLoadingCalendars] = useState(false);
+  const [connectingCalendar, setConnectingCalendar] = useState(false);
 
   const loadSettings = async () => {
     if (!user?.id) {
@@ -102,6 +107,7 @@ export const SettingsScreen: React.FC = () => {
   useEffect(() => {
     void loadSettings();
     void loadPushStatus();
+    void loadCalendarIntegrations();
   }, [user?.id]);
 
   const loadPushStatus = async () => {
@@ -208,6 +214,92 @@ export const SettingsScreen: React.FC = () => {
         },
       },
     ]);
+  };
+
+  const loadCalendarIntegrations = async () => {
+    try {
+      setLoadingCalendars(true);
+      const integrations = await CalendarService.listIntegrations();
+      setCalendarIntegrations(integrations);
+    } catch (error) {
+      console.error('[Settings] Failed to load calendar integrations', error);
+    } finally {
+      setLoadingCalendars(false);
+    }
+  };
+
+  const handleConnectGoogleCalendar = async () => {
+    try {
+      setConnectingCalendar(true);
+      const integration = await CalendarService.connectGoogleCalendar();
+      if (integration) {
+        setCalendarIntegrations([...calendarIntegrations, integration]);
+        Alert.alert('Success', 'Google Calendar connected successfully!');
+      } else {
+        Alert.alert('Connection failed', 'Unable to connect Google Calendar. Please try again.');
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to connect Google Calendar', error);
+      Alert.alert('Error', 'An error occurred while connecting Google Calendar.');
+    } finally {
+      setConnectingCalendar(false);
+    }
+  };
+
+  const handleConnectAppleCalendar = async () => {
+    try {
+      setConnectingCalendar(true);
+      const integration = await CalendarService.connectDeviceCalendar();
+      if (integration) {
+        setCalendarIntegrations([...calendarIntegrations, integration]);
+        Alert.alert('Success', 'Apple Calendar connected successfully!');
+      } else {
+        Alert.alert('Connection failed', 'Unable to connect Apple Calendar. Please check permissions.');
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to connect Apple Calendar', error);
+      Alert.alert('Error', 'An error occurred while connecting Apple Calendar.');
+    } finally {
+      setConnectingCalendar(false);
+    }
+  };
+
+  const handleDisconnectCalendar = (integration: CalendarIntegration) => {
+    Alert.alert(
+      'Disconnect calendar',
+      `Are you sure you want to disconnect ${integration.provider} calendar? Synced events will be removed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await CalendarService.disconnectCalendar(integration.id);
+            if (success) {
+              setCalendarIntegrations(calendarIntegrations.filter(i => i.id !== integration.id));
+              Alert.alert('Disconnected', 'Calendar has been disconnected.');
+            } else {
+              Alert.alert('Error', 'Failed to disconnect calendar.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSyncCalendar = async (integration: CalendarIntegration) => {
+    try {
+      const result = await CalendarService.syncCalendar(integration.id);
+      if (result.success) {
+        Alert.alert('Sync complete', `Synced ${result.eventsSynced || 0} events successfully.`);
+        await loadCalendarIntegrations(); // Refresh to show last_synced_at
+      } else {
+        Alert.alert('Sync failed', result.error || 'Unable to sync calendar right now.');
+      }
+    } catch (error) {
+      console.error('[Settings] Calendar sync failed', error);
+      Alert.alert('Error', 'An error occurred while syncing calendar.');
+    }
   };
 
   const handleSetupCallForwarding = async () => {
@@ -393,6 +485,65 @@ export const SettingsScreen: React.FC = () => {
             )}
           </View>
         ))}
+
+        {/* Calendar Integration */}
+        {renderSection('Calendar Integration', (
+          <View style={styles.settingsGroup}>
+            {calendarIntegrations.length > 0 ? (
+              <>
+                {calendarIntegrations.map((integration, index) => (
+                  <View key={integration.id}>
+                    {renderSettingRow(
+                      'calendar-outline',
+                      `${integration.provider.charAt(0).toUpperCase() + integration.provider.slice(1)} Calendar`,
+                      integration.last_synced_at
+                        ? `Last synced: ${new Date(integration.last_synced_at).toLocaleDateString()}`
+                        : integration.sync_error
+                        ? `Error: ${integration.sync_error}`
+                        : 'Not synced yet',
+                      <View style={styles.calendarActions}>
+                        <TouchableOpacity
+                          onPress={() => handleSyncCalendar(integration)}
+                          style={styles.syncButton}
+                        >
+                          <FlynnIcon name="refresh-outline" size={18} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDisconnectCalendar(integration)}
+                          style={styles.disconnectButton}
+                        >
+                          <FlynnIcon name="close-circle-outline" size={18} color={colors.error} />
+                        </TouchableOpacity>
+                      </View>,
+                      undefined,
+                      index === calendarIntegrations.length - 1,
+                    )}
+                  </View>
+                ))}
+              </>
+            ) : (
+              <>
+                {renderSettingRow(
+                  'logo-google',
+                  'Connect Google Calendar',
+                  'Sync your Google Calendar for availability tracking',
+                  connectingCalendar ? <ActivityIndicator size="small" color={colors.primary} /> : undefined,
+                  connectingCalendar ? undefined : handleConnectGoogleCalendar,
+                  false,
+                )}
+                {Platform.OS === 'ios' && renderSettingRow(
+                  'logo-apple',
+                  'Connect Apple Calendar',
+                  'Sync your device calendar for availability tracking',
+                  connectingCalendar ? <ActivityIndicator size="small" color={colors.primary} /> : undefined,
+                  connectingCalendar ? undefined : handleConnectAppleCalendar,
+                  true,
+                )}
+              </>
+            )}
+          </View>
+        ))}
+
         {/* Appearance */}
         {renderSection('Appearance', (
           <View style={styles.settingsGroup}>
@@ -791,5 +942,20 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   editModalButton: {
     flex: 1,
+  },
+  calendarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  syncButton: {
+    padding: spacing.xs,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.primary + '15',
+  },
+  disconnectButton: {
+    padding: spacing.xs,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.error + '15',
   },
 });

@@ -1215,6 +1215,243 @@ app.post('/jobs/:id/confirm', async (req, res) => {
   }
 });
 
+// ============================================
+// Calendar Integration Endpoints
+// ============================================
+
+const crypto = require('crypto');
+
+// Encryption helpers for OAuth tokens
+const ENCRYPTION_KEY = process.env.CALENDAR_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
+
+function encryptToken(token) {
+  if (!token) return null;
+
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+
+  let encrypted = cipher.update(token, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+
+  const authTag = cipher.getAuthTag();
+
+  // Return iv:authTag:encrypted format
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+}
+
+function decryptToken(encryptedToken) {
+  if (!encryptedToken) return null;
+
+  const parts = encryptedToken.split(':');
+  if (parts.length !== 3) return null;
+
+  const iv = Buffer.from(parts[0], 'hex');
+  const authTag = Buffer.from(parts[1], 'hex');
+  const encrypted = parts[2];
+
+  const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+  decipher.setAuthTag(authTag);
+
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+
+  return decrypted;
+}
+
+/**
+ * POST /calendar/integrations
+ * Create a new calendar integration with encrypted tokens
+ */
+app.post('/calendar/integrations', authenticateJwt, async (req, res) => {
+  const userId = req.user?.sub;
+  const { provider, calendar_id, access_token, refresh_token } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!provider || !calendar_id) {
+    return res.status(400).json({ error: 'provider and calendar_id are required' });
+  }
+
+  try {
+    // Encrypt tokens before storing
+    const encryptedAccessToken = access_token ? encryptToken(access_token) : null;
+    const encryptedRefreshToken = refresh_token ? encryptToken(refresh_token) : null;
+
+    // Calculate token expiry (Google tokens typically expire in 1 hour)
+    const tokenExpiresAt = new Date();
+    tokenExpiresAt.setHours(tokenExpiresAt.getHours() + 1);
+
+    const { data, error } = await supabaseStorageClient
+      .from('calendar_integrations')
+      .insert({
+        user_id: userId,
+        provider,
+        calendar_id,
+        access_token: encryptedAccessToken,
+        refresh_token: encryptedRefreshToken,
+        token_expires_at: tokenExpiresAt.toISOString(),
+        is_active: true,
+        sync_enabled: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Calendar] Failed to create integration', error);
+      return res.status(500).json({ error: 'Failed to create calendar integration' });
+    }
+
+    // Return without sensitive token data
+    const safeData = {
+      id: data.id,
+      user_id: data.user_id,
+      provider: data.provider,
+      calendar_id: data.calendar_id,
+      is_active: data.is_active,
+      sync_enabled: data.sync_enabled,
+      last_synced_at: data.last_synced_at,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    };
+
+    return res.status(201).json(safeData);
+  } catch (error) {
+    console.error('[Calendar] Error creating integration', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /calendar/integrations/:id/token
+ * Get decrypted access token (handles refresh if needed)
+ */
+app.get('/calendar/integrations/:id/token', authenticateJwt, async (req, res) => {
+  const userId = req.user?.sub;
+  const integrationId = req.params.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Fetch integration
+    const { data: integration, error } = await supabaseStorageClient
+      .from('calendar_integrations')
+      .select('*')
+      .eq('id', integrationId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !integration) {
+      return res.status(404).json({ error: 'Calendar integration not found' });
+    }
+
+    // Check if token is expired
+    const now = new Date();
+    const expiresAt = new Date(integration.token_expires_at);
+
+    if (expiresAt <= now && integration.refresh_token) {
+      // Token expired, need to refresh
+      console.log('[Calendar] Access token expired, refreshing...', { integrationId });
+
+      if (integration.provider === 'google') {
+        // Refresh Google token
+        const decryptedRefreshToken = decryptToken(integration.refresh_token);
+
+        try {
+          const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              client_id: process.env.GOOGLE_WEB_CLIENT_ID,
+              client_secret: process.env.GOOGLE_CLIENT_SECRET,
+              refresh_token: decryptedRefreshToken,
+              grant_type: 'refresh_token',
+            }),
+          });
+
+          if (!refreshResponse.ok) {
+            throw new Error('Failed to refresh Google token');
+          }
+
+          const refreshData = await refreshResponse.json();
+
+          // Update with new access token
+          const newEncryptedAccessToken = encryptToken(refreshData.access_token);
+          const newExpiresAt = new Date();
+          newExpiresAt.setSeconds(newExpiresAt.getSeconds() + refreshData.expires_in);
+
+          await supabaseStorageClient
+            .from('calendar_integrations')
+            .update({
+              access_token: newEncryptedAccessToken,
+              token_expires_at: newExpiresAt.toISOString(),
+            })
+            .eq('id', integrationId);
+
+          // Return refreshed token
+          return res.status(200).json({ accessToken: refreshData.access_token });
+        } catch (refreshError) {
+          console.error('[Calendar] Failed to refresh token', refreshError);
+          return res.status(401).json({ error: 'Failed to refresh access token' });
+        }
+      }
+    }
+
+    // Token still valid, decrypt and return
+    const decryptedAccessToken = decryptToken(integration.access_token);
+
+    if (!decryptedAccessToken) {
+      return res.status(500).json({ error: 'Failed to decrypt access token' });
+    }
+
+    return res.status(200).json({ accessToken: decryptedAccessToken });
+  } catch (error) {
+    console.error('[Calendar] Error getting token', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /calendar/sync/:integrationId
+ * Manually trigger calendar sync for an integration
+ */
+app.post('/calendar/sync/:integrationId', authenticateJwt, async (req, res) => {
+  const userId = req.user?.sub;
+  const integrationId = req.params.integrationId;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Fetch integration
+    const { data: integration, error } = await supabaseStorageClient
+      .from('calendar_integrations')
+      .select('*')
+      .eq('id', integrationId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !integration) {
+      return res.status(404).json({ error: 'Calendar integration not found' });
+    }
+
+    // Import calendar sync logic
+    const { syncCalendarIntegration } = require('./telephony/calendarSync');
+
+    const result = await syncCalendarIntegration(integration);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('[Calendar] Sync error', error);
+    return res.status(500).json({ error: 'Calendar sync failed' });
+  }
+});
+
 if (require.main === module) {
   app.listen(port, () => {
     console.log(`FlynnAI telephony server listening on port ${port}`);

@@ -75,6 +75,9 @@ const {
 // Supabase client for storage
 let supabaseStorageClient = null;
 
+// Short phrase we can play while longer responses are prepared so callers know we're still on the line
+const WAITING_FILLER_PHRASE = 'Got it, let me check that for you.';
+
 const initializeStorage = () => {
   if (!supabaseStorageClient && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     supabaseStorageClient = createClient(
@@ -623,8 +626,12 @@ const handleConversationContinue = async (req, res) => {
         responses,
       });
 
+      const responseScript = aiResult.aiReply
+        ? `${WAITING_FILLER_PHRASE} ${aiResult.aiReply}`.trim()
+        : WAITING_FILLER_PHRASE;
+
       // Generate and play AI's response using ElevenLabs
-      const aiReplyAudioUrl = await generateAndUploadAudio(aiResult.aiReply, voiceId, user_id);
+      const aiReplyAudioUrl = await generateAndUploadAudio(responseScript, voiceId, user_id);
 
       // Gather with the AI's response - no additional prompts
       const gather = response.gather({
@@ -641,7 +648,7 @@ const handleConversationContinue = async (req, res) => {
         gather.play(aiReplyAudioUrl);
       } else {
         // Fallback to Polly only if ElevenLabs fails
-        gather.say({ voice: 'Polly.Amy' }, aiResult.aiReply);
+        gather.say({ voice: 'Polly.Amy' }, responseScript);
       }
 
       // If gather times out (no response), loop back to continue
