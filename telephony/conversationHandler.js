@@ -371,6 +371,13 @@ const handleInboundCall = async (req, res) => {
     const response = new twilio.twiml.VoiceResponse();
     const serverPublicUrl = getServerPublicUrl();
 
+    // Enable call recording for the entire conversation
+    response.record({
+      recordingStatusCallback: `${serverPublicUrl}/telephony/recording-status`,
+      recordingStatusCallbackMethod: 'POST',
+      recordingStatusCallbackEvent: ['completed'],
+    });
+
     // Generate greeting audio using ElevenLabs
     const greetingAudioUrl = await generateAndUploadAudio(greeting, voiceId, user.id);
 
@@ -389,8 +396,14 @@ const handleInboundCall = async (req, res) => {
     if (greetingAudioUrl) {
       gather.play(greetingAudioUrl);
     } else {
-      // Fallback to Polly only if ElevenLabs fails
-      gather.say({ voice: 'Polly.Amy' }, greeting);
+      // Fallback: generate audio with custom voice instead of Twilio TTS
+      const fallbackAudioUrl = await generateAndUploadAudio(greeting, voiceId, user.id);
+      if (fallbackAudioUrl) {
+        gather.play(fallbackAudioUrl);
+      } else {
+        // Last resort - use Twilio voice (but this should rarely happen)
+        gather.say({ voice: 'Polly.Amy' }, greeting);
+      }
     }
 
     // Pause briefly for caller to start speaking
@@ -408,7 +421,10 @@ const handleInboundCall = async (req, res) => {
     console.log('[ConversationHandler] Greeting sent, waiting for response', { conversationId, CallSid });
   } catch (error) {
     console.error('[ConversationHandler] Error handling inbound call', { error, CallSid });
-    return sendFallbackVoicemail(res);
+    // Try to get voice info for fallback, but proceed even if unavailable
+    const user = await getUserByTwilioNumber(req.body.To).catch(() => null);
+    const voiceId = user?.receptionist_voice_profile_id || resolveVoiceId(user?.receptionist_voice);
+    return sendFallbackVoicemail(res, voiceId, user?.id);
   }
 };
 
@@ -431,7 +447,10 @@ const handleConversationContinue = async (req, res) => {
 
     if (!conversation) {
       console.warn('[ConversationHandler] No conversation state found', { CallSid });
-      return sendFallbackVoicemail(res);
+      // Try to get voice info for fallback
+      const user = await getUserByTwilioNumber(req.body.To || req.body.Called).catch(() => null);
+      const voiceId = user?.receptionist_voice_profile_id || resolveVoiceId(user?.receptionist_voice);
+      return sendFallbackVoicemail(res, voiceId, user?.id);
     }
 
     const { responses, voice_id: voiceId, user_id } = conversation;
@@ -439,9 +458,18 @@ const handleConversationContinue = async (req, res) => {
     // If no speech input, ask them to speak
     if (!SpeechResult) {
       const response = new twilio.twiml.VoiceResponse();
-      response.say({ voice: 'Polly.Amy' }, "I'm sorry, I didn't hear anything. Please tell me how I can help you.");
-
       const serverPublicUrl = getServerPublicUrl();
+
+      // Use custom voice for "didn't hear anything" message
+      const noSpeechMessage = "I'm sorry, I didn't hear anything. Please tell me how I can help you.";
+      const audioUrl = await generateAndUploadAudio(noSpeechMessage, voiceId, user_id);
+
+      if (audioUrl) {
+        response.play(audioUrl);
+      } else {
+        response.say({ voice: 'Polly.Amy' }, noSpeechMessage);
+      }
+
       const gather = response.gather({
         input: 'speech',
         action: `${serverPublicUrl}/telephony/conversation-continue`,
@@ -568,6 +596,10 @@ const handleConversationContinue = async (req, res) => {
           ? parseRelativeDateToISO(bookingInfo.preferredDate)
           : null;
 
+        // Get recording URL from call record (may be available later via webhook)
+        const { getCallBySid } = require('../supabaseMcpClient');
+        const callRecord = await getCallBySid(CallSid).catch(() => null);
+
         const jobPayload = {
           userId: user_id,
           callSid: CallSid,
@@ -581,7 +613,7 @@ const handleConversationContinue = async (req, res) => {
           source: 'ai_receptionist',
           capturedAt: new Date().toISOString(),
           voicemailTranscript: responses.map(r => `Q: ${r.question || r.aiReply}\nA: ${r.answer}`).join('\n\n'),
-          voicemailRecordingUrl: null,
+          voicemailRecordingUrl: callRecord?.recording_url || null,
           scheduledDate: scheduledDate,
           scheduledTime: bookingInfo.preferredTime || null,
           location: bookingInfo.location || null,
@@ -659,17 +691,40 @@ const handleConversationContinue = async (req, res) => {
     res.send(response.toString());
   } catch (error) {
     console.error('[ConversationHandler] Error handling conversation continue', { error, CallSid });
-    return sendFallbackVoicemail(res);
+    // Get conversation to retrieve voice info for fallback
+    const conversation = await getConversationState(CallSid).catch(() => null);
+    const voiceId = conversation?.voice_id;
+    const userId = conversation?.user_id;
+    return sendFallbackVoicemail(res, voiceId, userId);
   }
 };
 
 /**
  * Fallback to basic voicemail if conversation fails
  */
-const sendFallbackVoicemail = (res) => {
+const sendFallbackVoicemail = async (res, voiceId = null, userId = null) => {
   const response = new twilio.twiml.VoiceResponse();
-  response.say({ voice: 'Polly.Amy' }, "Hi, you've reached FlynnAI. Please leave a message after the tone.");
   const serverPublicUrl = getServerPublicUrl();
+
+  const fallbackMessage = "Hi, you've reached FlynnAI. Please leave a message after the tone.";
+
+  // Try to use custom voice if available
+  if (voiceId && userId) {
+    try {
+      const audioUrl = await generateAndUploadAudio(fallbackMessage, voiceId, userId);
+      if (audioUrl) {
+        response.play(audioUrl);
+      } else {
+        response.say({ voice: 'Polly.Amy' }, fallbackMessage);
+      }
+    } catch (error) {
+      console.error('[ConversationHandler] Failed to generate fallback audio:', error);
+      response.say({ voice: 'Polly.Amy' }, fallbackMessage);
+    }
+  } else {
+    response.say({ voice: 'Polly.Amy' }, fallbackMessage);
+  }
+
   response.record({
     action: `${serverPublicUrl}/telephony/recording-complete`,
     method: 'POST',
@@ -703,6 +758,22 @@ const handleRecordingStatus = async (req, res) => {
     });
 
     console.log('[ConversationHandler] Recording URL saved to database');
+
+    // Also update any job associated with this call
+    const { getJobByCallSid, executeSql } = require('../supabaseMcpClient');
+    const job = await getJobByCallSid(CallSid).catch(() => null);
+
+    if (job) {
+      const updateQuery = `
+        UPDATE public.jobs
+        SET voicemail_recording_url = '${RecordingUrl.replace(/'/g, "''")}'
+        WHERE call_sid = '${CallSid}'
+      `;
+      await executeSql(updateQuery).catch(err => {
+        console.error('[ConversationHandler] Failed to update job recording URL:', err);
+      });
+      console.log('[ConversationHandler] Job recording URL updated', { jobId: job.id });
+    }
   } catch (error) {
     console.error('[ConversationHandler] Failed to save recording URL:', error);
   }
