@@ -1,5 +1,5 @@
 const OpenAI = require('openai');
-const fetch = require('node-fetch');
+const https = require('https');
 
 /**
  * Transcription Service using OpenAI Whisper
@@ -48,12 +48,21 @@ const transcribeAudio = async (audioInput, language = 'en') => {
     if (typeof audioInput === 'string' && (audioInput.startsWith('http://') || audioInput.startsWith('https://'))) {
       console.log('[TranscriptionService] Fetching audio from URL:', audioInput);
 
-      const response = await fetch(audioInput);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch audio: ${response.status} ${response.statusText}`);
-      }
+      // Download audio using native https
+      const audioBuffer = await new Promise((resolve, reject) => {
+        https.get(audioInput, (res) => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`Failed to fetch audio: ${res.statusCode}`));
+            return;
+          }
 
-      const audioBuffer = await response.buffer();
+          const chunks = [];
+          res.on('data', (chunk) => chunks.push(chunk));
+          res.on('end', () => resolve(Buffer.concat(chunks)));
+          res.on('error', reject);
+        }).on('error', reject);
+      });
+
       audioFile = new File([audioBuffer], 'audio.mp3', { type: 'audio/mpeg' });
     } else if (Buffer.isBuffer(audioInput)) {
       // Handle Buffer input

@@ -544,11 +544,13 @@ const handleConversationContinue = async (req, res) => {
 
     // If no speech input, ask them to speak
     if (!SpeechResult) {
+      console.log('[ConversationHandler] No speech detected, prompting caller to speak');
       const response = new twilio.twiml.VoiceResponse();
       const serverPublicUrl = getServerPublicUrl();
 
       // Use custom voice for "didn't hear anything" message
       const noSpeechMessage = "I'm sorry, I didn't hear anything. Please tell me how I can help you.";
+      console.log('[ConversationHandler] Generating no-speech prompt audio');
       const audioUrl = await generateAndUploadAudio(noSpeechMessage, voiceId, user_id);
 
       if (audioUrl) {
