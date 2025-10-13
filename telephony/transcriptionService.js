@@ -48,9 +48,25 @@ const transcribeAudio = async (audioInput, language = 'en') => {
     if (typeof audioInput === 'string' && (audioInput.startsWith('http://') || audioInput.startsWith('https://'))) {
       console.log('[TranscriptionService] Fetching audio from URL:', audioInput);
 
-      // Download audio using native https
+      // Download audio using native https with Twilio auth if needed
       const audioBuffer = await new Promise((resolve, reject) => {
-        https.get(audioInput, (res) => {
+        const options = {
+          headers: {},
+        };
+
+        // Add Twilio Basic Auth if it's a Twilio recording URL
+        if (audioInput.includes('api.twilio.com')) {
+          const twilioAccountSid = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID || process.env.TWILIO_ACCOUNT_SID;
+          const twilioAuthToken = process.env.EXPO_PUBLIC_TWILIO_AUTH_TOKEN || process.env.TWILIO_AUTH_TOKEN;
+
+          if (twilioAccountSid && twilioAuthToken) {
+            const auth = Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64');
+            options.headers['Authorization'] = `Basic ${auth}`;
+            console.log('[TranscriptionService] Using Twilio authentication');
+          }
+        }
+
+        https.get(audioInput, options, (res) => {
           if (res.statusCode !== 200) {
             reject(new Error(`Failed to fetch audio: ${res.statusCode}`));
             return;
