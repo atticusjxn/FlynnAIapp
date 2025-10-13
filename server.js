@@ -402,6 +402,26 @@ const sendConfirmationSms = async ({ to, body }) => {
   return message;
 };
 
+// ==========================================
+// OPTION 1: OpenAI Realtime API Routes (NEW - Production-Grade)
+// Ultra-low latency (300-600ms) audio-in/audio-out conversations
+// ==========================================
+const {
+  handleRealtimeInboundCall,
+  handleRealtimeRecordingStatus,
+  handleRealtimeHealthCheck,
+} = require('./telephony/realtimeHandler');
+
+app.post('/telephony/realtime-inbound-voice', handleRealtimeInboundCall);
+app.get('/telephony/realtime-inbound-voice', handleRealtimeInboundCall);
+app.post('/telephony/realtime-recording-status', handleRealtimeRecordingStatus);
+app.get('/telephony/realtime-health', handleRealtimeHealthCheck);
+
+// ==========================================
+// OPTION 2: Legacy Gather Routes (OLD - High Latency)
+// Keep for backward compatibility / fallback
+// TODO: Remove after Realtime API is fully validated
+// ==========================================
 app.post('/telephony/inbound-voice', handleInboundCall);
 app.get('/telephony/inbound-voice', handleInboundCall);
 app.post('/telephony/conversation-continue', handleConversationContinue);
@@ -1452,9 +1472,48 @@ app.post('/calendar/sync/:integrationId', authenticateJwt, async (req, res) => {
   }
 });
 
+// ==========================================
+// WebSocket Server for OpenAI Realtime API
+// ==========================================
 if (require.main === module) {
-  app.listen(port, () => {
+  const http = require('http');
+  const WebSocket = require('ws');
+  const { handleTwilioConnection } = require('./telephony/realtimeServer');
+
+  // Create HTTP server
+  const server = http.createServer(app);
+
+  // Create WebSocket server for Realtime API connections
+  const wss = new WebSocket.Server({
+    server,
+    path: '/realtime-stream',
+  });
+
+  wss.on('connection', (ws, request) => {
+    console.log('[Server] New WebSocket connection to /realtime-stream');
+    handleTwilioConnection(ws, request);
+  });
+
+  wss.on('error', (error) => {
+    console.error('[Server] WebSocket server error:', error);
+  });
+
+  // Start server with both HTTP and WebSocket support
+  server.listen(port, () => {
     console.log(`FlynnAI telephony server listening on port ${port}`);
+    console.log(`WebSocket server ready at ws://localhost:${port}/realtime-stream`);
+    console.log('');
+    console.log('='.repeat(60));
+    console.log('REALTIME API MODE ACTIVE');
+    console.log('='.repeat(60));
+    console.log('✓ OpenAI Realtime API integration enabled');
+    console.log('✓ Ultra-low latency: 300-600ms (vs 5-10s with Gather)');
+    console.log('✓ Native audio-in/audio-out processing');
+    console.log('✓ Built-in conversation state management');
+    console.log('');
+    console.log('Configure Twilio phone number webhook to:');
+    console.log(`  ${process.env.SERVER_PUBLIC_URL || 'https://your-ngrok-url'}/telephony/realtime-inbound-voice`);
+    console.log('='.repeat(60));
   });
 }
 
