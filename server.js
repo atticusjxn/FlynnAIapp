@@ -118,8 +118,80 @@ const presetReceptionistVoices = {
   koala_hype: process.env.ELEVENLABS_VOICE_KOALA_HYPE_ID,
 };
 
+const normalizeErrorForLog = (error) => {
+  if (!error) {
+    return {};
+  }
+
+  if (error instanceof Error) {
+    return {
+      errorName: error.name,
+      errorMessage: error.message,
+      errorStack: error.stack,
+    };
+  }
+
+  return { error };
+};
+
+const createTimer = (label, context = {}) => {
+  const start = process.hrtime.bigint();
+  console.log(`[Timing] ${label} started`, context);
+  let finished = false;
+
+  const finish = (logFn, outcome, extraContext = {}) => {
+    if (finished) {
+      return;
+    }
+
+    finished = true;
+    const durationMs = Number(process.hrtime.bigint() - start) / 1e6;
+    const payload = {
+      ...context,
+      ...extraContext,
+      durationMs: Math.round(durationMs * 1000) / 1000,
+    };
+    logFn(`[Timing] ${label} ${outcome}`, payload);
+  };
+
+  return {
+    end: (extraContext = {}) => finish(console.log, 'completed', extraContext),
+    fail: (error, extraContext = {}) => {
+      finish(console.error, 'failed', {
+        ...extraContext,
+        ...normalizeErrorForLog(error),
+      });
+    },
+  };
+};
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+app.use((req, res, next) => {
+  const requestId = randomUUID();
+  req.requestId = requestId;
+  const timer = createTimer(`HTTP ${req.method}`, {
+    requestId,
+    method: req.method,
+    path: req.originalUrl,
+    ip: req.ip,
+  });
+
+  res.once('finish', () => {
+    timer.end({ statusCode: res.statusCode });
+  });
+
+  res.once('close', () => {
+    if (!res.writableEnded) {
+      timer.fail(new Error('Response closed prematurely'), {
+        statusCode: res.statusCode,
+      });
+    }
+  });
+
+  next();
+});
 
 const JOB_STATUS_VALUES = new Set(['new', 'in_progress', 'completed']);
 
@@ -774,10 +846,17 @@ app.post('/telephony/recording-complete', async (req, res) => {
       RecordingUrl,
       RecordingDuration,
       Timestamp,
+      requestId: req.requestId,
     });
 
     const durationSec = Number.isFinite(Number(RecordingDuration)) ? Number(RecordingDuration) : null;
     const recordedAt = Timestamp || new Date().toISOString();
+    const baseTimingContext = {
+      callSid: CallSid,
+      recordingSid: RecordingSid,
+      requestId: req.requestId,
+      durationSec,
+    };
 
     if (!supabaseStorageClient) {
       console.error('[Telephony] Supabase storage client is not configured; cannot store voicemail.');
@@ -814,16 +893,34 @@ app.post('/telephony/recording-complete', async (req, res) => {
     let storageMetadata;
 
     try {
-      ({ response: recordingResponse, resolvedUrl } = await downloadTwilioRecording(RecordingUrl));
-      storageMetadata = await persistRecordingToSupabaseStorage({
-        callSid: CallSid,
-        recordingSid: RecordingSid,
-        resolvedUrl,
-        response: recordingResponse.clone(),
-      });
+      const downloadTimer = createTimer('Download voicemail recording', baseTimingContext);
+      try {
+        ({ response: recordingResponse, resolvedUrl } = await downloadTwilioRecording(RecordingUrl));
+        downloadTimer.end({ resolvedUrl });
+      } catch (downloadError) {
+        downloadTimer.fail(downloadError);
+        throw downloadError;
+      }
+
+      const persistTimer = createTimer('Persist voicemail recording', baseTimingContext);
+      try {
+        storageMetadata = await persistRecordingToSupabaseStorage({
+          callSid: CallSid,
+          recordingSid: RecordingSid,
+          resolvedUrl,
+          response: recordingResponse.clone(),
+        });
+        persistTimer.end({
+          storagePath: storageMetadata?.storagePath,
+          sizeBytes: storageMetadata?.size,
+        });
+      } catch (persistError) {
+        persistTimer.fail(persistError);
+        throw persistError;
+      }
     } catch (storageError) {
       console.error('[Telephony] Failed to persist voicemail recording.', {
-        callSid: CallSid,
+        ...baseTimingContext,
         error: storageError,
       });
 
@@ -881,10 +978,17 @@ app.post('/telephony/recording-complete', async (req, res) => {
 
       const audioFile = await toFile(recordingResponse, fileName, contentType ? { type: contentType } : undefined);
 
-      const transcriptionResponse = await openaiClient.audio.transcriptions.create({
-        file: audioFile,
-        model: 'gpt-4o-mini-transcribe',
-      });
+      const transcriptionRequestTimer = createTimer('Transcribe voicemail audio', baseTimingContext);
+      let transcriptionResponse;
+      try {
+        transcriptionResponse = await openaiClient.audio.transcriptions.create({
+          file: audioFile,
+          model: 'gpt-4o-mini-transcribe',
+        });
+      } catch (transcriptionRequestError) {
+        transcriptionRequestTimer.fail(transcriptionRequestError);
+        throw transcriptionRequestError;
+      }
 
       const transcriptText = (transcriptionResponse && transcriptionResponse.text) ? transcriptionResponse.text.trim() : '';
       const transcriptLanguage = transcriptionResponse && transcriptionResponse.language
@@ -892,21 +996,44 @@ app.post('/telephony/recording-complete', async (req, res) => {
         : 'en';
 
       if (!transcriptText) {
-        throw new Error('Transcription response did not include text.');
+        const missingTextError = new Error('Transcription response did not include text.');
+        transcriptionRequestTimer.fail(missingTextError);
+        throw missingTextError;
       }
 
-      await insertTranscription({
-        id: randomUUID(),
-        callSid: CallSid,
-        engine: 'whisper',
-        text: transcriptText,
-        confidence: 0.8,
-        language: transcriptLanguage,
+      transcriptionRequestTimer.end({
+        transcriptLength: transcriptText.length,
+        transcriptLanguage,
       });
+
+      const storeTranscriptTimer = createTimer('Store voicemail transcript', baseTimingContext);
+      try {
+        await insertTranscription({
+          id: randomUUID(),
+          callSid: CallSid,
+          engine: 'whisper',
+          text: transcriptText,
+          confidence: 0.8,
+          language: transcriptLanguage,
+        });
+        storeTranscriptTimer.end({ transcriptLength: transcriptText.length });
+      } catch (insertError) {
+        storeTranscriptTimer.fail(insertError);
+        throw insertError;
+      }
 
       await updateCallTranscriptionStatus({ callSid: CallSid, status: 'completed' });
 
-      console.log('[Telephony] Transcription stored successfully for call.', { callSid: CallSid });
+      console.log('[Telephony] Transcription stored successfully for call.', {
+        callSid: CallSid,
+        requestId: req.requestId,
+        transcriptLength: transcriptText.length,
+      });
+
+      const jobTimer = createTimer('Ensure job from voicemail transcript', {
+        ...baseTimingContext,
+        transcriptLength: transcriptText.length,
+      });
 
       try {
         await ensureJobForTranscript({
@@ -914,9 +1041,12 @@ app.post('/telephony/recording-complete', async (req, res) => {
           transcriptText,
           openaiClient,
         });
+        jobTimer.end();
       } catch (jobCreationError) {
+        jobTimer.fail(jobCreationError);
         console.error('[Jobs] Failed to create job from transcript.', {
           callSid: CallSid,
+          requestId: req.requestId,
           error: jobCreationError,
         });
       }
@@ -924,14 +1054,17 @@ app.post('/telephony/recording-complete', async (req, res) => {
       return res.status(200).json({ status: 'transcribed' });
     } catch (transcriptionError) {
       console.error('[Telephony] Failed to transcribe recording.', {
-        callSid: CallSid,
+        ...baseTimingContext,
         error: transcriptionError,
       });
       await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' });
       return res.status(500).json({ error: 'Failed to transcribe recording' });
     }
   } catch (error) {
-    console.error('[Telephony] Failed to handle recording complete webhook:', error);
+    console.error('[Telephony] Failed to handle recording complete webhook.', {
+      requestId: req.requestId,
+      error,
+    });
     return res.status(500).json({ error: 'Failed to process recording' });
   }
 });
@@ -1119,7 +1252,9 @@ app.post('/jobs/:id/confirm', async (req, res) => {
 
   if (!twilioMessagingClient) {
     console.error('[Jobs] Twilio messaging client unavailable; cannot send confirmation SMS.');
-    return res.status(500).json({ error: 'Messaging not configured' });
+    return res.status(500).json({
+      error: 'Configure TWILIO_MESSAGING_SERVICE_SID or TWILIO_SMS_FROM_NUMBER to send SMS.',
+    });
   }
 
   try {
