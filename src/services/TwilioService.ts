@@ -11,10 +11,24 @@ import { CarrierDetectionResult } from './CarrierDetectionService';
 import { carrierIdToIsoCountry, inferIsoCountryFromNumber } from '../utils/phone';
 
 // Environment configuration
-const TWILIO_ACCOUNT_SID = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.EXPO_PUBLIC_TWILIO_AUTH_TOKEN;
-const TWILIO_WEBHOOK_URL = process.env.EXPO_PUBLIC_TWILIO_WEBHOOK_URL;
-const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+const env = process.env as Record<string, string | undefined>;
+
+const TWILIO_ACCOUNT_SID = env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = env.EXPO_PUBLIC_TWILIO_AUTH_TOKEN;
+const TWILIO_WEBHOOK_URL = env.EXPO_PUBLIC_TWILIO_WEBHOOK_URL;
+const OPENAI_API_KEY = env.EXPO_PUBLIC_OPENAI_API_KEY;
+
+type AvailablePhoneNumber = {
+  phone_number: string;
+  friendly_name?: string;
+  iso_country?: string;
+  address_requirements?: string | null;
+  capabilities?: {
+    voice?: boolean;
+    sms?: boolean;
+    fax?: boolean;
+  };
+};
 
 // Re-export types for backward compatibility
 export type TwilioUserStatus = UserTwilioSettings;
@@ -133,7 +147,12 @@ class TwilioServiceClass {
 
       // Purchase the first available number
       const selectedNumber = numbersToConsider[0];
-      const purchaseResult = await this.purchasePhoneNumber(selectedNumber.phone_number, user.id);
+      const purchaseResult = await this.purchasePhoneNumber(
+        selectedNumber.phone_number,
+        user.id,
+        selectedNumber.iso_country || countryCode,
+        selectedNumber.address_requirements
+      );
 
       // Update user record with Twilio information
       const { error: updateError } = await supabase
@@ -161,21 +180,24 @@ class TwilioServiceClass {
   /**
    * Search for available phone numbers in a country
    */
-  private async searchAvailableNumbers(countryCode: string = this.defaultCountryCode) {
+  private async searchAvailableNumbers(countryCode: string = this.defaultCountryCode): Promise<AvailablePhoneNumber[]> {
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
       // For development, return mock data
-      const devNumbers: Record<string, string> = {
-        AU: '+61491570156',
-        GB: '+447700900123',
-        IE: '+35315500000',
-        NZ: '+64210123456',
-        US: '+15551234567',
+      const devNumbers: Record<string, { phone_number: string; iso_country: string; address_requirements: string }> = {
+        AU: { phone_number: '+61491570156', iso_country: 'AU', address_requirements: 'any' },
+        GB: { phone_number: '+447700900123', iso_country: 'GB', address_requirements: 'any' },
+        IE: { phone_number: '+35315500000', iso_country: 'IE', address_requirements: 'any' },
+        NZ: { phone_number: '+64210123456', iso_country: 'NZ', address_requirements: 'any' },
+        US: { phone_number: '+15551234567', iso_country: 'US', address_requirements: 'none' },
       };
 
       const fallback = devNumbers[this.defaultCountryCode];
+      const selected = devNumbers[countryCode] || fallback;
       return [{
-        phone_number: devNumbers[countryCode] || fallback,
+        phone_number: selected.phone_number,
         friendly_name: 'Flynn AI Development Number',
+        iso_country: selected.iso_country,
+        address_requirements: selected.address_requirements,
         capabilities: { voice: true, sms: true, fax: false }
       }];
     }
@@ -198,7 +220,7 @@ class TwilioServiceClass {
       }
 
       const data = await response.json();
-      return data.available_phone_numbers || [];
+      return (data.available_phone_numbers as AvailablePhoneNumber[]) || [];
     } catch (error) {
       console.error('Error searching available numbers:', error);
       throw new Error('Failed to search for available phone numbers');
@@ -208,7 +230,12 @@ class TwilioServiceClass {
   /**
    * Purchase a specific phone number
    */
-  private async purchasePhoneNumber(phoneNumber: string, userId: string): Promise<PhoneNumberProvisionResult> {
+  private async purchasePhoneNumber(
+    phoneNumber: string,
+    userId: string,
+    isoCountry?: string | null,
+    addressRequirements?: string | null
+  ): Promise<PhoneNumberProvisionResult> {
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
       // For development, return mock data
       return {
@@ -220,7 +247,18 @@ class TwilioServiceClass {
 
     try {
       const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
-      
+      const normalizedCountry = this.normalizeCountryCode(isoCountry) || this.defaultCountryCode;
+      const requirement = (addressRequirements || '').toLowerCase();
+      const addressSid = this.resolveAddressSid(normalizedCountry, requirement);
+
+      if (requirement && requirement !== 'none' && requirement !== 'any' && !addressSid) {
+        const friendlyCountry = this.getCountryFriendlyName(normalizedCountry);
+        throw new Error(
+          `A verified address is required to provision numbers in ${friendlyCountry}. ` +
+            `Set EXPO_PUBLIC_TWILIO_ADDRESS_SID_${normalizedCountry} or EXPO_PUBLIC_TWILIO_DEFAULT_ADDRESS_SID in your environment.`
+        );
+      }
+
       const params = new URLSearchParams({
         PhoneNumber: phoneNumber,
         VoiceUrl: `${TWILIO_WEBHOOK_URL}/webhook/voice/${userId}`,
@@ -228,6 +266,10 @@ class TwilioServiceClass {
         StatusCallback: `${TWILIO_WEBHOOK_URL}/webhook/status/${userId}`,
         StatusCallbackMethod: 'POST'
       });
+
+      if (addressSid) {
+        params.set('AddressSid', addressSid);
+      }
 
       const response = await fetch(
         `${this.baseUrl}/Accounts/${TWILIO_ACCOUNT_SID}/IncomingPhoneNumbers.json`,
@@ -243,6 +285,18 @@ class TwilioServiceClass {
 
       if (!response.ok) {
         const errorData = await response.json();
+        const friendlyCountry = this.getCountryFriendlyName(normalizedCountry);
+        if (
+          errorData?.message &&
+          typeof errorData.message === 'string' &&
+          errorData.message.toLowerCase().includes('requires an address')
+        ) {
+          throw new Error(
+            `Twilio requires a verified address to buy numbers in ${friendlyCountry}. ` +
+              `Set EXPO_PUBLIC_TWILIO_ADDRESS_SID_${normalizedCountry} (or EXPO_PUBLIC_TWILIO_DEFAULT_ADDRESS_SID) to a compliant Twilio Address SID.`
+          );
+        }
+
         throw new Error(errorData.message || 'Failed to purchase phone number');
       }
 
@@ -661,6 +715,42 @@ If information is unclear or missing, set those fields to null. Set confidence b
     const trimmed = code.trim();
     if (!trimmed) return null;
     return trimmed.toUpperCase();
+  }
+
+  private resolveAddressSid(countryCode?: string | null, requirement?: string | null): string | undefined {
+    const normalizedCountry = this.normalizeCountryCode(countryCode);
+    const normalizedRequirement = requirement?.toLowerCase() || 'none';
+
+    if (!normalizedCountry) {
+      return undefined;
+    }
+
+    if (normalizedRequirement === 'none' || normalizedRequirement === 'any') {
+      return undefined;
+    }
+
+    const countrySpecificKey = `EXPO_PUBLIC_TWILIO_ADDRESS_SID_${normalizedCountry}`;
+    const addressSid = env[countrySpecificKey] || env.EXPO_PUBLIC_TWILIO_DEFAULT_ADDRESS_SID;
+    return addressSid || undefined;
+  }
+
+  private getCountryFriendlyName(countryCode?: string | null): string {
+    switch (this.normalizeCountryCode(countryCode)) {
+      case 'AU':
+        return 'Australia';
+      case 'GB':
+        return 'the United Kingdom';
+      case 'IE':
+        return 'Ireland';
+      case 'NZ':
+        return 'New Zealand';
+      case 'US':
+        return 'the United States';
+      case 'CA':
+        return 'Canada';
+      default:
+        return countryCode ? countryCode.toUpperCase() : 'the selected region';
+    }
   }
 
   private resolveCountryCode({

@@ -5,11 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { FlynnKeyboardAvoidingView, FlynnKeyboardAwareScrollView } from '../../components/ui';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { businessTypes, useOnboarding } from '../../context/OnboardingContext';
 
@@ -54,10 +52,10 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <FlynnKeyboardAvoidingView
         style={styles.keyboardAvoidingContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        contentContainerStyle={styles.keyboardContent}
+        dismissOnTapOutside
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -71,10 +69,10 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
           </View>
         </View>
 
-        <ScrollView 
-          style={styles.content} 
+        <FlynnKeyboardAwareScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.titleContainer}>
             <Text style={styles.title}>What type of services do you provide?</Text>
@@ -84,22 +82,38 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
           </View>
 
           <View style={styles.optionsContainer}>
-            {businessTypes.map((type) => (
+            {businessTypes.map((type) => {
+              const isSelected = selectedType === type.id;
+              const iconColor = isSelected ? '#1d4ed8' : '#1f2937';
+
+              return (
               <TouchableOpacity
                 key={type.id}
                 style={[
                   styles.option,
-                  selectedType === type.id && styles.selectedOption,
+                  isSelected && styles.selectedOption,
                 ]}
                 onPress={() => handleTypeSelect(type.id)}
               >
                 <View style={styles.optionContent}>
-                  <Text style={styles.emoji}>{type.emoji}</Text>
+                  <View
+                    style={[
+                      styles.iconBadge,
+                      isSelected && styles.selectedIconBadge,
+                    ]}
+                  >
+                    <FlynnIcon
+                      name={type.icon}
+                      size={22}
+                      color={iconColor}
+                      strokeWidth={2}
+                    />
+                  </View>
                   <View style={styles.textContainer}>
                     <Text
                       style={[
                         styles.optionText,
-                        selectedType === type.id && styles.selectedOptionText,
+                        isSelected && styles.selectedOptionText,
                       ]}
                     >
                       {type.label}
@@ -111,11 +125,12 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
                     )}
                   </View>
                 </View>
-                {selectedType === type.id && (
+                {isSelected && (
                   <FlynnIcon name="checkmark-circle" size={24} color="#3B82F6" />
                 )}
               </TouchableOpacity>
-            ))}
+            );
+            })}
           </View>
 
           {showCustomInput && (
@@ -134,7 +149,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
           
           {/* Add extra padding at bottom when keyboard is shown */}
           {showCustomInput && <View style={{ height: 100 }} />}
-        </ScrollView>
+        </FlynnKeyboardAwareScrollView>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -152,7 +167,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
             />
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </FlynnKeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -163,6 +178,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   keyboardAvoidingContainer: {
+    flex: 1,
+  },
+  keyboardContent: {
     flex: 1,
   },
   header: {
@@ -192,6 +210,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
+  },
+  scrollContent: {
+    paddingBottom: 120,
   },
   titleContainer: {
     marginBottom: 32,
@@ -229,9 +250,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  emoji: {
-    fontSize: 24,
+  iconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 16,
+  },
+  selectedIconBadge: {
+    backgroundColor: '#e0f2fe',
   },
   textContainer: {
     flex: 1,

@@ -6,9 +6,15 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useAuth } from '../context/AuthContext';
-import { FlynnButton, FlynnInput, colors, typography, spacing } from '../components/ui';
+import {
+  FlynnButton,
+  FlynnInput,
+  FlynnKeyboardAwareScrollView,
+  colors,
+  typography,
+  spacing,
+} from '../components/ui';
 
 const KOALA_LOGO = require('../../assets/images/onboardinglogo.png');
 
@@ -32,69 +38,68 @@ export const LoginScreen = () => {
   };
 
   return (
-    <KeyboardAwareScrollView
+    <FlynnKeyboardAwareScrollView
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
-      extraScrollHeight={24}
-      enableOnAndroid
       keyboardShouldPersistTaps="handled"
+      enableOnAndroid={true}
     >
-      <View style={styles.formWrapper}>
-        <View style={styles.formContainer}>
-          <Image source={KOALA_LOGO} style={styles.logo} accessibilityLabel="FlynnAI koala" />
-          <Text style={styles.title}>FlynnAI</Text>
-          <Text style={styles.subtitle}>
-            {isSignUp ? 'Create your account' : 'Welcome back'}
-          </Text>
+          <View style={styles.formWrapper}>
+            <View style={styles.formContainer}>
+              <Image source={KOALA_LOGO} style={styles.logo} accessibilityLabel="FlynnAI koala" />
+              <Text style={styles.title}>FlynnAI</Text>
+              <Text style={styles.subtitle}>
+                {isSignUp ? 'Create your account' : 'Welcome back'}
+              </Text>
 
-          {isSignUp && (
-            <FlynnInput
-              placeholder="Business Name"
-              value={businessName}
-              onChangeText={setBusinessName}
-              autoCapitalize="words"
-            />
-          )}
+              {isSignUp && (
+                <FlynnInput
+                  placeholder="Business Name"
+                  value={businessName}
+                  onChangeText={setBusinessName}
+                  autoCapitalize="words"
+                />
+              )}
 
-          <FlynnInput
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            autoComplete="email"
-          />
+              <FlynnInput
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoComplete="email"
+              />
 
-          <FlynnInput
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+              <FlynnInput
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
 
-          <FlynnButton
-            title={isSignUp ? 'Sign Up' : 'Sign In'}
-            onPress={handleSubmit}
-            variant="primary"
-            fullWidth
-            style={styles.submitButton}
-          />
+              <FlynnButton
+                title={isSignUp ? 'Sign Up' : 'Sign In'}
+                onPress={handleSubmit}
+                variant="primary"
+                fullWidth
+                style={styles.submitButton}
+              />
 
-          <FlynnButton
-            title={
-              isSignUp
-                ? 'Already have an account? Sign In'
-                : "Don't have an account? Sign Up"
-            }
-            onPress={() => setIsSignUp(!isSignUp)}
-            variant="ghost"
-            style={styles.switchButton}
-          />
-        </View>
-      </View>
-    </KeyboardAwareScrollView>
+              <FlynnButton
+                title={
+                  isSignUp
+                    ? 'Already have an account? Sign In'
+                    : "Don't have an account? Sign Up"
+                }
+                onPress={() => setIsSignUp(!isSignUp)}
+                variant="ghost"
+                style={styles.switchButton}
+              />
+            </View>
+          </View>
+    </FlynnKeyboardAwareScrollView>
   );
 };
 

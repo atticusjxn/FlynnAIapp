@@ -25,13 +25,33 @@ const parseResultRows = (result) => {
   if (Array.isArray(result.content)) {
     for (const block of result.content) {
       if (block && block.type === 'text' && typeof block.text === 'string') {
+        // The text is double-encoded JSON with escaped quotes
         try {
-          const parsed = JSON.parse(block.text);
-          if (parsed && Array.isArray(parsed.rows)) {
-            return parsed.rows;
+          // First parse removes outer quotes and gives us the message string
+          const firstParse = JSON.parse(block.text);
+
+          // Now extract the JSON array from within the untrusted-data tags
+          if (typeof firstParse === 'string') {
+            const match = firstParse.match(/<untrusted-data-[^>]+>\n(\[[\s\S]*?\])\n<\/untrusted-data-/);
+            if (match && match[1]) {
+              // Parse the extracted JSON array
+              const extracted = JSON.parse(match[1]);
+              if (Array.isArray(extracted)) {
+                console.log('[parseResultRows] Successfully extracted', extracted.length, 'rows');
+                return extracted;
+              }
+            }
+          }
+
+          // Fallback: check if it's already an array
+          if (Array.isArray(firstParse)) {
+            return firstParse;
+          }
+          if (firstParse && Array.isArray(firstParse.rows)) {
+            return firstParse.rows;
           }
         } catch (error) {
-          // Ignore JSON parse failures; fallback to next block.
+          console.error('[parseResultRows] Parse error:', error.message);
         }
       }
     }
@@ -355,6 +375,8 @@ const upsertCallRecord = async ({
 
   const query = `
     insert into public.calls (
+      twilio_call_sid,
+      caller_number,
       call_sid,
       user_id,
       from_number,
@@ -372,6 +394,8 @@ const upsertCallRecord = async ({
     )
     values (
       ${sqlString(callSid)},
+      ${sqlString(fromNumber)},
+      ${sqlString(callSid)},
       ${sqlString(userId)},
       ${sqlString(fromNumber)},
       ${sqlString(toNumber)},
@@ -386,7 +410,7 @@ const upsertCallRecord = async ({
       ${transcriptionStatus ? 'now()' : 'NULL'},
       ${sqlString(status)}
     )
-    on conflict (call_sid) do update set
+    on conflict (twilio_call_sid) do update set
       user_id = coalesce(excluded.user_id, public.calls.user_id),
       from_number = excluded.from_number,
       to_number = excluded.to_number,
@@ -409,7 +433,16 @@ const upsertCallRecord = async ({
       status = coalesce(excluded.status, public.calls.status);
   `;
 
-  await executeSql(query);
+  console.log('[upsertCallRecord] Executing query for callSid:', callSid);
+  try {
+    const result = await executeSql(query);
+    console.log('[upsertCallRecord] Query executed successfully');
+    return result;
+  } catch (error) {
+    console.error('[upsertCallRecord] Query failed:', error.message);
+    console.error('[upsertCallRecord] Query was:', query);
+    throw error;
+  }
 };
 
 const getTranscriptByCallSid = async (callSid) => {
@@ -798,8 +831,25 @@ const insertJob = async ({
     returning id;
   `;
 
-  const result = await executeSql(query);
-  return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : { id: jobId };
+  console.log('[insertJob] Executing query for callSid:', callSid);
+  try {
+    const result = await executeSql(query);
+    console.log('[insertJob] Query result:', result);
+    console.log('[insertJob] Result rows:', result.rows);
+
+    if (Array.isArray(result.rows) && result.rows.length > 0) {
+      console.log('[insertJob] Successfully inserted job:', result.rows[0]);
+      return result.rows[0];
+    } else {
+      console.error('[insertJob] Insert failed - no rows returned. This means the SQL failed silently.');
+      console.error('[insertJob] Query was:', query);
+      throw new Error('Job insertion failed - no rows returned from database');
+    }
+  } catch (error) {
+    console.error('[insertJob] Query execution failed:', error);
+    console.error('[insertJob] Query was:', query);
+    throw error;
+  }
 };
 
 const upsertNotificationToken = async ({ userId, platform, token }) => {
@@ -851,6 +901,243 @@ const listNotificationTokensForUser = async ({ userId }) => {
   return Array.isArray(result.rows) ? result.rows : [];
 };
 
+const getUserByTwilioNumber = async (twilioNumber) => {
+  if (!twilioNumber) {
+    throw new Error('twilioNumber is required to look up user.');
+  }
+
+  try {
+    const query = `
+      select
+        id,
+        email,
+        phone,
+        twilio_phone_number,
+        business_type,
+        receptionist_greeting,
+        receptionist_questions,
+        receptionist_voice,
+        receptionist_voice_profile_id,
+        receptionist_configured
+      from public.users
+      where twilio_phone_number = ${sqlString(twilioNumber)}
+      limit 1;
+    `;
+
+    console.log('[getUserByTwilioNumber] Executing query for:', twilioNumber);
+    const result = await executeSql(query);
+    console.log('[getUserByTwilioNumber] Query result:', result);
+
+    return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    console.error('[getUserByTwilioNumber] Error looking up user:', error);
+    throw error;
+  }
+};
+
+const upsertConversationState = async ({
+  id,
+  callSid,
+  userId,
+  fromNumber,
+  toNumber,
+  currentStep,
+  totalSteps,
+  questions,
+  responses,
+  voiceId,
+  greeting,
+  status,
+}) => {
+  if (!id) {
+    throw new Error('id is required for conversation state upsert.');
+  }
+
+  if (!callSid) {
+    throw new Error('callSid is required for conversation state upsert.');
+  }
+
+  const query = `
+    insert into public.conversation_states (
+      id,
+      call_sid,
+      user_id,
+      from_number,
+      to_number,
+      current_step,
+      total_steps,
+      questions,
+      responses,
+      voice_id,
+      greeting,
+      status
+    ) values (
+      ${sqlString(id)},
+      ${sqlString(callSid)},
+      ${sqlString(userId)},
+      ${sqlString(fromNumber)},
+      ${sqlString(toNumber)},
+      ${currentStep || 0},
+      ${totalSteps || 0},
+      ${sqlString(JSON.stringify(questions || []))},
+      ${sqlString(JSON.stringify(responses || []))},
+      ${sqlString(voiceId)},
+      ${sqlString(greeting)},
+      ${sqlString(status || 'active')}
+    )
+    on conflict (call_sid) do update set
+      current_step = excluded.current_step,
+      responses = excluded.responses,
+      status = excluded.status,
+      updated_at = now();
+  `;
+
+  await executeSql(query);
+};
+
+const getConversationState = async (callSid) => {
+  if (!callSid) {
+    throw new Error('callSid is required to get conversation state.');
+  }
+
+  try {
+    const query = `
+      select
+        id,
+        call_sid,
+        user_id,
+        from_number,
+        to_number,
+        current_step,
+        total_steps,
+        questions,
+        responses,
+        voice_id,
+        greeting,
+        status,
+        created_at,
+        updated_at,
+        completed_at
+      from public.conversation_states
+      where call_sid = ${sqlString(callSid)}
+      limit 1;
+    `;
+
+    console.log('[getConversationState] Querying for CallSid:', callSid);
+    const result = await executeSql(query);
+    console.log('[getConversationState] Result rows:', result.rows ? result.rows.length : 0);
+    const row = Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+
+  if (row) {
+    // Parse JSON fields
+    if (typeof row.questions === 'string') {
+      try {
+        row.questions = JSON.parse(row.questions);
+      } catch (e) {
+        row.questions = [];
+      }
+    }
+
+    if (typeof row.responses === 'string') {
+      try {
+        row.responses = JSON.parse(row.responses);
+      } catch (e) {
+        row.responses = [];
+      }
+    }
+  }
+
+  return row;
+  } catch (error) {
+    console.error('[getConversationState] Error:', error);
+    throw error;
+  }
+};
+
+const updateConversationState = async (callSid, updates) => {
+  if (!callSid) {
+    throw new Error('callSid is required to update conversation state.');
+  }
+
+  const setClauses = [];
+
+  if (typeof updates.currentStep === 'number') {
+    setClauses.push(`current_step = ${updates.currentStep}`);
+  }
+
+  if (Array.isArray(updates.responses)) {
+    setClauses.push(`responses = ${sqlString(JSON.stringify(updates.responses))}`);
+  }
+
+  if (updates.status) {
+    setClauses.push(`status = ${sqlString(updates.status)}`);
+  }
+
+  if (updates.completedAt) {
+    setClauses.push(`completed_at = ${sqlString(updates.completedAt)}`);
+  }
+
+  if (setClauses.length === 0) {
+    return;
+  }
+
+  setClauses.push('updated_at = now()');
+
+  const query = `
+    update public.conversation_states
+    set ${setClauses.join(', ')}
+    where call_sid = ${sqlString(callSid)};
+  `;
+
+  await executeSql(query);
+};
+
+const updateBusinessContext = async (userId, businessProfileUrl, businessContext) => {
+  if (!userId) {
+    throw new Error('userId is required to update business context.');
+  }
+
+  const query = `
+    update public.users
+    set
+      business_profile_url = ${sqlString(businessProfileUrl)},
+      business_context = ${sqlString(JSON.stringify(businessContext))},
+      business_context_updated_at = now()
+    where id = ${sqlString(userId)};
+  `;
+
+  await executeSql(query);
+};
+
+const getBusinessContext = async (userId) => {
+  if (!userId) {
+    throw new Error('userId is required to get business context.');
+  }
+
+  const query = `
+    select
+      business_profile_url,
+      business_context,
+      business_context_updated_at
+    from public.users
+    where id = ${sqlString(userId)}
+    limit 1;
+  `;
+
+  const result = await executeSql(query);
+  const row = Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+
+  if (row && typeof row.business_context === 'string') {
+    try {
+      row.business_context = JSON.parse(row.business_context);
+    } catch (e) {
+      row.business_context = {};
+    }
+  }
+
+  return row;
+};
+
 module.exports = {
   upsertCallRecord,
   executeSql,
@@ -870,4 +1157,10 @@ module.exports = {
   findExpiredRecordingCalls,
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,
+  getUserByTwilioNumber,
+  upsertConversationState,
+  getConversationState,
+  updateConversationState,
+  updateBusinessContext,
+  getBusinessContext,
 };

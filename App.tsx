@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OnboardingProvider, useOnboarding } from './src/context/OnboardingContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -167,15 +168,17 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AppInitLogger>
-        <ThemeProvider>
-          <AuthProvider>
-            <OnboardingProvider>
-              <JobsProvider>
-                <AppNavigator />
-              </JobsProvider>
-            </OnboardingProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <OnboardingProvider>
+                <JobsProvider>
+                  <AppNavigator />
+                </JobsProvider>
+              </OnboardingProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
       </AppInitLogger>
     </ErrorBoundary>
   );

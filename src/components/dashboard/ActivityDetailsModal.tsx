@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,14 @@ import {
   Dimensions,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { Audio } from 'expo-av';
 import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { DashboardActivity, formatActivityTime } from '../../services/dashboardService';
+import { getConversationByCallSid, ConversationState } from '../../services/conversationService';
 
 interface ActivityDetailsModalProps {
   visible: boolean;
@@ -32,6 +35,69 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
 }) => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const [conversation, setConversation] = useState<ConversationState | null>(null);
+  const [loadingConversation, setLoadingConversation] = useState(false);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+
+  // Fetch conversation data when activity is a call
+  useEffect(() => {
+    const fetchConversation = async () => {
+      if (activity?.type === 'call_recorded' && activity.metadata?.callSid) {
+        setLoadingConversation(true);
+        const conv = await getConversationByCallSid(activity.metadata.callSid);
+        setConversation(conv);
+        setLoadingConversation(false);
+      } else {
+        setConversation(null);
+      }
+    };
+
+    if (visible && activity) {
+      void fetchConversation();
+    }
+  }, [visible, activity]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (sound) {
+        void sound.unloadAsync();
+      }
+    };
+  }, [sound]);
+
+  const playPauseAudio = async () => {
+    if (!activity?.metadata?.recordingUrl) return;
+
+    try {
+      if (sound) {
+        if (isPlaying) {
+          await sound.pauseAsync();
+          setIsPlaying(false);
+        } else {
+          await sound.playAsync();
+          setIsPlaying(true);
+        }
+      } else {
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: activity.metadata.recordingUrl },
+          { shouldPlay: true },
+          (status) => {
+            if (status.isLoaded && status.didJustFinish) {
+              setIsPlaying(false);
+            }
+          }
+        );
+        setSound(newSound);
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error('[AudioPlayer] Error playing audio:', error);
+      setAudioError('Unable to play recording');
+    }
+  };
 
   if (!activity) return null;
 
@@ -230,6 +296,77 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
             {/* Metadata */}
             {renderActivityMetadata()}
 
+            {/* Audio Player (for calls with recordings) */}
+            {activity.type === 'call_recorded' && activity.metadata?.recordingUrl && (
+              <View style={styles.audioSection}>
+                <Text style={styles.sectionTitle}>Call Recording</Text>
+                <TouchableOpacity
+                  style={styles.audioPlayer}
+                  onPress={playPauseAudio}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.audioButton, { backgroundColor: colors.primary }]}>
+                    <FlynnIcon
+                      name={isPlaying ? 'pause' : 'play'}
+                      size={24}
+                      color={colors.white}
+                    />
+                  </View>
+                  <View style={styles.audioInfo}>
+                    <Text style={styles.audioTitle}>
+                      {isPlaying ? 'Playing recording...' : 'Tap to play recording'}
+                    </Text>
+                    {audioError && (
+                      <Text style={styles.audioError}>{audioError}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Conversation Transcript (for calls) */}
+            {activity.type === 'call_recorded' && (
+              <View style={styles.transcriptSection}>
+                <Text style={styles.sectionTitle}>Conversation Transcript</Text>
+                {loadingConversation ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.loadingText}>Loading transcript...</Text>
+                  </View>
+                ) : conversation && conversation.responses && conversation.responses.length > 0 ? (
+                  <View style={styles.transcriptCard}>
+                    {/* Greeting */}
+                    {conversation.greeting && (
+                      <View style={styles.transcriptItem}>
+                        <Text style={styles.transcriptLabel}>Greeting:</Text>
+                        <Text style={styles.transcriptText}>{conversation.greeting}</Text>
+                      </View>
+                    )}
+
+                    {/* Q&A pairs */}
+                    {conversation.responses.map((response, index) => (
+                      <View key={index} style={styles.transcriptItem}>
+                        <Text style={styles.transcriptLabel}>
+                          Q: {conversation.questions[index] || 'Question not recorded'}
+                        </Text>
+                        <Text style={styles.transcriptAnswer}>{response.answer}</Text>
+                        {response.confidence && (
+                          <Text style={styles.transcriptConfidence}>
+                            Confidence: {(response.confidence * 100).toFixed(1)}%
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.emptyTranscript}>
+                    <FlynnIcon name="document-text-outline" size={32} color={colors.gray400} />
+                    <Text style={styles.emptyText}>No transcript available</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Action Buttons */}
             {renderActionButtons()}
 
@@ -412,7 +549,115 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.bodyMedium,
     fontWeight: '600',
   },
-  
+
+  // Transcript section styles
+  transcriptSection: {
+    marginBottom: spacing.lg,
+  },
+
+  transcriptCard: {
+    backgroundColor: colors.gray50,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+  },
+
+  transcriptItem: {
+    marginBottom: spacing.md,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+
+  transcriptLabel: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginBottom: spacing.xxs,
+  },
+
+  transcriptText: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+    fontStyle: 'italic',
+  },
+
+  transcriptAnswer: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+    marginTop: spacing.xxs,
+  },
+
+  transcriptConfidence: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: spacing.xxs,
+  },
+
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.lg,
+    backgroundColor: colors.gray50,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+  },
+
+  loadingText: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+  },
+
+  emptyTranscript: {
+    padding: spacing.xl,
+    backgroundColor: colors.gray50,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+
+  emptyText: {
+    ...typography.bodyMedium,
+    color: colors.textTertiary,
+  },
+
+  // Audio player styles
+  audioSection: {
+    marginBottom: spacing.lg,
+  },
+
+  audioPlayer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.gray50,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+
+  audioButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  audioInfo: {
+    flex: 1,
+  },
+
+  audioTitle: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+
+  audioError: {
+    ...typography.caption,
+    color: colors.error,
+    marginTop: spacing.xxs,
+  },
+
   contextSection: {
     marginBottom: spacing.lg,
   },

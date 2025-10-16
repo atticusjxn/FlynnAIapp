@@ -46,11 +46,31 @@ const defaultOnboardingData: OnboardingData = {
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
 export const businessTypes = [
-  { id: 'home_property', label: 'Home & Property Services', emoji: '🏠' },
-  { id: 'personal_beauty', label: 'Personal & Beauty Services', emoji: '👤' },
-  { id: 'automotive', label: 'Automotive Services', emoji: '🚗' },
-  { id: 'business_professional', label: 'Business & Professional Services', emoji: '💼' },
-  { id: 'other', label: 'Other', emoji: '📋' },
+  {
+    id: 'home_property',
+    label: 'Home & Property Services',
+    icon: 'home-outline',
+  },
+  {
+    id: 'personal_beauty',
+    label: 'Personal & Beauty Services',
+    icon: 'sparkles-outline',
+  },
+  {
+    id: 'automotive',
+    label: 'Automotive Services',
+    icon: 'car-outline',
+  },
+  {
+    id: 'business_professional',
+    label: 'Business & Professional Services',
+    icon: 'briefcase-outline',
+  },
+  {
+    id: 'other',
+    label: 'Other',
+    icon: 'document-outline',
+  },
 ];
 
 export const businessGoals: BusinessGoal[] = [

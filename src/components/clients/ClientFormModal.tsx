@@ -5,9 +5,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   Alert,
 } from 'react-native';
 import { FlynnIcon } from '../ui/FlynnIcon';
@@ -17,6 +14,10 @@ import { FlynnInput } from '../ui/FlynnInput';
 import { FlynnButton } from '../ui/FlynnButton';
 import { Client, ContactPreference } from '../../types/client';
 import { businessTypes } from '../../context/OnboardingContext';
+import {
+  FlynnKeyboardAwareScrollView,
+  FlynnKeyboardAvoidingView,
+} from '../ui';
 
 interface ClientFormModalProps {
   visible: boolean;
@@ -109,11 +110,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
       animationType="slide"
       onRequestClose={onDismiss}
     >
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
-      >
+      <FlynnKeyboardAvoidingView style={styles.container} dismissOnTapOutside>
         <View style={styles.header}>
           <Text style={styles.title}>{initialClient ? 'Edit Client' : 'Add Client'}</Text>
           <TouchableOpacity onPress={onDismiss} style={styles.closeButton}>
@@ -121,7 +118,10 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <FlynnKeyboardAwareScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
           <FlynnInput
             label="Name"
             value={name}
@@ -211,7 +211,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
               })}
             </View>
           </View>
-        </ScrollView>
+        </FlynnKeyboardAwareScrollView>
 
         <View style={styles.footer}>
           {initialClient && onDelete ? (
@@ -238,7 +238,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
             />
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </FlynnKeyboardAvoidingView>
     </Modal>
   );
 };

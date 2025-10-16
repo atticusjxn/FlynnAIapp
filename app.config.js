@@ -5,6 +5,12 @@ export default {
       "expo-secure-store",
       "expo-notifications",
       "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "FlynnAI uses your location to help you find and verify your business on Google Maps for AI receptionist setup."
+        }
+      ],
     ],
     name: "FlynnAI",
     slug: "FlynnAI",
@@ -27,7 +33,8 @@ export default {
         NSCameraUsageDescription: "FlynnAI uses the camera to capture screenshots of job details, quotes, and work orders. This helps automatically extract information and create calendar events for your business.",
         NSPhotoLibraryUsageDescription: "FlynnAI accesses your photo library to select images containing job details that can be automatically processed into calendar events and client information.",
         NSMicrophoneUsageDescription: "FlynnAI uses the microphone to record and transcribe phone calls with clients to automatically capture job details and create bookings.",
-        NSUserNotificationUsageDescription: "FlynnAI sends push notifications when new jobs are created so you never miss important follow-ups."
+        NSUserNotificationUsageDescription: "FlynnAI sends push notifications when new jobs are created so you never miss important follow-ups.",
+        NSLocationWhenInUseUsageDescription: "FlynnAI uses your location to help you find and verify your business on Google Maps for AI receptionist setup."
       }
     },
     android: {
@@ -36,7 +43,11 @@ export default {
         backgroundColor: "#3B82F6"
       },
       edgeToEdgeEnabled: true,
-      package: "com.flynnai.app"
+      package: "com.flynnai.app",
+      permissions: [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     web: {
       favicon: "./assets/images/favicon.png"

@@ -36,3 +36,14 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# logs and temporary files
+server.log
+*.log
+
+# screenshots and test files
+simulator_screenshot.png
+*.sh.tmp
+
+# IDE and tool configs
+.kilocode/
