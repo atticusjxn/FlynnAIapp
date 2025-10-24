@@ -24,6 +24,7 @@ import { JobFormDemo } from './src/components/ui/JobFormDemo';
 import CallSetupScreen from './src/screens/calls/CallSetupScreen';
 import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
 import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
+import CallerDetailScreen from './src/screens/calls/CallerDetailScreen';
 // import { useFonts } from 'expo-font';
 
 const Tab = createBottomTabNavigator();
@@ -100,11 +101,19 @@ function RootNavigator() {
           title: 'Call Recording Setup',
         }}
       />
-      <Stack.Screen 
-        name="CallHistory" 
+      <Stack.Screen
+        name="CallHistory"
         component={CallHistoryScreen}
         options={{
           presentation: 'modal',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="CallerDetail"
+        component={(props: any) => <CallerDetailScreen {...props} />}
+        options={{
+          presentation: 'card',
           headerShown: false,
         }}
       />

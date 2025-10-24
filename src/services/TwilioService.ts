@@ -388,6 +388,10 @@ class TwilioServiceClass {
           transcription_text,
           job_extracted,
           job_id,
+          caller_id,
+          route_decision,
+          route_mode,
+          route_reason,
           created_at,
           updated_at
         `)
@@ -412,6 +416,10 @@ class TwilioServiceClass {
         transcriptionText: call.transcription_text,
         jobExtracted: call.job_extracted,
         jobId: call.job_id,
+        callerId: call.caller_id,
+        routeDecision: call.route_decision,
+        routeMode: call.route_mode,
+        routeReason: call.route_reason,
         createdAt: call.created_at,
         updatedAt: call.updated_at
       })) || [];

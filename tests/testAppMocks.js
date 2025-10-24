@@ -13,6 +13,12 @@ const mockSupabaseClient = {
   findExpiredRecordingCalls: jest.fn().mockResolvedValue([]),
   markCallRecordingExpired: jest.fn().mockResolvedValue(undefined),
   updateCallRecordingSignedUrl: jest.fn().mockResolvedValue(undefined),
+  normalizePhoneNumber: jest.fn((value) => value),
+  getUserByTwilioNumber: jest.fn().mockResolvedValue({ id: 'user-123' }),
+  getRoutingSettingsForUser: jest.fn().mockResolvedValue({ mode: 'smart_auto' }),
+  getCallerByPhone: jest.fn().mockResolvedValue(null),
+  upsertCaller: jest.fn().mockResolvedValue(null),
+  CALL_ROUTING_MODES: new Set(['intake', 'voicemail', 'smart_auto']),
 };
 
 const storageUploadMock = jest.fn().mockResolvedValue({ data: { path: 'voicemails/test' }, error: null });
@@ -146,6 +152,11 @@ const resetAllMocks = () => {
   mockSupabaseClient.findExpiredRecordingCalls.mockReset().mockResolvedValue([]);
   mockSupabaseClient.markCallRecordingExpired.mockReset().mockResolvedValue(undefined);
   mockSupabaseClient.updateCallRecordingSignedUrl.mockReset().mockResolvedValue(undefined);
+  mockSupabaseClient.normalizePhoneNumber.mockReset().mockImplementation((value) => value);
+  mockSupabaseClient.getUserByTwilioNumber.mockReset().mockResolvedValue({ id: 'user-123' });
+  mockSupabaseClient.getRoutingSettingsForUser.mockReset().mockResolvedValue({ mode: 'smart_auto' });
+  mockSupabaseClient.getCallerByPhone.mockReset().mockResolvedValue(null);
+  mockSupabaseClient.upsertCaller.mockReset().mockResolvedValue(null);
   storageUploadMock.mockReset().mockResolvedValue({ data: { path: 'voicemails/test' }, error: null });
   storageCreateSignedUrlMock.mockReset().mockResolvedValue({
     data: {

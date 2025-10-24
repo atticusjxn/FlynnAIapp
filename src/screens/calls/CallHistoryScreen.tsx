@@ -71,11 +71,12 @@ const CallHistoryScreen: React.FC<CallHistoryScreenProps> = ({ navigation }) => 
   const handleCallPress = (call: CallRecord) => {
     Alert.alert(
       'Call Details',
-      `Call from ${call.fromNumber}\nDuration: ${formatDuration(call.duration)}\nStatus: ${call.status}\n\n${call.transcriptionText ? 'Transcription available' : 'No transcription'}`,
+      `Call from ${call.fromNumber}\nDuration: ${formatDuration(call.duration)}\nStatus: ${call.status}\nRoute: ${call.routeDecision || 'unknown'}\n\n${call.transcriptionText ? 'Transcription available' : 'No transcription'}`,
       [
         { text: 'Cancel', style: 'cancel' },
         ...(call.recordingUrl ? [{ text: 'Play Recording', onPress: () => playRecording(call.recordingUrl!) }] : []),
         ...(call.jobId ? [{ text: 'View Job', onPress: () => navigation.navigate('JobDetails', { jobId: call.jobId }) }] : []),
+        ...(call.callerId ? [{ text: 'Caller timeline', onPress: () => navigation.navigate('CallerDetail', { callerId: call.callerId, phoneNumber: call.fromNumber }) }] : []),
         { text: 'Call Back', onPress: () => callBack(call.fromNumber) }
       ]
     );
@@ -202,6 +203,19 @@ const CallHistoryScreen: React.FC<CallHistoryScreenProps> = ({ navigation }) => 
             <View style={styles.metadataItem}>
               <FlynnIcon name="briefcase-outline" size={14} color={themeColors.success || colors.success} />
               <Text style={[styles.metadataText, { color: themeColors.success || colors.success }]}>Job Created</Text>
+            </View>
+          )}
+
+          {item.routeDecision && (
+            <View style={styles.metadataItem}>
+              <FlynnIcon
+                name={item.routeDecision === 'intake' ? 'sparkles' : 'mic-outline'}
+                size={14}
+                color={themeColors.textTertiary || colors.gray500}
+              />
+              <Text style={styles.metadataText}>
+                {item.routeDecision === 'intake' ? 'AI intake' : 'Voicemail'}
+              </Text>
             </View>
           )}
         </View>
