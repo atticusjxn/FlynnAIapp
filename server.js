@@ -7,6 +7,8 @@ const { toFile } = require('openai');
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
+const { handleInboundCall, handleConversationContinue, handleRecordingStatus } = require('./telephony/conversationHandler');
+const { searchBusinesses, extractBusinessContext } = require('./telephony/businessContextService');
 const authenticateJwt = require('./middleware/authenticateJwt');
 
 const {
@@ -25,6 +27,8 @@ const {
   findExpiredRecordingCalls,
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,
+  updateBusinessContext,
+  getBusinessContext,
 } = require('./supabaseMcpClient');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 
@@ -398,50 +402,30 @@ const sendConfirmationSms = async ({ to, body }) => {
   return message;
 };
 
-const handleInboundVoice = (req, res) => {
-  console.log('[Telephony] Inbound voice webhook request received.', { method: req.method });
+// ==========================================
+// OPTION 1: OpenAI Realtime API Routes (NEW - Production-Grade)
+// Ultra-low latency (300-600ms) audio-in/audio-out conversations
+// ==========================================
+const {
+  handleRealtimeInboundCall,
+  handleRealtimeRecordingStatus,
+  handleRealtimeHealthCheck,
+} = require('./telephony/realtimeHandler');
 
-  const inboundParams = req.method === 'GET' ? req.query || {} : req.body || {};
+app.post('/telephony/realtime-inbound-voice', handleRealtimeInboundCall);
+app.get('/telephony/realtime-inbound-voice', handleRealtimeInboundCall);
+app.post('/telephony/realtime-recording-status', handleRealtimeRecordingStatus);
+app.get('/telephony/realtime-health', handleRealtimeHealthCheck);
 
-  if (shouldValidateSignature && twilioAuthToken) {
-    const signature = req.headers['x-twilio-signature'];
-    if (!signature) {
-      console.warn('[Telephony] Missing X-Twilio-Signature header on inbound request.');
-      return res.status(403).send('Twilio signature missing');
-    }
-
-    const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-    const isValid = twilio.validateRequest(twilioAuthToken, signature, url, inboundParams);
-
-    if (!isValid) {
-      console.warn('[Telephony] Twilio signature validation failed for inbound voice webhook.', {
-        url,
-        signature,
-      });
-      return res.status(403).send('Twilio signature validation failed');
-    }
-  } else if (!twilioAuthToken) {
-    console.warn('[Telephony] TWILIO_AUTH_TOKEN is not set; skipping signature validation.');
-  } else {
-    console.warn('[Telephony] Twilio signature validation disabled via TWILIO_VALIDATE_SIGNATURE=false.');
-  }
-
-  console.log('[Telephony] Request params:', inboundParams);
-
-  const response = new twilio.twiml.VoiceResponse();
-  response.say('Hi, you\'ve reached FlynnAI. Please leave a message after the tone.');
-  response.record({
-    action: buildRecordingCallbackUrl(req),
-    method: 'POST',
-    playBeep: true,
-  });
-
-  res.type('text/xml');
-  res.send(response.toString());
-};
-
-app.post('/telephony/inbound-voice', handleInboundVoice);
-app.get('/telephony/inbound-voice', handleInboundVoice);
+// ==========================================
+// OPTION 2: Legacy Gather Routes (OLD - High Latency)
+// Keep for backward compatibility / fallback
+// TODO: Remove after Realtime API is fully validated
+// ==========================================
+app.post('/telephony/inbound-voice', handleInboundCall);
+app.get('/telephony/inbound-voice', handleInboundCall);
+app.post('/telephony/conversation-continue', handleConversationContinue);
+app.post('/telephony/recording-status', handleRecordingStatus);
 
 app.post('/voice/profiles/:voiceProfileId/clone', authenticateJwt, async (req, res) => {
   if (!supabaseStorageClient) {
@@ -678,6 +662,97 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
   } catch (error) {
     console.error('[VoicePreview] Unexpected error', { error });
     return res.status(500).json({ error: 'Failed to generate voice preview' });
+  }
+});
+
+// Business context extraction endpoint
+// Search for businesses on Google Maps
+app.post('/receptionist/business-context/search', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { businessName, location, latitude, longitude } = req.body || {};
+
+  if (!businessName || typeof businessName !== 'string') {
+    return res.status(400).json({ error: 'Business name is required' });
+  }
+
+  try {
+    console.log('[BusinessSearch] Searching for:', { businessName, location, latitude, longitude });
+
+    const businesses = await searchBusinesses(businessName, location || '', latitude || null, longitude || null);
+
+    return res.json({
+      success: true,
+      businesses,
+    });
+  } catch (error) {
+    console.error('[BusinessSearch] Search failed:', error);
+    return res.status(500).json({
+      error: 'Failed to search for businesses. Please try again.',
+    });
+  }
+});
+
+
+app.post('/receptionist/business-context/extract', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { businessProfileUrl } = req.body || {};
+
+  if (!businessProfileUrl || typeof businessProfileUrl !== 'string') {
+    return res.status(400).json({ error: 'Business profile URL is required' });
+  }
+
+  // Validate it's a Google Maps/Business Profile URL
+  if (!businessProfileUrl.includes('google.com/maps') && !businessProfileUrl.includes('google.com/business')) {
+    return res.status(400).json({ error: 'Please provide a valid Google Business Profile or Google Maps URL' });
+  }
+
+  try {
+    console.log('[BusinessContext] Extracting context from URL:', businessProfileUrl);
+
+    // Extract business context using AI
+    const businessContext = await extractBusinessContext(businessProfileUrl);
+
+    // Save to database
+    await updateBusinessContext(userId, businessProfileUrl, businessContext);
+
+    console.log('[BusinessContext] Successfully extracted and saved context:', {
+      userId,
+      businessName: businessContext.businessName,
+    });
+
+    return res.json({
+      success: true,
+      businessContext,
+    });
+  } catch (error) {
+    console.error('[BusinessContext] Failed to extract business context:', error);
+    return res.status(500).json({
+      error: 'Failed to extract business information. Please check the URL and try again.',
+    });
+  }
+});
+
+// Get current business context
+app.get('/receptionist/business-context', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const data = await getBusinessContext(userId);
+    return res.json(data || {});
+  } catch (error) {
+    console.error('[BusinessContext] Failed to get business context:', error);
+    return res.status(500).json({ error: 'Failed to retrieve business context' });
   }
 });
 
@@ -1160,9 +1235,285 @@ app.post('/jobs/:id/confirm', async (req, res) => {
   }
 });
 
+// ============================================
+// Calendar Integration Endpoints
+// ============================================
+
+const crypto = require('crypto');
+
+// Encryption helpers for OAuth tokens
+const ENCRYPTION_KEY = process.env.CALENDAR_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
+
+function encryptToken(token) {
+  if (!token) return null;
+
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+
+  let encrypted = cipher.update(token, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+
+  const authTag = cipher.getAuthTag();
+
+  // Return iv:authTag:encrypted format
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+}
+
+function decryptToken(encryptedToken) {
+  if (!encryptedToken) return null;
+
+  const parts = encryptedToken.split(':');
+  if (parts.length !== 3) return null;
+
+  const iv = Buffer.from(parts[0], 'hex');
+  const authTag = Buffer.from(parts[1], 'hex');
+  const encrypted = parts[2];
+
+  const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+  decipher.setAuthTag(authTag);
+
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+
+  return decrypted;
+}
+
+/**
+ * POST /calendar/integrations
+ * Create a new calendar integration with encrypted tokens
+ */
+app.post('/calendar/integrations', authenticateJwt, async (req, res) => {
+  const userId = req.user?.sub;
+  const { provider, calendar_id, access_token, refresh_token } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!provider || !calendar_id) {
+    return res.status(400).json({ error: 'provider and calendar_id are required' });
+  }
+
+  try {
+    // Encrypt tokens before storing
+    const encryptedAccessToken = access_token ? encryptToken(access_token) : null;
+    const encryptedRefreshToken = refresh_token ? encryptToken(refresh_token) : null;
+
+    // Calculate token expiry (Google tokens typically expire in 1 hour)
+    const tokenExpiresAt = new Date();
+    tokenExpiresAt.setHours(tokenExpiresAt.getHours() + 1);
+
+    const { data, error } = await supabaseStorageClient
+      .from('calendar_integrations')
+      .insert({
+        user_id: userId,
+        provider,
+        calendar_id,
+        access_token: encryptedAccessToken,
+        refresh_token: encryptedRefreshToken,
+        token_expires_at: tokenExpiresAt.toISOString(),
+        is_active: true,
+        sync_enabled: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Calendar] Failed to create integration', error);
+      return res.status(500).json({ error: 'Failed to create calendar integration' });
+    }
+
+    // Return without sensitive token data
+    const safeData = {
+      id: data.id,
+      user_id: data.user_id,
+      provider: data.provider,
+      calendar_id: data.calendar_id,
+      is_active: data.is_active,
+      sync_enabled: data.sync_enabled,
+      last_synced_at: data.last_synced_at,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    };
+
+    return res.status(201).json(safeData);
+  } catch (error) {
+    console.error('[Calendar] Error creating integration', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /calendar/integrations/:id/token
+ * Get decrypted access token (handles refresh if needed)
+ */
+app.get('/calendar/integrations/:id/token', authenticateJwt, async (req, res) => {
+  const userId = req.user?.sub;
+  const integrationId = req.params.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Fetch integration
+    const { data: integration, error } = await supabaseStorageClient
+      .from('calendar_integrations')
+      .select('*')
+      .eq('id', integrationId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !integration) {
+      return res.status(404).json({ error: 'Calendar integration not found' });
+    }
+
+    // Check if token is expired
+    const now = new Date();
+    const expiresAt = new Date(integration.token_expires_at);
+
+    if (expiresAt <= now && integration.refresh_token) {
+      // Token expired, need to refresh
+      console.log('[Calendar] Access token expired, refreshing...', { integrationId });
+
+      if (integration.provider === 'google') {
+        // Refresh Google token
+        const decryptedRefreshToken = decryptToken(integration.refresh_token);
+
+        try {
+          const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              client_id: process.env.GOOGLE_WEB_CLIENT_ID,
+              client_secret: process.env.GOOGLE_CLIENT_SECRET,
+              refresh_token: decryptedRefreshToken,
+              grant_type: 'refresh_token',
+            }),
+          });
+
+          if (!refreshResponse.ok) {
+            throw new Error('Failed to refresh Google token');
+          }
+
+          const refreshData = await refreshResponse.json();
+
+          // Update with new access token
+          const newEncryptedAccessToken = encryptToken(refreshData.access_token);
+          const newExpiresAt = new Date();
+          newExpiresAt.setSeconds(newExpiresAt.getSeconds() + refreshData.expires_in);
+
+          await supabaseStorageClient
+            .from('calendar_integrations')
+            .update({
+              access_token: newEncryptedAccessToken,
+              token_expires_at: newExpiresAt.toISOString(),
+            })
+            .eq('id', integrationId);
+
+          // Return refreshed token
+          return res.status(200).json({ accessToken: refreshData.access_token });
+        } catch (refreshError) {
+          console.error('[Calendar] Failed to refresh token', refreshError);
+          return res.status(401).json({ error: 'Failed to refresh access token' });
+        }
+      }
+    }
+
+    // Token still valid, decrypt and return
+    const decryptedAccessToken = decryptToken(integration.access_token);
+
+    if (!decryptedAccessToken) {
+      return res.status(500).json({ error: 'Failed to decrypt access token' });
+    }
+
+    return res.status(200).json({ accessToken: decryptedAccessToken });
+  } catch (error) {
+    console.error('[Calendar] Error getting token', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /calendar/sync/:integrationId
+ * Manually trigger calendar sync for an integration
+ */
+app.post('/calendar/sync/:integrationId', authenticateJwt, async (req, res) => {
+  const userId = req.user?.sub;
+  const integrationId = req.params.integrationId;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Fetch integration
+    const { data: integration, error } = await supabaseStorageClient
+      .from('calendar_integrations')
+      .select('*')
+      .eq('id', integrationId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !integration) {
+      return res.status(404).json({ error: 'Calendar integration not found' });
+    }
+
+    // Import calendar sync logic
+    const { syncCalendarIntegration } = require('./telephony/calendarSync');
+
+    const result = await syncCalendarIntegration(integration);
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('[Calendar] Sync error', error);
+    return res.status(500).json({ error: 'Calendar sync failed' });
+  }
+});
+
+// ==========================================
+// WebSocket Server for OpenAI Realtime API
+// ==========================================
 if (require.main === module) {
-  app.listen(port, () => {
+  const http = require('http');
+  const WebSocket = require('ws');
+  const { handleTwilioConnection } = require('./telephony/realtimeServer');
+
+  // Create HTTP server
+  const server = http.createServer(app);
+
+  // Create WebSocket server for Realtime API connections
+  const wss = new WebSocket.Server({
+    server,
+    path: '/realtime-stream',
+  });
+
+  wss.on('connection', (ws, request) => {
+    console.log('[Server] New WebSocket connection to /realtime-stream');
+    handleTwilioConnection(ws, request);
+  });
+
+  wss.on('error', (error) => {
+    console.error('[Server] WebSocket server error:', error);
+  });
+
+  // Start server with both HTTP and WebSocket support
+  server.listen(port, () => {
     console.log(`FlynnAI telephony server listening on port ${port}`);
+    console.log(`WebSocket server ready at ws://localhost:${port}/realtime-stream`);
+    console.log('');
+    console.log('='.repeat(60));
+    console.log('REALTIME API MODE ACTIVE');
+    console.log('='.repeat(60));
+    console.log('✓ OpenAI Realtime API integration enabled');
+    console.log('✓ Ultra-low latency: 300-600ms (vs 5-10s with Gather)');
+    console.log('✓ Native audio-in/audio-out processing');
+    console.log('✓ Built-in conversation state management');
+    console.log('');
+    console.log('Configure Twilio phone number webhook to:');
+    console.log(`  ${process.env.SERVER_PUBLIC_URL || 'https://your-ngrok-url'}/telephony/realtime-inbound-voice`);
+    console.log('='.repeat(60));
   });
 }
 

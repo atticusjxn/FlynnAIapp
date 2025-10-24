@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import { typography, spacing } from '../../theme';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { FlynnInput } from '../../components/ui/FlynnInput';
+import { FlynnKeyboardAvoidingView } from '../../components/ui';
 import {
   detectCarrierFromNumber,
   CarrierDetectionConfidence,
@@ -230,14 +231,18 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <FlynnIcon name="call-outline" size={64} color="#3B82F6" style={styles.icon} />
-        <Text style={styles.title}>Your Flynn Business Number</Text>
-        <Text style={styles.subtitle}>
-          Let Flynn handle your voicemails and turn them into job cards. Tell us the mobile number you answer today and we'll provision a matching country code automatically.
-        </Text>
+      <FlynnKeyboardAvoidingView
+        contentContainerStyle={styles.keyboardContent}
+        dismissOnTapOutside
+      >
+        <View style={styles.content}>
+          <FlynnIcon name="call-outline" size={64} color="#3B82F6" style={styles.icon} />
+          <Text style={styles.title}>Your Flynn Business Number</Text>
+          <Text style={styles.subtitle}>
+            Let Flynn handle your voicemails and turn them into job cards. Tell us the mobile number you answer today and we'll provision a matching country code automatically.
+          </Text>
 
-        <FlynnInput
+          <FlynnInput
           label="Your existing business mobile"
           placeholder="e.g. +61 4xx xxx xxx"
           keyboardType="phone-pad"
@@ -255,33 +260,34 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
           errorText={carrierDetectionState.status === 'error' ? carrierDetectionState.message : undefined}
         />
 
-        {isProvisioning ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#3B82F6" />
-            <Text style={styles.loadingText}>Provisioning your number...</Text>
-          </View>
-        ) : provisionedNumber ? (
-          <View style={styles.successContainer}>
-            <FlynnIcon name="checkmark-circle-outline" size={48} color="#10b981" />
-            <Text style={styles.successText}>Number Provisioned!</Text>
-            <Text style={styles.provisionedNumber}>{provisionedNumber}</Text>
-            <FlynnButton title="Continue" onPress={onNext} variant="primary" style={styles.button} />
-          </View>
-        ) : (
-          <View style={styles.errorContainer}>
-            {error && <Text style={styles.errorText}>{error}</Text>}
-            <FlynnButton
-              title="Provision my Flynn number"
-              onPress={handleProvisionNumber}
-              variant="primary"
-              style={styles.button}
-              disabled={carrierDetectionState.status === 'loading'}
-            />
-            <FlynnButton title="Skip for now" onPress={onNext} variant="secondary" style={styles.button} />
-          </View>
-        )}
+          {isProvisioning ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text style={styles.loadingText}>Provisioning your number...</Text>
+            </View>
+          ) : provisionedNumber ? (
+            <View style={styles.successContainer}>
+              <FlynnIcon name="checkmark-circle-outline" size={48} color="#10b981" />
+              <Text style={styles.successText}>Number Provisioned!</Text>
+              <Text style={styles.provisionedNumber}>{provisionedNumber}</Text>
+              <FlynnButton title="Continue" onPress={onNext} variant="primary" style={styles.button} />
+            </View>
+          ) : (
+            <View style={styles.errorContainer}>
+              {error && <Text style={styles.errorText}>{error}</Text>}
+              <FlynnButton
+                title="Provision my Flynn number"
+                onPress={handleProvisionNumber}
+                variant="primary"
+                style={styles.button}
+                disabled={carrierDetectionState.status === 'loading'}
+              />
+              <FlynnButton title="Skip for now" onPress={onNext} variant="secondary" style={styles.button} />
+            </View>
+          )}
 
-      </View>
+        </View>
+      </FlynnKeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -290,6 +296,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardContent: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -5,14 +5,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
   TextInput,
   Alert,
   Linking,
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
+import { FlynnKeyboardAvoidingView, FlynnKeyboardAwareScrollView } from '../../components/ui';
 import { useOnboarding } from '../../context/OnboardingContext';
 import {
   callForwardingGuides,
@@ -24,7 +25,7 @@ import {
   detectCarrierFromNumber,
   CarrierDetectionConfidence,
 } from '../../services/CarrierDetectionService';
-import { sanitizeDigits, normalizeNumberForDetection } from '../../utils/phone';
+import { normalizeNumberForDetection } from '../../utils/phone';
 
 interface CarrierSetupScreenProps {
   onNext: () => void;
@@ -33,26 +34,58 @@ interface CarrierSetupScreenProps {
 
 const DEFAULT_CARRIER_COUNT = 3;
 
+const normalizeForwardingTarget = (forwardingNumber: string | null): string | null => {
+  if (!forwardingNumber) {
+    return null;
+  }
+
+  const cleaned = forwardingNumber.replace(/[^0-9+]/g, '');
+  if (!cleaned) {
+    return null;
+  }
+
+  const hasPlus = cleaned.startsWith('+');
+  const digitsOnly = cleaned.replace(/[^0-9]/g, '');
+  if (!digitsOnly) {
+    return null;
+  }
+
+  return hasPlus ? `+${digitsOnly}` : digitsOnly;
+};
+
+const encodeDialSequence = (sequence: string) =>
+  sequence.replace(/\+/g, '%2B').replace(/#/g, '%23');
+
 const replaceForwardingPlaceholder = (
   code: string,
   forwardingNumber: string | null
 ) => {
-  if (!forwardingNumber) {
+  if (!code.includes('{forwarding}')) {
+    return code;
+  }
+
+  const normalized = normalizeForwardingTarget(forwardingNumber);
+  if (!normalized) {
     return code.replace('{forwarding}', 'your Flynn number');
   }
 
-  const digits = sanitizeDigits(forwardingNumber);
-  return code.replace('{forwarding}', digits || forwardingNumber);
+  return code.replace('{forwarding}', normalized);
 };
 
 const getDialableCode = (code: string, forwardingNumber: string | null) => {
-  if (!forwardingNumber) return null;
-  const digits = sanitizeDigits(forwardingNumber);
-  if (!digits) return null;
+  const needsForwardingNumber = code.includes('{forwarding}');
 
-  const replaced = code.replace('{forwarding}', digits);
-  // Encode # for tel URLs while keeping * characters intact
-  return replaced.replace(/#/g, '%23');
+  if (!needsForwardingNumber) {
+    return encodeDialSequence(code);
+  }
+
+  const normalized = normalizeForwardingTarget(forwardingNumber);
+  if (!normalized) {
+    return null;
+  }
+
+  const replaced = code.replace('{forwarding}', normalized);
+  return encodeDialSequence(replaced);
 };
 
 export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
@@ -60,6 +93,9 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
   onBack,
 }) => {
   const { updateOnboardingData, onboardingData } = useOnboarding();
+  const insets = useSafeAreaInsets();
+  const isIOS = Platform.OS === 'ios';
+  const keyboardOffset = isIOS ? insets.top + 120 : 0;
   const [phoneNumber, setPhoneNumber] = useState(onboardingData.phoneNumber || '');
   const [selectedCarrierId, setSelectedCarrierId] = useState(
     callForwardingGuides[0]?.id || ''
@@ -345,7 +381,10 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
       return 'Provision a Flynn number to unlock forwarding instructions.';
     }
 
-    return onboardingData.twilioPhoneNumber;
+    return (
+      normalizeForwardingTarget(onboardingData.twilioPhoneNumber) ??
+      onboardingData.twilioPhoneNumber
+    );
   }, [onboardingData.twilioPhoneNumber]);
 
 
@@ -374,272 +413,280 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={styles.progressBar} />
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <FlynnKeyboardAvoidingView
+        contentContainerStyle={styles.keyboardContent}
+        keyboardVerticalOffset={keyboardOffset}
       >
-        <View style={styles.titleContainer}>
-          <View style={styles.iconContainer}>
-            <FlynnIcon name="call" size={32} color="#3B82F6" />
-          </View>
-          <Text style={styles.title}>Forward missed calls to Flynn</Text>
-          <Text style={styles.subtitle}>
-            Route unanswered calls to your Flynn voicemail box so every lead becomes a job card with AI summaries and suggested follow-ups.
-          </Text>
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.infoCardHeader}>
-            <View style={styles.infoCardIcon}>
-              <FlynnIcon name="shield-checkmark" size={20} color="#2563eb" />
-            </View>
-            <Text style={styles.infoCardTitle}>Your Flynn voicemail number</Text>
-          </View>
-          <View style={styles.infoCardBody}>
-            <Text
-              style={[
-                styles.forwardingNumber,
-                !onboardingData.twilioPhoneNumber && styles.forwardingNumberPlaceholder,
-              ]}
-            >
-              {formattedForwardingNumber}
-            </Text>
-            <Text style={styles.infoCardHint}>
-              Use this value when dialing your carrier code. Flynn captures voicemails from this number, transcribes them, and creates job cards automatically.
-            </Text>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
+          </TouchableOpacity>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={styles.progressBar} />
           </View>
         </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.sectionLabel}>Your business phone number</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="04 1234 5678"
-            value={phoneNumber}
-            onChangeText={handlePhoneNumberChange}
-            keyboardType="phone-pad"
-            autoCorrect={false}
-            placeholderTextColor="#9ca3af"
-          />
-          <Text style={styles.inputHelper}>
-            Flynn uses this to recommend the right forwarding instructions.
-          </Text>
-        </View>
-
-        <View style={styles.carrierContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>Choose your carrier</Text>
-            <Text style={styles.sectionSubtext}>
-              Flynn provides step-by-step instructions for popular networks. Pick the one that matches your business phone.
+        <FlynnKeyboardAwareScrollView
+          enableAutomaticScroll={!isIOS}
+          extraScrollHeight={isIOS ? 0 : 24}
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+        >
+          <View style={styles.titleContainer}>
+            <View style={styles.iconContainer}>
+              <FlynnIcon name="call" size={32} color="#3B82F6" />
+            </View>
+            <Text style={styles.title}>Forward missed calls to Flynn</Text>
+            <Text style={styles.subtitle}>
+              Route unanswered calls to your Flynn voicemail box so every lead becomes a job card with AI summaries and suggested follow-ups.
             </Text>
           </View>
 
-          {carrierDetectionState.status === 'loading' && (
-            <View style={[styles.detectionBanner, styles.detectionBannerNeutral]}>
-              <ActivityIndicator size="small" color="#2563eb" />
-              <Text style={styles.detectionText}>Checking who provides this line…</Text>
+          <View style={styles.infoCard}>
+            <View style={styles.infoCardHeader}>
+              <View style={styles.infoCardIcon}>
+                <FlynnIcon name="shield-checkmark" size={20} color="#2563eb" />
+              </View>
+              <Text style={styles.infoCardTitle}>Your Flynn voicemail number</Text>
             </View>
-          )}
-
-        {carrierDetectionState.status === 'success' && detectedCarrier && (
-          <View style={[styles.detectionBanner, styles.detectionBannerSuccess]}>
-            <FlynnIcon name="sparkles" size={18} color="#166534" />
-            <View style={styles.detectionTextWrapper}>
-              <Text style={styles.detectionText}>
-                {carrierDetectionState.source === 'lookup'
-                  ? `We confirmed via network lookup that this number runs on ${detectedCarrier.name}.`
-                  : `We couldn't confirm automatically, but this number range typically uses ${detectedCarrier.name}. Please double-check before dialing.`}
-              </Text>
-              {carrierDetectionState.source === 'lookup' &&
-                carrierDetectionState.rawCarrierName && (
-                  <Text style={styles.detectionFootnote}>
-                    Carrier record: {carrierDetectionState.rawCarrierName}
-                  </Text>
-                )}
-              {hasManualCarrierOverride &&
-                selectedCarrierId !== detectedCarrier.id && (
-                  <TouchableOpacity
-                    onPress={handleUseDetectedCarrier}
-                    style={styles.detectionAction}
-                  >
-                    <FlynnIcon name="flash" size={14} color="#166534" />
-                    <Text style={styles.detectionActionText}>Use suggestion</Text>
-                  </TouchableOpacity>
-                )}
-            </View>
-          </View>
-        )}
-
-          {carrierDetectionState.status === 'none' && (
-            <View style={[styles.detectionBanner, styles.detectionBannerNeutral]}>
-              <FlynnIcon name="information-circle" size={18} color="#1d4ed8" />
-              <Text style={styles.detectionText}>
-                We couldn't match the carrier automatically. Choose it from the list below.
-              </Text>
-            </View>
-          )}
-
-          {carrierDetectionState.status === 'error' && (
-            <View style={[styles.detectionBanner, styles.detectionBannerError]}>
-              <FlynnIcon name="alert-circle" size={18} color="#991b1b" />
-              <Text style={styles.detectionText}>
-                {carrierDetectionState.message ||
-                  'Carrier lookup failed. Pick your provider below.'}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.carrierList}>
-            {carriersToShow.map((carrier) => (
-              <TouchableOpacity
-                key={carrier.id}
+            <View style={styles.infoCardBody}>
+              <Text
                 style={[
-                  styles.carrierChip,
-                  carrier.id === selectedCarrierId && styles.carrierChipSelected,
+                  styles.forwardingNumber,
+                  !onboardingData.twilioPhoneNumber && styles.forwardingNumberPlaceholder,
                 ]}
-                onPress={() => handleCarrierSelect(carrier.id)}
               >
-                <Text style={styles.carrierName}>{carrier.name}</Text>
-                <Text style={styles.carrierRegion}>{carrier.region}</Text>
+                {formattedForwardingNumber}
+              </Text>
+              <Text style={styles.infoCardHint}>
+                Use this value when dialing your carrier code. Flynn captures voicemails from this number, transcribes them, and creates job cards automatically.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.sectionLabel}>Your business phone number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="04 1234 5678"
+              value={phoneNumber}
+              onChangeText={handlePhoneNumberChange}
+              keyboardType="phone-pad"
+              autoCorrect={false}
+              placeholderTextColor="#9ca3af"
+            />
+            <Text style={styles.inputHelper}>
+              Flynn uses this to recommend the right forwarding instructions.
+            </Text>
+          </View>
+
+          <View style={styles.carrierContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>Choose your carrier</Text>
+              <Text style={styles.sectionSubtext}>
+                Flynn provides step-by-step instructions for popular networks. Pick the one that matches your business phone.
+              </Text>
+            </View>
+
+            {carrierDetectionState.status === 'loading' && (
+              <View style={[styles.detectionBanner, styles.detectionBannerNeutral]}>
+                <ActivityIndicator size="small" color="#2563eb" />
+                <Text style={styles.detectionText}>Checking who provides this line…</Text>
+              </View>
+            )}
+
+          {carrierDetectionState.status === 'success' && detectedCarrier && (
+            <View style={[styles.detectionBanner, styles.detectionBannerSuccess]}>
+              <FlynnIcon name="sparkles" size={18} color="#166534" />
+              <View style={styles.detectionTextWrapper}>
+                <Text style={styles.detectionText}>
+                  {carrierDetectionState.source === 'lookup'
+                    ? `We confirmed via network lookup that this number runs on ${detectedCarrier.name}.`
+                    : `We couldn't confirm automatically, but this number range typically uses ${detectedCarrier.name}. Please double-check before dialing.`}
+                </Text>
+                {carrierDetectionState.source === 'lookup' &&
+                  carrierDetectionState.rawCarrierName && (
+                    <Text style={styles.detectionFootnote}>
+                      Carrier record: {carrierDetectionState.rawCarrierName}
+                    </Text>
+                  )}
+                {hasManualCarrierOverride &&
+                  selectedCarrierId !== detectedCarrier.id && (
+                    <TouchableOpacity
+                      onPress={handleUseDetectedCarrier}
+                      style={styles.detectionAction}
+                    >
+                      <FlynnIcon name="flash" size={14} color="#166534" />
+                      <Text style={styles.detectionActionText}>Use suggestion</Text>
+                    </TouchableOpacity>
+                  )}
+              </View>
+            </View>
+          )}
+
+            {carrierDetectionState.status === 'none' && (
+              <View style={[styles.detectionBanner, styles.detectionBannerNeutral]}>
+                <FlynnIcon name="information-circle" size={18} color="#1d4ed8" />
+                <Text style={styles.detectionText}>
+                  We couldn't match the carrier automatically. Choose it from the list below.
+                </Text>
+              </View>
+            )}
+
+            {carrierDetectionState.status === 'error' && (
+              <View style={[styles.detectionBanner, styles.detectionBannerError]}>
+                <FlynnIcon name="alert-circle" size={18} color="#991b1b" />
+                <Text style={styles.detectionText}>
+                  {carrierDetectionState.message ||
+                    'Carrier lookup failed. Pick your provider below.'}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.carrierList}>
+              {carriersToShow.map((carrier) => (
+                <TouchableOpacity
+                  key={carrier.id}
+                  style={[
+                    styles.carrierChip,
+                    carrier.id === selectedCarrierId && styles.carrierChipSelected,
+                  ]}
+                  onPress={() => handleCarrierSelect(carrier.id)}
+                >
+                  <Text style={styles.carrierName}>{carrier.name}</Text>
+                  <Text style={styles.carrierRegion}>{carrier.region}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {!showAllCarriers && callForwardingGuides.length > DEFAULT_CARRIER_COUNT && (
+              <TouchableOpacity
+                style={styles.showMoreButton}
+                onPress={() => setShowAllCarriers(true)}
+              >
+                <FlynnIcon name="add-circle-outline" size={18} color="#2563eb" />
+                <Text style={styles.showMoreText}>Show more carriers</Text>
               </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.stepsCard}>
+            <View style={styles.stepsHeader}>
+              <FlynnIcon name="trail-sign-outline" size={20} color="#2563eb" />
+              <Text style={styles.sectionLabel}>Forwarding checklist</Text>
+            </View>
+
+            {steps.map((step, index) => (
+              <View key={step.title} style={styles.stepRow}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>{index + 1}</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <View style={styles.stepTitleRow}>
+                    <FlynnIcon name={step.icon} size={18} color="#2563eb" />
+                    <Text style={styles.stepTitle}>{step.title}</Text>
+                  </View>
+                  <Text style={styles.stepDescription}>{step.description}</Text>
+                </View>
+              </View>
             ))}
           </View>
 
-          {!showAllCarriers && callForwardingGuides.length > DEFAULT_CARRIER_COUNT && (
-            <TouchableOpacity
-              style={styles.showMoreButton}
-              onPress={() => setShowAllCarriers(true)}
-            >
-              <FlynnIcon name="add-circle-outline" size={18} color="#2563eb" />
-              <Text style={styles.showMoreText}>Show more carriers</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.stepsCard}>
-          <View style={styles.stepsHeader}>
-            <FlynnIcon name="trail-sign-outline" size={20} color="#2563eb" />
-            <Text style={styles.sectionLabel}>Forwarding checklist</Text>
-          </View>
-
-          {steps.map((step, index) => (
-            <View key={step.title} style={styles.stepRow}>
-              <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>{index + 1}</Text>
+          {selectedCarrier && (
+            <View style={styles.codesCard}>
+              <View style={styles.codesHeader}>
+                <FlynnIcon name="keypad-outline" size={20} color="#2563eb" />
+                <Text style={styles.sectionLabel}>
+                  Dial codes for {selectedCarrier.name}
+                </Text>
               </View>
-              <View style={styles.stepContent}>
-                <View style={styles.stepTitleRow}>
-                  <FlynnIcon name={step.icon} size={18} color="#2563eb" />
-                  <Text style={styles.stepTitle}>{step.title}</Text>
-                </View>
-                <Text style={styles.stepDescription}>{step.description}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {selectedCarrier && (
-          <View style={styles.codesCard}>
-            <View style={styles.codesHeader}>
-              <FlynnIcon name="keypad-outline" size={20} color="#2563eb" />
-              <Text style={styles.sectionLabel}>
-                Dial codes for {selectedCarrier.name}
+              <Text style={styles.sectionSubtext}>
+                Enter these in your phone app, then press call. Replace {`'{forwarding}'`} with your Flynn number digits.
               </Text>
-            </View>
-            <Text style={styles.sectionSubtext}>
-              Enter these in your phone app, then press call. Replace {`'{forwarding}'`} with your Flynn number digits.
-            </Text>
 
-            {selectedCarrier.codes.map((carrierCode) => {
-              const displayCode = replaceForwardingPlaceholder(
-                carrierCode.code,
-                onboardingData.twilioPhoneNumber ?? null
-              );
+              {selectedCarrier.codes.map((carrierCode) => {
+                const displayCode = replaceForwardingPlaceholder(
+                  carrierCode.code,
+                  onboardingData.twilioPhoneNumber ?? null
+                );
 
-              return (
-                <View key={carrierCode.label} style={styles.codeRow}>
-                  <View style={styles.codeInfo}>
-                    <Text style={styles.codeLabel}>{carrierCode.label}</Text>
-                    <Text style={styles.codeValue}>{displayCode}</Text>
-                    {carrierCode.description && (
-                      <Text style={styles.codeDescription}>
-                        {carrierCode.description}
-                      </Text>
-                    )}
+                return (
+                  <View key={carrierCode.label} style={styles.codeRow}>
+                    <View style={styles.codeInfo}>
+                      <Text style={styles.codeLabel}>{carrierCode.label}</Text>
+                      <Text style={styles.codeValue}>{displayCode}</Text>
+                      {carrierCode.description && (
+                        <Text style={styles.codeDescription}>
+                          {carrierCode.description}
+                        </Text>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.codeAction,
+                        (!onboardingData.twilioPhoneNumber || carrierCode.type === 'all') &&
+                          styles.codeActionDisabled,
+                      ]}
+                      disabled={!onboardingData.twilioPhoneNumber || carrierCode.type === 'all'}
+                      onPress={() => handleDialCode(carrierCode)}
+                    >
+                      <FlynnIcon name="call" size={18} color="white" />
+                      <Text style={styles.codeActionText}>Dial</Text>
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.codeAction,
-                      (!onboardingData.twilioPhoneNumber || carrierCode.type === 'all') &&
-                        styles.codeActionDisabled,
-                    ]}
-                    disabled={!onboardingData.twilioPhoneNumber || carrierCode.type === 'all'}
-                    onPress={() => handleDialCode(carrierCode)}
-                  >
-                    <FlynnIcon name="call" size={18} color="white" />
-                    <Text style={styles.codeActionText}>Dial</Text>
-                  </TouchableOpacity>
+                );
+              })}
+
+              {selectedCarrier.notes && (
+                <View style={styles.notesContainer}>
+                  <FlynnIcon name="sparkles-outline" size={16} color="#2563eb" />
+                  <Text style={styles.notesText}>{selectedCarrier.notes}</Text>
                 </View>
-              );
-            })}
+              )}
 
-            {selectedCarrier.notes && (
-              <View style={styles.notesContainer}>
-                <FlynnIcon name="sparkles-outline" size={16} color="#2563eb" />
-                <Text style={styles.notesText}>{selectedCarrier.notes}</Text>
-              </View>
-            )}
+              {selectedCarrier.supportUrl && (
+                <TouchableOpacity
+                  style={styles.supportLink}
+                  onPress={() => Linking.openURL(selectedCarrier.supportUrl!)}
+                >
+                  <Text style={styles.supportLinkText}>View official carrier help</Text>
+                  <FlynnIcon name="open-outline" size={16} color="#2563eb" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
-            {selectedCarrier.supportUrl && (
-              <TouchableOpacity
-                style={styles.supportLink}
-                onPress={() => Linking.openURL(selectedCarrier.supportUrl!)}
-              >
-                <Text style={styles.supportLinkText}>View official carrier help</Text>
-                <FlynnIcon name="open-outline" size={16} color="#2563eb" />
-              </TouchableOpacity>
-            )}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.primaryButton, isVerifying && styles.disabledButton]}
+              onPress={handleMarkVerified}
+              disabled={isVerifying}
+            >
+              {isVerifying ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Text style={styles.primaryButtonText}>Mark forwarding verified</Text>
+                  <FlynnIcon name="checkmark-circle" size={20} color="white" />
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleSkip}>
+              <Text style={styles.secondaryButtonText}>Set this up later</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.footerText}>
+              You can reopen these instructions under Settings → Calls & Voicemail.
+            </Text>
           </View>
-        )}
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.primaryButton, isVerifying && styles.disabledButton]}
-            onPress={handleMarkVerified}
-            disabled={isVerifying}
-          >
-            {isVerifying ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <>
-                <Text style={styles.primaryButtonText}>Mark forwarding verified</Text>
-                <FlynnIcon name="checkmark-circle" size={20} color="white" />
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.secondaryButton} onPress={handleSkip}>
-            <Text style={styles.secondaryButtonText}>Set this up later</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.footerText}>
-            You can reopen these instructions under Settings → Calls & Voicemail.
-          </Text>
-        </View>
-      </ScrollView>
+        </FlynnKeyboardAwareScrollView>
+      </FlynnKeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -648,6 +695,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardContent: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

@@ -81,7 +81,7 @@ export const fetchDashboardActivities = async (
       .limit(15),
     supabase
       .from('calls')
-      .select('id, call_sid, from_number, recorded_at, transcription_status, status')
+      .select('call_sid, from_number, recorded_at, transcription_status, status, recording_url')
       .eq('user_id', userId)
       .order('recorded_at', { ascending: false })
       .limit(15),
@@ -162,7 +162,7 @@ export const fetchDashboardActivities = async (
     for (const call of callsRes.data) {
       if (!call.recorded_at) continue;
       activities.push({
-        id: `call_${call.id ?? call.call_sid}`,
+        id: `call_${call.call_sid}`,
         type: 'call_recorded',
         title: 'Call recorded',
         description: call.status ? `Call status: ${call.status}` : 'Inbound/outbound call logged',
@@ -171,6 +171,8 @@ export const fetchDashboardActivities = async (
         metadata: {
           clientPhone: call.from_number,
           status: call.transcription_status ?? call.status ?? undefined,
+          callSid: call.call_sid,
+          recordingUrl: call.recording_url,
         },
       });
     }

@@ -1,0 +1,5 @@
+{
+    "apiUrl": "https://api.z.ai/api/paas/v4/chat/completions",
+    "apiKey": "ae13d7859d754dc0af87ae1a487fa254.UBU2CYuv3y7s28iK",
+    "model": "glm-4.5v"
+  }

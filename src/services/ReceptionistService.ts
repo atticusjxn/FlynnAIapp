@@ -33,6 +33,29 @@ export interface VoiceProfile {
   updated_at?: string;
 }
 
+export interface BusinessSearchResult {
+  name: string;
+  address?: string;
+  rating?: number;
+  reviewCount?: number;
+  businessType?: string;
+  url?: string;
+}
+
+export interface BusinessContext {
+  businessName: string;
+  businessType?: string;
+  description?: string;
+  services?: string[];
+  specialties?: string[];
+  hoursOfOperation?: string;
+  serviceArea?: string;
+  yearsInBusiness?: string;
+  certifications?: string[];
+  lastUpdated?: string;
+  sourceUrl?: string;
+}
+
 const normalizeQuestions = (questions?: string[]): string[] => {
   if (!Array.isArray(questions)) {
     return [];
@@ -190,6 +213,54 @@ export const ReceptionistService = {
       method: 'POST',
       body: payload,
     });
+  },
+
+  async searchBusinesses(
+    businessName: string,
+    location?: string,
+    latitude?: number,
+    longitude?: number
+  ): Promise<BusinessSearchResult[]> {
+    const response = await apiRequest<{ success: boolean; businesses: BusinessSearchResult[] }>(
+      '/receptionist/business-context/search',
+      {
+        method: 'POST',
+        body: {
+          businessName,
+          location: location || '',
+          latitude,
+          longitude,
+        },
+      }
+    );
+
+    return response.businesses || [];
+  },
+
+  async extractBusinessContext(businessProfileUrl: string): Promise<BusinessContext> {
+    const response = await apiRequest<{ success: boolean; businessContext: BusinessContext }>(
+      '/receptionist/business-context/extract',
+      {
+        method: 'POST',
+        body: {
+          businessProfileUrl,
+        },
+      }
+    );
+
+    return response.businessContext;
+  },
+
+  async getBusinessContext(): Promise<{ business_profile_url?: string; business_context?: BusinessContext } | null> {
+    const response = await apiRequest<{
+      business_profile_url?: string;
+      business_context?: BusinessContext;
+      business_context_updated_at?: string;
+    }>('/receptionist/business-context', {
+      method: 'GET',
+    });
+
+    return response;
   },
 };
 
