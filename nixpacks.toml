@@ -1,17 +1,8 @@
-[providers]
-nodejs = "20"
-
 [phases.setup]
 nixPkgs = ['nodejs_20']
 
 [phases.install]
-cmds = ['npm ci --omit=dev || npm install']
-
-[phases.build]
-cmds = []
+cmds = ['npm install']
 
 [start]
 cmd = 'node server.js'
-
-[variables]
-NODE_ENV = 'production'
