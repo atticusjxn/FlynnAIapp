@@ -1,13 +1,17 @@
 const express = require('express');
 const twilio = require('twilio');
 const dotenv = require('dotenv');
+const http = require('http');
+const WebSocket = require('ws');
 const { randomUUID } = require('crypto');
 const OpenAI = require('openai');
 const { toFile } = require('openai');
+const { createClient: createDeepgramClient } = require('@deepgram/sdk');
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
+const attachRealtimeServer = require('./telephony/realtimeServer');
 
 const {
   upsertCallRecord,
@@ -21,10 +25,12 @@ const {
   updateJobStatusForUser,
   getJobById,
   insertJob,
+  getUserProfileById,
   upsertNotificationToken,
   findExpiredRecordingCalls,
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,
+  getReceptionistProfileByNumber,
 } = require('./supabaseMcpClient');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 
@@ -65,6 +71,10 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   || process.env.SUPABASE_KEY
   || process.env.SUPABASE_SECRET;
+const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
+const receptionistEnabledGlobally = process.env.ENABLE_CONVERSATION_ORCHESTRATOR !== 'false';
+const maxQuestionsPerTurn = Number.parseInt(process.env.MAX_QUESTIONS_PER_TURN ?? '1', 10);
+const minAckVariety = Number.parseInt(process.env.MIN_ACK_VARIETY ?? '3', 10);
 
 const parseIntegerEnv = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -105,6 +115,7 @@ if (!supabaseStorageClient) {
 }
 
 const openaiClient = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
+const deepgramClient = deepgramApiKey ? createDeepgramClient(deepgramApiKey) : null;
 const twilioMessagingClient = twilioAccountSid && twilioAuthToken
   ? twilio(twilioAccountSid, twilioAuthToken)
   : null;
@@ -118,8 +129,245 @@ const presetReceptionistVoices = {
   koala_hype: process.env.ELEVENLABS_VOICE_KOALA_HYPE_ID,
 };
 
+const DEFAULT_ACK_LIBRARY = [
+  'Got it!',
+  'Perfect, thanks!',
+  'Understood.',
+  'That helps, thank you.',
+  'Great, keep going.',
+  'Heard you loud and clear.',
+  'Awesome, let me note that.',
+  'Thanks, just a sec.',
+  'Okay, appreciate the detail.',
+  'Brilliant, one moment.',
+];
+
+const receptionistSessionCache = new Map(); // callSid -> metadata
+
+const buildRealtimeStreamUrl = (req, callSid, userId) => {
+  const base = process.env.SERVER_PUBLIC_URL
+    ? process.env.SERVER_PUBLIC_URL.trim().replace(/\/$/, '')
+    : `${req.protocol}://${req.get('host')}`;
+
+  const wsBase = base.replace(/^http/, 'ws').replace(/^https/, 'wss');
+  const url = new URL('/realtime/twilio', wsBase);
+  if (callSid) {
+    url.searchParams.set('callSid', callSid);
+  }
+  if (userId) {
+    url.searchParams.set('userId', userId);
+  }
+  return url.toString();
+};
+
+const normalizeAckLibrary = (profile) => {
+  if (!profile) {
+    return DEFAULT_ACK_LIBRARY;
+  }
+
+  const provided = Array.isArray(profile.receptionist_ack_library)
+    ? profile.receptionist_ack_library
+    : [];
+
+  const cleaned = provided
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : null))
+    .filter((entry) => entry && entry.length > 0);
+
+  if (cleaned.length >= minAckVariety) {
+    return cleaned;
+  }
+
+  const merged = [...cleaned];
+  for (const fallback of DEFAULT_ACK_LIBRARY) {
+    if (merged.length >= minAckVariety) {
+      break;
+    }
+    if (!merged.includes(fallback)) {
+      merged.push(fallback);
+    }
+  }
+
+  return merged.length > 0 ? merged : DEFAULT_ACK_LIBRARY;
+};
+
+const respondWithVoicemail = (req, res, inboundParams) => {
+  const response = new twilio.twiml.VoiceResponse();
+
+  response.say('Hi, you\'ve reached FlynnAI. Please leave a message after the tone.');
+  response.record({
+    action: buildRecordingCallbackUrl(req),
+    method: 'POST',
+    playBeep: true,
+  });
+
+  res.type('text/xml');
+  res.send(response.toString());
+};
+
+const respondWithHybridChoice = (req, res, inboundParams, profile) => {
+  const response = new twilio.twiml.VoiceResponse();
+  const action = `/telephony/inbound-voice?stage=choice&user=${profile.id}`;
+  const gather = response.gather({
+    input: 'speech dtmf',
+    action,
+    method: 'POST',
+    numDigits: 1,
+    timeout: 5,
+    speechTimeout: 'auto',
+  });
+
+  const greeting = (profile.receptionist_greeting || '').trim()
+    || 'Hi, thanks for calling the team.';
+
+  gather.say(greeting);
+  gather.pause({ length: 1 });
+  gather.say('If you would like to leave a voicemail for the team, press 1 or say "leave a message".');
+  gather.say('If you would like our receptionist to help you right now, press 2 or say "talk to the receptionist".');
+
+  response.say('Sorry, I didn\'t catch that. I\'ll transfer you to voicemail.');
+  response.redirect({ method: 'POST' }, '/telephony/inbound-voice');
+
+  res.type('text/xml');
+  res.send(response.toString());
+};
+
+const interpretHybridChoice = (params = {}) => {
+  const digits = (params.Digits || '').trim();
+  if (digits === '1') {
+    return 'voicemail';
+  }
+  if (digits === '2') {
+    return 'ai';
+  }
+
+  const speech = (params.SpeechResult || params.UnstableSpeechResult || '').toString().toLowerCase();
+
+  if (speech.includes('message') || speech.includes('voicemail') || speech.includes('record')) {
+    return 'voicemail';
+  }
+
+  if (speech.includes('book') || speech.includes('schedule') || speech.includes('talk') || speech.includes('yes')) {
+    return 'ai';
+  }
+
+  return 'ai';
+};
+
+const cacheReceptionistSession = ({ callSid, profile, toNumber }) => {
+  if (!callSid || !profile) {
+    return;
+  }
+
+  const ackLibrary = normalizeAckLibrary(profile);
+  const questions = Array.isArray(profile.receptionist_questions)
+    ? profile.receptionist_questions.filter((q) => typeof q === 'string' && q.trim().length > 0)
+    : [];
+
+  receptionistSessionCache.set(callSid, {
+    callSid,
+    userId: profile.id,
+    toNumber,
+    startedAt: Date.now(),
+    ackLibrary,
+    greeting: (profile.receptionist_greeting || '').trim(),
+    voiceOption: profile.receptionist_voice || 'koala_warm',
+    voiceProfileId: profile.receptionist_voice_profile_id || null,
+    voiceId: profile.receptionist_voice_id || null,
+    voiceStatus: profile.receptionist_voice_status || null,
+    questions,
+    maxQuestionsPerTurn,
+    minAckVariety,
+    businessProfile: profile.receptionist_business_profile || null,
+    businessName: profile.business_name || null,
+    businessType: profile.business_type || null,
+    mode: profile.receptionist_mode || 'ai_only',
+    ackHistory: [],
+  });
+};
+
+const respondWithAiReceptionist = ({ req, res, inboundParams, profile, callSid }) => {
+  const response = new twilio.twiml.VoiceResponse();
+  const streamUrl = buildRealtimeStreamUrl(req, callSid, profile?.id);
+
+  console.log('[Telephony] Starting AI receptionist for call.', {
+    callSid,
+    userId: profile?.id,
+    streamUrl,
+    voiceOption: profile?.receptionist_voice,
+    hasGreeting: Boolean(profile?.receptionist_greeting),
+    questionsCount: Array.isArray(profile?.receptionist_questions) ? profile.receptionist_questions.length : 0,
+  });
+
+  cacheReceptionistSession({ callSid, profile, toNumber: inboundParams.To || inboundParams.Called });
+
+  const connect = response.connect();
+  const stream = connect.stream({
+    url: streamUrl,
+    track: 'inbound_outbound',
+  });
+
+  stream.parameter({ name: 'callSid', value: callSid || '' });
+  if (profile?.id) {
+    stream.parameter({ name: 'userId', value: profile.id });
+  }
+
+  const twimlOutput = response.toString();
+  console.log('[Telephony] Sending TwiML response:', { callSid, twiml: twimlOutput });
+
+  res.type('text/xml');
+  res.send(twimlOutput);
+};
+
+const handleRealtimeConversationComplete = async ({ callSid, userId, transcript, turns, reason }) => {
+  if (!callSid) {
+    return;
+  }
+
+  try {
+    const existingTranscript = await getTranscriptByCallSid(callSid);
+
+    if (!existingTranscript && transcript && transcript.trim().length > 0) {
+      await insertTranscription({
+        id: randomUUID(),
+        callSid,
+        engine: 'realtime',
+        text: transcript.trim(),
+        confidence: 0.92,
+        language: 'en',
+      });
+    }
+
+    await updateCallTranscriptionStatus({ callSid, status: 'completed' }).catch((error) => {
+      console.warn('[Realtime] Failed to update transcription status.', { callSid, error });
+    });
+
+    await upsertCallRecord({
+      callSid,
+      userId: userId || null,
+      status: reason === 'complete' ? 'completed' : 'ended',
+    }).catch(() => {});
+
+    if (transcript && transcript.trim().length > 4) {
+      await ensureJobForTranscript({
+        callSid,
+        transcriptText: transcript,
+        openaiClient,
+      });
+    }
+  } catch (error) {
+    console.error('[Realtime] Failed to persist realtime conversation data.', { callSid, error });
+  } finally {
+    receptionistSessionCache.delete(callSid);
+  }
+};
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+// Health check endpoint for Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 const JOB_STATUS_VALUES = new Set(['new', 'in_progress', 'completed']);
 
@@ -398,46 +646,173 @@ const sendConfirmationSms = async ({ to, body }) => {
   return message;
 };
 
-const handleInboundVoice = (req, res) => {
+const handleInboundVoice = async (req, res) => {
   console.log('[Telephony] Inbound voice webhook request received.', { method: req.method });
 
   const inboundParams = req.method === 'GET' ? req.query || {} : req.body || {};
 
-  if (shouldValidateSignature && twilioAuthToken) {
-    const signature = req.headers['x-twilio-signature'];
-    if (!signature) {
-      console.warn('[Telephony] Missing X-Twilio-Signature header on inbound request.');
-      return res.status(403).send('Twilio signature missing');
+  try {
+    if (shouldValidateSignature && twilioAuthToken) {
+      const signature = req.headers['x-twilio-signature'];
+      if (!signature) {
+        console.warn('[Telephony] Missing X-Twilio-Signature header on inbound request.');
+        return res.status(403).send('Twilio signature missing');
+      }
+
+      const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      const isValid = twilio.validateRequest(twilioAuthToken, signature, url, inboundParams);
+
+      if (!isValid) {
+        console.warn('[Telephony] Twilio signature validation failed for inbound voice webhook.', {
+          url,
+          signature,
+        });
+        return res.status(403).send('Twilio signature validation failed');
+      }
+    } else if (!twilioAuthToken) {
+      console.warn('[Telephony] TWILIO_AUTH_TOKEN is not set; skipping signature validation.');
+    } else {
+      console.warn('[Telephony] Twilio signature validation disabled via TWILIO_VALIDATE_SIGNATURE=false.');
     }
 
-    const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-    const isValid = twilio.validateRequest(twilioAuthToken, signature, url, inboundParams);
+    const callSid = inboundParams.CallSid;
+    const toNumber = inboundParams.To || inboundParams.Called || inboundParams.ToFormatted || null;
+    const fromNumber = inboundParams.From || inboundParams.Caller || inboundParams.CallerNumber || null;
+    const stage = req.query?.stage || 'initial';
+    const stageDecision = req.query?.decision || null;
+    const profileUserId = req.query?.user || null;
 
-    if (!isValid) {
-      console.warn('[Telephony] Twilio signature validation failed for inbound voice webhook.', {
-        url,
-        signature,
+    let receptionistProfile = null;
+
+    if (toNumber) {
+      try {
+        receptionistProfile = await getReceptionistProfileByNumber(toNumber);
+      } catch (profileError) {
+        console.error('[Telephony] Failed to load receptionist profile for number.', {
+          toNumber,
+          error: profileError,
+        });
+      }
+    }
+
+    if (!receptionistProfile && profileUserId) {
+      try {
+        receptionistProfile = await getUserProfileById(profileUserId);
+      } catch (profileLookupError) {
+        console.warn('[Telephony] Failed to fetch profile via user id fallback.', {
+          profileUserId,
+          error: profileLookupError,
+        });
+      }
+    }
+
+    if (callSid) {
+      await upsertCallRecord({
+        callSid,
+        userId: receptionistProfile?.id || null,
+        fromNumber,
+        toNumber,
+        status: 'ringing',
+      }).catch((error) => {
+        console.warn('[Telephony] Failed to upsert initial call record.', { callSid, error });
       });
-      return res.status(403).send('Twilio signature validation failed');
     }
-  } else if (!twilioAuthToken) {
-    console.warn('[Telephony] TWILIO_AUTH_TOKEN is not set; skipping signature validation.');
-  } else {
-    console.warn('[Telephony] Twilio signature validation disabled via TWILIO_VALIDATE_SIGNATURE=false.');
+
+    const receptionistConfigured = Boolean(receptionistProfile?.receptionist_configured);
+
+    // Explicitly default to 'ai_only' when configured but mode is null/undefined
+    let receptionistMode = receptionistProfile?.receptionist_mode;
+    if (!receptionistMode) {
+      receptionistMode = receptionistConfigured ? 'ai_only' : 'voicemail_only';
+    }
+
+    // Check each service individually for better debugging
+    const hasOpenAI = Boolean(openaiClient);
+    const hasElevenLabs = Boolean(elevenLabsApiKey);
+    const hasDeepgram = Boolean(deepgramClient);
+    const conversationalPathAvailable = receptionistConfigured
+      && receptionistEnabledGlobally
+      && hasOpenAI
+      && hasElevenLabs
+      && hasDeepgram;
+
+    // Comprehensive logging for debugging routing decisions
+    console.log('[Telephony] Receptionist routing decision:', {
+      callSid,
+      toNumber,
+      fromNumber,
+      hasReceptionistProfile: Boolean(receptionistProfile),
+      receptionistConfigured,
+      receptionistMode,
+      receptionistEnabledGlobally,
+      hasOpenAI,
+      hasElevenLabs,
+      hasDeepgram,
+      conversationalPathAvailable,
+      profileUserId: receptionistProfile?.id,
+      profileGreeting: receptionistProfile?.receptionist_greeting ? 'present' : 'missing',
+      profileVoice: receptionistProfile?.receptionist_voice || 'not set',
+    });
+
+    if (!receptionistProfile) {
+      console.log('[Telephony] No receptionist profile found for number, routing to voicemail.', { toNumber });
+      return respondWithVoicemail(req, res, inboundParams);
+    }
+
+    if (!conversationalPathAvailable) {
+      console.warn('[Telephony] Conversational path unavailable, routing to voicemail.', {
+        callSid,
+        reason: {
+          receptionistConfigured,
+          receptionistEnabledGlobally,
+          hasOpenAI,
+          hasElevenLabs,
+          hasDeepgram,
+        },
+      });
+      return respondWithVoicemail(req, res, inboundParams);
+    }
+
+    if (receptionistMode === 'voicemail_only') {
+      console.log('[Telephony] Receptionist mode is voicemail_only, routing to voicemail.', { callSid });
+      return respondWithVoicemail(req, res, inboundParams);
+    }
+
+    if (receptionistMode === 'hybrid_choice' && stage === 'initial') {
+      return respondWithHybridChoice(req, res, inboundParams, receptionistProfile);
+    }
+
+    if (receptionistMode === 'hybrid_choice' && stage === 'choice') {
+      const decision = stageDecision || interpretHybridChoice(inboundParams);
+      if (decision === 'voicemail') {
+        return respondWithVoicemail(req, res, inboundParams);
+      }
+      // default to AI receptionist when uncertain
+    }
+
+    if (callSid) {
+      await upsertCallRecord({
+        callSid,
+        userId: receptionistProfile?.id || null,
+        fromNumber,
+        toNumber,
+        status: 'ai_engaged',
+      }).catch((error) => {
+        console.warn('[Telephony] Failed to update call status to ai_engaged.', { callSid, error });
+      });
+    }
+
+    return respondWithAiReceptionist({
+      req,
+      res,
+      inboundParams,
+      profile: receptionistProfile,
+      callSid,
+    });
+  } catch (error) {
+    console.error('[Telephony] Failed to process inbound voice request.', error);
+    return respondWithVoicemail(req, res, inboundParams);
   }
-
-  console.log('[Telephony] Request params:', inboundParams);
-
-  const response = new twilio.twiml.VoiceResponse();
-  response.say('Hi, you\'ve reached FlynnAI. Please leave a message after the tone.');
-  response.record({
-    action: buildRecordingCallbackUrl(req),
-    method: 'POST',
-    playBeep: true,
-  });
-
-  res.type('text/xml');
-  res.send(response.toString());
 };
 
 app.post('/telephony/inbound-voice', handleInboundVoice);
@@ -1161,7 +1536,24 @@ app.post('/jobs/:id/confirm', async (req, res) => {
 });
 
 if (require.main === module) {
-  app.listen(port, () => {
+  const httpServer = http.createServer(app);
+
+  if (receptionistEnabledGlobally) {
+    attachRealtimeServer({
+      httpServer,
+      sessionCache: receptionistSessionCache,
+      deepgramClient,
+      openaiClient,
+      voiceConfig: {
+        apiKey: elevenLabsApiKey,
+        modelId: elevenLabsModelId,
+        presetVoices: presetReceptionistVoices,
+      },
+      onConversationComplete: handleRealtimeConversationComplete,
+    });
+  }
+
+  httpServer.listen(port, () => {
     console.log(`FlynnAI telephony server listening on port ${port}`);
   });
 }
