@@ -1538,23 +1538,38 @@ app.post('/jobs/:id/confirm', async (req, res) => {
 if (require.main === module) {
   const httpServer = http.createServer(app);
 
+  // Wrap WebSocket setup in try-catch to prevent startup failures
   if (receptionistEnabledGlobally) {
-    attachRealtimeServer({
-      httpServer,
-      sessionCache: receptionistSessionCache,
-      deepgramClient,
-      openaiClient,
-      voiceConfig: {
-        apiKey: elevenLabsApiKey,
-        modelId: elevenLabsModelId,
-        presetVoices: presetReceptionistVoices,
-      },
-      onConversationComplete: handleRealtimeConversationComplete,
-    });
+    try {
+      attachRealtimeServer({
+        httpServer,
+        sessionCache: receptionistSessionCache,
+        deepgramClient,
+        openaiClient,
+        voiceConfig: {
+          apiKey: elevenLabsApiKey,
+          modelId: elevenLabsModelId,
+          presetVoices: presetReceptionistVoices,
+        },
+        onConversationComplete: handleRealtimeConversationComplete,
+      });
+      console.log('[Server] Realtime WebSocket server attached successfully');
+    } catch (error) {
+      console.error('[Server] Failed to attach realtime server, continuing without it:', error.message);
+    }
+  } else {
+    console.log('[Server] Realtime receptionist disabled via ENABLE_CONVERSATION_ORCHESTRATOR');
   }
 
-  httpServer.listen(port, () => {
-    console.log(`FlynnAI telephony server listening on port ${port}`);
+  httpServer.listen(port, '0.0.0.0', () => {
+    console.log(`[Server] FlynnAI telephony server listening on port ${port}`);
+    console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`[Server] Health check available at http://localhost:${port}/health`);
+  });
+
+  httpServer.on('error', (error) => {
+    console.error('[Server] Failed to start HTTP server:', error);
+    process.exit(1);
   });
 }
 
