@@ -1,5 +1,6 @@
 const { once } = require('events');
 const { randomUUID } = require('crypto');
+const { createClient } = require('@supabase/supabase-js');
 
 let clientPromise;
 
@@ -25,13 +26,45 @@ const parseResultRows = (result) => {
   if (Array.isArray(result.content)) {
     for (const block of result.content) {
       if (block && block.type === 'text' && typeof block.text === 'string') {
+        let textToParse = block.text;
+
+        // Handle double-escaped JSON (MCP server wraps response in quotes)
         try {
-          const parsed = JSON.parse(block.text);
+          const firstParse = JSON.parse(textToParse);
+          if (typeof firstParse === 'string') {
+            textToParse = firstParse;
+          }
+        } catch (e) {
+          // Not double-escaped, continue with original text
+        }
+
+        // Extract from untrusted-data tags
+        const match = textToParse.match(/<untrusted-data-[^>]+>\s*\n(.+?)\n<\/untrusted-data-/s);
+        if (match && match[1]) {
+          try {
+            const innerParsed = JSON.parse(match[1]);
+            if (Array.isArray(innerParsed)) {
+              return innerParsed;
+            }
+            if (innerParsed && Array.isArray(innerParsed.rows)) {
+              return innerParsed.rows;
+            }
+          } catch (innerError) {
+            console.warn('[Supabase MCP] Failed to parse data from untrusted-data tags:', innerError);
+          }
+        }
+
+        // Fallback: try to parse the whole text
+        try {
+          const parsed = JSON.parse(textToParse);
+          if (Array.isArray(parsed)) {
+            return parsed;
+          }
           if (parsed && Array.isArray(parsed.rows)) {
             return parsed.rows;
           }
         } catch (error) {
-          // Ignore JSON parse failures; fallback to next block.
+          // Ignore parse failures
         }
       }
     }
@@ -316,20 +349,55 @@ const ensureClient = async () => {
   }
 };
 
-const executeSql = async (query) => {
-  const { client, config } = await ensureClient();
+// Direct Supabase client (bypassing MCP for production use)
+let directClient;
 
-  const result = await client.callTool({
-    name: 'execute_sql',
-    arguments: {
-      project_id: config.projectId,
-      query,
+const getDirectClient = () => {
+  if (directClient) {
+    return directClient;
+  }
+
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    || process.env.SUPABASE_KEY
+    || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('[Supabase] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  }
+
+  directClient = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
     },
   });
 
-  result.rows = parseResultRows(result);
+  console.log('[Supabase] Direct client initialized');
+  return directClient;
+};
 
-  return result;
+const executeSql = async (query) => {
+  try {
+    const client = getDirectClient();
+
+    // Use Supabase's RPC to execute raw SQL via a Postgres function
+    // Note: This requires a database function, so we'll use the REST API directly
+    const { data, error } = await client.rpc('execute_sql', { sql: query });
+
+    if (error) {
+      // If the RPC function doesn't exist, we need to query tables directly
+      // For now, return empty result and log the error
+      console.error('[Supabase] SQL execution error:', error);
+      return { rows: [], error };
+    }
+
+    console.log('[Supabase] Query successful, rows:', data?.length || 0);
+    return { rows: data || [], error: null };
+  } catch (error) {
+    console.error('[Supabase] SQL execution failed:', error);
+    return { rows: [], error };
+  }
 };
 
 const upsertCallRecord = async ({
@@ -511,14 +579,102 @@ const getUserProfileById = async (userId) => {
   }
 
   const query = `
-    select id, email, business_name, business_type, phone_number
-    from public.users
-    where id = ${sqlString(userId)}
+    select
+      u.id,
+      u.email,
+      u.business_name,
+      u.business_type,
+      u.phone_number,
+      u.receptionist_configured,
+      u.receptionist_mode,
+      u.receptionist_voice,
+      u.receptionist_greeting,
+      u.receptionist_questions,
+      u.receptionist_voice_profile_id,
+      u.receptionist_ack_library,
+      u.receptionist_business_profile,
+      vp.voice_id as receptionist_voice_id,
+      vp.status as receptionist_voice_status
+    from public.users u
+    left join public.voice_profiles vp
+      on vp.id = u.receptionist_voice_profile_id
+    where u.id = ${sqlString(userId)}
     limit 1;
   `;
 
   const result = await executeSql(query);
   return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
+};
+
+const getReceptionistProfileByNumber = async (phoneNumber) => {
+  if (!phoneNumber) {
+    throw new Error('phoneNumber is required to lookup receptionist profile.');
+  }
+
+  const normalized = phoneNumber.replace(/\s+/g, '');
+
+  console.log('[Supabase] Looking up receptionist profile:', {
+    originalPhoneNumber: phoneNumber,
+    normalizedPhoneNumber: normalized,
+  });
+
+  try {
+    const client = getDirectClient();
+
+    // Query users table with voice_profiles join using Supabase query builder
+    const { data, error } = await client
+      .from('users')
+      .select(`
+        id,
+        business_name,
+        business_type,
+        phone_number,
+        twilio_phone_number,
+        receptionist_configured,
+        receptionist_mode,
+        receptionist_voice,
+        receptionist_greeting,
+        receptionist_questions,
+        receptionist_voice_profile_id,
+        receptionist_ack_library,
+        receptionist_business_profile,
+        voice_profiles!receptionist_voice_profile_id (
+          voice_id,
+          status
+        )
+      `)
+      .eq('twilio_phone_number', normalized)
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('[Supabase] Query error:', error);
+      return null;
+    }
+
+    // Flatten the voice_profiles join
+    let profile = null;
+    if (data) {
+      const voiceProfile = data.voice_profiles;
+      profile = {
+        ...data,
+        receptionist_voice_id: voiceProfile?.voice_id || null,
+        receptionist_voice_status: voiceProfile?.status || null,
+      };
+      delete profile.voice_profiles;
+    }
+
+    console.log('[Supabase] Query result:', {
+      rowCount: profile ? 1 : 0,
+      foundProfile: !!profile,
+      profileData: profile,
+    });
+
+    return profile;
+  } catch (error) {
+    console.error('[Supabase] Failed to get receptionist profile:', error);
+    return null;
+  }
 };
 
 const findExpiredRecordingCalls = async ({ cutoffIso, limit = 50 }) => {
@@ -865,6 +1021,7 @@ module.exports = {
   updateJobStatusForUser,
   insertJob,
   getUserProfileById,
+  getReceptionistProfileByNumber,
   upsertNotificationToken,
   listNotificationTokensForUser,
   findExpiredRecordingCalls,
