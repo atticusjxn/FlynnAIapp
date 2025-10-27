@@ -1,0 +1,60 @@
+services:
+  - type: web
+    name: flynnai-telephony
+    runtime: node
+    plan: starter
+    region: ohio
+    buildCommand: npm ci --omit=dev || npm install --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '20'
+      - key: SERVER_PUBLIC_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      - key: TWILIO_MESSAGING_SERVICE_SID
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_MODEL_ID
+        value: 'eleven_multilingual_v2'
+      - key: ENABLE_CONVERSATION_ORCHESTRATOR
+        value: 'true'
+      - key: VOICE_PROFILE_BUCKET
+        value: voice-profiles
+      - key: VOICEMAIL_STORAGE_BUCKET
+        value: voicemails
+      - key: VOICEMAIL_SIGNED_URL_TTL_SECONDS
+        value: '3600'
+      - key: VOICEMAIL_RETENTION_DAYS
+        value: '30'
+      - key: ELEVENLABS_VOICE_KOALA_WARM_ID
+        sync: false
+      - key: ELEVENLABS_VOICE_KOALA_EXPERT_ID
+        sync: false
+      - key: ELEVENLABS_VOICE_KOALA_HYPE_ID
+        sync: false
+      - key: MAX_QUESTIONS_PER_TURN
+        value: '1'
+      - key: MIN_ACK_VARIETY
+        value: '3'
