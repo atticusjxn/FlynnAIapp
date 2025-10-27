@@ -14,7 +14,18 @@ import { carrierIdToIsoCountry, inferIsoCountryFromNumber } from '../utils/phone
 const TWILIO_ACCOUNT_SID = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.EXPO_PUBLIC_TWILIO_AUTH_TOKEN;
 const TWILIO_WEBHOOK_URL = process.env.EXPO_PUBLIC_TWILIO_WEBHOOK_URL;
-const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+
+const EXPO_LLM_PROVIDER = (process.env.EXPO_PUBLIC_LLM_PROVIDER || '').toLowerCase();
+const EXPO_GROK_KEY = process.env.EXPO_PUBLIC_GROK_API_KEY || process.env.EXPO_PUBLIC_XAI_API_KEY;
+const EXPO_OPENAI_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+
+const LLM_PROVIDER = EXPO_LLM_PROVIDER || (EXPO_GROK_KEY ? 'grok' : 'openai');
+const LLM_API_KEY = LLM_PROVIDER === 'grok'
+  ? (EXPO_GROK_KEY || EXPO_OPENAI_KEY || '')
+  : (EXPO_OPENAI_KEY || '');
+const LLM_CHAT_MODEL = process.env.EXPO_PUBLIC_LLM_CHAT_MODEL || (LLM_PROVIDER === 'grok' ? 'grok-4-fast' : 'gpt-4');
+const LLM_BASE_URL = (process.env.EXPO_PUBLIC_LLM_BASE_URL || '').replace(/\/$/, '')
+  || (LLM_PROVIDER === 'grok' ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1');
 
 // Re-export types for backward compatibility
 export type TwilioUserStatus = UserTwilioSettings;
@@ -528,8 +539,8 @@ class TwilioServiceClass {
    * Extract job information from call transcription using OpenAI
    */
   async extractJobFromTranscript(transcription: string, businessType?: string): Promise<JobExtraction> {
-    if (!OPENAI_API_KEY) {
-      console.warn('OpenAI API key not configured, returning mock data');
+    if (!LLM_API_KEY) {
+      console.warn('LLM API key not configured, returning mock data');
       return {
         confidence: 0.8,
         clientName: 'John Smith',
@@ -548,14 +559,14 @@ class TwilioServiceClass {
     try {
       const prompt = this.buildExtractionPrompt(transcription, businessType);
       
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch(`${LLM_BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${LLM_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4',
+          model: LLM_CHAT_MODEL,
           messages: [
             {
               role: 'system',
@@ -572,11 +583,46 @@ class TwilioServiceClass {
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        throw new Error(`LLM API error: ${response.status}`);
       }
 
       const data = await response.json();
-      const result = JSON.parse(data.choices[0].message.content);
+      const choices = Array.isArray(data.choices)
+        ? data.choices
+        : Array.isArray(data.output?.choices)
+          ? data.output.choices
+          : [];
+
+      const primaryChoice = choices[0];
+      const resolveContent = (choice: any): string | null => {
+        if (!choice) return null;
+        const messageContent = choice.message?.content ?? choice.content ?? choice.text;
+        if (typeof messageContent === 'string') {
+          return messageContent;
+        }
+        if (Array.isArray(messageContent)) {
+          return messageContent.map((segment: any) => {
+            if (typeof segment === 'string') {
+              return segment;
+            }
+            if (segment?.text) {
+              return segment.text;
+            }
+            if (segment?.content) {
+              return segment.content;
+            }
+            return '';
+          }).join('');
+        }
+        return null;
+      };
+
+      const content = resolveContent(primaryChoice);
+      if (!content) {
+        throw new Error('LLM response did not include any content.');
+      }
+
+      const result = JSON.parse(content);
       
       return result;
     } catch (error) {

@@ -6,7 +6,16 @@ const {
 } = require('../supabaseMcpClient');
 const { sendJobCreatedNotification } = require('../notifications/pushService');
 
-const JOB_EXTRACTION_MODEL = process.env.OPENAI_JOB_EXTRACTION_MODEL || 'gpt-4o-mini';
+const ACTIVE_LLM_PROVIDER = (() => {
+  const explicit = (process.env.LLM_PROVIDER || '').trim().toLowerCase();
+  if (explicit) {
+    return explicit;
+  }
+  return (process.env.XAI_API_KEY || process.env.GROK_API_KEY) ? 'grok' : 'openai';
+})();
+
+const JOB_EXTRACTION_MODEL = process.env.JOB_EXTRACTION_MODEL
+  || (ACTIVE_LLM_PROVIDER === 'grok' ? 'grok-4-fast' : process.env.OPENAI_JOB_EXTRACTION_MODEL || 'gpt-4o-mini');
 
 const sanitizeText = (value) => {
   if (!value || typeof value !== 'string') {
@@ -30,9 +39,9 @@ const normalizePhone = (value) => {
   return null;
 };
 
-const extractJobDetails = async ({ transcriptText, openaiClient, userBusinessType }) => {
-  if (!openaiClient) {
-    throw new Error('OpenAI client is not configured for job extraction.');
+const extractJobDetails = async ({ transcriptText, llmClient, userBusinessType }) => {
+  if (!llmClient) {
+    throw new Error('LLM client is not configured for job extraction.');
   }
 
   const sanitizedTranscript = sanitizeText(transcriptText);
@@ -54,7 +63,7 @@ Always respond with JSON containing customer_name, customer_phone, customer_emai
 - location should include address details if provided
 - notes should capture special requirements or urgency`;
 
-  const completion = await openaiClient.chat.completions.create({
+  const completion = await llmClient.chat.completions.create({
     model: JOB_EXTRACTION_MODEL,
     response_format: { type: 'json_object' },
     messages: [
@@ -96,7 +105,7 @@ Always respond with JSON containing customer_name, customer_phone, customer_emai
   };
 };
 
-const ensureJobForTranscript = async ({ callSid, transcriptText, openaiClient }) => {
+const ensureJobForTranscript = async ({ callSid, transcriptText, llmClient }) => {
   if (!callSid) {
     throw new Error('callSid is required to create a job.');
   }
@@ -126,7 +135,7 @@ const ensureJobForTranscript = async ({ callSid, transcriptText, openaiClient })
 
   const extracted = await extractJobDetails({
     transcriptText,
-    openaiClient,
+    llmClient,
     userBusinessType: userProfile?.business_type || null,
   });
 

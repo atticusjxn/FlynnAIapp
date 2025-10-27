@@ -9,7 +9,7 @@ const createRealtimeHandler = require('./realtimeHandler');
  * @param {import('http').Server} options.httpServer
  * @param {Map<string, object>} options.sessionCache
  * @param {import('@deepgram/sdk').Deepgram | null} options.deepgramClient
- * @param {import('openai').default | null} options.openaiClient
+ * @param {{ chat: { completions: { create: Function } }, provider: string } | null} options.llmClient
  * @param {object} options.voiceConfig
  * @param {string | null} options.voiceConfig.apiKey
  * @param {string | null} options.voiceConfig.modelId
@@ -19,7 +19,7 @@ const attachRealtimeServer = ({
   httpServer,
   sessionCache,
   deepgramClient,
-  openaiClient,
+  llmClient,
   voiceConfig,
   onConversationComplete,
 }) => {
@@ -75,7 +75,7 @@ const attachRealtimeServer = ({
         sessionCache,
         session,
         deepgramClient,
-        openaiClient,
+        llmClient,
         voiceConfig,
         onConversationComplete,
       });

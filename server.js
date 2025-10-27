@@ -17,6 +17,7 @@ const path = require('path');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
 const attachRealtimeServer = require('./telephony/realtimeServer');
+const { getLLMClient, PROVIDERS } = require('./llmClient');
 
 const {
   upsertCallRecord,
@@ -111,15 +112,39 @@ if (!twilioAccountSid || !twilioAuthToken) {
   console.warn('[Telephony] Twilio credentials are incomplete; recording downloads will fail until configured.');
 }
 
-if (!openaiApiKey) {
-  console.warn('[Telephony] OPENAI_API_KEY is not configured; transcription will fail until set.');
-}
-
 if (!supabaseStorageClient) {
   console.warn('[Telephony] Supabase storage client is not configured; voicemail uploads will fail.');
 }
 
-const openaiClient = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
+let llmClient = null;
+try {
+  llmClient = getLLMClient();
+  console.log('[LLM] Initialised AI provider.', { provider: llmClient.provider });
+} catch (error) {
+  console.warn('[LLM] Failed to initialise AI provider.', { error: error.message });
+}
+
+if (!openaiApiKey && (!llmClient || llmClient.provider !== PROVIDERS.GROK)) {
+  console.warn('[Telephony] OPENAI_API_KEY is not configured; OpenAI features will be unavailable.');
+}
+
+let transcriptionClient = llmClient;
+if (!transcriptionClient || transcriptionClient.provider === PROVIDERS.GROK) {
+  const fallbackKey = (process.env.OPENAI_API_KEY || '').trim();
+  if (fallbackKey) {
+    try {
+      transcriptionClient = new OpenAI({ apiKey: fallbackKey });
+      transcriptionClient.provider = PROVIDERS.OPENAI;
+      console.log('[LLM] Using OpenAI fallback for transcription workloads.');
+    } catch (error) {
+      console.warn('[LLM] Failed to initialise OpenAI transcription fallback.', { error: error.message });
+      transcriptionClient = null;
+    }
+  } else if (llmClient && llmClient.provider === PROVIDERS.GROK) {
+    console.warn('[LLM] Grok provider active without transcription fallback; voicemail transcription will be disabled.');
+  }
+}
+
 const deepgramClient = deepgramApiKey && typeof createDeepgramClient === 'function'
   ? createDeepgramClient(deepgramApiKey)
   : null;
@@ -358,11 +383,15 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, transcript,
     }).catch(() => {});
 
     if (transcript && transcript.trim().length > 4) {
-      await ensureJobForTranscript({
-        callSid,
-        transcriptText: transcript,
-        openaiClient,
-      });
+      if (llmClient) {
+        await ensureJobForTranscript({
+          callSid,
+          transcriptText: transcript,
+          llmClient,
+        });
+      } else {
+        console.warn('[Jobs] Skipping job creation; no LLM client configured.', { callSid });
+      }
     }
 
     // Explicitly end the live call to avoid lingering streams once we finish
@@ -747,12 +776,12 @@ const handleInboundVoice = async (req, res) => {
     }
 
     // Check each service individually for better debugging
-    const hasOpenAI = Boolean(openaiClient);
+    const hasLLMProvider = Boolean(llmClient);
     const hasElevenLabs = Boolean(elevenLabsApiKey);
     const hasDeepgram = Boolean(deepgramClient);
     const conversationalPathAvailable = receptionistConfigured
       && receptionistEnabledGlobally
-      && hasOpenAI
+      && hasLLMProvider
       && hasElevenLabs
       && hasDeepgram;
 
@@ -765,7 +794,8 @@ const handleInboundVoice = async (req, res) => {
       receptionistConfigured,
       receptionistMode,
       receptionistEnabledGlobally,
-      hasOpenAI,
+      hasLLM: hasLLMProvider,
+      llmProvider: llmClient?.provider || 'unknown',
       hasElevenLabs,
       hasDeepgram,
       conversationalPathAvailable,
@@ -785,7 +815,7 @@ const handleInboundVoice = async (req, res) => {
         reason: {
           receptionistConfigured,
           receptionistEnabledGlobally,
-          hasOpenAI,
+          hasLLM: hasLLMProvider,
           hasElevenLabs,
           hasDeepgram,
         },
@@ -1274,8 +1304,8 @@ app.post('/telephony/recording-complete', async (req, res) => {
       return res.status(200).json({ status: 'transcribed' });
     }
 
-    if (!openaiClient) {
-      console.error('[Telephony] OpenAI client not configured; cannot transcribe.');
+    if (!transcriptionClient || !transcriptionClient.audio || !transcriptionClient.audio.transcriptions) {
+      console.error('[Telephony] No transcription provider configured; cannot transcribe.');
       await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' });
       return res.status(500).json({ error: 'Transcription service unavailable' });
     }
@@ -1290,7 +1320,7 @@ app.post('/telephony/recording-complete', async (req, res) => {
 
       const audioFile = await toFile(recordingResponse, fileName, contentType ? { type: contentType } : undefined);
 
-      const transcriptionResponse = await openaiClient.audio.transcriptions.create({
+      const transcriptionResponse = await transcriptionClient.audio.transcriptions.create({
         file: audioFile,
         model: 'gpt-4o-mini-transcribe',
       });
@@ -1317,17 +1347,21 @@ app.post('/telephony/recording-complete', async (req, res) => {
 
       console.log('[Telephony] Transcription stored successfully for call.', { callSid: CallSid });
 
-      try {
-        await ensureJobForTranscript({
-          callSid: CallSid,
-          transcriptText,
-          openaiClient,
-        });
-      } catch (jobCreationError) {
-        console.error('[Jobs] Failed to create job from transcript.', {
-          callSid: CallSid,
-          error: jobCreationError,
-        });
+      if (llmClient) {
+        try {
+          await ensureJobForTranscript({
+            callSid: CallSid,
+            transcriptText,
+            llmClient,
+          });
+        } catch (jobCreationError) {
+          console.error('[Jobs] Failed to create job from transcript.', {
+            callSid: CallSid,
+            error: jobCreationError,
+          });
+        }
+      } else {
+        console.warn('[Jobs] Skipping job creation; no LLM client configured.', { callSid: CallSid });
       }
 
       return res.status(200).json({ status: 'transcribed' });
@@ -1579,7 +1613,7 @@ if (require.main === module) {
         httpServer,
         sessionCache: receptionistSessionCache,
         deepgramClient,
-        openaiClient,
+        llmClient,
         voiceConfig: {
           apiKey: elevenLabsApiKey,
           modelId: elevenLabsModelId,

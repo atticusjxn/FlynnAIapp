@@ -10,7 +10,44 @@ try {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const OPENAI_REALTIME_MODEL = process.env.OPENAI_RECEPTIONIST_MODEL || 'gpt-4o-mini';
+const ACTIVE_LLM_PROVIDER = (() => {
+  const explicit = (process.env.LLM_PROVIDER || '').trim().toLowerCase();
+  if (explicit) {
+    return explicit;
+  }
+  return (process.env.XAI_API_KEY || process.env.GROK_API_KEY) ? 'grok' : 'openai';
+})();
+
+const DEFAULT_RECEPTIONIST_MODEL = process.env.RECEPTIONIST_MODEL
+  || (ACTIVE_LLM_PROVIDER === 'grok' ? 'grok-4-fast' : 'gpt-4o-mini');
+
+const normaliseChoiceContent = (choice) => {
+  if (!choice) {
+    return null;
+  }
+
+  const candidate = choice.message?.content ?? choice.content ?? choice.text;
+  if (typeof candidate === 'string') {
+    return candidate;
+  }
+
+  if (Array.isArray(candidate)) {
+    return candidate.map((entry) => {
+      if (typeof entry === 'string') {
+        return entry;
+      }
+      if (entry?.text) {
+        return entry.text;
+      }
+      if (entry?.content) {
+        return entry.content;
+      }
+      return '';
+    }).join('');
+  }
+
+  return null;
+};
 
 const createSystemPrompt = (session) => {
   const greeting = session?.greeting
@@ -49,7 +86,7 @@ class RealtimeCallHandler extends EventEmitter {
     sessionCache,
     session,
     deepgramClient,
-    openaiClient,
+    llmClient,
     voiceConfig,
     onConversationComplete,
   }) {
@@ -60,7 +97,7 @@ class RealtimeCallHandler extends EventEmitter {
     this.sessionCache = sessionCache;
     this.session = session;
     this.deepgramClient = deepgramClient;
-    this.openaiClient = openaiClient;
+    this.llmClient = llmClient;
     this.voiceConfig = voiceConfig || {};
     this.onConversationComplete = onConversationComplete;
 
@@ -84,7 +121,7 @@ class RealtimeCallHandler extends EventEmitter {
       userId: this.userId,
       hasSession: Boolean(this.session),
       hasDeepgram: Boolean(this.deepgramClient),
-      hasOpenAI: Boolean(this.openaiClient),
+      hasLLM: Boolean(this.llmClient),
       hasElevenLabs: Boolean(this.voiceConfig?.apiKey),
       greeting: this.session?.greeting ? 'present' : 'missing',
       questionsCount: this.pendingFollowUps.length,
@@ -345,7 +382,7 @@ class RealtimeCallHandler extends EventEmitter {
   }
 
   async generateAssistantResponse(userText) {
-    if (!this.openaiClient) {
+    if (!this.llmClient) {
       return this.pendingFollowUps.length > 0
         ? 'Thanks, here\'s another quick question.'
         : 'Appreciate it. I\'ll pass this on right away.';
@@ -358,20 +395,16 @@ class RealtimeCallHandler extends EventEmitter {
         { role: 'user', content: userText },
       ];
 
-      const completion = await this.openaiClient.chat.completions.create({
-        model: OPENAI_REALTIME_MODEL,
+      const completion = await this.llmClient.chat.completions.create({
+        model: this.session?.openaiModel || DEFAULT_RECEPTIONIST_MODEL,
         messages,
         temperature: 0.4,
         max_tokens: 180,
       });
 
-      const assistantMessage = completion?.choices?.[0]?.message?.content;
-      if (typeof assistantMessage === 'string') {
+      const assistantMessage = normaliseChoiceContent(completion?.choices?.[0]);
+      if (assistantMessage && typeof assistantMessage === 'string') {
         return assistantMessage.trim();
-      }
-
-      if (Array.isArray(assistantMessage)) {
-        return assistantMessage.map((chunk) => chunk.text || '').join(' ').trim();
       }
 
       return null;

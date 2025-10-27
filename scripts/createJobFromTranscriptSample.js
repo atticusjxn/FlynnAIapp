@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 require('dotenv').config();
-const OpenAI = require('openai');
+const { getLLMClient } = require('../llmClient');
 const { ensureJobForTranscript } = require('../telephony/jobCreation');
 const { getTranscriptByCallSid } = require('../supabaseMcpClient');
 
@@ -35,17 +35,17 @@ const main = async () => {
     process.exit(1);
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY must be set to run the job creation harness.');
+  let llmClient;
+  try {
+    llmClient = getLLMClient();
+  } catch (error) {
+    throw new Error(`Failed to initialise LLM client: ${error.message}`);
   }
-
-  const openaiClient = new OpenAI({ apiKey });
 
   const job = await ensureJobForTranscript({
     callSid,
     transcriptText: transcriptRow.text,
-    openaiClient,
+    llmClient,
   });
 
   console.log('Job creation completed:', job);
