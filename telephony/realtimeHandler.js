@@ -14,11 +14,11 @@ const OPENAI_REALTIME_MODEL = process.env.OPENAI_RECEPTIONIST_MODEL || 'gpt-4o-m
 
 const createSystemPrompt = (session) => {
   const greeting = session?.greeting
-    ? `Greeting script:\n"""${session.greeting}"""\n\nThe greeting should be spoken once at the beginning of the call.`
+    ? `Greeting script:\n"""${session.greeting}"""\n\nDo not greet the caller yourself; the system plays the greeting.`
     : '';
 
   const questionBlock = session?.questions?.length
-    ? `Ask the following intake questions, one at a time, adapting the wording if the caller already provided the information:\n${session.questions.map((q, idx) => `  ${idx + 1}. ${q}`).join('\n')}\n`
+    ? `Intake questions (for context only — you must NOT ask them yourself; the system will ask each question):\n${session.questions.map((q, idx) => `  ${idx + 1}. ${q}`).join('\n')}\n`
     : 'Collect the caller\'s name, contact details, service request, timing, and location.';
 
   const businessFacts = session?.businessProfile
@@ -32,6 +32,7 @@ const createSystemPrompt = (session) => {
   return [
     'You are Flynn, a friendly but efficient AI receptionist for a service business.',
     'Be concise, natural, and never repeat the same acknowledgement twice in a row.',
+    'Do not initiate new questions; keep your responses to brief acknowledgements or clarifying follow-ups only. The system will handle asking the next question.',
     businessType,
     businessFacts,
     questionBlock,
@@ -78,19 +79,14 @@ class RealtimeCallHandler extends EventEmitter {
   }
 
   attach() {
-    if (!this.session) {
-      console.warn('[Realtime] Missing session context — fallback to hangup.', { callSid: this.callSid });
-      this.ws.close();
-      return;
-    }
-
     console.log('[Realtime] Attaching WebSocket handlers for call.', {
       callSid: this.callSid,
       userId: this.userId,
+      hasSession: Boolean(this.session),
       hasDeepgram: Boolean(this.deepgramClient),
       hasOpenAI: Boolean(this.openaiClient),
       hasElevenLabs: Boolean(this.voiceConfig?.apiKey),
-      greeting: this.session.greeting ? 'present' : 'missing',
+      greeting: this.session?.greeting ? 'present' : 'missing',
       questionsCount: this.pendingFollowUps.length,
     });
 
@@ -101,11 +97,17 @@ class RealtimeCallHandler extends EventEmitter {
       this.tearDown('socket_error');
     });
 
-    this.initialize()
-      .catch((error) => {
-        console.error('[Realtime] Failed to initialise realtime session.', { callSid: this.callSid, error });
-        this.tearDown('initialisation_error');
-      });
+    // Only initialize immediately if we have a session
+    // Otherwise, wait for the 'start' event to provide parameters and session
+    if (this.session) {
+      this.initialize()
+        .catch((error) => {
+          console.error('[Realtime] Failed to initialise realtime session.', { callSid: this.callSid, error });
+          this.tearDown('initialisation_error');
+        });
+    } else {
+      console.log('[Realtime] Waiting for start event to receive session parameters...', { callSid: this.callSid });
+    }
   }
 
   async initialize() {
@@ -198,6 +200,41 @@ class RealtimeCallHandler extends EventEmitter {
           break;
         case 'start':
           this.streamSid = payload.start?.streamSid || null;
+
+          // Extract custom parameters from start event
+          const customParams = payload.start?.customParameters || {};
+          if (customParams.callSid) {
+            this.callSid = customParams.callSid;
+          }
+          if (customParams.userId) {
+            this.userId = customParams.userId;
+          }
+
+          console.log('[Realtime] Stream started with parameters:', {
+            streamSid: this.streamSid,
+            callSid: this.callSid,
+            userId: this.userId,
+          });
+
+          // If we now have a callSid and didn't have a session before, try to load it
+          if (this.callSid && !this.session && this.sessionCache) {
+            this.session = this.sessionCache.get(this.callSid);
+            if (this.session) {
+              console.log('[Realtime] Loaded session from cache after start event.', {
+                callSid: this.callSid,
+                userId: this.userId,
+              });
+              // Re-initialize system prompt with the loaded session
+              this.systemPrompt = createSystemPrompt(this.session || {});
+              this.pendingFollowUps = Array.isArray(this.session?.questions) ? [...this.session.questions] : [];
+              // Now that we have a session, initialize properly
+              this.initialize().catch((error) => {
+                console.error('[Realtime] Failed to initialize after loading session.', { callSid: this.callSid, error });
+              });
+            } else {
+              console.warn('[Realtime] No session found in cache for callSid.', { callSid: this.callSid });
+            }
+          }
           break;
         case 'media':
           await this.forwardAudioToDeepgram(payload.media);
@@ -214,6 +251,12 @@ class RealtimeCallHandler extends EventEmitter {
   }
 
   async forwardAudioToDeepgram(mediaPayload) {
+    // While we're actively playing TTS back to the caller, skip
+    // forwarding audio to Deepgram to reduce potential echo.
+    if (this.isPlaying) {
+      return;
+    }
+
     if (!mediaPayload?.payload || !this.deepgramStream) {
       return;
     }
@@ -242,6 +285,12 @@ class RealtimeCallHandler extends EventEmitter {
 
       const isFinal = event.is_final || event.speech_final || false;
       if (!isFinal) {
+        return;
+      }
+
+      // Require meaningful user speech before reacting (reduces noise-driven loops)
+      const hasLetters = /[a-zA-Z]/.test(transcript);
+      if (transcript.length < 3 || !hasLetters) {
         return;
       }
 
@@ -394,7 +443,7 @@ class RealtimeCallHandler extends EventEmitter {
       return;
     }
 
-    const chunkSize = 160; // 20ms of mulaw @ 8kHz
+    const chunkSize = 160; // 20ms of µ-law @ 8kHz
     for (let offset = 0; offset < buffer.length; offset += chunkSize) {
       if (this.closed) {
         break;
@@ -404,7 +453,8 @@ class RealtimeCallHandler extends EventEmitter {
       this.ws.send(JSON.stringify({
         event: 'media',
         streamSid: this.streamSid,
-        media: { payload },
+        // Explicitly mark this as outbound audio for the caller
+        media: { payload, track: 'outbound' },
       }));
       await sleep(20);
     }
@@ -451,12 +501,14 @@ class RealtimeCallHandler extends EventEmitter {
     });
 
     try {
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      const baseUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+      const response = await fetch(baseUrl, {
         method: 'POST',
         headers: {
           'xi-api-key': apiKey,
           'Content-Type': 'application/json',
-          Accept: 'audio/ulaw',
+          // audio/basic is the standard MIME for PCMU (µ-law)
+          Accept: 'audio/basic',
         },
         body: JSON.stringify(body),
       });
@@ -471,8 +523,67 @@ class RealtimeCallHandler extends EventEmitter {
         return null;
       }
 
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+      let contentType = response.headers?.get ? (response.headers.get('content-type') || '') : '';
+      console.log('[Realtime] ElevenLabs response headers.', { callSid: this.callSid, contentType });
+      let arrayBuffer = await response.arrayBuffer();
+      let buffer = Buffer.from(arrayBuffer);
+
+      // If the provider sent MP3 despite requesting µ-law, retry using the streaming endpoint
+      if (/mpeg/i.test(contentType)) {
+        console.warn('[Realtime] ElevenLabs returned MP3; retrying with streaming endpoint for µ-law.', {
+          callSid: this.callSid,
+          contentType,
+        });
+
+        const streamUrl = `${baseUrl}/stream?output_format=ulaw_8000`;
+        const retry = await fetch(streamUrl, {
+          method: 'POST',
+          headers: {
+            'xi-api-key': apiKey,
+            'Content-Type': 'application/json',
+            Accept: 'audio/basic, audio/wav;q=0.9',
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!retry.ok) {
+          const retryText = await retry.text();
+          console.error('[Realtime] ElevenLabs streaming retry failed.', {
+            callSid: this.callSid,
+            status: retry.status,
+            body: retryText,
+          });
+          return null;
+        }
+
+        contentType = retry.headers?.get ? (retry.headers.get('content-type') || '') : '';
+        console.log('[Realtime] ElevenLabs retry response headers.', { callSid: this.callSid, contentType });
+        arrayBuffer = await retry.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+      }
+
+      // Detect WAV container (RIFF/WAVE) and extract raw µ-law audio if present.
+      const isRiff = buffer.length >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WAVE';
+      if (isRiff) {
+        const extracted = this.extractUlawFromWav(buffer);
+        if (extracted && extracted.data) {
+          const { fmtEncoding, sampleRate, bitsPerSample } = extracted;
+          console.log('[Realtime] Extracted µ-law audio from WAV container.', {
+            callSid: this.callSid,
+            sampleRate,
+            bitsPerSample,
+            fmtEncoding,
+            rawSize: extracted.data.length,
+          });
+          buffer = extracted.data;
+        } else {
+          console.warn('[Realtime] WAV detected but failed to extract µ-law payload; sending raw bytes.', {
+            callSid: this.callSid,
+            size: buffer.length,
+          });
+        }
+      }
+
       console.log('[Realtime] TTS audio generated successfully.', {
         callSid: this.callSid,
         bufferSize: buffer.length,
@@ -480,6 +591,56 @@ class RealtimeCallHandler extends EventEmitter {
       return buffer;
     } catch (error) {
       console.error('[Realtime] ElevenLabs request error.', { callSid: this.callSid, error });
+      return null;
+    }
+  }
+
+  // Parse a simple RIFF/WAVE container and extract µ-law (format code 7) data chunk
+  extractUlawFromWav(buffer) {
+    try {
+      if (!buffer || buffer.length < 44) return null;
+      if (buffer.toString('ascii', 0, 4) !== 'RIFF') return null;
+      if (buffer.toString('ascii', 8, 12) !== 'WAVE') return null;
+
+      let offset = 12;
+      let fmtEncoding = null;
+      let sampleRate = null;
+      let bitsPerSample = null;
+      let dataOffset = null;
+      let dataSize = null;
+
+      while (offset + 8 <= buffer.length) {
+        const chunkId = buffer.toString('ascii', offset, offset + 4);
+        const chunkSize = buffer.readUInt32LE(offset + 4);
+        const chunkDataStart = offset + 8;
+
+        if (chunkId === 'fmt ') {
+          if (chunkSize >= 16) {
+            fmtEncoding = buffer.readUInt16LE(chunkDataStart + 0); // 7 => µ-law
+            sampleRate = buffer.readUInt32LE(chunkDataStart + 4);
+            bitsPerSample = buffer.readUInt16LE(chunkDataStart + 14);
+          }
+        } else if (chunkId === 'data') {
+          dataOffset = chunkDataStart;
+          dataSize = Math.min(chunkSize, buffer.length - chunkDataStart);
+          break;
+        }
+
+        // Chunks are word-aligned
+        offset = chunkDataStart + chunkSize + (chunkSize % 2);
+      }
+
+      if (dataOffset != null && dataSize != null) {
+        return {
+          data: buffer.subarray(dataOffset, dataOffset + dataSize),
+          fmtEncoding,
+          sampleRate,
+          bitsPerSample,
+        };
+      }
+      return null;
+    } catch (err) {
+      console.warn('[Realtime] Failed parsing WAV container.', { callSid: this.callSid, err });
       return null;
     }
   }

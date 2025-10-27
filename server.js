@@ -305,12 +305,15 @@ const respondWithAiReceptionist = ({ req, res, inboundParams, profile, callSid }
     questionsCount: Array.isArray(profile?.receptionist_questions) ? profile.receptionist_questions.length : 0,
   });
 
+  // IMPORTANT: Cache the session BEFORE sending TwiML response
   cacheReceptionistSession({ callSid, profile, toNumber: inboundParams.To || inboundParams.Called });
 
   const connect = response.connect();
   const stream = connect.stream({
     url: streamUrl,
-    track: 'inbound_outbound',
+    track: 'inbound_track', // Only receive caller audio to prevent feedback loop
+    statusCallback: `${req.protocol}://${req.get('host')}/telephony/stream-status`,
+    statusCallbackMethod: 'POST',
   });
 
   stream.parameter({ name: 'callSid', value: callSid || '' });
@@ -360,6 +363,16 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, transcript,
         transcriptText: transcript,
         openaiClient,
       });
+    }
+
+    // Explicitly end the live call to avoid lingering streams once we finish
+    if (twilioMessagingClient && callSid) {
+      try {
+        await twilioMessagingClient.calls(callSid).update({ status: 'completed' });
+        console.log('[Realtime] Ended Twilio call via REST API.', { callSid });
+      } catch (error) {
+        console.warn('[Realtime] Failed to end Twilio call via REST API.', { callSid, error });
+      }
     }
   } catch (error) {
     console.error('[Realtime] Failed to persist realtime conversation data.', { callSid, error });
@@ -824,6 +837,20 @@ const handleInboundVoice = async (req, res) => {
 
 app.post('/telephony/inbound-voice', handleInboundVoice);
 app.get('/telephony/inbound-voice', handleInboundVoice);
+
+app.post('/telephony/stream-status', async (req, res) => {
+  const { CallSid, StreamSid, AccountSid, Status } = req.body || {};
+
+  console.log('[Telephony] Stream status callback received:', {
+    callSid: CallSid,
+    streamSid: StreamSid,
+    accountSid: AccountSid,
+    status: Status,
+    body: req.body,
+  });
+
+  res.status(200).send('OK');
+});
 
 app.post('/voice/profiles/:voiceProfileId/clone', authenticateJwt, async (req, res) => {
   if (!supabaseStorageClient) {
