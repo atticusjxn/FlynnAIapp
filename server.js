@@ -6,7 +6,12 @@ const WebSocket = require('ws');
 const { randomUUID } = require('crypto');
 const OpenAI = require('openai');
 const { toFile } = require('openai');
-const { createClient: createDeepgramClient } = require('@deepgram/sdk');
+let createDeepgramClient;
+try {
+  ({ createClient: createDeepgramClient } = require('@deepgram/sdk'));
+} catch (err) {
+  console.warn('[Startup] @deepgram/sdk not found; live transcription disabled unless installed.');
+}
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
@@ -115,7 +120,9 @@ if (!supabaseStorageClient) {
 }
 
 const openaiClient = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
-const deepgramClient = deepgramApiKey ? createDeepgramClient(deepgramApiKey) : null;
+const deepgramClient = deepgramApiKey && typeof createDeepgramClient === 'function'
+  ? createDeepgramClient(deepgramApiKey)
+  : null;
 const twilioMessagingClient = twilioAccountSid && twilioAuthToken
   ? twilio(twilioAccountSid, twilioAuthToken)
   : null;
