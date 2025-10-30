@@ -186,6 +186,20 @@ To enable custom receptionist voices, configure the following server environment
 
 The mobile app uploads recordings to Supabase storage; the server fetches the sample and initiates cloning with ElevenLabs. Status is tracked in the `voice_profiles` table.
 
+### Real-time receptionist TTS
+
+Live call audio is generated through the configured TTS provider. Azure Speech is the default when `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` are present.
+
+- `AZURE_SPEECH_KEY` – primary key from the Azure Speech resource.
+- `AZURE_SPEECH_REGION` – Azure region (for example `australiaeast`).
+- `AZURE_SPEECH_ENDPOINT` *(optional)* – override for the generated endpoint URL.
+- `AZURE_TTS_DEFAULT_VOICE` *(optional)* – fallback voice (defaults to `en-AU-NatashaNeural`).
+- `AZURE_VOICE_KOALA_WARM`, `AZURE_VOICE_KOALA_EXPERT`, `AZURE_VOICE_KOALA_HYPE` *(optional)* – map receptionist presets to Azure voices.
+- `TTS_PROVIDER` *(optional)* – force `azure` or `elevenlabs`; when unset the server prefers Azure when credentials exist and falls back to ElevenLabs.
+- `TTS_CACHE_TTL_MS` / `TTS_CACHE_MAX_ENTRIES` *(optional)* – control in-memory audio cache duration and size.
+
+If Azure credentials are not supplied the server falls back to ElevenLabs using existing `ELEVENLABS_*` variables. Custom voice previews remain ElevenLabs-only until Azure custom neural voices are onboarded.
+
 Both endpoints return success/failure details; the notify endpoint reports the number of device sends attempted and delivered.
 
 ## Next Steps

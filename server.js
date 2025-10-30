@@ -155,10 +155,78 @@ const twilioMessagingClient = twilioAccountSid && twilioAuthToken
 const voiceProfileBucket = process.env.VOICE_PROFILE_BUCKET || 'voice-profiles';
 const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
 const elevenLabsModelId = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
-const presetReceptionistVoices = {
+const elevenLabsPresetVoices = {
   koala_warm: process.env.ELEVENLABS_VOICE_KOALA_WARM_ID,
   koala_expert: process.env.ELEVENLABS_VOICE_KOALA_EXPERT_ID,
   koala_hype: process.env.ELEVENLABS_VOICE_KOALA_HYPE_ID,
+};
+
+const azureSpeechKey = process.env.AZURE_SPEECH_KEY ? process.env.AZURE_SPEECH_KEY.trim() : '';
+const azureSpeechRegion = process.env.AZURE_SPEECH_REGION ? process.env.AZURE_SPEECH_REGION.trim() : '';
+const azureSpeechEndpoint = process.env.AZURE_SPEECH_ENDPOINT ? process.env.AZURE_SPEECH_ENDPOINT.trim() : '';
+const azureDefaultVoice = process.env.AZURE_TTS_DEFAULT_VOICE || 'en-AU-NatashaNeural';
+const azurePresetVoices = {
+  koala_warm: process.env.AZURE_VOICE_KOALA_WARM || azureDefaultVoice,
+  koala_expert: process.env.AZURE_VOICE_KOALA_EXPERT || 'en-AU-WilliamNeural',
+  koala_hype: process.env.AZURE_VOICE_KOALA_HYPE || 'en-AU-CarlyNeural',
+};
+
+const resolveTtsProvider = () => {
+  const explicit = (process.env.TTS_PROVIDER || '').trim().toLowerCase();
+  if (explicit) {
+    return explicit;
+  }
+  if (azureSpeechKey && azureSpeechRegion) {
+    return 'azure';
+  }
+  return elevenLabsApiKey ? 'elevenlabs' : 'none';
+};
+
+const ttsProvider = resolveTtsProvider();
+const ttsCacheTtlMs = parseIntegerEnv(process.env.TTS_CACHE_TTL_MS, 15 * 60 * 1000);
+const ttsCacheMaxEntries = parseIntegerEnv(process.env.TTS_CACHE_MAX_ENTRIES, 256);
+const activePresetVoices = ttsProvider === 'azure' ? azurePresetVoices : elevenLabsPresetVoices;
+const voiceConfig = {
+  provider: ttsProvider,
+  presetVoices: activePresetVoices,
+  cacheControl: {
+    ttlMs: ttsCacheTtlMs,
+    maxEntries: ttsCacheMaxEntries,
+  },
+  azure: {
+    key: azureSpeechKey,
+    region: azureSpeechRegion,
+    endpoint: azureSpeechEndpoint,
+    defaultVoice: azureDefaultVoice,
+    presetVoices: azurePresetVoices,
+  },
+  elevenLabs: {
+    apiKey: elevenLabsApiKey,
+    modelId: elevenLabsModelId,
+    presetVoices: elevenLabsPresetVoices,
+  },
+};
+
+console.log('[TTS] Provider configuration detected.', {
+  provider: voiceConfig.provider,
+  hasAzure: Boolean(voiceConfig.azure.key && (voiceConfig.azure.endpoint || voiceConfig.azure.region)),
+  hasElevenLabs: Boolean(voiceConfig.elevenLabs.apiKey),
+  cacheTtlMs: voiceConfig.cacheControl.ttlMs,
+  cacheMaxEntries: voiceConfig.cacheControl.maxEntries,
+});
+
+const escapeSsmlForAzure = (text) => text
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/\"/g, '&quot;')
+  .replace(/'/g, '&apos;');
+
+const buildAzureSsml = (voiceName, text) => {
+  const voice = voiceName || 'en-AU-NatashaNeural';
+  const langParts = Array.isArray(voice.split('-')) ? voice.split('-').slice(0, 2) : ['en', 'AU'];
+  const lang = langParts.filter(Boolean).join('-') || 'en-AU';
+  return `<speak version=\"1.0\" xml:lang=\"${lang}\"><voice name=\"${voice}\">${escapeSsmlForAzure(text)}</voice></speak>`;
 };
 
 const DEFAULT_ACK_LIBRARY = [
@@ -1021,11 +1089,6 @@ app.post('/voice/profiles/:voiceProfileId/clone', authenticateJwt, async (req, r
 });
 
 app.post('/voice/preview', authenticateJwt, async (req, res) => {
-  if (!elevenLabsApiKey) {
-    console.error('[VoicePreview] ELEVENLABS_API_KEY not configured');
-    return res.status(500).json({ error: 'Voice preview unavailable' });
-  }
-
   const userId = req.user?.id;
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -1041,10 +1104,111 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
     return res.status(400).json({ error: 'Voice option is required' });
   }
 
+  const providerPriority = voiceConfig.provider === 'azure'
+    ? ['azure', 'elevenlabs']
+    : ['elevenlabs', 'azure'];
+
+  const resolveVoiceForPreview = (provider) => {
+    if (provider === 'azure') {
+      const presets = voiceConfig.azure?.presetVoices || voiceConfig.presetVoices || {};
+      return presets?.[voiceOption]
+        || voiceConfig.azure?.defaultVoice
+        || presets.koala_warm
+        || presets.koala_expert
+        || Object.values(presets).find(Boolean)
+        || voiceConfig.azure?.defaultVoice
+        || null;
+    }
+
+    if (provider === 'elevenlabs') {
+      const presets = voiceConfig.elevenLabs?.presetVoices || voiceConfig.presetVoices || {};
+      return presets?.[voiceOption]
+        || presets.koala_expert
+        || presets.koala_warm
+        || Object.values(presets).find(Boolean)
+        || null;
+    }
+
+    return null;
+  };
+
+  const synthesizeAzurePreview = async (voiceName) => {
+    const azure = voiceConfig.azure || {};
+    if (!azure.key || !(azure.endpoint || azure.region)) {
+      throw new Error('Azure Speech credentials not configured');
+    }
+
+    const endpoint = azure.endpoint || `https://${azure.region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+    const headers = {
+      'Ocp-Apim-Subscription-Key': azure.key,
+      'Content-Type': 'application/ssml+xml',
+      'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3',
+      'User-Agent': 'FlynnAI-Preview/1.0',
+    };
+
+    if (!azure.endpoint && azure.region) {
+      headers['Ocp-Apim-Subscription-Region'] = azure.region;
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: buildAzureSsml(voiceName, text),
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text() || `Azure TTS failed with status ${response.status}`);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return {
+      audio: buffer.toString('base64'),
+      contentType: response.headers.get('content-type') || 'audio/mpeg',
+    };
+  };
+
+  const synthesizeElevenLabsPreview = async (voiceId) => {
+    const eleven = voiceConfig.elevenLabs || {};
+    if (!eleven.apiKey) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': eleven.apiKey,
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: eleven.modelId || 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: 0.4,
+          similarity_boost: 0.8,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await response.text() || `ElevenLabs preview failed with status ${response.status}`);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return {
+      audio: buffer.toString('base64'),
+      contentType: response.headers.get('content-type') || 'audio/mpeg',
+    };
+  };
+
   try {
     let voiceId;
 
     if (voiceOption === 'custom_voice') {
+      if (voiceConfig.provider !== 'elevenlabs') {
+        return res.status(400).json({ error: 'Custom voice previews are only supported for ElevenLabs voices.' });
+      }
+
       if (!voiceProfileId) {
         return res.status(400).json({ error: 'Custom voice profile is required' });
       }
@@ -1074,46 +1238,35 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
       }
 
       voiceId = profile.voice_id;
-    } else {
-      voiceId = presetReceptionistVoices[voiceOption];
+      const preview = await synthesizeElevenLabsPreview(voiceId);
+      return res.json(preview);
+    }
 
-      if (!voiceId) {
-        console.warn('[VoicePreview] No preset voice configured for option', voiceOption);
-        return res.status(400).json({ error: 'This voice does not support previews yet' });
+    for (const provider of providerPriority) {
+      try {
+        if (provider === 'azure') {
+          const voiceName = resolveVoiceForPreview('azure');
+          if (!voiceName) {
+            continue;
+          }
+          const preview = await synthesizeAzurePreview(voiceName);
+          return res.json(preview);
+        }
+
+        if (provider === 'elevenlabs') {
+          const presetVoiceId = resolveVoiceForPreview('elevenlabs');
+          if (!presetVoiceId) {
+            continue;
+          }
+          const preview = await synthesizeElevenLabsPreview(presetVoiceId);
+          return res.json(preview);
+        }
+      } catch (error) {
+        console.error(`[VoicePreview] ${provider} preview failed`, { error: error.message || error });
       }
     }
 
-    const previewResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-      method: 'POST',
-      headers: {
-        'xi-api-key': elevenLabsApiKey,
-        'Content-Type': 'application/json',
-        Accept: 'audio/mpeg',
-      },
-      body: JSON.stringify({
-        text,
-        model_id: elevenLabsModelId,
-        voice_settings: {
-          stability: 0.4,
-          similarity_boost: 0.8,
-        },
-      }),
-    });
-
-    if (!previewResponse.ok) {
-      const errorPayload = await previewResponse.text();
-      console.error('[VoicePreview] ElevenLabs preview failed', {
-        status: previewResponse.status,
-        body: errorPayload,
-      });
-      return res.status(previewResponse.status).json({ error: 'Voice preview failed', details: errorPayload });
-    }
-
-    const arrayBuffer = await previewResponse.arrayBuffer();
-    const base64Audio = Buffer.from(arrayBuffer).toString('base64');
-    const contentType = previewResponse.headers.get('content-type') || 'audio/mpeg';
-
-    return res.json({ audio: base64Audio, contentType });
+    return res.status(500).json({ error: 'Voice preview failed' });
   } catch (error) {
     console.error('[VoicePreview] Unexpected error', { error });
     return res.status(500).json({ error: 'Failed to generate voice preview' });
@@ -1614,11 +1767,7 @@ if (require.main === module) {
         sessionCache: receptionistSessionCache,
         deepgramClient,
         llmClient,
-        voiceConfig: {
-          apiKey: elevenLabsApiKey,
-          modelId: elevenLabsModelId,
-          presetVoices: presetReceptionistVoices,
-        },
+        voiceConfig,
         onConversationComplete: handleRealtimeConversationComplete,
       });
       console.log('[Server] Realtime WebSocket server attached successfully');

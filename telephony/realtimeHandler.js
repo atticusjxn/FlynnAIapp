@@ -49,13 +49,75 @@ const normaliseChoiceContent = (choice) => {
   return null;
 };
 
+const TTS_DEFAULT_CACHE_TTL_MS = 15 * 60 * 1000;
+const TTS_DEFAULT_CACHE_MAX_ENTRIES = 256;
+const ttsAudioCache = new Map();
+
+const escapeSsml = (text) => text
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/\"/g, '&quot;')
+  .replace(/'/g, '&apos;');
+
+const deriveVoiceLanguage = (voiceName) => {
+  if (!voiceName || typeof voiceName !== 'string') {
+    return 'en-AU';
+  }
+  const parts = voiceName.split('-');
+  if (parts.length >= 2) {
+    return `${parts[0]}-${parts[1]}`;
+  }
+  return 'en-AU';
+};
+
+const buildSsml = (text, voiceName) => (
+  `<speak version=\"1.0\" xml:lang=\"${deriveVoiceLanguage(voiceName)}\"><voice name=\"${voiceName}\">${escapeSsml(text)}</voice></speak>`
+);
+
+const getCachedAudio = (key, ttlMs) => {
+  if (!key) {
+    return null;
+  }
+  const entry = ttsAudioCache.get(key);
+  if (!entry) {
+    return null;
+  }
+
+  if (Date.now() - entry.timestamp > ttlMs) {
+    ttsAudioCache.delete(key);
+    return null;
+  }
+
+  return entry.buffer;
+};
+
+const setCachedAudio = (key, buffer, maxEntries) => {
+  if (!key || !buffer) {
+    return;
+  }
+
+  ttsAudioCache.set(key, {
+    buffer,
+    timestamp: Date.now(),
+  });
+
+  while (ttsAudioCache.size > maxEntries) {
+    const [oldestKey] = ttsAudioCache.keys();
+    if (!oldestKey) {
+      break;
+    }
+    ttsAudioCache.delete(oldestKey);
+  }
+};
+
 const createSystemPrompt = (session) => {
   const greeting = session?.greeting
     ? `Greeting script:\n"""${session.greeting}"""\n\nDo not greet the caller yourself; the system plays the greeting.`
     : '';
 
   const questionBlock = session?.questions?.length
-    ? `Intake questions (for context only — you must NOT ask them yourself; the system will ask each question):\n${session.questions.map((q, idx) => `  ${idx + 1}. ${q}`).join('\n')}\n`
+    ? `Intake questions (ask these naturally in your responses):\n${session.questions.map((q, idx) => `  ${idx + 1}. ${q}`).join('\n')}\n\nImportant: After acknowledging the caller's answer, smoothly transition to the next question. Ask questions in order. Track which questions you've already asked and don't repeat them.`
     : 'Collect the caller\'s name, contact details, service request, timing, and location.';
 
   const businessFacts = session?.businessProfile
@@ -68,13 +130,15 @@ const createSystemPrompt = (session) => {
 
   return [
     'You are Flynn, a friendly but efficient AI receptionist for a service business.',
-    'Be concise, natural, and never repeat the same acknowledgement twice in a row.',
-    'Do not initiate new questions; keep your responses to brief acknowledgements or clarifying follow-ups only. The system will handle asking the next question.',
+    'Be concise, natural, and conversational.',
+    'Your job: Acknowledge what the caller says, then naturally ask the next intake question.',
+    'Keep responses brief (1-2 sentences max). Never repeat the same acknowledgement twice in a row.',
+    'After asking all intake questions, confirm with the caller: "Is there anything else I should know?"',
+    'Only when they say no/that\'s all/nothing else should you end the conversation.',
     businessType,
     businessFacts,
     questionBlock,
     greeting,
-    'Summarise collected details back to the caller before ending the call.',
   ].filter(Boolean).join('\n\n');
 };
 
@@ -113,16 +177,62 @@ class RealtimeCallHandler extends EventEmitter {
     this.minAckVariety = (session && session.minAckVariety) || 3;
     this.pendingFollowUps = Array.isArray(session?.questions) ? [...session.questions] : [];
     this.systemPrompt = createSystemPrompt(session || {});
+    this.ttsProviderPriority = this.buildProviderPriority();
+    this.ttsCacheTtlMs = Math.max(
+      1000,
+      Number(this.voiceConfig?.cacheControl?.ttlMs) || TTS_DEFAULT_CACHE_TTL_MS,
+    );
+    this.ttsCacheMaxEntries = Math.max(
+      1,
+      Number(this.voiceConfig?.cacheControl?.maxEntries) || TTS_DEFAULT_CACHE_MAX_ENTRIES,
+    );
+  }
+
+  buildProviderPriority() {
+    const priority = [];
+    const preferred = (this.voiceConfig?.provider || '').toLowerCase();
+    const hasAzure = Boolean(
+      this.voiceConfig?.azure?.key
+      && (this.voiceConfig?.azure?.endpoint || this.voiceConfig?.azure?.region),
+    );
+    const hasElevenLabs = Boolean(this.voiceConfig?.elevenLabs?.apiKey);
+
+    const push = (provider) => {
+      if (provider && !priority.includes(provider)) {
+        priority.push(provider);
+      }
+    };
+
+    if (preferred === 'azure') {
+      if (hasAzure) push('azure');
+      if (hasElevenLabs) push('elevenlabs');
+    } else if (preferred === 'elevenlabs') {
+      if (hasElevenLabs) push('elevenlabs');
+      if (hasAzure) push('azure');
+    } else {
+      if (hasAzure) push('azure');
+      if (hasElevenLabs) push('elevenlabs');
+    }
+
+    return priority;
   }
 
   attach() {
+    const hasAzureSpeech = Boolean(
+      this.voiceConfig?.azure?.key
+      && (this.voiceConfig?.azure?.endpoint || this.voiceConfig?.azure?.region),
+    );
+    const hasElevenLabsSpeech = Boolean(this.voiceConfig?.elevenLabs?.apiKey);
+
     console.log('[Realtime] Attaching WebSocket handlers for call.', {
       callSid: this.callSid,
       userId: this.userId,
       hasSession: Boolean(this.session),
       hasDeepgram: Boolean(this.deepgramClient),
       hasLLM: Boolean(this.llmClient),
-      hasElevenLabs: Boolean(this.voiceConfig?.apiKey),
+      hasAzure: hasAzureSpeech,
+      hasElevenLabs: hasElevenLabsSpeech,
+      ttsPriority: this.ttsProviderPriority,
       greeting: this.session?.greeting ? 'present' : 'missing',
       questionsCount: this.pendingFollowUps.length,
     });
@@ -162,13 +272,12 @@ class RealtimeCallHandler extends EventEmitter {
     console.log('[Realtime] Sending greeting to caller.', { callSid: this.callSid });
     await this.sendGreeting();
 
-    if (this.pendingFollowUps.length > 0) {
-      console.log('[Realtime] Queuing first question.', {
-        callSid: this.callSid,
-        questionsRemaining: this.pendingFollowUps.length,
-      });
-      await this.maybeAskNextQuestion();
-    }
+    // Note: AI will naturally ask the first question after the greeting
+    // No need to explicitly ask it here to avoid duplication
+    console.log('[Realtime] AI will handle intake questions naturally.', {
+      callSid: this.callSid,
+      questionsToAsk: this.pendingFollowUps.length,
+    });
   }
 
   async createDeepgramStream() {
@@ -334,20 +443,26 @@ class RealtimeCallHandler extends EventEmitter {
       this.userTranscript.push(transcript);
       this.turns.push({ role: 'user', content: transcript });
 
-      const ack = this.selectAcknowledgement();
-      if (ack) {
-        await this.enqueueSpeech(ack, { priority: true });
-      }
+      // FAST ACKNOWLEDGMENT: Send immediate response within 500ms
+      // This makes the conversation feel natural and responsive
+      const quickAck = this.selectAcknowledgement();
+      await this.enqueueSpeech(quickAck, { priority: false });
 
+      // Add a natural pause before the full response (300ms)
+      await sleep(300);
+
+      // Generate full AI response (includes next question)
       const response = await this.generateAssistantResponse(transcript);
       if (response) {
         await this.enqueueSpeech(response);
-        this.turns.push({ role: 'assistant', content: response });
+        this.turns.push({ role: 'assistant', content: `${quickAck} ${response}` });
       }
 
-      if (this.pendingFollowUps.length > 0) {
-        await this.maybeAskNextQuestion();
-      } else if (this.shouldCloseConversation(transcript)) {
+      // Note: AI naturally incorporates questions into responses,
+      // so we don't call maybeAskNextQuestion() here to avoid duplication.
+      // Instead, we check if the conversation should close.
+      if (this.shouldCloseConversation(transcript)) {
+        await this.generateAndSpeakSummary();
         await this.enqueueSpeech('Thanks for calling. I\'ll send this through to the team right now. Talk soon!');
         this.tearDown('complete');
       }
@@ -415,16 +530,57 @@ class RealtimeCallHandler extends EventEmitter {
   }
 
   shouldCloseConversation(latestUserTranscript) {
-    if (this.pendingFollowUps.length > 0) {
+    // Only consider closing if we have enough information
+    // We need at least 3 user responses (reasonable conversation)
+    if (this.userTranscript.length < 3) {
       return false;
     }
 
+    // Check if user explicitly wants to end the call
     const lower = (latestUserTranscript || '').toLowerCase();
-    if (lower.includes('that\'s all') || lower.includes('thanks') || lower.includes('bye')) {
-      return true;
+    const explicitEnd = lower.includes('that\'s all') ||
+                        lower.includes('that is all') ||
+                        lower.includes('nothing else') ||
+                        lower.includes('no thanks') ||
+                        lower.includes('bye') ||
+                        lower.includes('goodbye') ||
+                        lower.includes('that\'s it');
+
+    // Only close if user explicitly confirms they're done
+    // This prevents premature hang-ups
+    return explicitEnd;
+  }
+
+  async generateAndSpeakSummary() {
+    // Generate a summary of what was captured during the call
+    if (!this.llmClient) {
+      return;
     }
 
-    return this.userTranscript.length >= this.followUpLimit + 1;
+    try {
+      const summaryPrompt = [
+        { role: 'system', content: 'You are Flynn, an AI receptionist. Summarize the key details captured from this call in one concise sentence. Format: "Perfect! Let me confirm: [service] in [location] on [date/time], contact number [phone]."' },
+        ...this.turns,
+        { role: 'user', content: 'Please summarize what you captured from this call.' },
+      ];
+
+      const completion = await this.llmClient.chat.completions.create({
+        model: this.session?.openaiModel || DEFAULT_RECEPTIONIST_MODEL,
+        messages: summaryPrompt,
+        temperature: 0.3,
+        max_tokens: 100,
+      });
+
+      const summary = normaliseChoiceContent(completion?.choices?.[0]);
+      if (summary && typeof summary === 'string') {
+        await this.enqueueSpeech(summary.trim());
+        this.turns.push({ role: 'assistant', content: summary.trim() });
+      }
+    } catch (error) {
+      console.error('[Realtime] Failed to generate summary.', { callSid: this.callSid, error });
+      // Fallback summary if AI fails
+      await this.enqueueSpeech('Perfect, I\'ve got all the details.');
+    }
   }
 
   async enqueueSpeech(text, { priority = false } = {}) {
@@ -500,24 +656,146 @@ class RealtimeCallHandler extends EventEmitter {
   }
 
   async textToSpeech(text) {
-    const apiKey = this.voiceConfig.apiKey;
+    if (!text || !this.ttsProviderPriority.length) {
+      console.error('[Realtime] No TTS providers configured.', { callSid: this.callSid });
+      return null;
+    }
+
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    for (const provider of this.ttsProviderPriority) {
+      const voiceId = this.resolveVoiceForProvider(provider);
+      if (!voiceId) {
+        console.warn('[Realtime] No voice configured for provider.', {
+          callSid: this.callSid,
+          provider,
+          voiceOption: this.session?.voiceOption,
+        });
+        continue;
+      }
+
+      const cacheKey = `${provider}:${voiceId}:${trimmed}`;
+      const cached = getCachedAudio(cacheKey, this.ttsCacheTtlMs);
+      if (cached) {
+        console.log('[Realtime] Using cached TTS audio.', {
+          callSid: this.callSid,
+          provider,
+          voiceId,
+        });
+        return cached;
+      }
+
+      let buffer = null;
+      if (provider === 'azure') {
+        buffer = await this.textToSpeechAzure(trimmed, voiceId);
+      } else if (provider === 'elevenlabs') {
+        buffer = await this.textToSpeechElevenLabs(trimmed, voiceId);
+      } else {
+        console.warn('[Realtime] Unknown TTS provider encountered.', { provider });
+        continue;
+      }
+
+      if (buffer && buffer.length) {
+        setCachedAudio(cacheKey, buffer, this.ttsCacheMaxEntries);
+        return buffer;
+      }
+
+      console.warn('[Realtime] TTS provider failed to generate audio; trying next provider.', {
+        callSid: this.callSid,
+        provider,
+        voiceId,
+      });
+    }
+
+    console.error('[Realtime] All configured TTS providers failed.', {
+      callSid: this.callSid,
+      providers: this.ttsProviderPriority,
+    });
+    return null;
+  }
+
+  async textToSpeechAzure(text, voiceName) {
+    const azure = this.voiceConfig?.azure || {};
+    if (!azure.key || !(azure.endpoint || azure.region)) {
+      console.error('[Realtime] Azure Speech credentials not configured.', { callSid: this.callSid });
+      return null;
+    }
+
+    const endpoint = azure.endpoint || `https://${azure.region}.tts.speech.microsoft.com/cognitiveservices/v1`;
+    const headers = {
+      'Ocp-Apim-Subscription-Key': azure.key,
+      'Content-Type': 'application/ssml+xml',
+      'X-Microsoft-OutputFormat': 'riff-8khz-8bit-mono-mulaw',
+      'User-Agent': 'FlynnAI-Telephony/1.0',
+    };
+
+    if (!azure.endpoint && azure.region) {
+      headers['Ocp-Apim-Subscription-Region'] = azure.region;
+    }
+
+    console.log('[Realtime] Generating Azure TTS audio.', {
+      callSid: this.callSid,
+      voiceName,
+      textLength: text.length,
+      textPreview: text.substring(0, 50),
+    });
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: buildSsml(text, voiceName),
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response.text();
+        console.error('[Realtime] Azure TTS failed.', {
+          callSid: this.callSid,
+          status: response.status,
+          body: errorPayload,
+        });
+        return null;
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      let buffer = Buffer.from(arrayBuffer);
+
+      const extracted = this.extractUlawFromWav(buffer);
+      if (extracted?.data) {
+        console.log('[Realtime] Extracted µ-law audio from Azure WAV response.', {
+          callSid: this.callSid,
+          sampleRate: extracted.sampleRate,
+          bitsPerSample: extracted.bitsPerSample,
+        });
+        buffer = extracted.data;
+      }
+
+      console.log('[Realtime] Azure TTS audio generated successfully.', {
+        callSid: this.callSid,
+        bufferSize: buffer.length,
+      });
+
+      return buffer;
+    } catch (error) {
+      console.error('[Realtime] Azure TTS request error.', { callSid: this.callSid, error });
+      return null;
+    }
+  }
+
+  async textToSpeechElevenLabs(text, voiceId) {
+    const config = this.voiceConfig?.elevenLabs || {};
+    const apiKey = config.apiKey;
     if (!apiKey) {
       console.error('[Realtime] ElevenLabs API key not configured.', { callSid: this.callSid });
       return null;
     }
 
-    const voiceId = this.resolveVoiceId();
-    if (!voiceId) {
-      console.error('[Realtime] Could not resolve voice ID for TTS.', {
-        callSid: this.callSid,
-        voiceOption: this.session?.voiceOption,
-      });
-      return null;
-    }
-
     const body = {
       text,
-      model_id: this.voiceConfig.modelId || 'eleven_multilingual_v2',
+      model_id: config.modelId || 'eleven_multilingual_v2',
       voice_settings: {
         stability: 0.45,
         similarity_boost: 0.85,
@@ -526,7 +804,7 @@ class RealtimeCallHandler extends EventEmitter {
       optimize_streaming_latency: 2,
     };
 
-    console.log('[Realtime] Generating TTS audio.', {
+    console.log('[Realtime] Generating ElevenLabs TTS audio.', {
       callSid: this.callSid,
       voiceId,
       textLength: text.length,
@@ -540,7 +818,6 @@ class RealtimeCallHandler extends EventEmitter {
         headers: {
           'xi-api-key': apiKey,
           'Content-Type': 'application/json',
-          // audio/basic is the standard MIME for PCMU (µ-law)
           Accept: 'audio/basic',
         },
         body: JSON.stringify(body),
@@ -553,17 +830,22 @@ class RealtimeCallHandler extends EventEmitter {
           status: response.status,
           body: errorPayload,
         });
+
+        if (response.status === 401 && errorPayload.includes('quota_exceeded')) {
+          console.warn('[Realtime] ElevenLabs quota exceeded. Continuing without TTS.', {
+            callSid: this.callSid,
+          });
+        }
+
         return null;
       }
 
       let contentType = response.headers?.get ? (response.headers.get('content-type') || '') : '';
-      console.log('[Realtime] ElevenLabs response headers.', { callSid: this.callSid, contentType });
       let arrayBuffer = await response.arrayBuffer();
       let buffer = Buffer.from(arrayBuffer);
 
-      // If the provider sent MP3 despite requesting µ-law, retry using the streaming endpoint
       if (/mpeg/i.test(contentType)) {
-        console.warn('[Realtime] ElevenLabs returned MP3; retrying with streaming endpoint for µ-law.', {
+        console.warn('[Realtime] ElevenLabs returned MP3; retrying streaming endpoint for µ-law.', {
           callSid: this.callSid,
           contentType,
         });
@@ -586,38 +868,32 @@ class RealtimeCallHandler extends EventEmitter {
             status: retry.status,
             body: retryText,
           });
+
+          if (retry.status === 401 && retryText.includes('quota_exceeded')) {
+            console.warn('[Realtime] ElevenLabs quota exceeded on retry. Skipping TTS.', {
+              callSid: this.callSid,
+            });
+          }
+
           return null;
         }
 
         contentType = retry.headers?.get ? (retry.headers.get('content-type') || '') : '';
-        console.log('[Realtime] ElevenLabs retry response headers.', { callSid: this.callSid, contentType });
         arrayBuffer = await retry.arrayBuffer();
         buffer = Buffer.from(arrayBuffer);
       }
 
-      // Detect WAV container (RIFF/WAVE) and extract raw µ-law audio if present.
-      const isRiff = buffer.length >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WAVE';
+      const isRiff = buffer.length >= 12
+        && buffer.toString('ascii', 0, 4) === 'RIFF'
+        && buffer.toString('ascii', 8, 12) === 'WAVE';
       if (isRiff) {
         const extracted = this.extractUlawFromWav(buffer);
         if (extracted && extracted.data) {
-          const { fmtEncoding, sampleRate, bitsPerSample } = extracted;
-          console.log('[Realtime] Extracted µ-law audio from WAV container.', {
-            callSid: this.callSid,
-            sampleRate,
-            bitsPerSample,
-            fmtEncoding,
-            rawSize: extracted.data.length,
-          });
           buffer = extracted.data;
-        } else {
-          console.warn('[Realtime] WAV detected but failed to extract µ-law payload; sending raw bytes.', {
-            callSid: this.callSid,
-            size: buffer.length,
-          });
         }
       }
 
-      console.log('[Realtime] TTS audio generated successfully.', {
+      console.log('[Realtime] ElevenLabs TTS audio generated successfully.', {
         callSid: this.callSid,
         bufferSize: buffer.length,
       });
@@ -626,6 +902,37 @@ class RealtimeCallHandler extends EventEmitter {
       console.error('[Realtime] ElevenLabs request error.', { callSid: this.callSid, error });
       return null;
     }
+  }
+
+  resolveVoiceForProvider(provider) {
+    const voiceOption = this.session?.voiceOption;
+    if (voiceOption === 'custom_voice' && this.session?.voiceId) {
+      return this.session.voiceId;
+    }
+
+    if (provider === 'azure') {
+      const azure = this.voiceConfig?.azure || {};
+      const presets = azure.presetVoices || this.voiceConfig?.presetVoices || {};
+      return (voiceOption && presets?.[voiceOption])
+        || azure.defaultVoice
+        || presets.koala_warm
+        || presets.koala_expert
+        || Object.values(presets).find(Boolean)
+        || azure.defaultVoice
+        || null;
+    }
+
+    if (provider === 'elevenlabs') {
+      const eleven = this.voiceConfig?.elevenLabs || {};
+      const presets = eleven.presetVoices || this.voiceConfig?.presetVoices || {};
+      return (voiceOption && presets?.[voiceOption])
+        || presets.koala_expert
+        || presets.koala_warm
+        || Object.values(presets).find(Boolean)
+        || null;
+    }
+
+    return null;
   }
 
   // Parse a simple RIFF/WAVE container and extract µ-law (format code 7) data chunk
@@ -676,22 +983,6 @@ class RealtimeCallHandler extends EventEmitter {
       console.warn('[Realtime] Failed parsing WAV container.', { callSid: this.callSid, err });
       return null;
     }
-  }
-
-  resolveVoiceId() {
-    if (this.session?.voiceOption === 'custom_voice' && this.session?.voiceId) {
-      return this.session.voiceId;
-    }
-
-    if (this.session?.voiceOption && this.voiceConfig?.presetVoices) {
-      const candidate = this.voiceConfig.presetVoices[this.session.voiceOption];
-      if (candidate) {
-        return candidate;
-      }
-    }
-
-    const presets = this.voiceConfig?.presetVoices || {};
-    return presets.koala_warm || presets.koala_expert || Object.values(presets)[0] || null;
   }
 
   async tearDown(reason) {
