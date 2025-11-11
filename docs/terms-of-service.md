@@ -53,10 +53,10 @@ These Terms of Service (“Terms”) govern your access to and use of the Flynn 
 - Any disputes will be resolved in the courts located in Melbourne, Victoria, unless applicable law requires otherwise.
 
 ## 12. Contact
-Flynn AI Pty Ltd  
-Level 3, 45 Exhibition Street  
-Melbourne VIC 3000, Australia  
-Email: support@flynnai.com  
-Phone: +61 3 9100 1234
+Atticus Jackson  
+11 Langside Road  
+Hamilton QLD 4007, Australia  
+Email: atticusjxn@gmail.com  
+Phone: +61 497 779 071
 
 If you have questions about these Terms, please contact us. Hosting this document at `https://flynnai.com/terms` satisfies the store requirement for a publicly accessible Terms of Service page.

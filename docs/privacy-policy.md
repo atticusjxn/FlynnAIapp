@@ -81,11 +81,11 @@ We store data primarily in the United States and may transfer it to other countr
 We may update this Privacy Policy from time to time. Material changes will be announced via email or in-app notice. Continued use after notice means you accept the revised policy.
 
 ## 11. Contact Us
-Flynn AI Pty Ltd  
-Level 3, 45 Exhibition Street  
-Melbourne VIC 3000, Australia  
-Email: privacy@flynnai.com  
-Phone: +61 3 9100 1234
+Atticus Jackson  
+11 Langside Road  
+Hamilton QLD 4007, Australia  
+Email: atticusjxn@gmail.com  
+Phone: +61 497 779 071
 
 ---
 Hosting this policy on `https://flynnai.com/privacy` (or an equivalent public URL) satisfies the App Store and Google Play requirement to provide a publicly accessible privacy statement.
