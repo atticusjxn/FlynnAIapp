@@ -142,13 +142,13 @@ const sections = [
     title: "11. Contact",
     content: (
       <div className="space-y-2 text-slate-600">
-        <p>Flynn AI Pty Ltd</p>
-        <p>Level 3, 45 Exhibition Street</p>
-        <p>Melbourne VIC 3000, Australia</p>
+        <p>Atticus Jackson</p>
+        <p>11 Langside Road</p>
+        <p>Hamilton QLD 4007, Australia</p>
         <p>
-          Email: <Link href="mailto:privacy@flynnai.com" className="text-indigo-600 underline">privacy@flynnai.com</Link>
+          Email: <Link href="mailto:atticusjxn@gmail.com" className="text-indigo-600 underline">atticusjxn@gmail.com</Link>
         </p>
-        <p>Phone: +61 3 9100 1234</p>
+        <p>Phone: +61 497 779 071</p>
       </div>
     ),
   },

@@ -88,11 +88,11 @@ const sections = [
   {
     title: "12. Contact",
     text: [
-      "Flynn AI Pty Ltd",
-      "Level 3, 45 Exhibition Street",
-      "Melbourne VIC 3000, Australia",
-      "Email: support@flynnai.com",
-      "Phone: +61 3 9100 1234",
+      "Atticus Jackson",
+      "11 Langside Road",
+      "Hamilton QLD 4007, Australia",
+      "Email: atticusjxn@gmail.com",
+      "Phone: +61 497 779 071",
     ],
   },
 ];
@@ -126,8 +126,8 @@ export default function TermsPage() {
         </div>
         <p className="text-sm text-slate-500">
           Questions? Email {" "}
-          <Link href="mailto:support@flynnai.com" className="text-indigo-600 underline">
-            support@flynnai.com
+          <Link href="mailto:atticusjxn@gmail.com" className="text-indigo-600 underline">
+            atticusjxn@gmail.com
           </Link>
           .
         </p>
