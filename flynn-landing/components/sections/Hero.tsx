@@ -17,7 +17,6 @@ export default function Hero() {
 
   // Parallax effects
   const phoneY = useTransform(scrollYProgress, [0, 1], [0, -50]);
-  const floatingY = useTransform(scrollYProgress, [0, 1], [0, -100]);
 
   return (
     <section

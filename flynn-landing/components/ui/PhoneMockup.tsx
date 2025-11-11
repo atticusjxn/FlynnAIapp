@@ -12,9 +12,9 @@ export default function PhoneMockup({ children, className = "" }: PhoneMockupPro
   return (
     <div className={`relative ${className}`}>
       {/* iPhone Frame */}
-      <div className="relative w-[280px] h-[570px] bg-gray-900 rounded-[3rem] p-3 shadow-2xl border-8 border-gray-900">
+      <div className="relative w-[220px] h-[450px] sm:w-[260px] sm:h-[520px] lg:w-[280px] lg:h-[570px] bg-gray-900 rounded-[3rem] p-2.5 sm:p-3 shadow-2xl border-8 border-gray-900">
         {/* Notch */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-gray-900 rounded-b-3xl z-10" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 sm:w-28 lg:w-32 h-6 lg:h-7 bg-gray-900 rounded-b-3xl z-10" />
 
         {/* Screen */}
         <div className="w-full h-full bg-gray-50 rounded-[2.5rem] overflow-hidden relative">
