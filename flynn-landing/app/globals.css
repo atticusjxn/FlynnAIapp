@@ -8,6 +8,7 @@
   --color-brand-blue: #1e40af;
   --color-navy: #1e293b;
   --color-charcoal: #334155;
+  --font-inter: "Inter", "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Neutral Grays */
   --color-gray-50: #f8fafc;

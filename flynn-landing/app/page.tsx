@@ -7,6 +7,7 @@ import IndustryGrid from "@/components/sections/IndustryGrid";
 import Pricing from "@/components/sections/Pricing";
 import FAQ from "@/components/sections/FAQ";
 import FinalCTA from "@/components/sections/FinalCTA";
+import Footer from "@/components/sections/Footer";
 
 export default function Home() {
   return (
@@ -20,6 +21,7 @@ export default function Home() {
       <Pricing />
       <FAQ />
       <FinalCTA />
+      <Footer />
     </main>
   );
 }
