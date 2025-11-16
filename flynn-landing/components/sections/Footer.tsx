@@ -4,7 +4,7 @@ const footerLinks = [
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
   { href: "/delete-account", label: "Delete account" },
-  { href: "mailto:support@flynnai.com", label: "Support" },
+  { href: "/support", label: "Support" },
 ];
 
 export default function Footer() {
