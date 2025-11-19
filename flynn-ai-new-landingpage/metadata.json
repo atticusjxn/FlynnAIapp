@@ -1,0 +1,7 @@
+{
+  "name": "Flynn AI",
+  "description": "A mobile-first AI receptionist for service-based small businesses that answers calls, captures details, and organizes job cards instantly.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
