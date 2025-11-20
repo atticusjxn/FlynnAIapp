@@ -17,6 +17,9 @@ export interface DashboardActivityMetadata {
   status?: string | null;
   channel?: string | null;
   amount?: number | null;
+  voicemailTranscript?: string | null;
+  voicemailRecordingUrl?: string | null;
+  callSid?: string | null;
 }
 
 export interface DashboardActivity {
@@ -63,7 +66,7 @@ export const fetchDashboardActivities = async (
   const [jobsRes, eventsRes, commsRes, callsRes] = await Promise.all([
     supabase
       .from('jobs')
-      .select('id, customer_name, customer_phone, service_type, status, created_at, updated_at')
+      .select('id, customer_name, customer_phone, service_type, status, created_at, updated_at, voicemail_transcript, voicemail_recording_url, call_sid')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(15),
@@ -81,13 +84,17 @@ export const fetchDashboardActivities = async (
       .limit(15),
     supabase
       .from('calls')
-      .select('id, call_sid, from_number, recorded_at, transcription_status, status')
+      .select('id, call_sid, from_number, recorded_at, transcription_status, status, recording_url, transcription_text')
       .eq('user_id', userId)
       .order('recorded_at', { ascending: false })
       .limit(15),
   ]);
 
   if (!jobsRes.error && jobsRes.data) {
+    const jobMetadataById = new Map(
+      jobsRes.data.map(job => [job.id, job]),
+    );
+
     for (const job of jobsRes.data) {
       const timestamp = job.updated_at ?? job.created_at ?? new Date().toISOString();
       const status = job.status ?? 'pending';
@@ -109,8 +116,26 @@ export const fetchDashboardActivities = async (
           clientPhone: job.customer_phone,
           jobId: job.id,
           status,
+          voicemailTranscript: job.voicemail_transcript ?? null,
+          voicemailRecordingUrl: job.voicemail_recording_url ?? null,
+          callSid: job.call_sid ?? null,
         },
       });
+    }
+
+    if (!eventsRes.error && eventsRes.data) {
+      for (const event of eventsRes.data) {
+        if (event.job_id) {
+          const matchedJob = jobMetadataById.get(event.job_id);
+          if (matchedJob) {
+            (event as any).__jobMetadata = {
+              voicemailTranscript: matchedJob.voicemail_transcript ?? null,
+              voicemailRecordingUrl: matchedJob.voicemail_recording_url ?? null,
+              callSid: matchedJob.call_sid ?? null,
+            };
+          }
+        }
+      }
     }
   }
 
@@ -118,6 +143,7 @@ export const fetchDashboardActivities = async (
     for (const event of eventsRes.data) {
       const occurredAt = event.created_at ?? event.start_time ?? new Date().toISOString();
       const clientRelation = Array.isArray(event.clients) ? event.clients[0] : (event as any).clients;
+      const jobMetadata = (event as any).__jobMetadata ?? null;
       activities.push({
         id: `event_${event.id}`,
         type: 'calendar_synced',
@@ -130,6 +156,9 @@ export const fetchDashboardActivities = async (
           clientPhone: clientRelation?.phone,
           jobId: event.job_id,
           platform: 'Calendar',
+          voicemailTranscript: jobMetadata?.voicemailTranscript ?? null,
+          voicemailRecordingUrl: jobMetadata?.voicemailRecordingUrl ?? null,
+          callSid: jobMetadata?.callSid ?? null,
         },
       });
     }
@@ -161,6 +190,7 @@ export const fetchDashboardActivities = async (
   if (!callsRes.error && callsRes.data) {
     for (const call of callsRes.data) {
       if (!call.recorded_at) continue;
+      const transcript = (call as any).transcription_text ?? null;
       activities.push({
         id: `call_${call.id ?? call.call_sid}`,
         type: 'call_recorded',
@@ -171,6 +201,9 @@ export const fetchDashboardActivities = async (
         metadata: {
           clientPhone: call.from_number,
           status: call.transcription_status ?? call.status ?? undefined,
+          voicemailTranscript: transcript,
+          voicemailRecordingUrl: call.recording_url ?? null,
+          callSid: call.call_sid ?? null,
         },
       });
     }

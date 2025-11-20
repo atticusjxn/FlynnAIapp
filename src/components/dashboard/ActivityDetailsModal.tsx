@@ -186,6 +186,47 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
     );
   };
 
+  const renderVoicemailPreview = () => {
+    const transcript = activity.metadata?.voicemailTranscript;
+    const recordingUrl = activity.metadata?.voicemailRecordingUrl;
+
+    if (!transcript && !recordingUrl) {
+      return null;
+    }
+
+    const handlePlay = () => {
+      if (!recordingUrl) return;
+      Linking.openURL(recordingUrl).catch(() => {
+        Alert.alert('Playback unavailable', 'Could not open the voicemail audio. Try again later.');
+      });
+    };
+
+    return (
+      <View style={styles.voicemailSection}>
+        <Text style={styles.sectionTitle}>Voicemail</Text>
+        {transcript ? (
+          <Text style={styles.voicemailTranscript}>
+            “{transcript.trim()}”
+          </Text>
+        ) : (
+          <Text style={styles.voicemailPlaceholder}>
+            Transcript not available yet. We’ll surface it as soon as processing finishes.
+          </Text>
+        )}
+        {recordingUrl && (
+          <TouchableOpacity
+            style={[styles.voicemailButton, { backgroundColor: colors.primary + '12' }]}
+            onPress={handlePlay}
+            activeOpacity={0.7}
+          >
+            <FlynnIcon name="play-outline" size={16} color={colors.primary} />
+            <Text style={[styles.voicemailButtonText, { color: colors.primary }]}>Listen to recording</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   return (
     <Modal
       visible={visible}
@@ -229,6 +270,9 @@ export const ActivityDetailsModal: React.FC<ActivityDetailsModalProps> = ({
 
             {/* Metadata */}
             {renderActivityMetadata()}
+
+            {/* Voicemail preview */}
+            {renderVoicemailPreview()}
 
             {/* Action Buttons */}
             {renderActionButtons()}
@@ -429,5 +473,37 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.textSecondary,
     lineHeight: 22,
+  },
+
+  voicemailSection: {
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+
+  voicemailTranscript: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 22,
+  },
+
+  voicemailPlaceholder: {
+    ...typography.bodySmall,
+    color: colors.textTertiary,
+  },
+
+  voicemailButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+
+  voicemailButtonText: {
+    ...typography.bodySmall,
+    fontWeight: '600',
   },
 });
