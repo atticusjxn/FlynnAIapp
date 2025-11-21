@@ -78,6 +78,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   || process.env.SUPABASE_KEY
   || process.env.SUPABASE_SECRET;
 const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
+const googlePlacesApiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
 const receptionistEnabledGlobally = process.env.ENABLE_CONVERSATION_ORCHESTRATOR !== 'false';
 const maxQuestionsPerTurn = Number.parseInt(process.env.MAX_QUESTIONS_PER_TURN ?? '1', 10);
 const minAckVariety = Number.parseInt(process.env.MIN_ACK_VARIETY ?? '3', 10);
@@ -484,6 +485,130 @@ app.use(express.json());
 // Health check endpoint for Railway
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+const buildGooglePhotoUrl = (photoReference, maxWidth = 400) => {
+  if (!photoReference || !googlePlacesApiKey) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    photoreference: photoReference,
+    maxwidth: String(maxWidth),
+    key: googlePlacesApiKey,
+  });
+
+  return `https://maps.googleapis.com/maps/api/place/photo?${params.toString()}`;
+};
+
+const fetchGooglePlacesJson = async (url, label) => {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`[Google Places] ${label} request failed: ${response.status} ${errorText}`);
+  }
+
+  const json = await response.json();
+  if (json.status && json.status !== 'OK' && json.status !== 'ZERO_RESULTS') {
+    throw new Error(`[Google Places] ${label} status not OK: ${json.status}`);
+  }
+
+  return json;
+};
+
+app.get('/business/search', authenticateJwt, async (req, res) => {
+  const query = (req.query.q || '').toString().trim();
+  const location = (req.query.location || '').toString().trim();
+
+  if (!googlePlacesApiKey) {
+    return res.status(500).json({ error: 'Google Places API key not configured.' });
+  }
+
+  if (!query) {
+    return res.status(400).json({ error: 'Query parameter "q" is required.' });
+  }
+
+  const params = new URLSearchParams({ query, key: googlePlacesApiKey });
+  if (location) {
+    params.set('location', location);
+    params.set('radius', '50000');
+  }
+
+  const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?${params.toString()}`;
+
+  try {
+    const json = await fetchGooglePlacesJson(url, 'textsearch');
+    const results = Array.isArray(json.results)
+      ? json.results.slice(0, 6).map((result) => ({
+        placeId: result.place_id,
+        name: result.name,
+        formattedAddress: result.formatted_address || result.vicinity || '',
+        rating: result.rating ?? null,
+        userRatingsTotal: result.user_ratings_total ?? null,
+        photoUrl: Array.isArray(result.photos) && result.photos[0]?.photo_reference
+          ? buildGooglePhotoUrl(result.photos[0].photo_reference, 600)
+          : null,
+      }))
+      : [];
+
+    res.json({ results });
+  } catch (error) {
+    console.error('[Business] Search failed', error);
+    res.status(500).json({ error: 'Failed to search businesses. Please try again.' });
+  }
+});
+
+app.get('/business/details', authenticateJwt, async (req, res) => {
+  const placeId = (req.query.placeId || '').toString().trim();
+
+  if (!googlePlacesApiKey) {
+    return res.status(500).json({ error: 'Google Places API key not configured.' });
+  }
+
+  if (!placeId) {
+    return res.status(400).json({ error: 'placeId query parameter is required.' });
+  }
+
+  const params = new URLSearchParams({
+    place_id: placeId,
+    key: googlePlacesApiKey,
+    fields:
+      'name,formatted_address,formatted_phone_number,international_phone_number,website,url,types,rating,user_ratings_total,photos,opening_hours,editorial_summary,business_status',
+  });
+
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?${params.toString()}`;
+
+  try {
+    const json = await fetchGooglePlacesJson(url, 'details');
+    const place = json.result || {};
+
+    const primaryPhoto = Array.isArray(place.photos) && place.photos[0]?.photo_reference
+      ? buildGooglePhotoUrl(place.photos[0].photo_reference, 900)
+      : null;
+
+    const profile = {
+      placeId,
+      name: place.name,
+      formattedAddress: place.formatted_address || '',
+      phoneNumber: place.international_phone_number || place.formatted_phone_number || null,
+      website: place.website || null,
+      rating: place.rating ?? null,
+      userRatingsTotal: place.user_ratings_total ?? null,
+      mapUrl: place.url || null,
+      photoUrl: primaryPhoto,
+      types: place.types || [],
+      openingHours: place.opening_hours?.weekday_text || [],
+      description: place.editorial_summary?.overview || null,
+      businessStatus: place.business_status || null,
+      source: 'google_places',
+    };
+
+    res.json({ profile });
+  } catch (error) {
+    console.error('[Business] Details lookup failed', error);
+    res.status(500).json({ error: 'Failed to load business details. Please try again.' });
+  }
 });
 
 const JOB_STATUS_VALUES = new Set(['new', 'in_progress', 'completed']);

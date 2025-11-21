@@ -22,6 +22,10 @@ import { spacing, typography, borderRadius } from '../theme';
 import ReceptionistService, { VoiceProfile } from '../services/ReceptionistService';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
+import BusinessProfileService, {
+  BusinessProfile,
+  BusinessSearchResult,
+} from '../services/BusinessProfileService';
 
 const KOALA_ANIMATION = require('../../assets/images/koala3s.gif');
 const KOALA_STATIC = require('../../assets/images/icon.png');
@@ -96,6 +100,15 @@ export const ReceptionistScreen: React.FC = () => {
     const source = existing && existing.length > 0 ? existing : DEFAULT_FOLLOW_UP_QUESTIONS;
     return source.map(question => question);
   });
+  const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(
+    onboardingData.receptionistBusinessProfile || null
+  );
+  const [businessQuery, setBusinessQuery] = useState('');
+  const [businessLocationHint, setBusinessLocationHint] = useState('');
+  const [businessResults, setBusinessResults] = useState<BusinessSearchResult[]>([]);
+  const [businessSearchLoading, setBusinessSearchLoading] = useState(false);
+  const [businessDetailsLoading, setBusinessDetailsLoading] = useState(false);
+  const [businessSearchError, setBusinessSearchError] = useState<string | null>(null);
   const [activeTemplateId, setActiveTemplateId] = useState<string>(() => {
     const existing = onboardingData.receptionistQuestions;
     const source = existing && existing.length > 0 ? existing : DEFAULT_FOLLOW_UP_QUESTIONS;
@@ -171,12 +184,18 @@ export const ReceptionistScreen: React.FC = () => {
     if (onboardingData.receptionistVoiceProfileId) {
       setActiveVoiceProfileId(onboardingData.receptionistVoiceProfileId);
     }
+    if (onboardingData.receptionistBusinessProfile) {
+      setBusinessProfile(onboardingData.receptionistBusinessProfile);
+    } else {
+      setBusinessProfile(null);
+    }
   }, [
     defaultGreeting,
     onboardingData.receptionistVoice,
     onboardingData.receptionistGreeting,
     onboardingData.receptionistQuestions,
     onboardingData.receptionistVoiceProfileId,
+    onboardingData.receptionistBusinessProfile,
   ]);
 
   const refreshVoiceProfiles = useCallback(async () => {
@@ -297,6 +316,65 @@ export const ReceptionistScreen: React.FC = () => {
     }, 4000);
   }, []);
 
+  const handleSearchBusiness = useCallback(async () => {
+    const trimmedQuery = businessQuery.trim();
+    if (!trimmedQuery) {
+      setBusinessSearchError('Enter a business name or website to search.');
+      return;
+    }
+
+    setBusinessSearchLoading(true);
+    setBusinessSearchError(null);
+
+    try {
+      const results = await BusinessProfileService.searchBusinesses(
+        trimmedQuery,
+        businessLocationHint.trim() || undefined
+      );
+      setBusinessResults(results);
+
+      if (!results.length) {
+        setBusinessSearchError('No matches found. Try adding a city or postcode.');
+      }
+    } catch (error) {
+      console.error('[ReceptionistScreen] Business search failed', error);
+      setBusinessSearchError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to search for businesses right now. Please try again.'
+      );
+    } finally {
+      setBusinessSearchLoading(false);
+    }
+  }, [businessLocationHint, businessQuery]);
+
+  const handleSelectBusiness = useCallback(
+    async (placeId: string) => {
+      setBusinessDetailsLoading(true);
+      try {
+        const profile = await BusinessProfileService.getBusinessDetails(placeId);
+        setBusinessProfile(profile);
+        updateOnboardingData({ receptionistBusinessProfile: profile });
+        showToast('Business profile synced. Flynn will use this context on calls.', 'success');
+      } catch (error) {
+        console.error('[ReceptionistScreen] Failed to load business details', error);
+        showToast(
+          error instanceof Error ? error.message : 'Unable to load that business right now.',
+          'error'
+        );
+      } finally {
+        setBusinessDetailsLoading(false);
+      }
+    },
+    [showToast, updateOnboardingData]
+  );
+
+  const handleClearBusinessProfile = useCallback(() => {
+    setBusinessProfile(null);
+    setBusinessResults([]);
+    updateOnboardingData({ receptionistBusinessProfile: null });
+  }, [updateOnboardingData]);
+
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
@@ -308,6 +386,7 @@ export const ReceptionistScreen: React.FC = () => {
         greeting,
         questions,
         voiceProfileId,
+        businessProfile,
         configured: true,
       });
 
@@ -317,6 +396,7 @@ export const ReceptionistScreen: React.FC = () => {
         receptionistGreeting: greeting,
         receptionistQuestions: questions,
         receptionistVoiceProfileId: voiceProfileId,
+        receptionistBusinessProfile: businessProfile,
       });
       showToast('Receptionist settings saved. Flynn will use the new script on the next call.', 'success');
     } catch (error) {
@@ -656,6 +736,114 @@ export const ReceptionistScreen: React.FC = () => {
             </View>
           )}
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Search your business</Text>
+        <Text style={styles.cardHint}>
+          Pull your Google listing so Flynn knows your services, address, and website when talking to callers.
+        </Text>
+        <FlynnInput
+          value={businessQuery}
+          onChangeText={setBusinessQuery}
+          placeholder="Business name or website"
+          leftIcon={<FlynnIcon name="search" size={18} color="#64748b" />}
+          containerStyle={styles.inlineInput}
+        />
+        <FlynnInput
+          value={businessLocationHint}
+          onChangeText={setBusinessLocationHint}
+          placeholder="City, suburb, or postcode (optional)"
+          leftIcon={<FlynnIcon name="pin" size={18} color="#64748b" />}
+          helperText="Adding a location makes results more precise."
+          containerStyle={styles.inlineInput}
+        />
+        <View style={styles.businessSearchActions}>
+          <FlynnButton
+            title={businessSearchLoading ? 'Searching…' : 'Search Google'}
+            onPress={handleSearchBusiness}
+            variant="secondary"
+            size="small"
+            disabled={businessSearchLoading}
+            icon={<FlynnIcon name="sparkles" size={18} color="#2563eb" />}
+          />
+          {businessProfile && (
+            <TouchableOpacity
+              onPress={handleClearBusinessProfile}
+              style={styles.clearBusinessButton}
+              activeOpacity={0.8}
+            >
+              <FlynnIcon name="close" size={16} color="#dc2626" />
+              <Text style={styles.clearBusinessLabel}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {businessSearchError && <Text style={styles.errorText}>{businessSearchError}</Text>}
+        {businessResults.map(result => (
+          <TouchableOpacity
+            key={result.placeId}
+            style={styles.businessResult}
+            onPress={() => handleSelectBusiness(result.placeId)}
+            activeOpacity={0.85}
+            disabled={businessDetailsLoading}
+          >
+            {result.photoUrl ? (
+              <Image source={{ uri: result.photoUrl }} style={styles.businessResultImage} />
+            ) : (
+              <View style={styles.businessResultPlaceholder}>
+                <FlynnIcon name="storefront" size={22} color="#64748b" />
+              </View>
+            )}
+            <View style={styles.businessResultContent}>
+              <Text style={styles.businessResultName}>{result.name}</Text>
+              <Text style={styles.businessResultAddress}>{result.formattedAddress}</Text>
+              {(result.rating || result.userRatingsTotal) && (
+                <Text style={styles.businessResultMeta}>
+                  {result.rating ? `${result.rating.toFixed(1)} ★` : 'Rating pending'} •
+                  {` ${result.userRatingsTotal ?? 0} reviews`}
+                </Text>
+              )}
+              <Text style={styles.businessResultCta}>
+                {businessDetailsLoading ? 'Loading profile…' : 'Use this business profile'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+
+        {businessProfile && (
+          <View style={styles.businessSummary}>
+            {businessProfile.photoUrl ? (
+              <Image source={{ uri: businessProfile.photoUrl }} style={styles.businessSummaryImage} />
+            ) : (
+              <View style={styles.businessSummaryPlaceholder}>
+                <FlynnIcon name="storefront" size={30} color="#2563eb" />
+              </View>
+            )}
+            <View style={styles.businessSummaryBody}>
+              <Text style={styles.businessSummaryName}>{businessProfile.name}</Text>
+              <Text style={styles.businessSummaryAddress}>{businessProfile.formattedAddress}</Text>
+              <Text style={styles.businessSummaryMeta}>
+                {businessProfile.website || 'Website not provided'} •{' '}
+                {businessProfile.phoneNumber || 'Phone unavailable'}
+              </Text>
+              {businessProfile.description ? (
+                <Text style={styles.businessSummaryDescription}>{businessProfile.description}</Text>
+              ) : null}
+              <View style={styles.businessSummaryTags}>
+                <View style={styles.businessTag}>
+                  <FlynnIcon name="shield-checkmark" size={14} color="#10B981" />
+                  <Text style={styles.businessTagText}>Synced to AI receptionist</Text>
+                </View>
+                {businessProfile.rating ? (
+                  <View style={styles.businessTag}>
+                    <FlynnIcon name="star" size={14} color="#f59e0b" />
+                    <Text style={styles.businessTagText}>{`${businessProfile.rating.toFixed(1)} rating`}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={styles.card}>
@@ -1104,6 +1292,152 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: '#64748b',
     marginBottom: spacing.md,
+  },
+  errorText: {
+    ...typography.caption,
+    color: '#b91c1c',
+    marginBottom: spacing.sm,
+  },
+  inlineInput: {
+    marginBottom: spacing.sm,
+  },
+  businessSearchActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  clearBusinessButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxxs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+  },
+  clearBusinessLabel: {
+    ...typography.bodySmall,
+    color: '#dc2626',
+    fontWeight: '600',
+  },
+  businessResult: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: '#f8fafc',
+  },
+  businessResultImage: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.md,
+  },
+  businessResultPlaceholder: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.md,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  businessResultContent: {
+    flex: 1,
+    gap: spacing.xxxs,
+  },
+  businessResultName: {
+    ...typography.bodyLarge,
+    color: '#0f172a',
+    fontWeight: '700',
+  },
+  businessResultAddress: {
+    ...typography.bodySmall,
+    color: '#475569',
+  },
+  businessResultMeta: {
+    ...typography.caption,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  businessResultCta: {
+    ...typography.caption,
+    color: '#2563eb',
+    fontWeight: '700',
+    marginTop: spacing.xxxs,
+  },
+  businessSummary: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+    backgroundColor: '#eef2ff',
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+  },
+  businessSummaryImage: {
+    width: 96,
+    height: 96,
+    borderRadius: borderRadius.lg,
+  },
+  businessSummaryPlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: borderRadius.lg,
+    backgroundColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  businessSummaryBody: {
+    flex: 1,
+    gap: spacing.xxxs,
+  },
+  businessSummaryName: {
+    ...typography.bodyLarge,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  businessSummaryAddress: {
+    ...typography.bodySmall,
+    color: '#334155',
+  },
+  businessSummaryMeta: {
+    ...typography.caption,
+    color: '#475569',
+  },
+  businessSummaryDescription: {
+    ...typography.bodySmall,
+    color: '#0f172a',
+    marginTop: spacing.xxxs,
+  },
+  businessSummaryTags: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  businessTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxxs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: '#ecfeff',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  businessTagText: {
+    ...typography.caption,
+    color: '#0ea5e9',
+    fontWeight: '700',
   },
   sectionLabel: {
     ...typography.caption,
