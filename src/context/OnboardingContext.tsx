@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuth } from './AuthContext';
+import { BusinessProfile } from '../services/BusinessProfileService';
 
 export interface BusinessGoal {
   id: string;
@@ -17,6 +18,7 @@ export interface OnboardingData {
   receptionistGreeting?: string | null;
   receptionistQuestions?: string[];
   receptionistVoiceProfileId?: string | null;
+  receptionistBusinessProfile?: BusinessProfile | null;
   twilioPhoneNumber?: string | null;
   phoneNumber?: string | null;
 }
@@ -39,6 +41,7 @@ const defaultOnboardingData: OnboardingData = {
   receptionistGreeting: null,
   receptionistQuestions: [],
   receptionistVoiceProfileId: null,
+  receptionistBusinessProfile: null,
   twilioPhoneNumber: null,
   phoneNumber: null,
 };
@@ -105,7 +108,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('business_type, onboarding_complete, business_goals, phone_setup_complete, receptionist_configured, twilio_phone_number, phone_number, receptionist_voice, receptionist_greeting, receptionist_questions, receptionist_voice_profile_id')
+        .select('business_type, onboarding_complete, business_goals, phone_setup_complete, receptionist_configured, twilio_phone_number, phone_number, receptionist_voice, receptionist_greeting, receptionist_questions, receptionist_voice_profile_id, receptionist_business_profile')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -134,6 +137,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         receptionistGreeting: data.receptionist_greeting || null,
         receptionistQuestions: data.receptionist_questions ? (Array.isArray(data.receptionist_questions) ? data.receptionist_questions : []) : [],
         receptionistVoiceProfileId: data.receptionist_voice_profile_id || null,
+        receptionistBusinessProfile: data.receptionist_business_profile || null,
         twilioPhoneNumber: data.twilio_phone_number || null,
         phoneNumber: data.phone_number || null,
       });
@@ -165,6 +169,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           receptionist_greeting: onboardingData.receptionistGreeting,
           receptionist_questions: onboardingData.receptionistQuestions ?? [],
           receptionist_voice_profile_id: onboardingData.receptionistVoiceProfileId ?? null,
+          receptionist_business_profile: onboardingData.receptionistBusinessProfile ?? null,
           onboarding_complete: true,
         })
         .eq('id', user.id);

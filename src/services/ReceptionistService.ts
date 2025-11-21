@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { apiRequest } from './apiClient';
 import { Buffer } from 'buffer';
 import { File } from 'expo-file-system';
+import { BusinessProfile } from './BusinessProfileService';
 
 const VOICE_BUCKET = 'voice-profiles';
 
@@ -18,6 +19,7 @@ export interface ReceptionistPreferences {
   greeting: string | null;
   questions: string[];
   voiceProfileId?: string | null;
+  businessProfile?: BusinessProfile | null;
   configured?: boolean;
 }
 
@@ -57,6 +59,7 @@ export const ReceptionistService = {
       receptionist_greeting: preferences.greeting,
       receptionist_questions: normalizeQuestions(preferences.questions),
       receptionist_voice_profile_id: preferences.voiceProfileId ?? null,
+      receptionist_business_profile: preferences.businessProfile ?? null,
       receptionist_configured: preferences.configured ?? true,
       updated_at: new Date().toISOString(),
     };
