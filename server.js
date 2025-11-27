@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const http = require('http');
 const WebSocket = require('ws');
 const { randomUUID } = require('crypto');
+const Stripe = require('stripe');
 const OpenAI = require('openai');
 const { toFile } = require('openai');
 let createDeepgramClient;
@@ -37,6 +38,7 @@ const {
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,
   getReceptionistProfileByNumber,
+  recordCallEvent,
 } = require('./supabaseMcpClient');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 
@@ -73,6 +75,10 @@ const shouldValidateSignature = process.env.TWILIO_VALIDATE_SIGNATURE !== 'false
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const twilioMessagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 const twilioSmsFromNumber = process.env.TWILIO_SMS_FROM_NUMBER || process.env.TWILIO_FROM_NUMBER;
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const stripeBasicPriceId = process.env.STRIPE_BASIC_PRICE_ID;
+const stripeGrowthPriceId = process.env.STRIPE_GROWTH_PRICE_ID;
 const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   || process.env.SUPABASE_KEY
@@ -107,6 +113,226 @@ const supabaseClientOptions = {
 const supabaseStorageClient = supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, supabaseClientOptions)
   : null;
+
+const deleteUserData = async (userId) => {
+  if (!supabaseStorageClient) {
+    throw new Error('Supabase client not configured for account deletion');
+  }
+
+  const tablesWithUserId = [
+    'notification_tokens',
+    'voice_profiles',
+    'calls',
+    'transcriptions',
+    'call_events',
+    'receptionist_configs',
+    'call_flows',
+    'phone_numbers',
+    'business_profiles',
+    'website_ingests',
+    'onboarding_sessions',
+    'jobs',
+  ];
+
+  for (const table of tablesWithUserId) {
+    const { error } = await supabaseStorageClient.from(table).delete().eq('user_id', userId);
+    if (error) {
+      console.warn('[AccountDeletion] Failed to purge table', { table, userId, error });
+    }
+  }
+
+  const { error: profileError } = await supabaseStorageClient.from('users').delete().eq('id', userId);
+  if (profileError) {
+    console.warn('[AccountDeletion] Failed to delete user profile row', { userId, error: profileError });
+  }
+
+  if (supabaseStorageClient.auth?.admin?.deleteUser) {
+    try {
+      await supabaseStorageClient.auth.admin.deleteUser(userId);
+    } catch (error) {
+      console.error('[AccountDeletion] Failed to delete auth user', { userId, error });
+      throw error;
+    }
+  }
+};
+
+const stripeClient = stripeSecretKey
+  ? new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' })
+  : null;
+
+const planPriceMapping = {};
+if (stripeBasicPriceId) {
+  planPriceMapping[stripeBasicPriceId] = 'concierge_basic';
+}
+if (stripeGrowthPriceId) {
+  planPriceMapping[stripeGrowthPriceId] = 'concierge_growth';
+}
+
+const knownPlanIds = new Set(['concierge_basic', 'concierge_growth']);
+
+const resolvePlanFromPriceId = (priceId) => {
+  if (!priceId) {
+    return null;
+  }
+  return planPriceMapping[priceId] || null;
+};
+
+const normalizePlanId = (planId) => {
+  if (!planId) {
+    return null;
+  }
+  return knownPlanIds.has(planId) ? planId : null;
+};
+
+const updateOrganizationPlanById = async (orgId, planId) => {
+  if (!supabaseStorageClient) {
+    console.warn('[Billing] Supabase client unavailable; cannot update plan.');
+    return false;
+  }
+
+  try {
+    const { data, error } = await supabaseStorageClient
+      .from('organizations')
+      .update({ plan: planId, status: 'active' })
+      .eq('id', orgId)
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Billing] Failed to update organization plan', { orgId, planId, error });
+      return false;
+    }
+
+    if (!data) {
+      console.warn('[Billing] Organization not found for plan update', { orgId });
+      return false;
+    }
+
+    console.log('[Billing] Updated organization plan', { orgId, planId });
+    return true;
+  } catch (error) {
+    console.error('[Billing] Unexpected error updating organization plan', { orgId, planId, error });
+    return false;
+  }
+};
+
+const updateOrganizationPlanByEmail = async (email, planId) => {
+  if (!supabaseStorageClient) {
+    console.warn('[Billing] Supabase client unavailable; cannot update plan by email.');
+    return false;
+  }
+
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  if (!normalizedEmail) {
+    return false;
+  }
+
+  try {
+    const { data: userRow, error } = await supabaseStorageClient
+      .from('users')
+      .select('default_org_id')
+      .ilike('email', normalizedEmail)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Billing] Failed to lookup user for email', { email: normalizedEmail, error });
+      return false;
+    }
+
+    if (!userRow?.default_org_id) {
+      console.warn('[Billing] No default organization found for user email', { email: normalizedEmail });
+      return false;
+    }
+
+    return updateOrganizationPlanById(userRow.default_org_id, planId);
+  } catch (error) {
+    console.error('[Billing] Unexpected error resolving user by email', { email: normalizedEmail, error });
+    return false;
+  }
+};
+
+const applyPlanToOrganizationContext = async ({ orgId, email, planId }) => {
+  const normalizedPlan = normalizePlanId(planId);
+  if (!normalizedPlan) {
+    console.warn('[Billing] Attempted to apply unknown plan', { planId });
+    return;
+  }
+
+  let updated = false;
+  if (orgId) {
+    updated = await updateOrganizationPlanById(orgId, normalizedPlan);
+  }
+
+  if (!updated && email) {
+    updated = await updateOrganizationPlanByEmail(email, normalizedPlan);
+  }
+
+  if (!updated) {
+    console.warn('[Billing] Unable to map Stripe payment to organization', { orgId, email, planId: normalizedPlan });
+  }
+};
+
+const resolvePlanFromCheckoutSession = async (session) => {
+  const metadataPlan = normalizePlanId(session?.metadata?.planId || session?.metadata?.plan || null);
+  if (metadataPlan) {
+    return metadataPlan;
+  }
+
+  const fallback = resolvePlanFromPriceId(session?.metadata?.priceId);
+  if (fallback) {
+    return fallback;
+  }
+
+  if (!stripeClient) {
+    return null;
+  }
+
+  try {
+    const expandedSession = await stripeClient.checkout.sessions.retrieve(session.id, {
+      expand: ['line_items.data.price'],
+    });
+
+    const lineItems = expandedSession?.line_items?.data ?? [];
+    for (const item of lineItems) {
+      const priceId = item?.price?.id;
+      const planId = resolvePlanFromPriceId(priceId);
+      if (planId) {
+        return planId;
+      }
+    }
+  } catch (error) {
+    console.error('[Billing] Failed to expand checkout session for plan resolution', { sessionId: session?.id, error });
+  }
+
+  return null;
+};
+
+const handleCheckoutSessionCompleted = async (session) => {
+  const planId = await resolvePlanFromCheckoutSession(session);
+  if (!planId) {
+    console.warn('[Billing] Checkout completed without recognised plan', { sessionId: session?.id });
+    return;
+  }
+
+  const orgId = session?.client_reference_id || session?.metadata?.organizationId || null;
+  const email = (session?.customer_details?.email || session?.customer_email || '').toLowerCase();
+
+  await applyPlanToOrganizationContext({
+    orgId,
+    email,
+    planId,
+  });
+};
+
+const handleStripeWebhookEvent = async (event) => {
+  switch (event.type) {
+    case 'checkout.session.completed':
+      await handleCheckoutSessionCompleted(event.data.object);
+      break;
+    default:
+      break;
+  }
+};
 
 if (!twilioAccountSid || !twilioAuthToken) {
   console.warn('[Telephony] Twilio credentials are incomplete; recording downloads will fail until configured.');
@@ -426,6 +652,13 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, transcript,
     return;
   }
 
+  let callContext = null;
+  try {
+    callContext = await getCallBySid(callSid);
+  } catch (error) {
+    console.warn('[Realtime] Unable to load call context for event logging.', { callSid, error });
+  }
+
   try {
     const existingTranscript = await getTranscriptByCallSid(callSid);
 
@@ -462,6 +695,18 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, transcript,
       }
     }
 
+    await logCallEvent({
+      orgId: callContext?.org_id || null,
+      callSid,
+      eventType: 'call_completed',
+      direction: 'inbound',
+      payload: {
+        reason,
+        turnCount: Array.isArray(turns) ? turns.length : 0,
+        transcriptLength: transcript ? transcript.length : 0,
+      },
+    });
+
     // Explicitly end the live call to avoid lingering streams once we finish
     if (twilioMessagingClient && callSid) {
       try {
@@ -478,8 +723,306 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, transcript,
   }
 };
 
+if (stripeClient && stripeWebhookSecret) {
+  app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    const signature = req.headers['stripe-signature'];
+
+    let event;
+    try {
+      event = stripeClient.webhooks.constructEvent(req.body, signature, stripeWebhookSecret);
+    } catch (error) {
+      console.error('[Stripe] Webhook signature verification failed', error);
+      return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+
+    try {
+      await handleStripeWebhookEvent(event);
+      return res.status(200).json({ received: true });
+    } catch (error) {
+      console.error('[Stripe] Failed processing webhook event', error);
+      return res.status(500).json({ error: 'Webhook handler error' });
+    }
+  });
+} else {
+  app.post('/stripe/webhook', (req, res) => {
+    res.status(501).json({ error: 'Stripe webhook not configured' });
+  });
+}
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+// ========================================
+// Jobber Integration OAuth Endpoints
+// ========================================
+
+const JOBBER_CLIENT_ID = process.env.EXPO_PUBLIC_JOBBER_CLIENT_ID;
+const JOBBER_CLIENT_SECRET = process.env.JOBBER_CLIENT_SECRET;
+const JOBBER_REDIRECT_URI = process.env.EXPO_PUBLIC_JOBBER_REDIRECT_URI || 'https://flynnai-telephony.fly.dev/integrations/jobber/callback';
+const JOBBER_TOKEN_URL = 'https://api.getjobber.com/api/oauth/token';
+const JOBBER_API_BASE = 'https://api.getjobber.com/api/graphql';
+
+/**
+ * Jobber OAuth Callback
+ * Handles the redirect from Jobber after user authorizes the app
+ */
+app.get('/integrations/jobber/callback', async (req, res) => {
+  const { code, state, error, error_description } = req.query;
+
+  console.log('[Jobber OAuth] Callback received:', {
+    hasCode: !!code,
+    state,
+    error,
+    error_description
+  });
+
+  // Handle authorization errors
+  if (error) {
+    console.error('[Jobber OAuth] Authorization error:', error, error_description);
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Jobber Connection Failed</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                   padding: 40px; text-align: center; background: #f5f5f5; }
+            .container { max-width: 500px; margin: 0 auto; background: white;
+                        padding: 40px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+            h1 { color: #ef4444; font-size: 24px; margin-bottom: 16px; }
+            p { color: #64748b; line-height: 1.6; }
+            .error { background: #fee2e2; padding: 16px; border-radius: 8px; margin: 20px 0; }
+            .error-code { font-family: monospace; color: #991b1b; }
+            a { color: #2563eb; text-decoration: none; font-weight: 500; }
+            a:hover { text-decoration: underline; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>❌ Connection Failed</h1>
+            <p>Failed to connect your Jobber account.</p>
+            <div class="error">
+              <strong>Error:</strong> <span class="error-code">${error}</span><br>
+              ${error_description ? `<strong>Details:</strong> ${error_description}` : ''}
+            </div>
+            <p>Please try again or contact support if the issue persists.</p>
+            <p><a href="javascript:window.close()">Close this window</a></p>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+
+  if (!code) {
+    console.error('[Jobber OAuth] No authorization code received');
+    return res.status(400).send('Missing authorization code');
+  }
+
+  if (!JOBBER_CLIENT_ID || !JOBBER_CLIENT_SECRET) {
+    console.error('[Jobber OAuth] Jobber credentials not configured');
+    return res.status(500).send('Jobber integration not configured on server');
+  }
+
+  try {
+    // Exchange authorization code for access token
+    console.log('[Jobber OAuth] Exchanging code for token...');
+    const tokenResponse = await fetch(JOBBER_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        client_id: JOBBER_CLIENT_ID,
+        client_secret: JOBBER_CLIENT_SECRET,
+        redirect_uri: JOBBER_REDIRECT_URI,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json().catch(() => ({}));
+      console.error('[Jobber OAuth] Token exchange failed:', errorData);
+      throw new Error(`Token exchange failed: ${errorData.error_description || errorData.error || tokenResponse.statusText}`);
+    }
+
+    const tokenData = await tokenResponse.json();
+    console.log('[Jobber OAuth] Token received successfully');
+
+    const { access_token, refresh_token, expires_in } = tokenData;
+    const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString();
+
+    // Get account info from Jobber
+    console.log('[Jobber OAuth] Fetching account info...');
+    const accountQuery = `
+      query {
+        account {
+          id
+          name
+        }
+      }
+    `;
+
+    const accountResponse = await fetch(JOBBER_API_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${access_token}`,
+        'X-JOBBER-GRAPHQL-VERSION': '2024-09-10',
+      },
+      body: JSON.stringify({ query: accountQuery }),
+    });
+
+    if (!accountResponse.ok) {
+      throw new Error(`Failed to fetch account info: ${accountResponse.statusText}`);
+    }
+
+    const accountData = await accountResponse.json();
+    if (accountData.errors) {
+      throw new Error(`GraphQL errors: ${JSON.stringify(accountData.errors)}`);
+    }
+
+    const accountInfo = accountData.data.account;
+    console.log('[Jobber OAuth] Account info retrieved:', accountInfo);
+
+    // Extract org_id from state parameter (should be passed from frontend)
+    // For now, we'll need to handle this based on session or require org_id in state
+    const orgId = state; // Assuming state contains org_id
+
+    if (!orgId) {
+      console.error('[Jobber OAuth] No org_id in state parameter');
+      return res.status(400).send('Missing organization identifier');
+    }
+
+    // Save connection to database
+    console.log('[Jobber OAuth] Saving connection to database...');
+    const { data: connection, error: dbError } = await supabaseAdmin
+      .from('integration_connections')
+      .upsert({
+        org_id: orgId,
+        provider: 'jobber',
+        type: 'field_service',
+        status: 'connected',
+        access_token,
+        refresh_token,
+        token_expires_at: expiresAt,
+        account_id: accountInfo.id,
+        account_name: accountInfo.name,
+        metadata: accountInfo,
+        last_sync_at: null,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'org_id,provider',
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('[Jobber OAuth] Database error:', dbError);
+      throw new Error(`Failed to save connection: ${dbError.message}`);
+    }
+
+    console.log('[Jobber OAuth] Connection saved successfully:', connection.id);
+
+    // Return success page
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Jobber Connected Successfully</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                   padding: 40px; text-align: center; background: #f5f5f5; }
+            .container { max-width: 500px; margin: 0 auto; background: white;
+                        padding: 40px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+            h1 { color: #10b981; font-size: 24px; margin-bottom: 16px; }
+            p { color: #64748b; line-height: 1.6; }
+            .success { background: #d1fae5; padding: 16px; border-radius: 8px; margin: 20px 0; color: #065f46; }
+            .account { font-weight: 600; color: #1e293b; }
+            .cta { display: inline-block; margin-top: 24px; padding: 12px 24px;
+                   background: #2563eb; color: white; border-radius: 8px;
+                   text-decoration: none; font-weight: 500; }
+            .cta:hover { background: #1e40af; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>✅ Jobber Connected!</h1>
+            <p>Your Jobber account has been successfully connected to Flynn AI.</p>
+            <div class="success">
+              <strong>Account:</strong> <span class="account">${accountInfo.name}</span>
+            </div>
+            <p>Jobs created from missed calls will now automatically sync to your Jobber account.</p>
+            <a href="javascript:window.close()" class="cta">Close & Return to Flynn AI</a>
+          </div>
+        </body>
+      </html>
+    `);
+
+  } catch (error) {
+    console.error('[Jobber OAuth] Error during callback processing:', error);
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Connection Error</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                   padding: 40px; text-align: center; background: #f5f5f5; }
+            .container { max-width: 500px; margin: 0 auto; background: white;
+                        padding: 40px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+            h1 { color: #ef4444; font-size: 24px; margin-bottom: 16px; }
+            p { color: #64748b; line-height: 1.6; }
+            .error { background: #fee2e2; padding: 16px; border-radius: 8px; margin: 20px 0; }
+            .error-msg { font-family: monospace; color: #991b1b; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>❌ Connection Error</h1>
+            <p>An error occurred while connecting your Jobber account.</p>
+            <div class="error">
+              <div class="error-msg">${error.message}</div>
+            </div>
+            <p>Please try again or contact support@flynnai.com if the issue persists.</p>
+            <p><a href="javascript:window.close()">Close this window</a></p>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+});
+
+/**
+ * Jobber Webhook Endpoints
+ * Handle real-time updates from Jobber (jobs created/updated, clients created/updated)
+ */
+app.post('/webhooks/jobber/job-created', async (req, res) => {
+  console.log('[Jobber Webhook] Job created:', req.body);
+  // TODO: Implement job created webhook handler
+  res.status(200).json({ received: true });
+});
+
+app.post('/webhooks/jobber/job-updated', async (req, res) => {
+  console.log('[Jobber Webhook] Job updated:', req.body);
+  // TODO: Implement job updated webhook handler
+  res.status(200).json({ received: true });
+});
+
+app.post('/webhooks/jobber/client-created', async (req, res) => {
+  console.log('[Jobber Webhook] Client created:', req.body);
+  // TODO: Implement client created webhook handler
+  res.status(200).json({ received: true });
+});
+
+app.post('/webhooks/jobber/client-updated', async (req, res) => {
+  console.log('[Jobber Webhook] Client updated:', req.body);
+  // TODO: Implement client updated webhook handler
+  res.status(200).json({ received: true });
+});
 
 // Health check endpoint for Railway
 app.get('/health', (req, res) => {
@@ -746,10 +1289,7 @@ const sendConfirmationSms = async ({ to, body }) => {
     throw new Error('Destination phone number is required.');
   }
 
-  const payload = {
-    to,
-    body,
-  };
+  const payload = { to, body };
 
   if (twilioMessagingServiceSid) {
     payload.messagingServiceSid = twilioMessagingServiceSid;
@@ -761,6 +1301,39 @@ const sendConfirmationSms = async ({ to, body }) => {
 
   const message = await twilioMessagingClient.messages.create(payload);
   return message;
+};
+
+const logCallEvent = async ({
+  orgId,
+  numberId = null,
+  callSid = null,
+  eventType,
+  direction = null,
+  payload = {},
+}) => {
+  if (!orgId || !eventType) {
+    return;
+  }
+
+  try {
+    await recordCallEvent({
+      orgId,
+      numberId,
+      callSid,
+      eventType,
+      direction,
+      payload,
+      occurredAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.warn('[CallEvents] Failed to record event.', {
+      orgId,
+      numberId,
+      callSid,
+      eventType,
+      error: error?.message || error,
+    });
+  }
 };
 
 const handleInboundVoice = async (req, res) => {
@@ -823,10 +1396,27 @@ const handleInboundVoice = async (req, res) => {
       }
     }
 
+    const orgId = receptionistProfile?.default_org_id || null;
+
+    await logCallEvent({
+      orgId,
+      callSid,
+      eventType: 'call_inbound_received',
+      direction: 'inbound',
+      payload: {
+        fromNumber,
+        toNumber,
+        stage,
+        receptionistMode: receptionistProfile?.receptionist_mode || null,
+        conversationalPath: Boolean(receptionistProfile),
+      },
+    });
+
     if (callSid) {
       await upsertCallRecord({
         callSid,
         userId: receptionistProfile?.id || null,
+        orgId,
         fromNumber,
         toNumber,
         status: 'ringing',
@@ -878,6 +1468,20 @@ const handleInboundVoice = async (req, res) => {
     }
 
     if (!conversationalPathAvailable) {
+      await logCallEvent({
+        orgId,
+        callSid,
+        eventType: 'call_routed_voicemail',
+        direction: 'inbound',
+        payload: {
+          reason: 'conversational_path_unavailable',
+          receptionistConfigured,
+          receptionistEnabledGlobally,
+          hasLLM: hasLLMProvider,
+          hasElevenLabs,
+          hasDeepgram,
+        },
+      });
       console.warn('[Telephony] Conversational path unavailable, routing to voicemail.', {
         callSid,
         reason: {
@@ -892,6 +1496,13 @@ const handleInboundVoice = async (req, res) => {
     }
 
     if (receptionistMode === 'voicemail_only') {
+      await logCallEvent({
+        orgId,
+        callSid,
+        eventType: 'call_routed_voicemail',
+        direction: 'inbound',
+        payload: { reason: 'voicemail_only_mode' },
+      });
       console.log('[Telephony] Receptionist mode is voicemail_only, routing to voicemail.', { callSid });
       return respondWithVoicemail(req, res, inboundParams);
     }
@@ -903,6 +1514,13 @@ const handleInboundVoice = async (req, res) => {
     if (receptionistMode === 'hybrid_choice' && stage === 'choice') {
       const decision = stageDecision || interpretHybridChoice(inboundParams);
       if (decision === 'voicemail') {
+        await logCallEvent({
+          orgId,
+          callSid,
+          eventType: 'call_routed_voicemail',
+          direction: 'inbound',
+          payload: { reason: 'hybrid_choice_voicemail' },
+        });
         return respondWithVoicemail(req, res, inboundParams);
       }
       // default to AI receptionist when uncertain
@@ -912,11 +1530,20 @@ const handleInboundVoice = async (req, res) => {
       await upsertCallRecord({
         callSid,
         userId: receptionistProfile?.id || null,
+        orgId,
         fromNumber,
         toNumber,
         status: 'ai_engaged',
       }).catch((error) => {
         console.warn('[Telephony] Failed to update call status to ai_engaged.', { callSid, error });
+      });
+
+      await logCallEvent({
+        orgId,
+        callSid,
+        eventType: 'ai_receptionist_engaged',
+        direction: 'inbound',
+        payload: { receptionistMode },
       });
     }
 
@@ -1448,6 +2075,28 @@ app.post('/telephony/recording-complete', async (req, res) => {
       status: 'active',
     });
 
+    let callEventContext = null;
+    try {
+      callEventContext = await getCallBySid(CallSid);
+    } catch (contextError) {
+      console.warn('[Telephony] Unable to load call context for recording event.', {
+        callSid: CallSid,
+        error: contextError,
+      });
+    }
+
+    await logCallEvent({
+      orgId: callEventContext?.org_id || null,
+      callSid: CallSid,
+      eventType: 'recording_stored',
+      direction: 'inbound',
+      payload: {
+        durationSec,
+        recordingSid: RecordingSid,
+        storagePath: storageMetadata?.storagePath,
+      },
+    });
+
     scheduleRetentionSweep();
 
     const existingTranscript = await getTranscriptByCallSid(CallSid);
@@ -1498,6 +2147,18 @@ app.post('/telephony/recording-complete', async (req, res) => {
 
       await updateCallTranscriptionStatus({ callSid: CallSid, status: 'completed' });
 
+      await logCallEvent({
+        orgId: callEventContext?.org_id || null,
+        callSid: CallSid,
+        eventType: 'transcription_completed',
+        direction: 'inbound',
+        payload: {
+          recordingSid: RecordingSid,
+          transcriptLength: transcriptText.length,
+          language: transcriptLanguage,
+        },
+      });
+
       console.log('[Telephony] Transcription stored successfully for call.', { callSid: CallSid });
 
       if (llmClient) {
@@ -1512,6 +2173,14 @@ app.post('/telephony/recording-complete', async (req, res) => {
             callSid: CallSid,
             error: jobCreationError,
           });
+
+          await logCallEvent({
+            orgId: callEventContext?.org_id || null,
+            callSid: CallSid,
+            eventType: 'job_creation_failed',
+            direction: 'inbound',
+            payload: { reason: jobCreationError?.message || 'unknown' },
+          });
         }
       } else {
         console.warn('[Jobs] Skipping job creation; no LLM client configured.', { callSid: CallSid });
@@ -1524,6 +2193,17 @@ app.post('/telephony/recording-complete', async (req, res) => {
         error: transcriptionError,
       });
       await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' });
+
+      await logCallEvent({
+        orgId: callEventContext?.org_id || null,
+        callSid: CallSid,
+        eventType: 'transcription_failed',
+        direction: 'inbound',
+        payload: {
+          recordingSid: RecordingSid,
+          error: transcriptionError?.message || 'unknown',
+        },
+      });
       return res.status(500).json({ error: 'Failed to transcribe recording' });
     }
   } catch (error) {
@@ -1556,6 +2236,26 @@ app.post('/me/notifications/token', authenticateJwt, async (req, res) => {
   } catch (error) {
     console.error('[Notifications] Failed to upsert notification token.', { userId, error });
     return res.status(500).json({ error: 'Failed to register device token' });
+  }
+});
+
+app.post('/me/account/delete', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!supabaseStorageClient) {
+    return res.status(503).json({ error: 'Account deletion is not available right now' });
+  }
+
+  try {
+    await deleteUserData(userId);
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[AccountDeletion] Failed to delete account', { userId, error });
+    return res.status(500).json({ error: 'Failed to delete account' });
   }
 });
 

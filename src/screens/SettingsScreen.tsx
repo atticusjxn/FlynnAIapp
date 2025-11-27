@@ -25,6 +25,7 @@ import {
   updateNotificationSettings,
   updateUserProfile,
 } from '../services/settingsService';
+import { deleteAccount } from '../services/accountService';
 
 interface NotificationPrefs {
   push: boolean;
@@ -66,6 +67,7 @@ export const SettingsScreen: React.FC = () => {
   const [editBusinessName, setEditBusinessName] = useState('');
   const [editBusinessType, setEditBusinessType] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [pushStatus, setPushStatus] = useState<{
     permissionGranted: boolean;
     tokenRegistered: boolean;
@@ -227,6 +229,33 @@ export const SettingsScreen: React.FC = () => {
     </View>
   );
 
+  const performAccountDeletion = async () => {
+    if (deletingAccount) return;
+
+    try {
+      setDeletingAccount(true);
+      await deleteAccount();
+      Alert.alert('Account deleted', 'Your Flynn account and receptionist data have been removed.');
+      await signOut();
+    } catch (error) {
+      console.error('[Settings] Account deletion failed', error);
+      Alert.alert('Delete failed', 'We could not delete your account right now. Please try again.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete your account?',
+      'This permanently removes your account, receptionist preferences, and event history. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: deletingAccount ? 'Deleting…' : 'Delete account', style: 'destructive', onPress: () => void performAccountDeletion() },
+      ]
+    );
+  };
+
   const renderSettingRow = (
     icon: FlynnIconName,
     title: string,
@@ -339,6 +368,20 @@ export const SettingsScreen: React.FC = () => {
           </View>
         ))}
 
+        {/* Integrations */}
+        {renderSection('Integrations', (
+          <View style={styles.settingsGroup}>
+            {renderSettingRow(
+              'link-outline',
+              'Connected Apps',
+              'Jobber, Fergus, ServiceTitan, Google Calendar',
+              undefined,
+              () => navigation.navigate('Integrations'),
+              true,
+            )}
+          </View>
+        ))}
+
         {/* Notification preferences */}
         {renderSection('Notifications', (
           <View style={styles.settingsGroup}>
@@ -417,38 +460,54 @@ export const SettingsScreen: React.FC = () => {
 
         {/* Account */}
         {renderSection('Account', (
-          <View style={styles.settingsGroup}>
-            {renderSettingRow('key-outline', 'Change password', undefined, undefined, async () => {
-              if (!profile?.email) {
-                Alert.alert('No email', 'We could not find your email address.');
-                return;
-              }
-              Alert.alert(
-                'Reset password',
-                `We'll send a password reset link to ${profile.email}. Continue?`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Send link',
-                    onPress: async () => {
-                      try {
-                        const { supabase } = await import('../services/supabase');
-                        const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
-                          redirectTo: 'flynnai://reset-password',
-                        });
-                        if (error) throw error;
-                        Alert.alert('Email sent', 'Check your inbox for a password reset link.');
-                      } catch (error) {
-                        console.error('[Settings] Password reset failed', error);
-                        Alert.alert('Reset failed', 'Unable to send password reset email. Please try again.');
-                      }
+          <>
+            <View style={styles.settingsGroup}>
+              {renderSettingRow('key-outline', 'Change password', undefined, undefined, async () => {
+                if (!profile?.email) {
+                  Alert.alert('No email', 'We could not find your email address.');
+                  return;
+                }
+                Alert.alert(
+                  'Reset password',
+                  `We'll send a password reset link to ${profile.email}. Continue?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Send link',
+                      onPress: async () => {
+                        try {
+                          const { supabase } = await import('../services/supabase');
+                          const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+                            redirectTo: 'flynnai://reset-password',
+                          });
+                          if (error) throw error;
+                          Alert.alert('Email sent', 'Check your inbox for a password reset link.');
+                        } catch (error) {
+                          console.error('[Settings] Password reset failed', error);
+                          Alert.alert('Reset failed', 'Unable to send password reset email. Please try again.');
+                        }
+                      },
                     },
-                  },
-                ]
-              );
-            }, false)}
-            {renderSettingRow('log-out-outline', 'Sign out', undefined, undefined, handleSignOut, true)}
-          </View>
+                  ]
+                );
+              }, false)}
+              {renderSettingRow('log-out-outline', 'Sign out', undefined, undefined, handleSignOut, true)}
+            </View>
+
+            <View style={styles.dangerCard}>
+              <Text style={styles.dangerTitle}>Delete account</Text>
+              <Text style={styles.dangerCopy}>
+                Permanently delete your account, events, and receptionist preferences. This cannot be undone.
+              </Text>
+              <FlynnButton
+                title={deletingAccount ? 'Deleting…' : 'Delete account'}
+                variant="danger"
+                onPress={handleDeleteAccount}
+                disabled={deletingAccount}
+                style={styles.dangerButton}
+              />
+            </View>
+          </>
         ))}
 
         <View style={styles.footerSpacer} />
@@ -623,6 +682,28 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     ...shadows.sm,
+  },
+  dangerCard: {
+    backgroundColor: colors.error + '10',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.error + '30',
+    padding: spacing.lg,
+    marginTop: spacing.md,
+    ...shadows.xs,
+  },
+  dangerTitle: {
+    ...typography.h4,
+    color: colors.error,
+    marginBottom: spacing.xs,
+  },
+  dangerCopy: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  dangerButton: {
+    alignSelf: 'flex-start',
   },
   settingRow: {
     flexDirection: 'row',

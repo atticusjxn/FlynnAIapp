@@ -24,6 +24,7 @@ import { JobFormDemo } from './src/components/ui/JobFormDemo';
 import CallSetupScreen from './src/screens/calls/CallSetupScreen';
 import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
 import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
+import IntegrationsScreen from './src/screens/settings/IntegrationsScreen';
 // import { useFonts } from 'expo-font';
 
 const Tab = createBottomTabNavigator();
@@ -108,12 +109,21 @@ function RootNavigator() {
           headerShown: false,
         }}
       />
-      <Stack.Screen 
-        name="CallSettings" 
+      <Stack.Screen
+        name="CallSettings"
         component={CallSettingsScreen}
         options={{
           presentation: 'modal',
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Integrations"
+        component={IntegrationsScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: 'Integrations',
         }}
       />
     </Stack.Navigator>
