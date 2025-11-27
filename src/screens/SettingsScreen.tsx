@@ -337,6 +337,15 @@ export const SettingsScreen: React.FC = () => {
         {renderSection('Business configuration', (
           <View style={styles.settingsGroup}>
             {renderSettingRow(
+              'document-text-outline',
+              'Business Profile',
+              'Services, hours, pricing, and AI instructions',
+              undefined,
+              () => navigation.navigate('BusinessProfile'),
+              false,
+            )}
+
+            {renderSettingRow(
               'business-outline',
               'Business type',
               businessTypeLabel,

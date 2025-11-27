@@ -25,6 +25,7 @@ import CallSetupScreen from './src/screens/calls/CallSetupScreen';
 import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
 import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
 import IntegrationsScreen from './src/screens/settings/IntegrationsScreen';
+import { BusinessProfileScreen } from './src/screens/settings/BusinessProfileScreen';
 // import { useFonts } from 'expo-font';
 
 const Tab = createBottomTabNavigator();
@@ -124,6 +125,14 @@ function RootNavigator() {
           presentation: 'modal',
           headerShown: true,
           title: 'Integrations',
+        }}
+      />
+      <Stack.Screen
+        name="BusinessProfile"
+        component={BusinessProfileScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
