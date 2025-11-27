@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { apiRequest } from './apiClient';
 import { Buffer } from 'buffer';
 import { File } from 'expo-file-system';
+import { ReceptionistMode } from '../types/onboarding';
 
 const VOICE_BUCKET = 'voice-profiles';
 
@@ -19,6 +20,8 @@ export interface ReceptionistPreferences {
   questions: string[];
   voiceProfileId?: string | null;
   configured?: boolean;
+  mode?: ReceptionistMode;
+  ackLibrary?: string[];
 }
 
 export interface VoiceProfile {
@@ -43,6 +46,25 @@ const normalizeQuestions = (questions?: string[]): string[] => {
     .filter((question): question is string => Boolean(question));
 };
 
+const normalizeAckPhrases = (ackLibrary?: string[]): string[] => {
+  if (!Array.isArray(ackLibrary)) {
+    return [];
+  }
+
+  const unique = new Set<string>();
+
+  ackLibrary.forEach((phrase) => {
+    if (typeof phrase === 'string') {
+      const trimmed = phrase.trim();
+      if (trimmed.length > 0) {
+        unique.add(trimmed);
+      }
+    }
+  });
+
+  return Array.from(unique);
+};
+
 export const ReceptionistService = {
   async savePreferences(preferences: ReceptionistPreferences): Promise<void> {
     const { data: authData } = await supabase.auth.getUser();
@@ -52,12 +74,21 @@ export const ReceptionistService = {
       throw new Error('You must be signed in to update receptionist settings.');
     }
 
+    const configured = preferences.configured ?? true;
+    const questions = configured ? normalizeQuestions(preferences.questions) : [];
+    const ackLibrary = configured ? normalizeAckPhrases(preferences.ackLibrary) : [];
+    const mode: ReceptionistMode = configured
+      ? (preferences.mode ?? 'ai_only')
+      : 'voicemail_only';
+
     const updates = {
-      receptionist_voice: preferences.voiceId,
-      receptionist_greeting: preferences.greeting,
-      receptionist_questions: normalizeQuestions(preferences.questions),
-      receptionist_voice_profile_id: preferences.voiceProfileId ?? null,
-      receptionist_configured: preferences.configured ?? true,
+      receptionist_voice: configured ? preferences.voiceId : null,
+      receptionist_greeting: configured ? preferences.greeting : null,
+      receptionist_questions: questions,
+      receptionist_voice_profile_id: configured ? preferences.voiceProfileId ?? null : null,
+      receptionist_ack_library: ackLibrary,
+      receptionist_mode: mode,
+      receptionist_configured: configured,
       updated_at: new Date().toISOString(),
     };
 

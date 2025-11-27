@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Linking,
   Alert,
 } from 'react-native';
 import { FlynnIcon } from '../ui/FlynnIcon';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Client } from '../../types/client';
+import { openPhoneDialer } from '../../utils/dialer';
 
 interface ClientCardProps {
   client: Client;
@@ -84,10 +84,11 @@ export const ClientCard: React.FC<ClientCardProps> = ({
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const handleCall = () => {
-    const phoneUrl = `tel:${client.phone}`;
-    Linking.openURL(phoneUrl).catch(() => {
-      Alert.alert('Error', 'Unable to make phone call');
-    });
+    if (!client.phone) {
+      Alert.alert('No phone number', 'Add a phone number for this client to call them.');
+      return;
+    }
+    void openPhoneDialer(client.phone, 'client-card');
   };
 
   const handleEmail = () => {

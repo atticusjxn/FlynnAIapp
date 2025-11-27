@@ -14,6 +14,8 @@ import { useAuth } from '../../context/AuthContext';
 import { typography, spacing } from '../../theme';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { FlynnInput } from '../../components/ui/FlynnInput';
+import { BillingPaywallModal } from '../../components/billing/BillingPaywallModal';
+import { isPaidPlan } from '../../data/billingPlans';
 import {
   detectCarrierFromNumber,
   CarrierDetectionConfidence,
@@ -28,10 +30,12 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
   onNext,
 }) => {
   const { user } = useAuth();
-  const { updateOnboardingData, onboardingData } = useOnboarding();
+  const { updateOnboardingData, onboardingData, refreshOnboarding, organizationId } = useOnboarding();
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [provisionedNumber, setProvisionedNumber] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const [isRefreshingPlan, setIsRefreshingPlan] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(onboardingData.phoneNumber ?? '');
   const [carrierDetectionState, setCarrierDetectionState] = useState<{
     status: 'idle' | 'loading' | 'success' | 'none' | 'error';
@@ -44,6 +48,7 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
   }>({ status: 'idle' });
   const detectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPersistedDetection = useRef<string | null>(null);
+  const hasPaidPlan = isPaidPlan(onboardingData.billingPlan);
 
   const normalizedForDetection = useMemo(
     () => normalizeNumberForDetection(phoneNumber),
@@ -168,6 +173,11 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
   }, [carrierDetectionState, normalizedForDetection, phoneNumber, detectionSignature]);
 
   const handleProvisionNumber = async () => {
+    if (!hasPaidPlan) {
+      setPaywallVisible(true);
+      return;
+    }
+
     if (!user?.id) {
       setError('User not authenticated.');
       return;
@@ -216,6 +226,18 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
     }
   };
 
+  const handleRefreshPlanStatus = async () => {
+    setIsRefreshingPlan(true);
+    try {
+      await refreshOnboarding();
+    } catch (refreshError) {
+      console.error('[TwilioProvisioningScreen] Failed to refresh onboarding state', refreshError);
+      Alert.alert('Refresh Failed', 'Please reopen Flynn after paying so we can unlock provisioning.');
+    } finally {
+      setIsRefreshingPlan(false);
+    }
+  };
+
   useEffect(() => {
     const checkAndProvision = async () => {
       const status = await TwilioService.getUserTwilioStatus();
@@ -255,6 +277,29 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
           errorText={carrierDetectionState.status === 'error' ? carrierDetectionState.message : undefined}
         />
 
+        {!hasPaidPlan && (
+          <View style={styles.paywallCard}>
+            <Text style={styles.paywallTitle}>Subscribe to unlock provisioning</Text>
+            <Text style={styles.paywallDescription}>
+              Concierge Basic ($49/mo) includes a dedicated Flynn number and summaries for up to 100
+              missed calls. Upgrade to Growth for 500 events each month.
+            </Text>
+            <FlynnButton
+              title="View concierge plans"
+              onPress={() => setPaywallVisible(true)}
+              variant="secondary"
+              fullWidth
+            />
+            <FlynnButton
+              title="I've subscribed – refresh access"
+              onPress={handleRefreshPlanStatus}
+              variant="ghost"
+              fullWidth
+              loading={isRefreshingPlan}
+            />
+          </View>
+        )}
+
         {isProvisioning ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#3B82F6" />
@@ -271,7 +316,7 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
           <View style={styles.errorContainer}>
             {error && <Text style={styles.errorText}>{error}</Text>}
             <FlynnButton
-              title="Provision my Flynn number"
+              title={hasPaidPlan ? 'Provision my Flynn number' : 'Subscribe to continue'}
               onPress={handleProvisionNumber}
               variant="primary"
               style={styles.button}
@@ -282,6 +327,12 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
         )}
 
       </View>
+      <BillingPaywallModal
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        customerEmail={user?.email ?? undefined}
+        organizationId={organizationId}
+      />
     </SafeAreaView>
   );
 };
@@ -351,5 +402,26 @@ const styles = StyleSheet.create({
   button: {
     marginTop: spacing.md,
     width: 200,
+  },
+  paywallCard: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    backgroundColor: '#eff6ff',
+    padding: spacing.lg,
+    borderRadius: 16,
+    marginBottom: spacing.lg,
+  },
+  paywallTitle: {
+    ...typography.h4,
+    color: '#1d4ed8',
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  paywallDescription: {
+    ...typography.bodyMedium,
+    color: '#1e293b',
+    marginBottom: spacing.md,
+    textAlign: 'center',
   },
 });

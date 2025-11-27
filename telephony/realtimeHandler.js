@@ -111,7 +111,7 @@ const setCachedAudio = (key, buffer, maxEntries) => {
   }
 };
 
-const createSystemPrompt = (session) => {
+const createSystemPrompt = async (session, getBusinessContextForOrg) => {
   const greeting = session?.greeting
     ? `Greeting script:\n"""${session.greeting}"""\n\nDo not greet the caller yourself; the system plays the greeting.`
     : '';
@@ -128,6 +128,19 @@ const createSystemPrompt = (session) => {
     ? `The business specialises in ${session.businessType.replace(/_/g, ' ')}.`
     : '';
 
+  // Fetch business context from database if orgId is available
+  let businessContext = '';
+  if (session?.orgId && getBusinessContextForOrg) {
+    try {
+      const contextData = await getBusinessContextForOrg(session.orgId);
+      if (contextData) {
+        businessContext = formatBusinessContext(contextData);
+      }
+    } catch (error) {
+      console.error('[Realtime] Failed to fetch business context:', error);
+    }
+  }
+
   return [
     'You are Flynn, a friendly but efficient AI receptionist for a service business.',
     'Be concise, natural, and conversational.',
@@ -137,9 +150,105 @@ const createSystemPrompt = (session) => {
     'Only when they say no/that\'s all/nothing else should you end the conversation.',
     businessType,
     businessFacts,
+    businessContext,
     questionBlock,
     greeting,
   ].filter(Boolean).join('\n\n');
+};
+
+/**
+ * Format business context data for AI prompt
+ */
+const formatBusinessContext = (contextData) => {
+  if (!contextData) return '';
+
+  const sections = [];
+
+  // Business name and type
+  if (contextData.business_name) {
+    sections.push(`Business: ${contextData.business_name}`);
+  }
+  if (contextData.business_type) {
+    sections.push(`Type: ${contextData.business_type}`);
+  }
+
+  // Services
+  if (contextData.services && Array.isArray(contextData.services) && contextData.services.length > 0) {
+    const servicesList = contextData.services
+      .map((s) => {
+        let line = `- ${s.name}`;
+        if (s.description) line += `: ${s.description}`;
+        if (s.price_range) line += ` (${s.price_range})`;
+        return line;
+      })
+      .join('\n');
+    sections.push(`Services offered:\n${servicesList}`);
+  }
+
+  // Pricing
+  if (contextData.pricing_notes) {
+    sections.push(`Pricing: ${contextData.pricing_notes}`);
+  }
+
+  // Business hours
+  if (contextData.business_hours) {
+    const hoursText = formatBusinessHours(contextData.business_hours);
+    if (hoursText) {
+      sections.push(`Business hours:\n${hoursText}`);
+    }
+  }
+
+  // Location
+  if (contextData.service_area) {
+    sections.push(`Service area: ${contextData.service_area}`);
+  } else if (contextData.city && contextData.state) {
+    sections.push(`Location: ${contextData.city}, ${contextData.state}`);
+  }
+
+  // Policies
+  if (contextData.cancellation_policy) {
+    sections.push(`Cancellation policy: ${contextData.cancellation_policy}`);
+  }
+  if (contextData.payment_terms) {
+    sections.push(`Payment terms: ${contextData.payment_terms}`);
+  }
+  if (contextData.booking_notice) {
+    sections.push(`Booking notice: ${contextData.booking_notice}`);
+  }
+
+  // Custom AI instructions
+  if (contextData.ai_instructions) {
+    sections.push(`Special instructions: ${contextData.ai_instructions}`);
+  }
+
+  return sections.length > 0
+    ? `Business Profile:\n${sections.join('\n')}`
+    : '';
+};
+
+/**
+ * Format business hours for display
+ */
+const formatBusinessHours = (hours) => {
+  if (!hours || typeof hours !== 'object') return '';
+
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const formatted = [];
+
+  days.forEach((day) => {
+    const dayHours = hours[day];
+    if (!dayHours) return;
+
+    const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+
+    if (dayHours.closed) {
+      formatted.push(`${capitalize(day)}: Closed`);
+    } else if (dayHours.open && dayHours.close) {
+      formatted.push(`${capitalize(day)}: ${dayHours.open} - ${dayHours.close}`);
+    }
+  });
+
+  return formatted.join('\n');
 };
 
 class RealtimeCallHandler extends EventEmitter {
@@ -153,6 +262,7 @@ class RealtimeCallHandler extends EventEmitter {
     llmClient,
     voiceConfig,
     onConversationComplete,
+    getBusinessContextForOrg,
   }) {
     super();
     this.ws = ws;
@@ -164,6 +274,7 @@ class RealtimeCallHandler extends EventEmitter {
     this.llmClient = llmClient;
     this.voiceConfig = voiceConfig || {};
     this.onConversationComplete = onConversationComplete;
+    this.getBusinessContextForOrg = getBusinessContextForOrg;
 
     this.streamSid = null;
     this.deepgramStream = null;
@@ -176,7 +287,7 @@ class RealtimeCallHandler extends EventEmitter {
     this.followUpLimit = (session && session.maxQuestionsPerTurn) || 1;
     this.minAckVariety = (session && session.minAckVariety) || 3;
     this.pendingFollowUps = Array.isArray(session?.questions) ? [...session.questions] : [];
-    this.systemPrompt = createSystemPrompt(session || {});
+    this.systemPrompt = null; // Will be initialized in initialize()
     this.ttsProviderPriority = this.buildProviderPriority();
     this.ttsCacheTtlMs = Math.max(
       1000,
@@ -262,6 +373,10 @@ class RealtimeCallHandler extends EventEmitter {
       callSid: this.callSid,
       hasDeepgramClient: Boolean(this.deepgramClient),
     });
+
+    // Initialize system prompt with business context
+    this.systemPrompt = await createSystemPrompt(this.session || {}, this.getBusinessContextForOrg);
+    console.log('[Realtime] System prompt initialized with business context');
 
     if (this.deepgramClient) {
       await this.createDeepgramStream();
@@ -370,10 +485,9 @@ class RealtimeCallHandler extends EventEmitter {
                 callSid: this.callSid,
                 userId: this.userId,
               });
-              // Re-initialize system prompt with the loaded session
-              this.systemPrompt = createSystemPrompt(this.session || {});
+              // Re-initialize with the loaded session
               this.pendingFollowUps = Array.isArray(this.session?.questions) ? [...this.session.questions] : [];
-              // Now that we have a session, initialize properly
+              // Now that we have a session, initialize properly (this will set systemPrompt)
               this.initialize().catch((error) => {
                 console.error('[Realtime] Failed to initialize after loading session.', { callSid: this.callSid, error });
               });

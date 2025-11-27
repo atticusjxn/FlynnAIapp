@@ -27,9 +27,10 @@ const resolveBaseUrl = () => {
   return normalizeBaseUrl(runtimeBaseUrl);
 };
 
-const baseUrl = resolveBaseUrl();
+export const API_BASE_URL = resolveBaseUrl();
+export const isApiConfigured = (): boolean => Boolean(API_BASE_URL);
 
-console.log('[API] baseUrl resolved to', baseUrl);
+console.log('[API] baseUrl resolved to', API_BASE_URL || 'not-configured');
 
 const isDevEnvironment = () => {
   if (typeof __DEV__ !== 'undefined') {
@@ -103,15 +104,15 @@ const isRetryableError = (error: unknown): boolean => {
 };
 
 const buildUrl = (path: string) => {
-  if (!baseUrl) {
+  if (!API_BASE_URL) {
     throw new Error('API base URL is not configured. Set APP_BASE_URL in your environment.');
   }
 
   if (!path.startsWith('/')) {
-    return `${baseUrl}/${path}`;
+    return `${API_BASE_URL}/${path}`;
   }
 
-  return `${baseUrl}${path}`;
+  return `${API_BASE_URL}${path}`;
 };
 
 const parseResponse = async <T>(response: Response): Promise<T> => {

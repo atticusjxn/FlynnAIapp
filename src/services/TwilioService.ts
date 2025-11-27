@@ -1,14 +1,16 @@
 import { supabase } from './supabase';
 import {
-  TwilioServiceError, 
+  TwilioServiceError,
   CallProcessingError,
   CallRecord as CallRecordType,
   UserTwilioSettings,
   JobExtraction,
-  RecordingPreference 
+  RecordingPreference,
 } from '../types/calls.types';
 import { CarrierDetectionResult } from './CarrierDetectionService';
 import { carrierIdToIsoCountry, inferIsoCountryFromNumber } from '../utils/phone';
+import { OrganizationService } from './organizationService';
+import { isPaidPlanId } from '../types/billing';
 
 // Environment configuration
 const TWILIO_ACCOUNT_SID = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID;
@@ -55,49 +57,33 @@ class TwilioServiceClass {
    */
   async getUserTwilioStatus(): Promise<UserTwilioSettings> {
     try {
+      const { snapshot, orgId } = await OrganizationService.fetchOnboardingData();
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
-        throw new TwilioServiceError(
-          'User not authenticated', 
-          'AUTH_REQUIRED', 
-          401
-        );
+        throw new TwilioServiceError('User not authenticated', 'AUTH_REQUIRED', 401);
       }
 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('twilio_phone_number, twilio_number_sid, recording_preference, forwarding_active, call_features_enabled')
-        .eq('id', user.id)
-        .single();
-
-      if (userError) {
-        throw new TwilioServiceError(
-          'Failed to fetch user data', 
-          'USER_DATA_ERROR', 
-          500,
-          userError
-        );
-      }
+      const primaryNumber = snapshot.primaryNumber;
+      const userProfile = snapshot.userProfile;
 
       return {
-        phoneNumber: userData?.twilio_phone_number || null,
-        twilioPhoneNumber: userData?.twilio_phone_number || null,
-        twilioNumberSid: userData?.twilio_number_sid || null,
-        isForwardingActive: userData?.forwarding_active || false,
-        recordingPreference: userData?.recording_preference || 'manual',
-        callFeaturesEnabled: userData?.call_features_enabled !== false
+        phoneNumber: userProfile?.phone_number || primaryNumber?.connected_number || null,
+        twilioPhoneNumber: primaryNumber?.e164_number || userProfile?.twilio_phone_number || null,
+        twilioNumberSid: primaryNumber?.id || userProfile?.twilio_number_sid || null,
+        isForwardingActive: Boolean(primaryNumber?.verification_state === 'verified' || userProfile?.forwarding_active),
+        recordingPreference: 'manual',
+        callFeaturesEnabled: true,
+        orgId,
+        primaryNumberId: primaryNumber?.id || null,
+        verificationState: primaryNumber?.verification_state || null,
+        forwardingType: primaryNumber?.forwarding_type || null,
       };
     } catch (error) {
       if (error instanceof TwilioServiceError) {
         throw error;
       }
       console.error('Error getting Twilio status:', error);
-      throw new TwilioServiceError(
-        'Failed to get Twilio status',
-        'UNKNOWN_ERROR',
-        500,
-        error
-      );
+      throw new TwilioServiceError('Failed to get Twilio status', 'UNKNOWN_ERROR', 500, error);
     }
   }
 
@@ -106,9 +92,18 @@ class TwilioServiceClass {
    */
   async provisionPhoneNumber(options: PhoneNumberProvisionOptions = {}): Promise<PhoneNumberProvisionResult> {
     try {
+      const { snapshot } = await OrganizationService.fetchOnboardingData();
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         throw new Error('User not authenticated');
+      }
+
+      if (!isPaidPlanId(snapshot.organizationPlan)) {
+        throw new TwilioServiceError(
+          'Subscribe to a concierge plan to provision a Flynn number.',
+          'PLAN_REQUIRED',
+          402
+        );
       }
 
       // Get user's location for number selection (default to US)
@@ -146,21 +141,44 @@ class TwilioServiceClass {
       const selectedNumber = numbersToConsider[0];
       const purchaseResult = await this.purchasePhoneNumber(selectedNumber.phone_number, user.id);
 
+      const onboardingSnapshot = await OrganizationService.fetchOnboardingData();
+
+      if (onboardingSnapshot.orgId) {
+        const existingPrimary = onboardingSnapshot.snapshot.primaryNumber;
+        const phonePayload = {
+          org_id: onboardingSnapshot.orgId,
+          e164_number: purchaseResult.phoneNumber,
+          status: 'reserved',
+          verification_state: 'unverified',
+          forwarding_type: 'flynn_number',
+          is_primary: true,
+          twilio_sid: purchaseResult.phoneNumberSid,
+          metadata: {
+            ...(existingPrimary?.metadata as Record<string, unknown> | undefined),
+            provisioned_at: new Date().toISOString(),
+          },
+        };
+
+        if (existingPrimary) {
+          await supabase
+            .from('phone_numbers')
+            .update(phonePayload)
+            .eq('id', existingPrimary.id);
+        } else {
+          await supabase.from('phone_numbers').insert(phonePayload);
+        }
+      }
+
       // Update user record with Twilio information
-      const { error: updateError } = await supabase
+      await supabase
         .from('users')
         .update({
           twilio_phone_number: purchaseResult.phoneNumber,
           twilio_number_sid: purchaseResult.phoneNumberSid,
           call_features_enabled: true,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
-
-      if (updateError) {
-        console.error('Failed to update user with Twilio info:', updateError);
-        // Continue anyway - the number is provisioned
-      }
 
       return purchaseResult;
     } catch (error) {
@@ -275,13 +293,22 @@ class TwilioServiceClass {
    */
   async trackForwardingAttempt(twilioNumber: string): Promise<void> {
     try {
+      const { snapshot, orgId } = await OrganizationService.fetchOnboardingData();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || !orgId) return;
 
-      // Log the attempt in analytics or audit trail
-      console.log(`Forwarding setup attempted for ${twilioNumber} by user ${user.id}`);
-      
-      // You could store this in an analytics table if needed
+      await supabase
+        .from('call_events')
+        .insert({
+          org_id: orgId,
+          number_id: snapshot.primaryNumber?.id ?? null,
+          event_type: 'forwarding_attempt',
+          direction: 'outbound',
+          payload: {
+            twilioNumber,
+            attempted_at: new Date().toISOString(),
+          },
+        });
     } catch (error) {
       console.error('Error tracking forwarding attempt:', error);
     }
@@ -292,16 +319,32 @@ class TwilioServiceClass {
    */
   async updateForwardingStatus(isActive: boolean): Promise<void> {
     try {
+      const { snapshot, orgId } = await OrganizationService.fetchOnboardingData();
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         throw new Error('User not authenticated');
+      }
+
+      if (orgId && snapshot.primaryNumber) {
+        const { error: phoneError } = await supabase
+          .from('phone_numbers')
+          .update({
+            verification_state: isActive ? 'verified' : 'unverified',
+            status: isActive ? 'active' : (snapshot.primaryNumber.status ?? 'pending'),
+            connected_number: snapshot.userProfile?.phone_number || snapshot.primaryNumber.connected_number || null,
+          })
+          .eq('id', snapshot.primaryNumber.id);
+
+        if (phoneError) {
+          console.warn('[TwilioService] Failed to update phone_numbers forwarding status', phoneError);
+        }
       }
 
       const { error } = await supabase
         .from('users')
         .update({
           forwarding_active: isActive,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
 

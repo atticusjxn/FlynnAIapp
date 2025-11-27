@@ -12,6 +12,24 @@ const sqlString = (value) => {
   return `'${String(value).replace(/'/g, "''")}'`;
 };
 
+const jsonValue = (value) => {
+  if (!value) {
+    return `'{}'::jsonb`;
+  }
+
+  if (typeof value === 'string') {
+    return `'${value.replace(/'/g, "''")}'::jsonb`;
+  }
+
+  try {
+    const serialized = JSON.stringify(value);
+    return `'${serialized.replace(/'/g, "''")}'::jsonb`;
+  } catch (error) {
+    console.warn('[Supabase] Failed to serialize JSON payload for call_events.', error);
+    return `'{}'::jsonb`;
+  }
+};
+
 const VALID_NOTIFICATION_PLATFORMS = new Set(['ios', 'android']);
 
 const parseResultRows = (result) => {
@@ -403,6 +421,7 @@ const executeSql = async (query) => {
 const upsertCallRecord = async ({
   callSid,
   userId,
+  orgId,
   fromNumber,
   toNumber,
   recordingUrl,
@@ -420,11 +439,17 @@ const upsertCallRecord = async ({
   }
 
   const durationValue = Number.isFinite(durationSec) ? Number(durationSec) : null;
+  const resolvedOrgIdValue = orgId
+    ? sqlString(orgId)
+    : userId
+      ? `(select default_org_id from public.users where id = ${sqlString(userId)} limit 1)`
+      : 'NULL';
 
   const query = `
     insert into public.calls (
       call_sid,
       user_id,
+      org_id,
       from_number,
       to_number,
       recording_url,
@@ -441,6 +466,7 @@ const upsertCallRecord = async ({
     values (
       ${sqlString(callSid)},
       ${sqlString(userId)},
+      ${resolvedOrgIdValue},
       ${sqlString(fromNumber)},
       ${sqlString(toNumber)},
       ${sqlString(recordingUrl)},
@@ -474,7 +500,8 @@ const upsertCallRecord = async ({
           and excluded.transcription_status is distinct from public.calls.transcription_status then now()
         else public.calls.transcription_updated_at
       end,
-      status = coalesce(excluded.status, public.calls.status);
+      status = coalesce(excluded.status, public.calls.status),
+      org_id = coalesce(excluded.org_id, public.calls.org_id);
   `;
 
   await executeSql(query);
@@ -496,7 +523,7 @@ const getTranscriptByCallSid = async (callSid) => {
   return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
 };
 
-const insertTranscription = async ({ id, callSid, engine, text, confidence, language }) => {
+const insertTranscription = async ({ id, callSid, engine, text, confidence, language, orgId }) => {
   if (!id) {
     throw new Error('id is required for transcription insert.');
   }
@@ -505,17 +532,23 @@ const insertTranscription = async ({ id, callSid, engine, text, confidence, lang
     throw new Error('callSid is required for transcription insert.');
   }
 
+  const resolvedOrgId = orgId
+    ? sqlString(orgId)
+    : `(select org_id from public.calls where call_sid = ${sqlString(callSid)} limit 1)`;
+
   const query = `
-    insert into public.transcriptions (id, call_sid, engine, "text", confidence, language)
+    insert into public.transcriptions (id, call_sid, org_id, engine, "text", confidence, language)
     values (
       ${sqlString(id)},
       ${sqlString(callSid)},
+      ${resolvedOrgId},
       ${sqlString(engine)},
       ${sqlString(text)},
       ${typeof confidence === 'number' ? confidence : '0.8'},
       ${sqlString(language)}
     )
     on conflict (call_sid) do update set
+      org_id = coalesce(excluded.org_id, public.transcriptions.org_id),
       engine = excluded.engine,
       "text" = excluded."text",
       confidence = excluded.confidence,
@@ -553,6 +586,7 @@ const getCallBySid = async (callSid) => {
     select
       call_sid,
       user_id,
+      org_id,
       from_number,
       to_number,
       recording_url,
@@ -581,6 +615,7 @@ const getUserProfileById = async (userId) => {
   const query = `
     select
       u.id,
+      u.default_org_id,
       u.email,
       u.business_name,
       u.business_type,
@@ -626,6 +661,7 @@ const getReceptionistProfileByNumber = async (phoneNumber) => {
       .from('users')
       .select(`
         id,
+        default_org_id,
         business_name,
         business_type,
         phone_number,
@@ -795,7 +831,7 @@ const listJobsForUser = async ({ userId, status, limit = 20, offset = 0 }) => {
   }
 
   const query = `
-    select id, call_sid, customer_name, customer_phone, summary, service_type, status, created_at
+    select id, call_sid, customer_name, customer_phone, summary, service_type, status, created_at, org_id
     from public.jobs
     where ${conditions.join(' and ')}
     order by created_at desc, id desc
@@ -852,6 +888,7 @@ const updateJobStatusForUser = async ({ jobId, userId, status }) => {
 const insertJob = async ({
   id,
   userId,
+  orgId,
   callSid,
   customerName,
   customerPhone,
@@ -877,6 +914,13 @@ const insertJob = async ({
   }
 
   const jobId = id || randomUUID();
+  const resolvedOrgId = orgId
+    ? sqlString(orgId)
+    : callSid
+      ? `(select org_id from public.calls where call_sid = ${sqlString(callSid)} limit 1)`
+      : userId
+        ? `(select default_org_id from public.users where id = ${sqlString(userId)} limit 1)`
+        : 'NULL';
 
   const resolvedBusinessType = businessType
     ? sqlString(businessType)
@@ -888,6 +932,7 @@ const insertJob = async ({
     insert into public.jobs (
       id,
       user_id,
+      org_id,
       call_sid,
       customer_name,
       customer_phone,
@@ -911,6 +956,7 @@ const insertJob = async ({
     values (
       ${sqlString(jobId)},
       ${sqlString(userId)},
+      ${resolvedOrgId},
       ${sqlString(callSid)},
       ${sqlString(customerName)},
       ${sqlString(customerPhone)},
@@ -950,7 +996,8 @@ const insertJob = async ({
       last_follow_up_at = coalesce(excluded.last_follow_up_at, public.jobs.last_follow_up_at),
       voicemail_transcript = coalesce(excluded.voicemail_transcript, public.jobs.voicemail_transcript),
       voicemail_recording_url = coalesce(excluded.voicemail_recording_url, public.jobs.voicemail_recording_url),
-      captured_at = coalesce(excluded.captured_at, public.jobs.captured_at)
+      captured_at = coalesce(excluded.captured_at, public.jobs.captured_at),
+      org_id = coalesce(excluded.org_id, public.jobs.org_id)
     returning id;
   `;
 
@@ -958,7 +1005,7 @@ const insertJob = async ({
   return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : { id: jobId };
 };
 
-const upsertNotificationToken = async ({ userId, platform, token }) => {
+const upsertNotificationToken = async ({ userId, platform, token, orgId }) => {
   if (!userId) {
     throw new Error('userId is required to upsert notification token.');
   }
@@ -973,15 +1020,21 @@ const upsertNotificationToken = async ({ userId, platform, token }) => {
     throw new Error('platform must be one of ios or android.');
   }
 
+  const resolvedOrgId = orgId
+    ? sqlString(orgId)
+    : `(select default_org_id from public.users where id = ${sqlString(userId)} limit 1)`;
+
   const query = `
-    insert into public.notification_tokens (user_id, platform, token)
+    insert into public.notification_tokens (user_id, org_id, platform, token)
     values (
       ${sqlString(userId)},
+      ${resolvedOrgId},
       ${sqlString(normalizedPlatform)},
       ${sqlString(token)}
     )
     on conflict (token) do update set
       user_id = excluded.user_id,
+      org_id = coalesce(excluded.org_id, public.notification_tokens.org_id),
       platform = excluded.platform,
       created_at = now()
     returning id, user_id, platform, token, created_at;
@@ -1007,6 +1060,76 @@ const listNotificationTokensForUser = async ({ userId }) => {
   return Array.isArray(result.rows) ? result.rows : [];
 };
 
+const recordCallEvent = async ({
+  orgId,
+  numberId,
+  callSid,
+  eventType,
+  direction,
+  payload,
+  occurredAt,
+}) => {
+  if (!orgId) {
+    throw new Error('orgId is required to record a call event.');
+  }
+
+  if (!eventType) {
+    throw new Error('eventType is required to record a call event.');
+  }
+
+  const query = `
+    insert into public.call_events (
+      org_id,
+      number_id,
+      call_sid,
+      event_type,
+      direction,
+      payload,
+      occurred_at
+    )
+    values (
+      ${sqlString(orgId)},
+      ${numberId ? sqlString(numberId) : 'NULL'},
+      ${callSid ? sqlString(callSid) : 'NULL'},
+      ${sqlString(eventType)},
+      ${direction ? sqlString(direction) : 'NULL'},
+      ${jsonValue(payload)},
+      ${occurredAt ? sqlString(occurredAt) : 'now()'}
+    );
+  `;
+
+  await executeSql(query);
+};
+
+/**
+ * Fetch business context for AI receptionist
+ * @param {string} orgId - Organization ID
+ * @returns {Promise<Object|null>} Business context data
+ */
+const getBusinessContextForOrg = async (orgId) => {
+  if (!orgId) {
+    return null;
+  }
+
+  try {
+    const client = getDirectClient();
+
+    // Call the database helper function to get formatted business context
+    const { data, error } = await client
+      .rpc('get_business_context_for_org', { p_org_id: orgId });
+
+    if (error) {
+      console.error('[Supabase] Error fetching business context:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('[Supabase] Failed to fetch business context:', error);
+    return null;
+  }
+};
+
 module.exports = {
   upsertCallRecord,
   executeSql,
@@ -1027,4 +1150,6 @@ module.exports = {
   findExpiredRecordingCalls,
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,
+  recordCallEvent,
+  getBusinessContextForOrg,
 };

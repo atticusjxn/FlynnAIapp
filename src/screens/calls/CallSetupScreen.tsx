@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  Linking,
   Platform,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
@@ -13,6 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { FlynnCard } from '../../components/ui/FlynnCard';
 import { useTheme } from '../../context/ThemeContext';
+import { useOnboarding } from '../../context/OnboardingContext';
+import { useAuth } from '../../context/AuthContext';
+import { BillingPaywallModal } from '../../components/billing/BillingPaywallModal';
+import { isPaidPlan } from '../../data/billingPlans';
 import { 
   colors, 
   spacing, 
@@ -23,6 +26,7 @@ import {
 } from '../../theme';
 import { TwilioService } from '../../services/TwilioService';
 import { TwilioServiceError } from '../../types/calls.types';
+import { openPhoneDialer } from '../../utils/dialer';
 
 interface CallSetupScreenProps {
   navigation: any;
@@ -40,6 +44,12 @@ export interface ForwardingSetupState {
 export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) => {
   const { colors: themeColors } = useTheme();
   const styles = createStyles(themeColors);
+  const { onboardingData, refreshOnboarding, organizationId } = useOnboarding();
+  const { user } = useAuth();
+  const customerEmail = user?.email ?? undefined;
+  const hasPaidPlan = isPaidPlan(onboardingData.billingPlan);
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const [isRefreshingPlan, setIsRefreshingPlan] = useState(false);
   
   const [setupState, setSetupState] = useState<ForwardingSetupState>({
     isLoading: false,
@@ -63,10 +73,10 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         ...prev,
         twilioNumber: twilioStatus.twilioPhoneNumber || twilioStatus.phoneNumber,
         isForwardingActive: twilioStatus.isForwardingActive,
-        setupStep: (twilioStatus.twilioPhoneNumber || twilioStatus.phoneNumber) ? 
-          (twilioStatus.isForwardingActive ? 'complete' : 'forward') : 
-          'provision',
-        isLoading: false
+        setupStep: (twilioStatus.twilioPhoneNumber || twilioStatus.phoneNumber)
+          ? (twilioStatus.isForwardingActive ? 'complete' : 'forward')
+          : 'provision',
+        isLoading: false,
       }));
     } catch (error) {
       setSetupState(prev => ({
@@ -78,6 +88,11 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
   };
 
   const handleProvisionNumber = async () => {
+    if (!hasPaidPlan) {
+      setPaywallVisible(true);
+      return;
+    }
+
     try {
       setSetupState(prev => ({ ...prev, isLoading: true, error: null }));
       
@@ -87,7 +102,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         ...prev,
         twilioNumber: result.phoneNumber,
         setupStep: 'forward',
-        isLoading: false
+        isLoading: false,
       }));
 
       Alert.alert(
@@ -117,6 +132,18 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         error: errorMessage,
         isLoading: false
       }));
+    }
+  };
+
+  const handleRefreshPlanStatus = async () => {
+    setIsRefreshingPlan(true);
+    try {
+      await refreshOnboarding();
+    } catch (error) {
+      console.error('[CallSetupScreen] Failed to refresh billing plan', error);
+      Alert.alert('Refresh Failed', 'Please reopen Flynn after paying so we can unlock provisioning.');
+    } finally {
+      setIsRefreshingPlan(false);
     }
   };
 
@@ -213,7 +240,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
       'Test Call',
       `Call your Flynn AI number to test the setup:\n\n${setupState.twilioNumber}\n\nSpeak about a job request and Flynn AI will automatically create a job card for you.`,
       [
-        { text: 'Call Now', onPress: () => Linking.openURL(`tel:${setupState.twilioNumber}`) },
+        { text: 'Call Now', onPress: () => openPhoneDialer(setupState.twilioNumber ?? '', 'call-setup') },
         { text: 'Done', onPress: () => setSetupState(prev => ({ ...prev, setupStep: 'complete' })) }
       ]
     );
@@ -263,8 +290,29 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
       <Text style={styles.stepDescription}>
         Flynn AI will provision a dedicated phone number for your business. This number will handle call forwarding and automatic job extraction.
       </Text>
+      {!hasPaidPlan && (
+        <View style={styles.paywallCard}>
+          <Text style={styles.paywallTitle}>Subscribe to unlock provisioning</Text>
+          <Text style={styles.paywallCopy}>
+            Concierge Basic ($49/mo) includes a dedicated number and up to 100 missed-call summaries. Growth lifts the allowance to 500 events each month.
+          </Text>
+          <FlynnButton
+            title="View concierge plans"
+            onPress={() => setPaywallVisible(true)}
+            variant="secondary"
+            fullWidth
+          />
+          <FlynnButton
+            title="I've subscribed – refresh access"
+            onPress={handleRefreshPlanStatus}
+            variant="ghost"
+            fullWidth
+            loading={isRefreshingPlan}
+          />
+        </View>
+      )}
       <FlynnButton
-        title="Get Phone Number"
+        title={hasPaidPlan ? 'Get Phone Number' : 'Subscribe to continue'}
         onPress={handleProvisionNumber}
         loading={setupState.isLoading}
         variant="primary"
@@ -431,6 +479,12 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
           {setupState.setupStep === 'complete' && renderCompleteStep()}
         </View>
       </ScrollView>
+      <BillingPaywallModal
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        customerEmail={customerEmail}
+        organizationId={organizationId}
+      />
     </SafeAreaView>
   );
 };
@@ -534,6 +588,25 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.h4,
     color: colors.primary,
     fontWeight: '700',
+  },
+  paywallCard: {
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+  },
+  paywallTitle: {
+    ...typography.h4,
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  paywallCopy: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+    lineHeight: 18,
   },
   actionButtons: {
     flexDirection: 'row',

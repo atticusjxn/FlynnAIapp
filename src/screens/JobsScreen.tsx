@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Text,
   TouchableOpacity,
+  Linking,
 } from 'react-native';
 import { spacing, typography, borderRadius, shadows } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -20,6 +21,7 @@ import { CommunicationModal } from '../components/jobs/CommunicationModal';
 import { EmptyState } from '../components/jobs/EmptyState';
 import { useNavigation } from '@react-navigation/native';
 import { FlynnIcon } from '../components/ui/FlynnIcon';
+import { generateSmsConfirmation, createSmsUrl } from '../utils/smsTemplate';
 
 const formatRelativeTime = (timestamp?: string) => {
   if (!timestamp) return 'just now';
@@ -103,9 +105,14 @@ export const JobsScreen = () => {
   };
 
   const handleSendTextConfirmation = (job: Job) => {
-    setSelectedJob(job);
-    setCommunicationType('text');
-    setShowCommunication(true);
+    // Generate SMS message with current job details
+    const message = generateSmsConfirmation(job);
+    const smsUrl = createSmsUrl(job.clientPhone, message);
+
+    // Open native SMS app with pre-filled message
+    Linking.openURL(smsUrl).catch(() => {
+      Alert.alert('Error', 'Unable to open messaging app. Please check your device settings.');
+    });
   };
 
   const handleSendEmailConfirmation = (job: Job) => {

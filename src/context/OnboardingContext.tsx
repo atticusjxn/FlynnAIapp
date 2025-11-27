@@ -1,25 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../services/supabase';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-
-export interface BusinessGoal {
-  id: string;
-  label: string;
-  description: string;
-}
-
-export interface OnboardingData {
-  businessType?: string;
-  goals?: string[];
-  phoneSetupComplete: boolean;
-  receptionistConfigured: boolean;
-  receptionistVoice?: string | null;
-  receptionistGreeting?: string | null;
-  receptionistQuestions?: string[];
-  receptionistVoiceProfileId?: string | null;
-  twilioPhoneNumber?: string | null;
-  phoneNumber?: string | null;
-}
+import { OrganizationService } from '../services/organizationService';
+import { BusinessGoal, OnboardingData, defaultOnboardingData } from '../types/onboarding';
 
 interface OnboardingContextType {
   isOnboardingComplete: boolean;
@@ -28,20 +10,9 @@ interface OnboardingContextType {
   completeOnboarding: () => Promise<void>;
   resetOnboarding: () => void;
   loading: boolean;
+  organizationId: string | null;
+  refreshOnboarding: () => Promise<void>;
 }
-
-const defaultOnboardingData: OnboardingData = {
-  businessType: '',
-  goals: [],
-  phoneSetupComplete: false,
-  receptionistConfigured: false,
-  receptionistVoice: null,
-  receptionistGreeting: null,
-  receptionistQuestions: [],
-  receptionistVoiceProfileId: null,
-  twilioPhoneNumber: null,
-  phoneNumber: null,
-};
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
@@ -91,58 +62,45 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>(defaultOnboardingData);
   const [loading, setLoading] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
-  useEffect(() => {
-    checkOnboardingStatus();
-  }, [user]);
-
-  const checkOnboardingStatus = async () => {
+  const checkOnboardingStatus = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!user) {
+      setIsOnboardingComplete(false);
+      setOnboardingData(defaultOnboardingData);
+      setOrganizationId(null);
       setLoading(false);
       return;
     }
 
+    if (!options.silent) {
+      setLoading(true);
+    }
+
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('business_type, onboarding_complete, business_goals, phone_setup_complete, receptionist_configured, twilio_phone_number, phone_number, receptionist_voice, receptionist_greeting, receptionist_questions, receptionist_voice_profile_id')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (error) {
-        if ((error as { code?: string }).code !== 'PGRST116') {
-          console.error('Error checking onboarding status:', error);
-        }
-        setIsOnboardingComplete(false);
-        setOnboardingData(defaultOnboardingData);
-        return;
-      }
-
-      if (!data) {
-        setIsOnboardingComplete(false);
-        setOnboardingData(defaultOnboardingData);
-        return;
-      }
-
-      setIsOnboardingComplete(data.onboarding_complete || false);
-      setOnboardingData({
-        businessType: data.business_type || '',
-        goals: data.business_goals || [],
-        phoneSetupComplete: data.phone_setup_complete || false,
-        receptionistConfigured: data.receptionist_configured || false,
-        receptionistVoice: data.receptionist_voice || null,
-        receptionistGreeting: data.receptionist_greeting || null,
-        receptionistQuestions: data.receptionist_questions ? (Array.isArray(data.receptionist_questions) ? data.receptionist_questions : []) : [],
-        receptionistVoiceProfileId: data.receptionist_voice_profile_id || null,
-        twilioPhoneNumber: data.twilio_phone_number || null,
-        phoneNumber: data.phone_number || null,
-      });
+      const snapshot = await OrganizationService.fetchOnboardingData();
+      setIsOnboardingComplete(snapshot.isComplete);
+      setOnboardingData(snapshot.data);
+      setOrganizationId(snapshot.orgId);
     } catch (error) {
       console.error('Error in checkOnboardingStatus:', error);
+      setIsOnboardingComplete(false);
+      setOnboardingData(defaultOnboardingData);
+      setOrganizationId(null);
     } finally {
-      setLoading(false);
+      if (!options.silent) {
+        setLoading(false);
+      }
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    void checkOnboardingStatus();
+  }, [checkOnboardingStatus]);
+
+  const refreshOnboarding = useCallback(async () => {
+    await checkOnboardingStatus({ silent: false });
+  }, [checkOnboardingStatus]);
 
   const updateOnboardingData = (newData: Partial<OnboardingData>) => {
     setOnboardingData(prev => ({ ...prev, ...newData }));
@@ -152,28 +110,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          business_type: onboardingData.businessType,
-          business_goals: onboardingData.goals,
-          phone_setup_complete: onboardingData.phoneSetupComplete,
-          receptionist_configured: onboardingData.receptionistConfigured,
-          twilio_phone_number: onboardingData.twilioPhoneNumber,
-          phone_number: onboardingData.phoneNumber,
-          receptionist_voice: onboardingData.receptionistVoice,
-          receptionist_greeting: onboardingData.receptionistGreeting,
-          receptionist_questions: onboardingData.receptionistQuestions ?? [],
-          receptionist_voice_profile_id: onboardingData.receptionistVoiceProfileId ?? null,
-          onboarding_complete: true,
-        })
-        .eq('id', user.id);
-
-      if (error) {
-        console.error('Error completing onboarding:', error);
-        throw error;
-      }
-
+      await OrganizationService.saveOnboardingData(onboardingData);
       setIsOnboardingComplete(true);
     } catch (error) {
       console.error('Error in completeOnboarding:', error);
@@ -184,6 +121,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const resetOnboarding = () => {
     setIsOnboardingComplete(false);
     setOnboardingData(defaultOnboardingData);
+    setOrganizationId(null);
   };
 
   return (
@@ -195,6 +133,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         completeOnboarding,
         resetOnboarding,
         loading,
+        organizationId,
+        refreshOnboarding,
       }}
     >
       {children}

@@ -48,6 +48,10 @@ export interface UserTwilioSettings {
   isForwardingActive: boolean;
   recordingPreference: RecordingPreference;
   callFeaturesEnabled: boolean;
+  orgId?: string | null;
+  primaryNumberId?: string | null;
+  verificationState?: string | null;
+  forwardingType?: string | null;
 }
 
 export interface CallRecord {

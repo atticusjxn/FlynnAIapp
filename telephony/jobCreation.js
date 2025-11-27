@@ -141,6 +141,7 @@ const ensureJobForTranscript = async ({ callSid, transcriptText, llmClient }) =>
 
   const jobPayload = {
     userId: callRecord?.user_id || null,
+    orgId: callRecord?.org_id || userProfile?.default_org_id || null,
     callSid,
     customerName: extracted.customerName,
     customerPhone: extracted.customerPhone,

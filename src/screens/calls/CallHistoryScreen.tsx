@@ -7,7 +7,6 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
-  Linking,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { FlynnCard } from '../../components/ui/FlynnCard';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { useTheme } from '../../context/ThemeContext';
-import { 
+import {
   colors, 
   spacing, 
   typography, 
@@ -23,6 +22,7 @@ import {
   shadows 
 } from '../../theme';
 import { TwilioService, CallRecord } from '../../services/TwilioService';
+import { openPhoneDialer } from '../../utils/dialer';
 
 interface CallHistoryScreenProps {
   navigation: any;
@@ -90,11 +90,7 @@ const CallHistoryScreen: React.FC<CallHistoryScreenProps> = ({ navigation }) => 
   };
 
   const callBack = async (phoneNumber: string) => {
-    try {
-      await Linking.openURL(`tel:${phoneNumber}`);
-    } catch (error) {
-      Alert.alert('Error', 'Unable to make call');
-    }
+    await openPhoneDialer(phoneNumber, 'call-history');
   };
 
   const formatDuration = (seconds?: number): string => {

@@ -39,6 +39,7 @@ const {
   updateCallRecordingSignedUrl,
   getReceptionistProfileByNumber,
   recordCallEvent,
+  getBusinessContextForOrg,
 } = require('./supabaseMcpClient');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 
@@ -592,6 +593,7 @@ const cacheReceptionistSession = ({ callSid, profile, toNumber }) => {
   receptionistSessionCache.set(callSid, {
     callSid,
     userId: profile.id,
+    orgId: profile.default_org_id || profile.org_id || null,
     toNumber,
     startedAt: Date.now(),
     ackLibrary,
@@ -1022,6 +1024,159 @@ app.post('/webhooks/jobber/client-updated', async (req, res) => {
   console.log('[Jobber Webhook] Client updated:', req.body);
   // TODO: Implement client updated webhook handler
   res.status(200).json({ received: true });
+});
+
+// ========================================
+// Website Scraping & Business Profile API
+// ========================================
+
+/**
+ * Scrape a business website and extract relevant information
+ * Uses OpenAI to intelligently parse website content
+ */
+app.post('/api/scrape-website', async (req, res) => {
+  const { url } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  console.log('[Website Scraper] Starting scrape for:', url);
+
+  try {
+    // Fetch website content
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Flynn AI Business Context Bot/1.0',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch website: ${response.status} ${response.statusText}`);
+    }
+
+    const html = await response.text();
+
+    // Extract text content from HTML (simple approach - remove tags)
+    const textContent = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove scripts
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove styles
+      .replace(/<[^>]+>/g, ' ') // Remove HTML tags
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+
+    // Limit content length for AI processing (first 8000 characters)
+    const contentForAI = textContent.substring(0, 8000);
+
+    console.log('[Website Scraper] Website fetched, content length:', contentForAI.length);
+
+    // Use OpenAI to extract business information
+    const llmClient = getLLMClient();
+
+    const extractionPrompt = `Analyze this business website content and extract the following information in JSON format:
+
+{
+  "services": [
+    {"name": "Service name", "description": "Brief description", "price_range": "$X-$Y or pricing info"}
+  ],
+  "business_hours": {
+    "monday": {"open": "09:00", "close": "17:00", "closed": false},
+    "tuesday": {"open": "09:00", "close": "17:00", "closed": false},
+    ...similar for all days...
+  },
+  "pricing_notes": "General pricing information or starting rates",
+  "contact_info": {
+    "phone": "phone number if found",
+    "email": "email if found",
+    "address": "physical address if found"
+  },
+  "about": "Brief description of the business",
+  "policies": {
+    "cancellation": "Cancellation policy if mentioned",
+    "payment": "Payment terms if mentioned"
+  }
+}
+
+Only include information that is explicitly stated on the website. If something is not found, omit that field or set it to null.
+
+Website content:
+${contentForAI}`;
+
+    const completion = await llmClient.chat.completions.create({
+      model: process.env.JOB_EXTRACTION_MODEL || 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a business information extraction assistant. Extract structured data from website content accurately and concisely. Return only valid JSON.',
+        },
+        {
+          role: 'user',
+          content: extractionPrompt,
+        },
+      ],
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    });
+
+    const extractedText = completion.choices[0]?.message?.content;
+    if (!extractedText) {
+      throw new Error('No response from AI extraction');
+    }
+
+    const extractedData = JSON.parse(extractedText);
+    console.log('[Website Scraper] Data extracted successfully');
+
+    // Return result
+    res.status(200).json({
+      success: true,
+      url,
+      scraped_at: new Date().toISOString(),
+      data: extractedData,
+    });
+  } catch (error) {
+    console.error('[Website Scraper] Error:', error);
+    res.status(500).json({
+      success: false,
+      url,
+      scraped_at: new Date().toISOString(),
+      data: {},
+      error: error.message || 'Failed to scrape website',
+    });
+  }
+});
+
+/**
+ * Get business profile for organization (called by AI during calls)
+ */
+app.get('/api/business-profile/:orgId', async (req, res) => {
+  const { orgId } = req.params;
+
+  if (!orgId) {
+    return res.status(400).json({ error: 'Organization ID required' });
+  }
+
+  try {
+    console.log('[Business Profile] Fetching profile for org:', orgId);
+
+    // Use the Supabase function to get business context
+    const { data, error } = await supabaseAdmin.rpc('get_business_context_for_org', {
+      p_org_id: orgId,
+    });
+
+    if (error) {
+      console.error('[Business Profile] Database error:', error);
+      throw new Error(error.message);
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Business profile not found' });
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('[Business Profile] Error:', error);
+    res.status(500).json({ error: 'Failed to get business profile' });
+  }
 });
 
 // Health check endpoint for Railway
@@ -2469,6 +2624,7 @@ if (require.main === module) {
         llmClient,
         voiceConfig,
         onConversationComplete: handleRealtimeConversationComplete,
+        getBusinessContextForOrg,
       });
       console.log('[Server] Realtime WebSocket server attached successfully');
     } catch (error) {

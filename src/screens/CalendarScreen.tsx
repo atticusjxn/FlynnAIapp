@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   Alert,
+  Linking,
 } from 'react-native';
 import { FlynnIcon } from '../components/ui/FlynnIcon';
 import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
@@ -21,6 +22,7 @@ import { MonthView } from '../components/calendar/MonthView';
 import { WeekView } from '../components/calendar/WeekView';
 import { DayView } from '../components/calendar/DayView';
 import { JobEvent } from '../components/calendar/JobEvent';
+import { generateSmsConfirmation, createSmsUrl } from '../utils/smsTemplate';
 
 type CalendarView = 'month' | 'day';
 
@@ -87,7 +89,14 @@ const toggleButtonWidth = (width - spacing.lg * 2 - spacing.xxxs) / 2; // Only 2
   }, []);
 
   const handleSendTextConfirmation = useCallback((job: Job) => {
-    console.log('Send text confirmation for job:', job.id);
+    // Generate SMS message with current job details
+    const message = generateSmsConfirmation(job);
+    const smsUrl = createSmsUrl(job.clientPhone, message);
+
+    // Open native SMS app with pre-filled message
+    Linking.openURL(smsUrl).catch(() => {
+      Alert.alert('Error', 'Unable to open messaging app. Please check your device settings.');
+    });
   }, []);
 
   const handleSendEmailConfirmation = useCallback((job: Job) => {

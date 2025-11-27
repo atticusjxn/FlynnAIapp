@@ -20,6 +20,7 @@ import { FlynnInput } from '../components/ui/FlynnInput';
 import { FlynnButton } from '../components/ui/FlynnButton';
 import { spacing, typography, borderRadius } from '../theme';
 import ReceptionistService, { VoiceProfile } from '../services/ReceptionistService';
+import { isApiConfigured } from '../services/apiClient';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -31,6 +32,24 @@ const BASE_VOICE_OPTIONS = [
   { id: 'koala_warm', label: 'Avery — Warm & Friendly' },
   { id: 'koala_expert', label: 'Sloane — Expert Concierge' },
   { id: 'koala_hype', label: 'Maya — High Energy' },
+];
+
+const RECEPTIONIST_MODES: Array<{ id: 'voicemail_only' | 'ai_only' | 'hybrid_choice'; title: string; description: string }> = [
+  {
+    id: 'ai_only',
+    title: 'AI handles missed calls',
+    description: 'Every missed call is answered by Flynn immediately.',
+  },
+  {
+    id: 'hybrid_choice',
+    title: 'Offer caller a choice',
+    description: 'Flynn asks whether they want to leave a voicemail or speak to the concierge.',
+  },
+  {
+    id: 'voicemail_only',
+    title: 'Voicemail capture only',
+    description: 'Skip the AI receptionist and capture a standard voicemail greeting.',
+  },
 ];
 
 const FOLLOW_UP_TEMPLATES = [
@@ -82,6 +101,48 @@ const matchTemplateId = (questions: string[]): string => {
   return match?.id ?? 'custom';
 };
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const pickRandom = <T,>(items: T[], fallback: T): T => {
+  if (!items || items.length === 0) {
+    return fallback;
+  }
+  return items[Math.floor(Math.random() * items.length)] ?? fallback;
+};
+
+const TEST_CALL_KEYWORD_RESPONSES: Array<{ keywords: string[]; answer: string }> = [
+  { keywords: ['when', 'date', 'time', 'schedule', 'day'], answer: 'We’re hoping for Saturday 24 August, but we can be flexible by a day if needed.' },
+  { keywords: ['where', 'address', 'location', 'venue'], answer: 'It’s at our space in Southbank, Melbourne.' },
+  { keywords: ['guest', 'people', 'attendee', 'party size'], answer: 'We’re expecting around 80 guests with a handful of VIPs.' },
+  { keywords: ['budget', 'cost', 'price'], answer: 'We’re aiming to keep the budget around $7,500.' },
+  { keywords: ['contact', 'email', 'phone', 'reach'], answer: 'Reach me at jess@example.com or 555-0134.' },
+];
+
+const TEST_CALL_FALLBACK_RESPONSES = [
+  'We need help coordinating a launch event with catering and live music.',
+  'It’s happening next month in the CBD.',
+  'We’ll have about 60 attendees and a few VIP guests.',
+  'Please keep everything polished but relaxed.',
+  'You can text or email me the recap so I can confirm with my team.',
+];
+const CALLER_OPENING_LINES = [
+  'Hi, I’m checking if you have availability for an upcoming event.',
+  'Hello! I was referred to you and wanted to see how Koala Concierge works.',
+  'Hi there, we’re planning something special and need a reliable receptionist.',
+];
+
+const CALLER_CLOSING_LINES = [
+  'That sounds perfect, thanks Flynn!',
+  'Appreciate the help—chat soon!',
+  'Great, I’ll look out for your summary. Thanks again!',
+];
+
+interface TestCallStep {
+  role: 'concierge' | 'caller';
+  text: string;
+  delayMs?: number;
+}
+
 export const ReceptionistScreen: React.FC = () => {
   const { user } = useAuth();
   const { onboardingData, updateOnboardingData } = useOnboarding();
@@ -126,17 +187,63 @@ export const ReceptionistScreen: React.FC = () => {
   const koalaLoopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const koalaScale = useRef(new Animated.Value(1)).current;
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mode, setMode] = useState<'voicemail_only' | 'ai_only' | 'hybrid_choice'>(
+    onboardingData.receptionistMode || 'ai_only'
+  );
+  const [ackLibrary, setAckLibrary] = useState<string[]>(
+    onboardingData.receptionistAckLibrary && onboardingData.receptionistAckLibrary.length > 0
+      ? onboardingData.receptionistAckLibrary
+      : ['Got it!', 'Perfect, thanks!', 'Understood.', 'Great, let me note that.']
+  );
+  const [newAckPhrase, setNewAckPhrase] = useState('');
+  const [testCallModalVisible, setTestCallModalVisible] = useState(false);
+  const [testCallSteps, setTestCallSteps] = useState<TestCallStep[]>([]);
+  const [activeTestCallIndex, setActiveTestCallIndex] = useState(-1);
+  const [isTestCallRunning, setIsTestCallRunning] = useState(false);
+  const testCallSoundRef = useRef<Audio.Sound | null>(null);
+  const testCallAudioUriRef = useRef<string | null>(null);
+  const testCallCancelledRef = useRef(false);
+  const testCallScrollRef = useRef<ScrollView | null>(null);
+  const businessName = (user?.user_metadata?.business_name as string | undefined)?.trim();
 
-  useEffect(() => {
-    refreshVoiceProfiles();
-  }, []);
+  const stopTestCallAudio = useCallback(async () => {
+    if (testCallSoundRef.current) {
+      try {
+        await testCallSoundRef.current.stopAsync();
+      } catch (_) {
+        // ignore
+      }
+      await testCallSoundRef.current.unloadAsync().catch(() => {});
+      testCallSoundRef.current = null;
+    }
+    if (testCallAudioUriRef.current) {
+      await FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => {});
+      testCallAudioUriRef.current = null;
+    }
+    stopKoalaAnimation();
+  }, [stopKoalaAnimation]);
+
+useEffect(() => {
+  refreshVoiceProfiles();
+}, []);
+
+useEffect(() => {
+  if (activeTestCallIndex < 0 || !testCallScrollRef.current?.scrollTo) {
+    return;
+  }
+  const averageRowHeight = 96;
+  testCallScrollRef.current.scrollTo({
+    y: Math.max(0, activeTestCallIndex * averageRowHeight - 40),
+    animated: true,
+  });
+}, [activeTestCallIndex]);
 
   useEffect(() => {
     return () => {
       if (previewSoundRef.current) {
         previewSoundRef.current.unloadAsync().catch(() => {});
-        previewSoundRef.current = null;
-      }
+      previewSoundRef.current = null;
+    }
       if (previewUriRef.current) {
         FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
         previewUriRef.current = null;
@@ -148,12 +255,82 @@ export const ReceptionistScreen: React.FC = () => {
       koalaScale.stopAnimation(() => {
         koalaScale.setValue(1);
       });
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = null;
-      }
-    };
-  }, [koalaScale]);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    if (testCallSoundRef.current) {
+      testCallSoundRef.current.unloadAsync().catch(() => {});
+      testCallSoundRef.current = null;
+    }
+    if (testCallAudioUriRef.current) {
+      FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => {});
+      testCallAudioUriRef.current = null;
+    }
+    testCallCancelledRef.current = true;
+  };
+}, [koalaScale]);
+
+  const generateCallerAnswer = useCallback((question: string, index: number) => {
+    if (!question) {
+      return TEST_CALL_FALLBACK_RESPONSES[index % TEST_CALL_FALLBACK_RESPONSES.length];
+    }
+    const normalized = question.toLowerCase();
+    const keywordResponse = TEST_CALL_KEYWORD_RESPONSES.find(entry =>
+      entry.keywords.some(keyword => normalized.includes(keyword))
+    );
+    if (keywordResponse) {
+      return keywordResponse.answer;
+    }
+    return TEST_CALL_FALLBACK_RESPONSES[index % TEST_CALL_FALLBACK_RESPONSES.length];
+  }, []);
+
+  const buildTestCallScript = useCallback((): TestCallStep[] => {
+    const script: TestCallStep[] = [];
+    const greetingText = (greeting || defaultGreeting || 'Hello!').trim();
+    const ackPhrase = pickRandom(
+      ackLibrary.length > 0 ? ackLibrary : ['Great!', 'Perfect, thanks!'],
+      'Great!'
+    );
+    const orgDescriptor = onboardingData.businessType
+      ? onboardingData.businessType.replace(/_/g, ' ')
+      : 'events';
+    const callerOpening = pickRandom(CALLER_OPENING_LINES, CALLER_OPENING_LINES[0]);
+    const callerClosing = pickRandom(CALLER_CLOSING_LINES, CALLER_CLOSING_LINES[0]);
+
+    script.push({ role: 'concierge', text: greetingText });
+    script.push({ role: 'caller', text: `${callerOpening} We’re planning a ${orgDescriptor} project.`, delayMs: 1600 });
+
+    followUpQuestions
+      .map(question => question?.trim())
+      .filter((question): question is string => Boolean(question))
+      .forEach((question, index) => {
+        script.push({ role: 'concierge', text: question });
+        script.push({
+          role: 'caller',
+          text: generateCallerAnswer(question, index),
+          delayMs: 1700,
+        });
+      });
+
+    const teamName = businessName || 'your team';
+    script.push({
+      role: 'concierge',
+      text: `${ackPhrase} I’ll send a summary once I brief ${teamName}. Anything else you’d like me to capture?`,
+    });
+    script.push({ role: 'caller', text: callerClosing, delayMs: 1500 });
+    script.push({ role: 'concierge', text: 'Wonderful. Chat soon!' });
+
+    return script;
+  }, [
+    ackLibrary,
+    businessName,
+    defaultGreeting,
+    followUpQuestions,
+    generateCallerAnswer,
+    greeting,
+    onboardingData.businessType,
+  ]);
 
   useEffect(() => {
     if (onboardingData.receptionistVoice) {
@@ -171,12 +348,23 @@ export const ReceptionistScreen: React.FC = () => {
     if (onboardingData.receptionistVoiceProfileId) {
       setActiveVoiceProfileId(onboardingData.receptionistVoiceProfileId);
     }
+    if (onboardingData.receptionistMode) {
+      setMode(onboardingData.receptionistMode);
+    }
+    if (onboardingData.receptionistAckLibrary) {
+      const cleaned = onboardingData.receptionistAckLibrary.filter((phrase) => typeof phrase === 'string' && phrase.trim().length > 0);
+      if (cleaned.length > 0) {
+        setAckLibrary(cleaned);
+      }
+    }
   }, [
     defaultGreeting,
     onboardingData.receptionistVoice,
     onboardingData.receptionistGreeting,
     onboardingData.receptionistQuestions,
     onboardingData.receptionistVoiceProfileId,
+    onboardingData.receptionistMode,
+    onboardingData.receptionistAckLibrary,
   ]);
 
   const refreshVoiceProfiles = useCallback(async () => {
@@ -297,6 +485,25 @@ export const ReceptionistScreen: React.FC = () => {
     }, 4000);
   }, []);
 
+  const handleAddAckPhrase = useCallback(() => {
+    const trimmed = newAckPhrase.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    if (ackLibrary.some(phrase => phrase.toLowerCase() === trimmed.toLowerCase())) {
+      showToast('That acknowledgement is already in the list.', 'error');
+      return;
+    }
+
+    setAckLibrary(prev => [...prev, trimmed]);
+    setNewAckPhrase('');
+  }, [ackLibrary, newAckPhrase, showToast]);
+
+  const handleRemoveAckPhrase = useCallback((phrase: string) => {
+    setAckLibrary(prev => prev.filter(item => item !== phrase));
+  }, []);
+
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
@@ -309,6 +516,8 @@ export const ReceptionistScreen: React.FC = () => {
         questions,
         voiceProfileId,
         configured: true,
+        mode,
+        ackLibrary,
       });
 
       updateOnboardingData({
@@ -317,6 +526,8 @@ export const ReceptionistScreen: React.FC = () => {
         receptionistGreeting: greeting,
         receptionistQuestions: questions,
         receptionistVoiceProfileId: voiceProfileId,
+        receptionistMode: mode,
+        receptionistAckLibrary: ackLibrary,
       });
       showToast('Receptionist settings saved. Flynn will use the new script on the next call.', 'success');
     } catch (error) {
@@ -617,18 +828,174 @@ export const ReceptionistScreen: React.FC = () => {
     stopPreview,
   ]);
 
+  const playTestCallAudio = useCallback(async (text: string) => {
+    if (!text?.trim()) {
+      await wait(800);
+      return;
+    }
+
+    if (selectedVoice === 'custom_voice' && customVoiceProfile?.status !== 'ready') {
+      throw new Error('Custom voice not ready');
+    }
+
+    await stopTestCallAudio();
+
+    const voiceProfileId = selectedVoice === 'custom_voice'
+      ? (customVoiceProfile?.id ?? activeVoiceProfileId ?? undefined)
+      : undefined;
+
+    const preview = await ReceptionistService.previewGreeting(text, selectedVoice, voiceProfileId);
+
+    if (testCallAudioUriRef.current) {
+      await FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => {});
+      testCallAudioUriRef.current = null;
+    }
+
+    const extension = preview.contentType.includes('wav')
+      ? 'wav'
+      : preview.contentType.includes('ogg')
+        ? 'ogg'
+        : 'mp3';
+    const base64Encoding = (FileSystem as any).EncodingType?.Base64 ?? 'base64';
+    const fileUri = `${FileSystem.cacheDirectory}receptionist-test-${Date.now()}.${extension}`;
+    await FileSystem.writeAsStringAsync(fileUri, preview.audio, { encoding: base64Encoding });
+    testCallAudioUriRef.current = fileUri;
+
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+      interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+    });
+
+    const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+    testCallSoundRef.current = sound;
+
+    const status = await sound.getStatusAsync();
+    const durationMillis = status.isLoaded ? status.durationMillis ?? undefined : undefined;
+    startKoalaAnimationLoop(durationMillis);
+
+    await new Promise<void>((resolve, reject) => {
+      sound.setOnPlaybackStatusUpdate((playbackStatus) => {
+        if (!playbackStatus.isLoaded) {
+          if (playbackStatus.error) {
+            reject(new Error(playbackStatus.error));
+          }
+          return;
+        }
+
+        if (testCallCancelledRef.current) {
+          sound.setOnPlaybackStatusUpdate(undefined);
+          resolve();
+          return;
+        }
+
+        if (playbackStatus.didJustFinish) {
+          sound.setOnPlaybackStatusUpdate(undefined);
+          resolve();
+        }
+      });
+
+      sound.playAsync().catch((error) => {
+        sound.setOnPlaybackStatusUpdate(undefined);
+        reject(error);
+      });
+    });
+  }, [
+    activeVoiceProfileId,
+    customVoiceProfile,
+    selectedVoice,
+    startKoalaAnimationLoop,
+    stopTestCallAudio,
+  ]);
+
+  const handleCloseTestCallModal = useCallback(() => {
+    testCallCancelledRef.current = true;
+    setTestCallModalVisible(false);
+    setIsTestCallRunning(false);
+    setActiveTestCallIndex(-1);
+    stopTestCallAudio().catch(() => {});
+  }, [stopTestCallAudio]);
+
+  const handleStartTestCall = useCallback(async () => {
+    if (isTestCallRunning) {
+      return;
+    }
+
+    if (!isApiConfigured()) {
+      Alert.alert(
+        'Test call unavailable',
+        'Connect the API base URL to enable Koala test calls. This Beta feature stays hidden until configured.'
+      );
+      return;
+    }
+
+    if (selectedVoice === 'custom_voice' && customVoiceProfile?.status !== 'ready') {
+      Alert.alert('Voice not ready', 'Finish cloning your custom voice before running a test call.');
+      return;
+    }
+
+    await stopPreview();
+    const script = buildTestCallScript();
+
+    if (script.length === 0) {
+      Alert.alert('Add greeting', 'Configure a greeting or questions before running a test call.');
+      return;
+    }
+
+    setTestCallSteps(script);
+    setTestCallModalVisible(true);
+    setActiveTestCallIndex(-1);
+    setIsTestCallRunning(true);
+    testCallCancelledRef.current = false;
+
+    try {
+      for (let i = 0; i < script.length; i += 1) {
+        if (testCallCancelledRef.current) {
+          break;
+        }
+
+        setActiveTestCallIndex(i);
+        const step = script[i];
+
+        if (step.role === 'concierge') {
+          await playTestCallAudio(step.text);
+        } else {
+          await wait(step.delayMs ?? 1800);
+        }
+      }
+    } catch (error) {
+      console.error('[ReceptionistScreen] Test call simulation failed', error);
+      Alert.alert('Test call', error instanceof Error ? error.message : 'Simulation interrupted.');
+    } finally {
+      setIsTestCallRunning(false);
+      stopTestCallAudio().catch(() => {});
+    }
+  }, [
+    buildTestCallScript,
+    customVoiceProfile,
+    isTestCallRunning,
+    playTestCallAudio,
+    selectedVoice,
+    stopPreview,
+    stopTestCallAudio,
+  ]);
+
   return (
     <View style={styles.screen}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.heroCard}>
-          <Animated.View style={[styles.heroAvatar, { transform: [{ scale: koalaScale }] }]}>
-            <Image
-              key={isKoalaTalking ? `koala-${koalaAnimationKey}` : 'koala-static'}
-              source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
-            style={styles.heroAvatarImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
+      <View style={styles.heroCard}>
+        <Animated.View style={[styles.heroAvatar, { transform: [{ scale: koalaScale }] }]}>
+          <Image
+            key={isKoalaTalking ? `koala-${koalaAnimationKey}` : 'koala-static'}
+            source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
+          style={styles.heroAvatarImage}
+          resizeMode="contain"
+        />
+      </Animated.View>
         <View style={styles.heroTextWrapper}>
           <Text style={styles.heroTitle}>Koala Concierge</Text>
           <Text style={styles.heroSubtitle}>
@@ -656,6 +1023,28 @@ export const ReceptionistScreen: React.FC = () => {
             </View>
           )}
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.testCallCard}>
+        <View style={styles.testCallHeader}>
+          <Text style={styles.cardTitle}>Run a Koala test call</Text>
+          <Text style={styles.betaPill}>Beta</Text>
+        </View>
+        <Text style={styles.cardHint}>
+          Hear how your script sounds before provisioning a number. Koala will ask your configured
+          questions and generate a realistic caller response.
+        </Text>
+        {!isApiConfigured() && (
+          <Text style={styles.cardWarning}>
+            Connect the API base URL in your build configuration to enable test calls.
+          </Text>
+        )}
+        <FlynnButton
+          title={isTestCallRunning ? 'Running test call…' : 'Start test call'}
+          onPress={handleStartTestCall}
+          variant="secondary"
+          disabled={isTestCallRunning || !isApiConfigured()}
+        />
       </View>
 
       <View style={styles.card}>
@@ -705,6 +1094,32 @@ export const ReceptionistScreen: React.FC = () => {
             )}
           </View>
         )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Call routing</Text>
+        <Text style={styles.cardHint}>Decide whether Flynn greets everyone or offers a voicemail fallback.</Text>
+        {RECEPTIONIST_MODES.map(option => {
+          const isSelected = mode === option.id;
+          return (
+            <TouchableOpacity
+              key={option.id}
+              style={[styles.modeOption, isSelected && styles.modeOptionSelected]}
+              onPress={() => setMode(option.id)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.modeCopy}>
+                <Text style={[styles.modeTitle, isSelected && styles.modeTitleSelected]}>{option.title}</Text>
+                <Text style={styles.modeDescription}>{option.description}</Text>
+              </View>
+              <FlynnIcon
+                name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                size={20}
+                color={isSelected ? '#2563eb' : '#94a3b8'}
+              />
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View style={styles.card}>
@@ -804,6 +1219,42 @@ export const ReceptionistScreen: React.FC = () => {
           size="small"
           style={styles.addQuestionButton}
           textStyle={styles.addQuestionButtonText}
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Acknowledgement phrases</Text>
+        <Text style={styles.cardHint}>Flynn rotates through these quick responses while processing the caller&apos;s answer.</Text>
+        <View style={styles.ackList}>
+          {ackLibrary.map((phrase) => {
+            const canRemove = ackLibrary.length > 3;
+            return (
+              <View key={phrase} style={styles.ackItem}>
+                <Text style={styles.ackText}>{phrase}</Text>
+                <TouchableOpacity
+                  onPress={() => handleRemoveAckPhrase(phrase)}
+                  disabled={!canRemove}
+                  style={[styles.ackRemoveButton, !canRemove && styles.ackRemoveButtonDisabled]}
+                  activeOpacity={0.7}
+                >
+                  <FlynnIcon name="close" size={16} color={canRemove ? '#dc2626' : '#cbd5f5'} />
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </View>
+        <FlynnInput
+          value={newAckPhrase}
+          onChangeText={setNewAckPhrase}
+          placeholder="Add a new acknowledgement"
+          containerStyle={styles.ackInput}
+        />
+        <FlynnButton
+          title="Add phrase"
+          variant="secondary"
+          onPress={handleAddAckPhrase}
+          disabled={!newAckPhrase.trim()}
+          size="small"
         />
       </View>
 
@@ -927,6 +1378,15 @@ export const ReceptionistScreen: React.FC = () => {
         durationMillis={recordingDuration}
         uploading={isUploadingSample}
       />
+
+      <TestCallModal
+        visible={testCallModalVisible}
+        steps={testCallSteps}
+        activeIndex={activeTestCallIndex}
+        running={isTestCallRunning}
+        onClose={handleCloseTestCallModal}
+        scrollRef={testCallScrollRef}
+      />
       </ScrollView>
 
       {toastState && (
@@ -965,6 +1425,15 @@ interface RecordVoiceModalProps {
   onStartRecording: () => Promise<void>;
   onStopRecording: () => Promise<void>;
   onDismiss: () => void;
+}
+
+interface TestCallModalProps {
+  visible: boolean;
+  steps: TestCallStep[];
+  activeIndex: number;
+  running: boolean;
+  onClose: () => void;
+  scrollRef: React.RefObject<ScrollView>;
 }
 
 const RecordVoiceModal: React.FC<RecordVoiceModalProps> = ({
@@ -1012,6 +1481,60 @@ const RecordVoiceModal: React.FC<RecordVoiceModalProps> = ({
     </Modal>
   );
 };
+
+const TestCallModal: React.FC<TestCallModalProps> = ({
+  visible,
+  steps,
+  activeIndex,
+  running,
+  onClose,
+  scrollRef,
+}) => (
+  <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <View style={modalStyles.overlay}>
+      <View style={modalStyles.testCallCard}>
+        <View style={modalStyles.testCallHeader}>
+          <Text style={modalStyles.title}>Koala concierge test call</Text>
+          <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
+            <FlynnIcon name="close" size={18} color="#0f172a" />
+          </TouchableOpacity>
+        </View>
+        <Text style={modalStyles.testCallDescription}>
+          {running
+            ? 'Koala is playing your script with realistic caller replies. Sit back and listen!'
+            : 'Review the simulated call below. Update your script and run it again any time.'}
+        </Text>
+        <ScrollView
+          ref={scrollRef}
+          style={modalStyles.testCallScroll}
+          contentContainerStyle={modalStyles.testCallContent}
+        >
+          {steps.map((step, index) => (
+            <View
+              key={`${index}-${step.role}`}
+              style={[
+                modalStyles.chatRow,
+                step.role === 'concierge'
+                  ? modalStyles.conciergeChatRow
+                  : modalStyles.callerChatRow,
+                activeIndex === index && modalStyles.chatRowActive,
+              ]}
+            >
+              <Text style={modalStyles.chatRole}>{step.role === 'concierge' ? 'Koala' : 'Caller'}</Text>
+              <Text style={modalStyles.chatText}>{step.text}</Text>
+            </View>
+          ))}
+        </ScrollView>
+        <FlynnButton
+          title={running ? 'Stop simulation' : 'Close'}
+          onPress={onClose}
+          variant={running ? 'danger' : 'secondary'}
+          fullWidth
+        />
+      </View>
+    </View>
+  </Modal>
+);
 
 const styles = StyleSheet.create({
   screen: {
@@ -1103,6 +1626,39 @@ const styles = StyleSheet.create({
   cardHint: {
     ...typography.bodySmall,
     color: '#64748b',
+    marginBottom: spacing.md,
+  },
+  testCallCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    marginBottom: spacing.xl,
+  },
+  testCallHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  betaPill: {
+    ...typography.caption,
+    color: '#1d4ed8',
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxxs,
+    borderRadius: borderRadius.full,
+    fontWeight: '700',
+  },
+  cardWarning: {
+    ...typography.bodySmall,
+    color: '#b45309',
+    backgroundColor: '#fef3c7',
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
     marginBottom: spacing.md,
   },
   sectionLabel: {
@@ -1237,6 +1793,70 @@ const styles = StyleSheet.create({
     ...typography.bodyLarge,
     color: '#0f172a',
   },
+  modeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: '#fff',
+    gap: spacing.md,
+  },
+  modeOptionSelected: {
+    borderColor: '#2563eb',
+    backgroundColor: '#f0f7ff',
+  },
+  modeCopy: {
+    flex: 1,
+  },
+  modeTitle: {
+    ...typography.bodyLarge,
+    color: '#0f172a',
+    fontWeight: '600',
+    marginBottom: spacing.xs / 2,
+  },
+  modeTitleSelected: {
+    color: '#1d4ed8',
+  },
+  modeDescription: {
+    ...typography.bodySmall,
+    color: '#475569',
+  },
+  ackList: {
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  ackItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: '#fff',
+  },
+  ackText: {
+    flex: 1,
+    ...typography.bodyMedium,
+    color: '#0f172a',
+  },
+  ackRemoveButton: {
+    marginLeft: spacing.md,
+    padding: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: '#fee2e2',
+  },
+  ackRemoveButtonDisabled: {
+    backgroundColor: '#e2e8f0',
+  },
+  ackInput: {
+    marginBottom: spacing.sm,
+  },
   noticeBanner: {
     marginTop: spacing.md,
     backgroundColor: '#e0f2fe',
@@ -1352,6 +1972,62 @@ const modalStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     justifyContent: 'space-between',
+  },
+  testCallCard: {
+    width: '100%',
+    maxHeight: '85%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  testCallHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  closeButton: {
+    padding: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#f1f5f9',
+  },
+  testCallDescription: {
+    ...typography.bodySmall,
+    color: '#475569',
+  },
+  testCallScroll: {
+    flex: 1,
+  },
+  testCallContent: {
+    gap: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  chatRow: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+  },
+  conciergeChatRow: {
+    borderColor: '#bfdbfe',
+    backgroundColor: '#eff6ff',
+  },
+  callerChatRow: {
+    borderColor: '#fde68a',
+    backgroundColor: '#fffbeb',
+  },
+  chatRowActive: {
+    borderColor: '#2563eb',
+  },
+  chatRole: {
+    ...typography.caption,
+    color: '#0f172a',
+    marginBottom: spacing.xxxs,
+    textTransform: 'uppercase',
+  },
+  chatText: {
+    ...typography.bodyMedium,
+    color: '#0f172a',
+    lineHeight: 20,
   },
 });
 

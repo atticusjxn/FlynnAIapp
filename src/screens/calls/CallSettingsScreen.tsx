@@ -7,7 +7,6 @@ import {
   Switch,
   TouchableOpacity,
   Alert,
-  Linking,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +21,7 @@ import {
   shadows 
 } from '../../theme';
 import { TwilioService, TwilioUserStatus } from '../../services/TwilioService';
+import { openPhoneDialer } from '../../utils/dialer';
 
 interface CallSettingsScreenProps {
   navigation: any;
@@ -136,7 +136,7 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
       `Call your Flynn AI number to test the setup:\n\n${userStatus.twilioPhoneNumber}\n\nSpeak about a job request and Flynn AI will automatically create a job card for you.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Call Now', onPress: () => Linking.openURL(`tel:${userStatus.twilioPhoneNumber}`) }
+        { text: 'Call Now', onPress: () => openPhoneDialer(userStatus.twilioPhoneNumber, 'call-settings') }
       ]
     );
   };
@@ -208,54 +208,100 @@ const CallSettingsScreen: React.FC<CallSettingsScreenProps> = ({ navigation }) =
     );
   };
 
-  const renderForwardingSettings = () => (
-    <FlynnCard>
-      <View style={styles.sectionHeader}>
-        <FlynnIcon name="call-outline" size={20} color={colors.primary} />
-        <Text style={styles.sectionTitle}>Call Forwarding</Text>
-      </View>
-      
-      {userStatus?.twilioPhoneNumber ? (
-        <View>
-          <Text style={styles.sectionDescription}>
-            Your Flynn AI number: {userStatus.twilioPhoneNumber}
-          </Text>
-          
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Enable Forwarding</Text>
-              <Text style={styles.settingDescription}>
-                {userStatus.isForwardingActive 
-                  ? 'Calls are being forwarded to Flynn AI'
-                  : 'Call forwarding is currently disabled'
-                }
-              </Text>
+  const renderForwardingSettings = () => {
+    const verificationState = userStatus?.verificationState ?? 'unverified';
+    const verificationLabel = verificationState === 'verified'
+      ? 'Forwarding verified'
+      : 'Awaiting verification';
+
+    return (
+      <FlynnCard>
+        <View style={styles.sectionHeader}>
+          <FlynnIcon name="call-outline" size={20} color={colors.primary} />
+          <Text style={styles.sectionTitle}>Call Forwarding</Text>
+        </View>
+        
+        {userStatus?.twilioPhoneNumber ? (
+          <>
+            <View style={styles.forwardingRow}>
+              <View>
+                <Text style={styles.forwardingLabel}>Flynn AI Number</Text>
+                <Text style={styles.forwardingValue}>{userStatus.twilioPhoneNumber}</Text>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('CallSetup')}>
+                <Text style={styles.manageLink}>Manage</Text>
+              </TouchableOpacity>
             </View>
-            <Switch
-              value={userStatus.isForwardingActive}
-              onValueChange={handleForwardingToggle}
-              disabled={isSaving}
-              trackColor={{ false: colors.gray300, true: colors.primaryLight }}
-              thumbColor={userStatus.isForwardingActive ? colors.primary : colors.gray400}
+
+            {userStatus.phoneNumber && (
+              <View style={styles.forwardingRow}>
+                <View>
+                  <Text style={styles.forwardingLabel}>Forwarding From</Text>
+                  <Text style={styles.forwardingValue}>{userStatus.phoneNumber}</Text>
+                </View>
+              </View>
+            )}
+
+            <Text
+              style={[
+                styles.verificationBadge,
+                verificationState === 'verified'
+                  ? styles.verificationBadgeSuccess
+                  : styles.verificationBadgePending,
+              ]}
+            >
+              {verificationLabel}
+            </Text>
+
+            {verificationState !== 'verified' && (
+              <Text style={styles.sectionDescription}>
+                Dial *72 followed by your Flynn AI number from your business phone to finish linking forwarding.
+              </Text>
+            )}
+
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingTitle}>Enable Forwarding</Text>
+                <Text style={styles.settingDescription}>
+                  {userStatus.isForwardingActive
+                    ? 'Calls are being routed to Flynn AI'
+                    : 'Forwarding is currently disabled'}
+                </Text>
+              </View>
+              <Switch
+                value={userStatus.isForwardingActive}
+                onValueChange={handleForwardingToggle}
+                disabled={isSaving}
+                trackColor={{ false: colors.gray300, true: colors.primaryLight }}
+                thumbColor={userStatus.isForwardingActive ? colors.primary : colors.gray400}
+              />
+            </View>
+
+            <FlynnButton
+              title="Make Test Call"
+              onPress={handleTestCall}
+              variant="secondary"
+              size="small"
+              style={styles.actionButton}
+            />
+          </>
+        ) : (
+          <View style={styles.noNumberState}>
+            <Text style={styles.noNumberText}>
+              No phone number configured. Set up call forwarding to get started.
+            </Text>
+            <FlynnButton
+              title="Provision Number"
+              onPress={() => navigation.navigate('CallSetup')}
+              variant="primary"
+              size="small"
+              style={styles.setupButton}
             />
           </View>
-        </View>
-      ) : (
-        <View style={styles.noNumberState}>
-          <Text style={styles.noNumberText}>
-            No phone number configured. Set up call forwarding to get started.
-          </Text>
-          <FlynnButton
-            title="Setup Call Forwarding"
-            onPress={() => navigation.navigate('CallSetup')}
-            variant="primary"
-            size="small"
-            style={styles.setupButton}
-          />
-        </View>
-      )}
-    </FlynnCard>
-  );
+        )}
+      </FlynnCard>
+    );
+  };
 
   const renderQuickActions = () => (
     <FlynnCard>
@@ -510,6 +556,43 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: spacing.md,
     flex: 1,
+  },
+  forwardingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  forwardingLabel: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  forwardingValue: {
+    ...typography.bodyLarge,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  manageLink: {
+    ...typography.bodySmall,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  verificationBadge: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 999,
+    ...typography.bodySmall,
+    fontWeight: '600',
+    marginBottom: spacing.md,
+  },
+  verificationBadgeSuccess: {
+    backgroundColor: colors.primaryLight,
+    color: colors.primary,
+  },
+  verificationBadgePending: {
+    backgroundColor: colors.warningLight,
+    color: colors.warning,
   },
 });
 

@@ -22,6 +22,7 @@ const attachRealtimeServer = ({
   llmClient,
   voiceConfig,
   onConversationComplete,
+  getBusinessContextForOrg,
 }) => {
   const wss = new WebSocket.Server({ noServer: true });
 
@@ -78,6 +79,7 @@ const attachRealtimeServer = ({
         llmClient,
         voiceConfig,
         onConversationComplete,
+        getBusinessContextForOrg,
       });
 
       handler.attach();

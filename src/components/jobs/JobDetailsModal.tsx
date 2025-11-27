@@ -15,6 +15,8 @@ import { colors, spacing, typography, borderRadius, shadows } from '../../theme'
 import { FlynnButton } from '../ui/FlynnButton';
 import { FlynnKeyboardAvoidingView } from '../ui/FlynnKeyboardAvoidingView';
 import { Job } from './JobCard';
+import { generateSmsConfirmation, createSmsUrl } from '../../utils/smsTemplate';
+import { openPhoneDialer } from '../../utils/dialer';
 
 interface JobDetailsModalProps {
   job: Job | null;
@@ -213,10 +215,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
   };
 
   const handleCallClient = () => {
-    const phoneUrl = `tel:${job.clientPhone}`;
-    Linking.openURL(phoneUrl).catch(() => {
-      Alert.alert('Error', 'Unable to make phone call');
-    });
+    void openPhoneDialer(job.clientPhone, 'job-details');
   };
 
   const handlePlayVoicemail = () => {
@@ -224,6 +223,23 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     Linking.openURL(currentJob.voicemailRecordingUrl).catch(() => {
       Alert.alert('Playback unavailable', 'Could not open the voicemail audio. Try again from a device with audio support.');
     });
+  };
+
+  const handleSendTextConfirmation = () => {
+    try {
+      // Generate SMS message with current job details
+      const message = generateSmsConfirmation(currentJob);
+      const smsUrl = createSmsUrl(currentJob.clientPhone, message);
+
+      // Open native SMS app with pre-filled message
+      Linking.openURL(smsUrl).catch((error) => {
+        console.error('[JobDetailsModal] Failed to open SMS app:', error);
+        Alert.alert('Error', 'Unable to open messaging app. Please check your device settings.');
+      });
+    } catch (error: any) {
+      console.error('[JobDetailsModal] Error creating SMS:', error);
+      Alert.alert('Error', error.message || 'Unable to create text message. Please check the job details.');
+    }
   };
 
   const handleDeleteJob = () => {
@@ -348,7 +364,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   <Text style={styles.followUpText}>{currentJob.followUpDraft}</Text>
                   <FlynnButton
                     title="Use this message"
-                    onPress={() => onSendTextConfirmation(currentJob)}
+                    onPress={handleSendTextConfirmation}
                     variant="ghost"
                     size="small"
                     icon={<FlynnIcon name="chatbubble-ellipses-outline" size={16} color={colors.primary} />}
@@ -489,7 +505,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
               <View style={styles.primaryActions}>
                 <FlynnButton
                   title="Text"
-                  onPress={() => onSendTextConfirmation(currentJob)}
+                  onPress={handleSendTextConfirmation}
                   variant="primary"
                   size="medium"
                   icon={<FlynnIcon name="chatbubble-outline" size={18} color={colors.white} />}

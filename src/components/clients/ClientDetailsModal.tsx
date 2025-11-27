@@ -6,7 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  Linking,
   Alert,
 } from 'react-native';
 import { FlynnIcon } from '../ui/FlynnIcon';
@@ -14,6 +13,7 @@ import { spacing, typography, borderRadius, shadows } from '../../theme';
 import { useTheme } from '../../context/ThemeContext';
 import { FlynnButton } from '../ui/FlynnButton';
 import { ClientDetails, CommunicationEntry } from '../../types/client';
+import { openPhoneDialer } from '../../utils/dialer';
 
 interface ClientDetailsModalProps {
   client: ClientDetails | null;
@@ -103,10 +103,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
       return;
     }
 
-    const phoneUrl = `tel:${client.phone}`;
-    Linking.openURL(phoneUrl).catch(() => {
-      Alert.alert('Error', 'Unable to make phone call');
-    });
+    void openPhoneDialer(client.phone, 'client-details');
   };
 
   const handleEmail = () => {

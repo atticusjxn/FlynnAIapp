@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Linking,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -23,6 +22,8 @@ import { ActivityDetailsModal } from '../components/dashboard/ActivityDetailsMod
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { useJobs } from '../context/JobsContext';
 import { FloatingActionButton } from '../components/common/FloatingActionButton';
+import { generateSmsConfirmation, createSmsUrl } from '../utils/smsTemplate';
+import { openPhoneDialer } from '../utils/dialer';
 
 export const DashboardScreen = () => {
   const { user } = useAuth();
@@ -97,10 +98,7 @@ export const DashboardScreen = () => {
   }, [user?.id]);
 
   const handleCallClient = (phone: string) => {
-    const phoneUrl = `tel:${phone}`;
-    Linking.openURL(phoneUrl).catch(() => {
-      Alert.alert('Error', 'Unable to make phone call');
-    });
+    void openPhoneDialer(phone, 'dashboard');
   };
 
   const handleViewJobDetails = (job: Job) => {
@@ -114,7 +112,14 @@ export const DashboardScreen = () => {
   };
 
   const handleSendTextConfirmation = (job: Job) => {
-    Alert.alert('Text Sent', `Confirmation text sent to ${job.clientName}`);
+    // Generate SMS message with current job details
+    const message = generateSmsConfirmation(job);
+    const smsUrl = createSmsUrl(job.clientPhone, message);
+
+    // Open native SMS app with pre-filled message
+    Linking.openURL(smsUrl).catch(() => {
+      Alert.alert('Error', 'Unable to open messaging app. Please check your device settings.');
+    });
   };
 
   const handleSendEmailConfirmation = (job: Job) => {

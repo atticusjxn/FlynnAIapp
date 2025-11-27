@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Switch,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnInput } from '../../components/ui/FlynnInput';
@@ -56,6 +57,9 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
       : starterQuestions
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [offerChoice, setOfferChoice] = useState(
+    onboardingData.receptionistMode === 'hybrid_choice'
+  );
 
   useEffect(() => {
     if (onboardingData.receptionistQuestions && onboardingData.receptionistQuestions.length > 0) {
@@ -70,6 +74,12 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
       setGreeting(defaultGreeting);
     }
   }, [defaultGreeting, onboardingData.receptionistGreeting]);
+
+  useEffect(() => {
+    if (onboardingData.receptionistMode) {
+      setOfferChoice(onboardingData.receptionistMode === 'hybrid_choice');
+    }
+  }, [onboardingData.receptionistMode]);
 
   const canRecordOwnVoice = useMemo(() => selectedVoice === 'custom_voice', [selectedVoice]);
 
@@ -98,18 +108,30 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
   const persistPreferences = async (configured: boolean) => {
     setIsSaving(true);
     try {
+      const mode = configured
+        ? offerChoice
+          ? 'hybrid_choice'
+          : 'ai_only'
+        : 'voicemail_only';
+
+      const ackLibrary = onboardingData.receptionistAckLibrary ?? [];
+
       await ReceptionistService.savePreferences({
         voiceId: configured ? selectedVoice : null,
         greeting: configured ? greeting : null,
         questions: configured ? questions : [],
         voiceProfileId: onboardingData.receptionistVoiceProfileId ?? null,
         configured,
+        mode,
+        ackLibrary,
       });
       updateOnboardingData({
         receptionistConfigured: configured,
         receptionistVoice: configured ? selectedVoice : null,
         receptionistGreeting: configured ? greeting : null,
         receptionistQuestions: configured ? questions : [],
+        receptionistMode: mode,
+        receptionistAckLibrary: configured ? ackLibrary : [],
       });
     } catch (error) {
       console.error('[ReceptionistSetupScreen] Failed to save receptionist settings', error);
@@ -201,7 +223,23 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>2. Greeting script</Text>
+          <Text style={styles.sectionTitle}>2. Caller experience</Text>
+          <Text style={styles.sectionHint}>
+            Offer callers the option to leave a traditional voicemail or chat with your AI concierge.
+          </Text>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleCopy}>
+              <Text style={styles.toggleTitle}>Let callers choose</Text>
+              <Text style={styles.toggleSubtitle}>
+                When enabled, Flynn plays your greeting, then asks if they want to leave a message or book straight away.
+              </Text>
+            </View>
+            <Switch value={offerChoice} onValueChange={setOfferChoice} trackColor={{ true: '#3B82F6' }} />
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>3. Greeting script</Text>
           <Text style={styles.sectionHint}>
             This is the first thing callers hear. Keep it warm and let them know they are speaking with your digital assistant.
           </Text>
@@ -216,7 +254,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>3. Questions to capture</Text>
+          <Text style={styles.sectionTitle}>4. Questions to capture</Text>
           <Text style={styles.sectionHint}>
             Flynn will confirm these details before handing the call back to you or creating an event.
           </Text>
@@ -398,6 +436,26 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: '#1d4ed8',
     flex: 1,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  toggleCopy: {
+    flex: 1,
+  },
+  toggleTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: spacing.xs,
+  },
+  toggleSubtitle: {
+    fontSize: 13,
+    color: '#475569',
   },
   greetingInput: {
     marginTop: spacing.sm,
