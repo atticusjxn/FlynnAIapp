@@ -178,7 +178,7 @@ export const SettingsScreen: React.FC = () => {
 
   const businessTypeLabel = useMemo(() =>
     profile ? resolveBusinessTypeLabel(profile.businessType) : 'Not specified'
-  , [profile]);
+    , [profile]);
 
   const handleBusinessSettings = () => {
     handleEditProfile();
@@ -356,24 +356,24 @@ export const SettingsScreen: React.FC = () => {
 
             {profile?.twilioPhoneNumber
               ? renderSettingRow(
-                  'call-outline',
-                  'Call forwarding',
-                  profile.forwardingActive ? 'Forwarding enabled' : 'Forwarding off',
-                  <Switch
-                    value={profile.forwardingActive}
-                    onValueChange={handleForwardingToggle}
-                  />,
-                  undefined,
-                  true,
-                )
+                'call-outline',
+                'Call forwarding',
+                profile.forwardingActive ? 'Forwarding enabled' : 'Forwarding off',
+                <Switch
+                  value={profile.forwardingActive}
+                  onValueChange={handleForwardingToggle}
+                />,
+                undefined,
+                true,
+              )
               : renderSettingRow(
-                  'call-outline',
-                  'Set up call forwarding',
-                  'Provision a new number for your business',
-                  undefined,
-                  handleSetupCallForwarding,
-                  true,
-                )}
+                'call-outline',
+                'Set up call forwarding',
+                'Provision a new number for your business',
+                undefined,
+                handleSetupCallForwarding,
+                true,
+              )}
           </View>
         ))}
 
@@ -381,7 +381,7 @@ export const SettingsScreen: React.FC = () => {
         {renderSection('Integrations', (
           <View style={styles.settingsGroup}>
             {renderSettingRow(
-              'link-outline',
+              'apps-outline',
               'Connected Apps',
               'Jobber, Fergus, ServiceTitan, Google Calendar',
               undefined,
@@ -693,10 +693,10 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...shadows.sm,
   },
   dangerCard: {
-    backgroundColor: colors.error + '10',
+    backgroundColor: colors.errorLight,
     borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.error + '30',
+    borderWidth: 2,
+    borderColor: colors.error,
     padding: spacing.lg,
     marginTop: spacing.md,
     ...shadows.xs,

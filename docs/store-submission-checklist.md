@@ -3,9 +3,10 @@
 Use this document to prep both App Store and Google Play submissions. It distils the requirements from `docs/app-store-deployment.md` into a single actionable list.
 
 ## 1. Policy Links
-- Privacy Policy URL: host `docs/privacy-policy.md` at `https://flynnai.com/privacy`.
-- Terms of Service URL: host `docs/terms-of-service.md` at `https://flynnai.com/terms`.
-- Support URL: `https://flynnai.com/support` or help desk landing page.
+- Privacy Policy URL: host `docs/privacy-policy.md` at `https://flynnai.app/privacy`.
+- Terms of Service URL: host `docs/terms-of-service.md` at `https://flynnai.app/terms`.
+- Support URL: `https://flynnai.app/support` or help desk landing page.
+- Account deletion URL: make `https://flynnai.app/delete-account` publicly accessible and link to it inside the app + stores.
 
 ## 2. App Privacy Questionnaire (Apple)
 | Data Type | Collected? | Linked to User? | Used for Tracking? | Purpose |

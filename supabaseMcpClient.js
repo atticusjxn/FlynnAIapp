@@ -135,6 +135,7 @@ const ensureClient = async () => {
       env: {
         SUPABASE_URL: config.supabaseUrl,
         SUPABASE_KEY: config.supabaseKey,
+        SUPABASE_SERVICE_ROLE_KEY: config.supabaseKey, // Ensure service role for RLS bypass
         ...(config.supabaseAccessToken ? { SUPABASE_ACCESS_TOKEN: config.supabaseAccessToken } : {}),
       },
     });

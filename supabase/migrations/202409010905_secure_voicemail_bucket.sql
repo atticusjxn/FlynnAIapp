@@ -73,18 +73,14 @@ begin
   end if;
 end
 $$;
-
 -- Harden voicemail metadata stored alongside call records.
 alter table public.calls
   alter column status set default 'active';
-
 update public.calls
    set status = 'active'
  where status is null;
-
 alter table public.calls
   alter column status set not null;
-
 do $$
 begin
   if not exists (
@@ -104,6 +100,5 @@ begin
   end if;
 end
 $$;
-
 alter table public.calls
   validate constraint calls_recording_expiration_check;

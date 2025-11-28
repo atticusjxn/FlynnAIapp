@@ -53,7 +53,7 @@ export const FlynnButton: React.FC<FlynnButtonProps> = ({
     medium: styles.textMedium,
     large: styles.textLarge,
   };
-  
+
   const handlePress = () => {
     if (!disabled && !loading) {
       onPress();
@@ -125,24 +125,25 @@ const createStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44, // iOS accessibility minimum
-    ...shadows.sm,
+    minHeight: 56, // Larger touch target
+    borderWidth: 2,
+    borderColor: colors.black,
+    ...shadows.sm, // Hard shadow
   },
-  
+
   content: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  
+
   // Variants
   primary: {
     backgroundColor: colors.primary,
   },
   secondary: {
     backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
+    // Border is already in base, but we can override if needed
   },
   success: {
     backgroundColor: colors.success,
@@ -152,44 +153,51 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   ghost: {
     backgroundColor: colors.transparent,
+    borderWidth: 0,
     ...shadows.none,
   },
-  
+
   // Sizes
   small: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
+    minHeight: 40,
   },
   medium: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
+    minHeight: 56,
   },
   large: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
+    minHeight: 64,
   },
-  
+
   // States
   disabled: {
     backgroundColor: colors.gray300,
-    opacity: opacity.disabled,
+    borderColor: colors.gray500,
+    opacity: 1, // Keep opacity high for readability, use color to indicate disabled
     ...shadows.none,
+    transform: [{ translateY: 2 }, { translateX: 2 }], // "Pressed" state for disabled
   },
-  
+
   fullWidth: {
     width: '100%',
   },
-  
+
   // Text styles
   text: {
     ...typography.button,
     textAlign: 'center',
+    color: colors.black, // Default text color
   },
   textPrimary: {
     color: colors.white,
   },
   textSecondary: {
-    color: colors.primary,
+    color: colors.black,
   },
   textSuccess: {
     color: colors.white,
@@ -200,7 +208,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   textGhost: {
     color: colors.primary,
   },
-  
+
   // Text sizes
   textSmall: {
     fontSize: 14,
@@ -214,19 +222,19 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 18,
     lineHeight: 26,
   },
-  
+
   textDisabled: {
-    color: colors.gray500,
+    color: colors.gray600,
   },
-  
+
   // Icon styles
   iconLeft: {
-    marginRight: spacing.xs,
+    marginRight: spacing.sm,
   },
   iconRight: {
-    marginLeft: spacing.xs,
+    marginLeft: spacing.sm,
   },
-  
+
   loader: {
     marginHorizontal: spacing.xs,
   },

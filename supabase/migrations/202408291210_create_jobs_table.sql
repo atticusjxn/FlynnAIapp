@@ -9,6 +9,5 @@ create table if not exists public.jobs (
   status text default 'new',
   created_at timestamptz default now()
 );
-
 create index if not exists jobs_user_id_idx on public.jobs(user_id);
 create unique index if not exists jobs_call_sid_unique on public.jobs(call_sid);

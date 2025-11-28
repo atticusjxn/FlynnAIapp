@@ -35,7 +35,7 @@ export const FlynnCard: React.FC<FlynnCardProps> = ({
     large: styles.paddingLarge,
   };
   const Component = onPress ? TouchableOpacity : View;
-  
+
   return (
     <Component
       style={[
@@ -58,21 +58,23 @@ const createStyles = (colors: any) => StyleSheet.create({
   base: {
     borderRadius: borderRadius.lg,
     backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.black,
   },
-  
+
   // Variants
   default: {
     ...shadows.sm,
   },
   outlined: {
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.black,
     ...shadows.none,
   },
   elevated: {
     ...shadows.md,
   },
-  
+
   // Padding variants
   paddingNone: {
     padding: 0,

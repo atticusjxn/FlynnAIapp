@@ -5,12 +5,14 @@ import {
   StyleSheet,
   Alert,
   Image,
+  Dimensions,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useAuth } from '../context/AuthContext';
-import { FlynnButton, FlynnInput, colors, typography, spacing } from '../components/ui';
+import { FlynnButton, FlynnInput, colors, typography, spacing, shadows, borderRadius } from '../components/ui';
+import { LoginCarousel } from '../components/LoginCarousel';
 
-const KOALA_LOGO = require('../../assets/images/onboardinglogo.png');
+const { height } = Dimensions.get('window');
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -32,16 +34,22 @@ export const LoginScreen = () => {
   };
 
   return (
-    <KeyboardAwareScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      extraScrollHeight={24}
-      enableOnAndroid
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.formWrapper}>
+    <View style={styles.container}>
+      {/* Top Section: Carousel */}
+      <View style={styles.carouselContainer}>
+        <LoginCarousel />
+      </View>
+
+      {/* Bottom Section: Login Form */}
+      <KeyboardAwareScrollView
+        style={styles.formSection}
+        contentContainerStyle={styles.scrollContent}
+        extraScrollHeight={24}
+        enableOnAndroid
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
         <View style={styles.formContainer}>
-          <Image source={KOALA_LOGO} style={styles.logo} accessibilityLabel="FlynnAI koala" />
           <Text style={styles.title}>FlynnAI</Text>
           <Text style={styles.subtitle}>
             {isSignUp ? 'Create your account' : 'Welcome back'}
@@ -93,40 +101,35 @@ export const LoginScreen = () => {
             style={styles.switchButton}
           />
         </View>
-      </View>
-    </KeyboardAwareScrollView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.background,
+  },
+  carouselContainer: {
+    height: height * 0.45, // Top 45%
+    backgroundColor: colors.white,
+  },
+  formSection: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderTopWidth: 2,
+    borderTopColor: colors.black,
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingVertical: spacing.xl,
-  },
-  formWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
   },
   formContainer: {
     width: '100%',
     maxWidth: 420,
     alignSelf: 'center',
-    justifyContent: 'center',
     paddingHorizontal: spacing.xl,
-  },
-  logo: {
-    width: 96,
-    height: 96,
-    alignSelf: 'center',
-    marginBottom: spacing.lg,
-    resizeMode: 'contain',
   },
   title: {
     ...typography.displayLarge,

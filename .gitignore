@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+.supabase/
 
 # Expo
 .expo/
@@ -36,4 +37,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Deployment docs and scripts with secrets
 RAILWAY_DEPLOYMENT.md
+deploy-secrets.sh
+deploy-multiline-secrets.sh

@@ -61,13 +61,14 @@ Before starting the deployment process, ensure you have:
 1. **Privacy Policy URL**: Your hosted privacy policy
    - Required by Apple
    - Must explain: data collection, voicemail recording, push notifications, call forwarding
-   - Example: `https://flynnai.com/privacy`
+   - Example: `https://flynnai.app/privacy`
 
 #### C. Contact Information
 - **Name**: Your name or company name
 - **Phone**: Support phone number
 - **Email**: Support email
-- **Support URL**: `https://flynnai.com/support`
+- **Support URL**: `https://flynnai.app/support`
+- **Account Deletion URL**: `https://flynnai.app/delete-account`
 
 ### Step 4: Prepare App Store Listing
 
@@ -125,8 +126,8 @@ Start with our free tier and upgrade as you grow. Cancel anytime.
 
 ---
 Support: support@flynnai.com
-Privacy Policy: https://flynnai.com/privacy
-Terms: https://flynnai.com/terms
+Privacy Policy: https://flynnai.app/privacy
+Terms: https://flynnai.app/terms
 ```
 
 **Keywords** (100 chars max):
@@ -472,9 +473,9 @@ Cancel anytime, no contracts.
 📞 SUPPORT
 We're here to help! Contact us:
 • Email: support@flynnai.com
-• Help Center: https://flynnai.com/help
-• Privacy: https://flynnai.com/privacy
-• Terms: https://flynnai.com/terms
+• Help Center: https://flynnai.app/help
+• Privacy: https://flynnai.app/privacy
+• Terms: https://flynnai.app/terms
 
 Download Flynn AI today and never miss another lead!
 ```
@@ -491,8 +492,8 @@ Download Flynn AI today and never miss another lead!
 #### C. Contact Details
 - **Email**: support@flynnai.com
 - **Phone**: (optional but recommended)
-- **Website**: https://flynnai.com
-- **Privacy Policy**: https://flynnai.com/privacy (REQUIRED)
+- **Website**: https://flynnai.app
+- **Privacy Policy**: https://flynnai.app/privacy (REQUIRED)
 
 ### Step 4: Prepare Graphics Assets
 
@@ -666,7 +667,8 @@ This is CRITICAL - explain what data you collect:
 - ✅ Data encrypted in transit
 - ✅ Data encrypted at rest
 - ✅ User can request data deletion
-- Link to privacy policy: https://flynnai.com/privacy
+- Link to privacy policy: https://flynnai.app/privacy
+- Account deletion page: https://flynnai.app/delete-account (share this URL in the Play privacy questionnaire)
 
 ### Step 9: Set Up Pricing & Distribution
 

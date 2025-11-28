@@ -20,13 +20,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists on_auth_user_created on auth.users;
-
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_auth_user();
-
 -- Backfill existing auth users that do not yet have a profile row
 insert into public.users (id, email, created_at, updated_at)
 select u.id,

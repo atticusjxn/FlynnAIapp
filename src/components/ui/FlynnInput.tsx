@@ -8,7 +8,7 @@ import {
   TextStyle,
   TextInputProps,
 } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../../theme';
+import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 
 interface FlynnInputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -45,7 +45,7 @@ export const FlynnInput: React.FC<FlynnInputProps> = ({
           {required && <Text style={styles.required}> *</Text>}
         </Text>
       )}
-      
+
       <View
         style={[
           styles.inputContainer,
@@ -59,7 +59,7 @@ export const FlynnInput: React.FC<FlynnInputProps> = ({
             {leftIcon}
           </View>
         )}
-        
+
         <TextInput
           style={[
             styles.input,
@@ -72,18 +72,18 @@ export const FlynnInput: React.FC<FlynnInputProps> = ({
           onBlur={() => setIsFocused(false)}
           {...props}
         />
-        
+
         {rightIcon && (
           <View style={styles.rightIconContainer}>
             {rightIcon}
           </View>
         )}
       </View>
-      
+
       {helperText && !hasError && (
         <Text style={styles.helperText}>{helperText}</Text>
       )}
-      
+
       {hasError && (
         <Text style={styles.errorText}>{errorText}</Text>
       )}
@@ -95,79 +95,82 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: spacing.md,
   },
-  
+
   label: {
     ...typography.label,
     color: colors.textPrimary,
     marginBottom: spacing.xxs,
   },
-  
+
   required: {
     color: colors.error,
   },
-  
+
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.black,
     borderRadius: borderRadius.md,
     backgroundColor: colors.white,
-    minHeight: 48,
+    minHeight: 52,
+    ...shadows.xs,
   },
-  
+
   inputContainerFocused: {
-    borderColor: colors.borderFocus,
+    borderColor: colors.primary,
     borderWidth: 2,
+    ...shadows.sm,
   },
-  
+
   inputContainerError: {
-    borderColor: colors.borderError,
+    borderColor: colors.error,
   },
-  
+
   inputContainerDisabled: {
     backgroundColor: colors.gray100,
-    borderColor: colors.gray200,
+    borderColor: colors.gray300,
+    ...shadows.none,
   },
-  
+
   input: {
     flex: 1,
-    paddingTop: spacing.sm + 0,
-    paddingBottom: spacing.sm + 4,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
     paddingHorizontal: spacing.md,
     ...typography.bodyMedium,
     color: colors.textPrimary,
     textAlignVertical: 'center',
     includeFontPadding: false,
   },
-  
+
   inputWithLeftIcon: {
     paddingLeft: spacing.xs,
   },
-  
+
   inputWithRightIcon: {
     paddingRight: spacing.xs,
   },
-  
+
   leftIconContainer: {
     paddingLeft: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   rightIconContainer: {
     paddingRight: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   helperText: {
     ...typography.caption,
     color: colors.textTertiary,
     marginTop: spacing.xxs,
     marginLeft: spacing.xxs,
   },
-  
+
   errorText: {
     ...typography.caption,
     color: colors.error,

@@ -1,0 +1,86 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Expo and React Native
+.expo/
+.expo-shared/
+dist/
+web-build/
+android/
+ios/
+
+# Environment files
+.env
+.env.local
+.env*.local
+
+# Git
+.git/
+.gitignore
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+CLAUDE.md
+RAILWAY_DEPLOYMENT.md
+README.md
+
+# Config files not needed in container
+.prettierrc
+.eslintrc
+eslint.config.mjs
+jest.config.js
+
+# Deployment configs
+railway.json
+Procfile
+.railwayignore
+nixpacks.toml
+
+# Ruby/Fastlane (local build tools)
+Gemfile.local
+Gemfile.lock
+fastlane/
+
+# Testing
+__tests__/
+coverage/
+*.test.js
+*.spec.js
+
+# Logs
+logs/
+*.log
+
+# Flynn landing page (separate deployment)
+flynn-landing/
+
+# Mobile app source (not needed for backend)
+src/screens/
+src/components/
+src/navigation/
+src/context/
+
+# Supabase CLI
+supabase/.temp/
+supabase/functions/
+supabase/migrations/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

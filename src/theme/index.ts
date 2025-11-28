@@ -6,56 +6,56 @@
 // Color Palette
 export const colors = {
   // Brand Colors
-  primary: '#2563EB',
-  primaryDark: '#1E40AF',
-  primaryLight: '#DBEAFE',
-  
+  primary: '#ff4500', // International Orange
+  primaryDark: '#ea3e00',
+  primaryLight: '#ffe4e6',
+
   // Neutral Colors (Grays)
   secondary: '#64748B',
-  gray50: '#F8FAFC',
-  gray100: '#F1F5F9',
-  gray200: '#E2E8F0',
-  gray300: '#CBD5E1',
-  gray400: '#94A3B8',
-  gray500: '#64748B',
-  gray600: '#475569',
-  gray700: '#334155',
-  gray800: '#1E293B',
-  gray900: '#0F172A',
-  
+  gray50: '#F9FAFB',
+  gray100: '#F3F4F6',
+  gray200: '#E5E7EB',
+  gray300: '#D1D5DB',
+  gray400: '#9CA3AF',
+  gray500: '#6B7280',
+  gray600: '#4B5563',
+  gray700: '#374151',
+  gray800: '#1F2937',
+  gray900: '#111827',
+
   // Semantic Colors
   success: '#10B981',
   successLight: '#D1FAE5',
   successDark: '#047857',
-  
+
   warning: '#F59E0B',
   warningLight: '#FEF3C7',
   warningDark: '#D97706',
-  
+
   error: '#EF4444',
   errorLight: '#FEE2E2',
   errorDark: '#DC2626',
-  
+
   // UI Colors
   white: '#FFFFFF',
   black: '#000000',
   transparent: 'transparent',
-  
+
   // Background variations
-  background: '#FFFFFF',
-  backgroundSecondary: '#F8FAFC',
-  backgroundTertiary: '#F1F5F9',
-  
+  background: '#F3F4F6',
+  backgroundSecondary: '#FFFFFF',
+  backgroundTertiary: '#E5E7EB',
+
   // Text variations
-  textPrimary: '#1E293B',
-  textSecondary: '#475569',
-  textTertiary: '#64748B',
-  textPlaceholder: '#94A3B8',
+  textPrimary: '#111827',
+  textSecondary: '#4B5563',
+  textTertiary: '#9CA3AF',
+  textPlaceholder: '#9CA3AF',
   textInverse: '#FFFFFF',
-  
+
   // Border colors
-  border: '#E2E8F0',
-  borderFocus: '#2563EB',
+  border: '#000000',
+  borderFocus: '#ff4500',
   borderError: '#EF4444',
 } as const;
 
@@ -63,75 +63,90 @@ export const colors = {
 export const typography = {
   // Display styles
   displayLarge: {
-    fontSize: 32,
-    lineHeight: 40,
+    fontSize: 48,
+    lineHeight: 56,
+    fontFamily: 'SpaceGrotesk_700Bold',
     fontWeight: '700' as const,
   },
   displayMedium: {
-    fontSize: 28,
-    lineHeight: 36,
+    fontSize: 36,
+    lineHeight: 44,
+    fontFamily: 'SpaceGrotesk_700Bold',
     fontWeight: '700' as const,
   },
-  
+
   // Header styles
   h1: {
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: 30,
+    lineHeight: 36,
+    fontFamily: 'SpaceGrotesk_700Bold',
     fontWeight: '700' as const,
   },
   h2: {
-    fontSize: 20,
-    lineHeight: 28,
-    fontWeight: '600' as const,
+    fontSize: 24,
+    lineHeight: 32,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700' as const,
   },
   h3: {
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 20,
+    lineHeight: 28,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     fontWeight: '600' as const,
   },
   h4: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: 'SpaceGrotesk_600SemiBold',
     fontWeight: '600' as const,
   },
-  
+
   // Body styles
   bodyLarge: {
     fontSize: 16,
     lineHeight: 24,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400' as const,
   },
   bodyMedium: {
     fontSize: 14,
     lineHeight: 20,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400' as const,
   },
   bodySmall: {
     fontSize: 12,
     lineHeight: 16,
+    fontFamily: 'Inter_400Regular',
     fontWeight: '400' as const,
   },
-  
+
   // Specialty styles
   caption: {
     fontSize: 12,
     lineHeight: 16,
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500' as const,
   },
   label: {
     fontSize: 14,
     lineHeight: 20,
+    fontFamily: 'Inter_500Medium',
     fontWeight: '500' as const,
   },
   button: {
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '600' as const,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1,
   },
   overline: {
     fontSize: 11,
     lineHeight: 16,
-    fontWeight: '600' as const,
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontWeight: '700' as const,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
   },
@@ -150,19 +165,19 @@ export const spacing = {
   xxxl: 64,
 } as const;
 
-// Border Radius
+// Border Radius - Brutalist style uses less rounding or specific rounding
 export const borderRadius = {
   none: 0,
-  xs: 4,
-  sm: 6,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  xxl: 24,
+  xs: 2,
+  sm: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
+  xxl: 16,
   full: 9999,
 } as const;
 
-// Shadows
+// Shadows - Hard shadows for brutalist look
 export const shadows = {
   none: {
     shadowColor: colors.transparent,
@@ -173,30 +188,30 @@ export const shadows = {
   },
   xs: {
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
     elevation: 1,
   },
   sm: {
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
     elevation: 2,
   },
   md: {
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
     elevation: 4,
   },
   lg: {
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
     elevation: 8,
   },
 } as const;
@@ -232,8 +247,8 @@ export const zIndex = {
 export const layout = {
   headerHeight: 60,
   tabBarHeight: 80,
-  buttonHeight: 44, // iOS minimum touch target
-  inputHeight: 48,
+  buttonHeight: 56, // Larger touch target for brutalist buttons
+  inputHeight: 52,
   avatarSizeSmall: 24,
   avatarSizeMedium: 40,
   avatarSizeLarge: 64,

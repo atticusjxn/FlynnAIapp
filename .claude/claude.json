@@ -1,0 +1,21 @@
+{
+        "alwasThinkingEnabled": false,
+        "env": {
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
+            "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.6",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-4.6"
+        },
+        "mcpServers": {
+                "context7": {
+                        "command": "npx",
+                        "args": ["@upstash/context7-mcp"],
+                        "env": {
+                                "CONTEXT7_API_KEY": "ctx7sk-f24c5d7d-4c48-41b1-9a17-0a90faadda03"
+                        }
+                },
+                        "supabase": {
+                        "type": "http",
+                         "url": "https://mcp.supabase.com/mcp?project_ref=zvfeafmmtfplzpnocyjw"
+    }
+        }
+}

@@ -396,6 +396,9 @@ const azurePresetVoices = {
   koala_warm: process.env.AZURE_VOICE_KOALA_WARM || azureDefaultVoice,
   koala_expert: process.env.AZURE_VOICE_KOALA_EXPERT || 'en-AU-WilliamNeural',
   koala_hype: process.env.AZURE_VOICE_KOALA_HYPE || 'en-AU-CarlyNeural',
+  // Simple gender-based voices for Azure
+  male: 'en-AU-WilliamNeural',
+  female: 'en-AU-NatashaNeural',
 };
 
 const resolveTtsProvider = () => {
@@ -649,7 +652,7 @@ const respondWithAiReceptionist = ({ req, res, inboundParams, profile, callSid }
   res.send(twimlOutput);
 };
 
-const handleRealtimeConversationComplete = async ({ callSid, userId, transcript, turns, reason }) => {
+const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, transcript, turns, reason }) => {
   if (!callSid) {
     return;
   }
@@ -682,8 +685,11 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, transcript,
     await upsertCallRecord({
       callSid,
       userId: userId || null,
+      orgId: orgId || null,
       status: reason === 'complete' ? 'completed' : 'ended',
-    }).catch(() => {});
+    }).catch((error) => {
+      console.error('[Realtime] Failed to upsert call record on conversation complete.', { callSid, userId, orgId, error });
+    });
 
     if (transcript && transcript.trim().length > 4) {
       if (llmClient) {
@@ -715,7 +721,12 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, transcript,
         await twilioMessagingClient.calls(callSid).update({ status: 'completed' });
         console.log('[Realtime] Ended Twilio call via REST API.', { callSid });
       } catch (error) {
-        console.warn('[Realtime] Failed to end Twilio call via REST API.', { callSid, error });
+        // 404 (code 20404) means call already ended naturally - this is fine, not an error
+        if (error.status === 404 || error.code === 20404) {
+          console.log('[Realtime] Call already ended naturally.', { callSid });
+        } else {
+          console.warn('[Realtime] Failed to end Twilio call via REST API.', { callSid, error });
+        }
       }
     }
   } catch (error) {

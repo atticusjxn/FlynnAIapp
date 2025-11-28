@@ -6,7 +6,7 @@ interface ThemeColors {
   primary: string;
   primaryDark: string;
   primaryLight: string;
-  
+
   // Neutral Colors
   secondary: string;
   gray50: string;
@@ -19,7 +19,7 @@ interface ThemeColors {
   gray700: string;
   gray800: string;
   gray900: string;
-  
+
   // Semantic Colors
   success: string;
   successLight: string;
@@ -27,12 +27,12 @@ interface ThemeColors {
   warningLight: string;
   error: string;
   errorLight: string;
-  
+
   // UI Colors
   white: string;
   black: string;
   transparent: string;
-  
+
   // Dynamic Colors (change with theme)
   background: string;
   surface: string;
@@ -51,23 +51,23 @@ interface ThemeContextType {
 
 const lightColors: ThemeColors = {
   // Brand Colors
-  primary: '#2563EB',
-  primaryDark: '#1E40AF',
-  primaryLight: '#DBEAFE',
-  
+  primary: '#ff4500', // International Orange
+  primaryDark: '#ea3e00',
+  primaryLight: '#ffe4e6',
+
   // Neutral Colors
   secondary: '#64748B',
-  gray50: '#F8FAFC',
-  gray100: '#F1F5F9',
-  gray200: '#E2E8F0',
-  gray300: '#CBD5E1',
-  gray400: '#94A3B8',
-  gray500: '#64748B',
-  gray600: '#475569',
-  gray700: '#334155',
-  gray800: '#1E293B',
-  gray900: '#0F172A',
-  
+  gray50: '#F9FAFB',
+  gray100: '#F3F4F6',
+  gray200: '#E5E7EB',
+  gray300: '#D1D5DB',
+  gray400: '#9CA3AF',
+  gray500: '#6B7280',
+  gray600: '#4B5563',
+  gray700: '#374151',
+  gray800: '#1F2937',
+  gray900: '#111827',
+
   // Semantic Colors
   success: '#10B981',
   successLight: '#D1FAE5',
@@ -75,62 +75,62 @@ const lightColors: ThemeColors = {
   warningLight: '#FEF3C7',
   error: '#EF4444',
   errorLight: '#FEE2E2',
-  
+
   // UI Colors
   white: '#FFFFFF',
   black: '#000000',
   transparent: 'transparent',
-  
+
   // Dynamic Colors
-  background: '#F8FAFC',
+  background: '#F3F4F6',
   surface: '#FFFFFF',
   card: '#FFFFFF',
-  border: '#E2E8F0',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  textTertiary: '#94A3B8',
+  border: '#000000',
+  textPrimary: '#111827',
+  textSecondary: '#4B5563',
+  textTertiary: '#9CA3AF',
 };
 
 const darkColors: ThemeColors = {
-  // Brand Colors (same as light)
-  primary: '#3B82F6',
-  primaryDark: '#1E40AF',
-  primaryLight: '#1E3A8A',
-  
+  // Brand Colors (same as light for recognition)
+  primary: '#ff4500',
+  primaryDark: '#ea3e00',
+  primaryLight: '#ffe4e6',
+
   // Neutral Colors (inverted)
   secondary: '#94A3B8',
-  gray50: '#0F172A',
-  gray100: '#1E293B',
-  gray200: '#334155',
-  gray300: '#475569',
-  gray400: '#64748B',
-  gray500: '#94A3B8',
-  gray600: '#CBD5E1',
-  gray700: '#E2E8F0',
-  gray800: '#F1F5F9',
-  gray900: '#F8FAFC',
-  
-  // Semantic Colors (adjusted for dark)
+  gray50: '#111827',
+  gray100: '#1F2937',
+  gray200: '#374151',
+  gray300: '#4B5563',
+  gray400: '#6B7280',
+  gray500: '#9CA3AF',
+  gray600: '#D1D5DB',
+  gray700: '#E5E7EB',
+  gray800: '#F3F4F6',
+  gray900: '#F9FAFB',
+
+  // Semantic Colors
   success: '#10B981',
   successLight: '#064E3B',
   warning: '#F59E0B',
   warningLight: '#451A03',
   error: '#EF4444',
   errorLight: '#450A0A',
-  
+
   // UI Colors
   white: '#FFFFFF',
   black: '#000000',
   transparent: 'transparent',
-  
+
   // Dynamic Colors
-  background: '#0F172A',
-  surface: '#1E293B',
-  card: '#334155',
-  border: '#475569',
-  textPrimary: '#F8FAFC',
-  textSecondary: '#CBD5E1',
-  textTertiary: '#94A3B8',
+  background: '#111827',
+  surface: '#1F2937',
+  card: '#374151',
+  border: '#4B5563',
+  textPrimary: '#F9FAFB',
+  textSecondary: '#D1D5DB',
+  textTertiary: '#9CA3AF',
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   Image,
@@ -10,6 +9,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
+import { FlynnButton } from '../../components/ui/FlynnButton';
+import { colors, spacing, typography, shadows, borderRadius } from '../../theme';
 
 interface GettingStartedScreenProps {
   onStartOnboarding: () => void;
@@ -21,7 +22,7 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={[
           styles.content,
@@ -47,59 +48,64 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
         <View style={[styles.featuresContainer, isSmallScreen && styles.featuresContainerSmall]}>
           <View style={styles.feature}>
             <View style={styles.featureIcon}>
-              <FlynnIcon name="camera-outline" size={24} color="#3B82F6" />
+              <FlynnIcon name="mic-outline" size={24} color={colors.primary} />
             </View>
             <View style={styles.featureText}>
-              <Text style={styles.featureTitle}>Smart Job Capture</Text>
+              <Text style={styles.featureTitle}>Missed Call Protection</Text>
               <Text style={styles.featureDescription}>
-                Take screenshots to automatically extract job details
+                Flynn answers when you can't, 24/7.
               </Text>
             </View>
           </View>
 
           <View style={styles.feature}>
             <View style={styles.featureIcon}>
-              <FlynnIcon name="call-outline" size={24} color="#3B82F6" />
+              <FlynnIcon name="document-text-outline" size={24} color={colors.primary} />
             </View>
             <View style={styles.featureText}>
-              <Text style={styles.featureTitle}>Call Integration</Text>
+              <Text style={styles.featureTitle}>AI Transcription</Text>
               <Text style={styles.featureDescription}>
-                Convert phone calls into calendar bookings
+                Read voicemails instead of listening to them.
               </Text>
             </View>
           </View>
 
           <View style={styles.feature}>
             <View style={styles.featureIcon}>
-              <FlynnIcon name="calendar-outline" size={24} color="#3B82F6" />
+              <FlynnIcon name="chatbubble-ellipses-outline" size={24} color={colors.primary} />
             </View>
             <View style={styles.featureText}>
-              <Text style={styles.featureTitle}>Auto Scheduling</Text>
+              <Text style={styles.featureTitle}>Instant Follow-up</Text>
               <Text style={styles.featureDescription}>
-                Automatically create calendar events and send confirmations
+                Engage leads immediately via SMS.
               </Text>
             </View>
           </View>
 
           <View style={styles.feature}>
             <View style={styles.featureIcon}>
-              <FlynnIcon name="people-outline" size={24} color="#3B82F6" />
+              <FlynnIcon name="people-outline" size={24} color={colors.primary} />
             </View>
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>Client Management</Text>
               <Text style={styles.featureDescription}>
-                Keep track of all your clients and job history
+                Keep track of all your clients and job history.
               </Text>
             </View>
           </View>
         </View>
 
         <View style={[styles.buttonContainer, isSmallScreen && styles.buttonContainerSmall]}>
-          <TouchableOpacity style={styles.primaryButton} onPress={onStartOnboarding}>
-            <Text style={styles.primaryButtonText}>Set Up Your Business</Text>
-            <FlynnIcon name="arrow-forward" size={20} color="white" />
-          </TouchableOpacity>
-          
+          <FlynnButton
+            title="Set Up Your Business"
+            onPress={onStartOnboarding}
+            variant="primary"
+            size="large"
+            icon={<FlynnIcon name="arrow-forward" size={20} color={colors.white} />}
+            iconPosition="right"
+            fullWidth
+          />
+
           <Text style={styles.footerText}>
             Takes less than 2 minutes to get started
           </Text>
@@ -112,14 +118,14 @@ export const GettingStartedScreen: React.FC<GettingStartedScreenProps> = ({ onSt
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   scrollContainer: {
     flex: 1,
   },
   content: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
     minHeight: Dimensions.get('window').height - 100, // Ensure minimum height
   },
   contentSmallScreen: {
@@ -127,13 +133,13 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingTop: 24,
-    marginBottom: 32,
+    paddingTop: spacing.lg,
+    marginBottom: spacing.xl,
   },
   logoContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   logoImage: {
     width: 120,
@@ -144,90 +150,71 @@ const styles = StyleSheet.create({
     height: 80,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    ...typography.h1,
+    color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
+    ...typography.bodyLarge,
+    color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.md,
   },
   featuresContainer: {
-    paddingVertical: 16,
-    marginBottom: 32,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.xl,
   },
   featuresContainerSmall: {
-    paddingVertical: 8,
-    marginBottom: 16,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.md,
   },
   feature: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: colors.white,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.black,
+    ...shadows.sm,
   },
   featureIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#eff6ff',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.black,
   },
   featureText: {
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
+    ...typography.h4,
+    color: colors.textPrimary,
+    marginBottom: spacing.xxs,
   },
   featureDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
   },
   buttonContainer: {
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
   },
   buttonContainerSmall: {
-    paddingTop: 8,
-    paddingBottom: 20,
-  },
-  primaryButton: {
-    backgroundColor: '#3B82F6',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  primaryButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-    marginRight: 8,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.md,
   },
   footerText: {
-    fontSize: 14,
-    color: '#9ca3af',
+    ...typography.caption,
+    color: colors.textTertiary,
     textAlign: 'center',
+    marginTop: spacing.sm,
   },
 });

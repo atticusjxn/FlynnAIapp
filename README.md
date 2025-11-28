@@ -161,6 +161,10 @@ When an event is created or updated, the backend records the activity and attemp
 - `APNS_PRIVATE_KEY` – Contents of your `.p8` key (use `\n` escapes for newlines).
 - `APNS_BUNDLE_ID` – iOS bundle identifier used for APNs topics (defaults to `com.flynnai.app`).
 - `APNS_HOST` *(optional)* – Override (`https://api.sandbox.push.apple.com` vs production).
+- `STRIPE_SECRET_KEY` – Server-side key used to verify payments.
+- `STRIPE_WEBHOOK_SECRET` – Signing secret for the `/stripe/webhook` endpoint.
+- `STRIPE_BASIC_PRICE_ID` / `STRIPE_GROWTH_PRICE_ID` – Price IDs for the $49 and $99 concierge plans.
+- `EXPO_PUBLIC_STRIPE_BASIC_LINK` / `EXPO_PUBLIC_STRIPE_GROWTH_LINK` – Hosted payment links opened from the mobile paywall.
 
 **Registering a device token**
 ```bash

@@ -144,10 +144,14 @@ const createSystemPrompt = async (session, getBusinessContextForOrg) => {
   return [
     'You are Flynn, a friendly but efficient AI receptionist for a service business.',
     'Be concise, natural, and conversational.',
-    'Your job: Acknowledge what the caller says, then naturally ask the next intake question.',
+    'Your job: Acknowledge what the caller says briefly, then naturally ask the next intake question.',
     'Keep responses brief (1-2 sentences max). Never repeat the same acknowledgement twice in a row.',
+    'Acknowledgment rules:',
+    '- For yes/no answers: Use simple "Got it" or "Perfect" - do NOT say "keep going" or ask them to continue',
+    '- For detailed answers: Use varied acknowledgments like "Understood", "Thanks for that", "Noted"',
+    '- Always move straight to the next question after acknowledging',
     'After asking all intake questions, confirm with the caller: "Is there anything else I should know?"',
-    'Only when they say no/that\'s all/nothing else should you end the conversation.',
+    'Only when they say no/that\'s all/nothing else should you end the conversation with "Great, thanks for that. We\'ll be in touch soon to confirm the details."',
     businessType,
     businessFacts,
     businessContext,
@@ -284,6 +288,8 @@ class RealtimeCallHandler extends EventEmitter {
     this.isPlaying = false;
     this.closed = false;
     this.questionsAsked = 0;
+    this.interimBuffer = ''; // Track interim results for barge-in detection
+    this.lastInterimTime = 0; // Timestamp of last interim result
     this.followUpLimit = (session && session.maxQuestionsPerTurn) || 1;
     this.minAckVariety = (session && session.minAckVariety) || 3;
     this.pendingFollowUps = Array.isArray(session?.questions) ? [...session.questions] : [];
@@ -404,6 +410,9 @@ class RealtimeCallHandler extends EventEmitter {
         interim_results: true,
         punctuate: true,
         vad_events: true,
+        endpointing: 1000, // 1 second of silence (balanced for responsiveness vs completeness)
+        utterance_end_ms: 1200, // Additional 200ms buffer before finalizing
+        smart_format: true, // Better formatting for more natural speech detection
       });
 
       this.deepgramStream.on(LiveTranscriptionEvents.Open, () => {
@@ -544,32 +553,90 @@ class RealtimeCallHandler extends EventEmitter {
       }
 
       const isFinal = event.is_final || event.speech_final || false;
+
+      // Handle interim results for barge-in detection
       if (!isFinal) {
+        // Track interim results to detect user speaking during AI playback
+        this.interimBuffer = transcript;
+        this.lastInterimTime = Date.now();
+
+        // If user is speaking during AI playback, implement barge-in
+        if (this.isPlaying && transcript.length > 15) {
+          // Clear the audio queue to stop AI from continuing to speak
+          console.log('[Realtime] Barge-in detected, clearing audio queue.', {
+            callSid: this.callSid,
+            interimLength: transcript.length,
+            interimPreview: transcript.substring(0, 30),
+          });
+          this.pendingAudioQueue = [];
+          this.isPlaying = false; // Allow processing to continue
+        }
         return;
       }
 
+      // Final transcript processing
       // Require meaningful user speech before reacting (reduces noise-driven loops)
       const hasLetters = /[a-zA-Z]/.test(transcript);
       if (transcript.length < 3 || !hasLetters) {
         return;
       }
 
+      // Reset interim buffer on final transcript
+      this.interimBuffer = '';
+      this.lastInterimTime = 0;
+
       this.userTranscript.push(transcript);
       this.turns.push({ role: 'user', content: transcript });
 
-      // FAST ACKNOWLEDGMENT: Send immediate response within 500ms
-      // This makes the conversation feel natural and responsive
-      const quickAck = this.selectAcknowledgement();
-      await this.enqueueSpeech(quickAck, { priority: false });
+      // Log user transcript for conversation analysis
+      console.log('[Realtime] USER SAID:', {
+        callSid: this.callSid,
+        transcript: transcript,
+        length: transcript.length,
+      });
 
-      // Add a natural pause before the full response (300ms)
-      await sleep(300);
+      // CONDITIONAL ACKNOWLEDGMENT: Only send if AI response takes > 1000ms
+      // This avoids unnecessary filler words when AI is fast, but provides
+      // feedback during longer processing times to keep conversation natural
+      const shouldAcknowledge = this.shouldSendQuickAck(transcript);
+      const startTime = Date.now();
+      let quickAck = '';
+      let responseReady = false;
 
-      // Generate full AI response (includes next question)
-      const response = await this.generateAssistantResponse(transcript);
+      // Start generating AI response (don't await yet)
+      const responsePromise = this.generateAssistantResponse(transcript).then(response => {
+        responseReady = true;
+        return response;
+      });
+
+      // Wait 1000ms to see if we need to send an acknowledgment
+      if (shouldAcknowledge) {
+        await sleep(1000);
+
+        // If response still not ready after 1000ms, send short acknowledgment
+        if (!responseReady) {
+          quickAck = this.selectAcknowledgement({ shortOnly: true });
+          console.log('[Realtime] Response taking >1000ms, sending acknowledgment:', {
+            callSid: this.callSid,
+            ack: quickAck,
+            elapsed: Date.now() - startTime,
+          });
+          await this.enqueueSpeech(quickAck, { priority: false });
+          await sleep(100);
+        } else {
+          console.log('[Realtime] Response ready in <1000ms, skipping acknowledgment:', {
+            callSid: this.callSid,
+            elapsed: Date.now() - startTime,
+          });
+        }
+      }
+
+      // Wait for and send full AI response
+      const response = await responsePromise;
       if (response) {
         await this.enqueueSpeech(response);
-        this.turns.push({ role: 'assistant', content: `${quickAck} ${response}` });
+        const fullResponse = quickAck ? `${quickAck} ${response}` : response;
+        this.turns.push({ role: 'assistant', content: fullResponse });
       }
 
       // Note: AI naturally incorporates questions into responses,
@@ -585,10 +652,109 @@ class RealtimeCallHandler extends EventEmitter {
     }
   }
 
-  selectAcknowledgement() {
-    const library = Array.isArray(this.session?.ackLibrary) && this.session.ackLibrary.length > 0
+  shouldSendQuickAck(transcript) {
+    // Don't acknowledge very short transcripts (likely incomplete)
+    if (transcript.length < 10) {
+      return false;
+    }
+
+    // Get the last few words of the transcript for better context
+    const words = transcript.trim().toLowerCase().split(/\s+/);
+    const lastWord = words[words.length - 1];
+    const lastTwoWords = words.slice(-2).join(' ');
+    const lastThreeWords = words.slice(-3).join(' ');
+
+    // Number words that indicate phone number in progress - don't acknowledge
+    const numberWords = [
+      'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+      'double', 'triple', 'oh'
+    ];
+
+    // Check if last word is a number word (phone number in progress)
+    if (numberWords.includes(lastWord)) {
+      console.log('[Realtime] Skipping quick ack - phone number in progress:', {
+        callSid: this.callSid,
+        lastWord: lastWord,
+      });
+      return false;
+    }
+
+    // Multi-word phrases that indicate more is coming
+    const continuationPhrases = [
+      'i need', 'i want', 'i have', 'we need', 'we want', 'we have',
+      'i\'m looking', 'i am looking', 'looking for', 'i\'d like',
+      'can you', 'could you', 'will you', 'would you',
+      'it\'s at', 'it is at', 'it\'s on', 'it is on',
+      'the address is', 'address is', 'located at', 'located in'
+    ];
+
+    if (continuationPhrases.some(phrase => lastThreeWords.includes(phrase) || lastTwoWords.includes(phrase))) {
+      console.log('[Realtime] Skipping quick ack - continuation phrase detected:', {
+        callSid: this.callSid,
+        lastWords: lastThreeWords,
+      });
+      return false;
+    }
+
+    // Words that indicate more is coming - don't acknowledge
+    const continuationWords = [
+      'on', 'at', 'to', 'for', 'with', 'in', 'of', 'and', 'or', 'but',
+      'the', 'a', 'an', 'i', 'my', 'your', 'our', 'their', 'his', 'her', 'its',
+      'is', 'are', 'was', 'were', 'be', 'been', 'being',
+      'can', 'will', 'would', 'should', 'could', 'might', 'may', 'must',
+      'need', 'want', 'have', 'has', 'had', 'having',
+      'about', 'around', 'from', 'into', 'through', 'during', 'between',
+      'it\'s', 'that\'s', 'there\'s', 'here\'s', 'what\'s', 'who\'s', 'where\'s'
+    ];
+
+    if (continuationWords.includes(lastWord)) {
+      console.log('[Realtime] Skipping quick ack - transcript seems incomplete:', {
+        callSid: this.callSid,
+        lastWord: lastWord,
+      });
+      return false;
+    }
+
+    // Check if sentence ends with natural punctuation in the transcript
+    // (Deepgram adds punctuation when it's confident the utterance is complete)
+    const endsWithPunctuation = /[.!?]$/.test(transcript);
+    if (!endsWithPunctuation && words.length < 5) {
+      console.log('[Realtime] Skipping quick ack - short transcript without punctuation:', {
+        callSid: this.callSid,
+        wordCount: words.length,
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  selectAcknowledgement({ shortOnly = false } = {}) {
+    const rawLibrary = Array.isArray(this.session?.ackLibrary) && this.session.ackLibrary.length > 0
       ? this.session.ackLibrary
       : ['Got it.'];
+
+    // Filter out problematic acknowledgments that don't work well in all contexts
+    let library = rawLibrary.filter((ack) => {
+      const lower = ack.toLowerCase();
+      return !lower.includes('keep going') && !lower.includes('continue');
+    });
+
+    // If shortOnly requested, filter to only brief acknowledgments (≤ 15 characters)
+    // Examples: "Got it.", "Perfect.", "Thanks!", "Okay.", "Great!"
+    if (shortOnly) {
+      library = library.filter((ack) => ack.length <= 15);
+
+      // If no short acks available, use default short ones
+      if (library.length === 0) {
+        library = ['Got it.', 'Perfect.', 'Thanks!', 'Okay.'];
+      }
+    }
+
+    // Ensure we have at least one option
+    if (library.length === 0) {
+      library.push('Got it.');
+    }
 
     const history = Array.isArray(this.session?.ackHistory) ? this.session.ackHistory : [];
     const unused = library.filter((ack) => !history.includes(ack));
@@ -1126,6 +1292,7 @@ class RealtimeCallHandler extends EventEmitter {
         await this.onConversationComplete({
           callSid: this.callSid,
           userId: this.userId,
+          orgId: this.session?.orgId || null,
           transcript: this.userTranscript.join(' '),
           turns: this.turns,
           reason,

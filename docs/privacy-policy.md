@@ -69,7 +69,7 @@ Depending on where you live, you may have the right to:
 - Object to or restrict certain processing activities.
 - Withdraw consent (e.g., stop voice cloning, unsubscribe from marketing).
 
-Submit requests by emailing privacy@flynnai.com. We may need to verify your identity before fulfilling a request.
+Submit requests by emailing privacy@flynnai.com or by visiting [https://flynnai.app/delete-account](https://flynnai.app/delete-account). We may need to verify your identity before fulfilling a request.
 
 ## 8. Children’s Privacy
 The Service is not directed to children under 16, and we do not knowingly collect personal data from children. If you believe a child provided data to us, contact privacy@flynnai.com so we can delete it.
@@ -88,4 +88,4 @@ Email: atticusjxn@gmail.com
 Phone: +61 497 779 071
 
 ---
-Hosting this policy on `https://flynnai.com/privacy` (or an equivalent public URL) satisfies the App Store and Google Play requirement to provide a publicly accessible privacy statement.
+Hosting this policy on `https://flynnai.app/privacy` (or an equivalent public URL) satisfies the App Store and Google Play requirement to provide a publicly accessible privacy statement.

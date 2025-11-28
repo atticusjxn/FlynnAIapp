@@ -4,7 +4,6 @@ alter table public.users
   add column if not exists receptionist_greeting text,
   add column if not exists receptionist_questions jsonb default '[]'::jsonb,
   add column if not exists receptionist_voice_profile_id uuid;
-
 -- Create voice_profiles table to store custom voice clones
 create table if not exists public.voice_profiles (
   id uuid primary key default gen_random_uuid(),
@@ -17,13 +16,10 @@ create table if not exists public.voice_profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 create index if not exists voice_profiles_user_id_idx
   on public.voice_profiles(user_id);
-
 alter table public.voice_profiles
   enable row level security;
-
 create or replace function public.set_voice_profiles_updated_at()
 returns trigger
 language plpgsql
@@ -33,14 +29,11 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists set_voice_profiles_updated_at on public.voice_profiles;
-
 create trigger set_voice_profiles_updated_at
   before update on public.voice_profiles
   for each row
   execute procedure public.set_voice_profiles_updated_at();
-
 do $$
 begin
   if not exists (
@@ -55,7 +48,6 @@ begin
       with check (auth.uid() = user_id);
   end if;
 end $$;
-
 -- Update users.receptionist_voice_profile_id to reference voice_profiles
 do $$
 begin
@@ -71,7 +63,6 @@ begin
         on delete set null;
   end if;
 end $$;
-
 -- Ensure storage bucket exists for voice samples
 do $$
 begin
@@ -81,7 +72,6 @@ begin
 exception when others then
   raise notice 'Bucket voice-profiles already exists or cannot be created: %', sqlerrm;
 end $$;
-
 -- Restrict access to voice sample objects so users can only manage their own recordings
 do $$
 begin
@@ -112,6 +102,5 @@ begin
       rename column calendar_integration_complete to receptionist_configured;
   end if;
 end $$;
-
 alter table public.users
   add column if not exists receptionist_configured boolean default false;

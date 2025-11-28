@@ -59,4 +59,4 @@ Hamilton QLD 4007, Australia
 Email: atticusjxn@gmail.com  
 Phone: +61 497 779 071
 
-If you have questions about these Terms, please contact us. Hosting this document at `https://flynnai.com/terms` satisfies the store requirement for a publicly accessible Terms of Service page.
+If you have questions about these Terms, please contact us. Hosting this document at `https://flynnai.app/terms` satisfies the store requirement for a publicly accessible Terms of Service page.

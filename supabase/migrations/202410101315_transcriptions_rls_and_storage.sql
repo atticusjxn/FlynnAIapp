@@ -1,20 +1,16 @@
 -- Hardens per-user isolation for voicemail data and storage.
 set local search_path = public;
 set local statement_timeout = '60s';
-
 -- Ensure public.transcriptions has a user reference that mirrors the owning call.
 alter table public.transcriptions
   add column if not exists user_id uuid;
-
 alter table public.transcriptions
   drop constraint if exists transcriptions_user_id_fkey;
-
 alter table public.transcriptions
   add constraint transcriptions_user_id_fkey
     foreign key (user_id)
     references public.users(id)
     on delete cascade;
-
 -- Backfill user_id via related calls. Warn (and leave nullable) if any rows cannot be resolved.
 do $$
 declare
@@ -39,102 +35,83 @@ begin
   end if;
 end
 $$;
-
 -- Ensure efficient lookups for RLS predicates.
 create index if not exists transcriptions_user_id_idx
   on public.transcriptions(user_id);
-
 create index if not exists calls_user_id_idx
   on public.calls(user_id);
-
 create index if not exists jobs_user_id_idx
   on public.jobs(user_id);
-
 -- Enable and enforce RLS for the voicemail-related tables.
 alter table public.calls enable row level security;
 alter table public.calls force row level security;
-
 drop policy if exists "Calls owner select" on public.calls;
 create policy "Calls owner select"
   on public.calls
   for select
   using (user_id = auth.uid());
-
 drop policy if exists "Calls owner insert" on public.calls;
 create policy "Calls owner insert"
   on public.calls
   for insert
   with check (user_id = auth.uid());
-
 drop policy if exists "Calls owner update" on public.calls;
 create policy "Calls owner update"
   on public.calls
   for update
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
-
 drop policy if exists "Calls owner delete" on public.calls;
 create policy "Calls owner delete"
   on public.calls
   for delete
   using (user_id = auth.uid());
-
 alter table public.transcriptions enable row level security;
 alter table public.transcriptions force row level security;
-
 drop policy if exists "Transcriptions owner select" on public.transcriptions;
 create policy "Transcriptions owner select"
   on public.transcriptions
   for select
   using (user_id = auth.uid());
-
 drop policy if exists "Transcriptions owner insert" on public.transcriptions;
 create policy "Transcriptions owner insert"
   on public.transcriptions
   for insert
   with check (user_id = auth.uid());
-
 drop policy if exists "Transcriptions owner update" on public.transcriptions;
 create policy "Transcriptions owner update"
   on public.transcriptions
   for update
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
-
 drop policy if exists "Transcriptions owner delete" on public.transcriptions;
 create policy "Transcriptions owner delete"
   on public.transcriptions
   for delete
   using (user_id = auth.uid());
-
 alter table public.jobs enable row level security;
 alter table public.jobs force row level security;
-
 drop policy if exists "Jobs owner select" on public.jobs;
 create policy "Jobs owner select"
   on public.jobs
   for select
   using (user_id = auth.uid());
-
 drop policy if exists "Jobs owner insert" on public.jobs;
 create policy "Jobs owner insert"
   on public.jobs
   for insert
   with check (user_id = auth.uid());
-
 drop policy if exists "Jobs owner update" on public.jobs;
 create policy "Jobs owner update"
   on public.jobs
   for update
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
-
 drop policy if exists "Jobs owner delete" on public.jobs;
 create policy "Jobs owner delete"
   on public.jobs
   for delete
   using (user_id = auth.uid());
-
 -- Harden Supabase Storage access for voicemail recordings while handling privilege limitations.
 do $$
 declare

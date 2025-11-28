@@ -1,6 +1,6 @@
 {
   "name": "flynnai-temp",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -8,11 +8,14 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --runInBand",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "release:eas": "eas build --profile production --platform all && eas submit --profile production"
   },
   "dependencies": {
     "@babel/runtime": "^7.20.6",
     "@deepgram/sdk": "^4.11.2",
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/space-grotesk": "^0.4.1",
     "@modelcontextprotocol/sdk": "^1.18.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "^11.4.1",
@@ -70,6 +73,7 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-worklets": "0.5.1",
     "react-refresh": "^0.14.0",
+    "stripe": "^16.12.0",
     "supabase": "^2.47.2",
     "twilio": "^5.9.0",
     "ws": "^8.18.3"

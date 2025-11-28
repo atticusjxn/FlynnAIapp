@@ -19,6 +19,13 @@
         "@upstash/context7-mcp",
         "--ctx7sk-8cd161ed-adcd-4b58-9470-e901d006ec92"
       ]
+    },
+    "mobile-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mobilenext/mobile-mcp@latest"
+      ]
     }
   }
 }

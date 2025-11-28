@@ -26,14 +26,22 @@ import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
 import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
 import IntegrationsScreen from './src/screens/settings/IntegrationsScreen';
 import { BusinessProfileScreen } from './src/screens/settings/BusinessProfileScreen';
-// import { useFonts } from 'expo-font';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium
+} from '@expo-google-fonts/inter';
+import {
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold
+} from '@expo-google-fonts/space-grotesk';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 function MainTabs() {
   const { colors } = useTheme();
-  
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -86,15 +94,15 @@ function RootNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={MainTabs} />
-      <Stack.Screen 
-        name="JobFormDemo" 
+      <Stack.Screen
+        name="JobFormDemo"
         component={JobFormDemo}
         options={{
           presentation: 'modal',
         }}
       />
-      <Stack.Screen 
-        name="CallSetup" 
+      <Stack.Screen
+        name="CallSetup"
         component={CallSetupScreen}
         options={{
           presentation: 'modal',
@@ -102,8 +110,8 @@ function RootNavigator() {
           title: 'Call Recording Setup',
         }}
       />
-      <Stack.Screen 
-        name="CallHistory" 
+      <Stack.Screen
+        name="CallHistory"
         component={CallHistoryScreen}
         options={{
           presentation: 'modal',
@@ -180,8 +188,22 @@ function AppNavigator() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+  });
 
   console.log('[App] Root component rendering - React 19 compatible');
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#ff4500" />
+      </View>
+    );
+  }
 
   return (
     <ErrorBoundary>

@@ -18,7 +18,8 @@ import { useAuth } from '../context/AuthContext';
 import { buildDefaultGreeting } from '../utils/greetingDefaults';
 import { FlynnInput } from '../components/ui/FlynnInput';
 import { FlynnButton } from '../components/ui/FlynnButton';
-import { spacing, typography, borderRadius } from '../theme';
+import { FlynnCard } from '../components/ui/FlynnCard';
+import { spacing, typography, borderRadius, colors, shadows } from '../theme';
 import ReceptionistService, { VoiceProfile } from '../services/ReceptionistService';
 import { isApiConfigured } from '../services/apiClient';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
@@ -206,6 +207,30 @@ export const ReceptionistScreen: React.FC = () => {
   const testCallScrollRef = useRef<ScrollView | null>(null);
   const businessName = (user?.user_metadata?.business_name as string | undefined)?.trim();
 
+  const clearKoalaLoopTimer = useCallback(() => {
+    if (koalaLoopTimerRef.current) {
+      clearTimeout(koalaLoopTimerRef.current);
+      koalaLoopTimerRef.current = null;
+    }
+  }, []);
+
+  const animateKoalaScale = useCallback(
+    (toValue: number) => {
+      Animated.timing(koalaScale, {
+        toValue,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    },
+    [koalaScale]
+  );
+
+  const stopKoalaAnimation = useCallback(() => {
+    clearKoalaLoopTimer();
+    setIsKoalaTalking(false);
+    animateKoalaScale(1);
+  }, [animateKoalaScale, clearKoalaLoopTimer]);
+
   const stopTestCallAudio = useCallback(async () => {
     if (testCallSoundRef.current) {
       try {
@@ -213,39 +238,39 @@ export const ReceptionistScreen: React.FC = () => {
       } catch (_) {
         // ignore
       }
-      await testCallSoundRef.current.unloadAsync().catch(() => {});
+      await testCallSoundRef.current.unloadAsync().catch(() => { });
       testCallSoundRef.current = null;
     }
     if (testCallAudioUriRef.current) {
-      await FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => {});
+      await FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => { });
       testCallAudioUriRef.current = null;
     }
     stopKoalaAnimation();
   }, [stopKoalaAnimation]);
 
-useEffect(() => {
-  refreshVoiceProfiles();
-}, []);
+  useEffect(() => {
+    refreshVoiceProfiles();
+  }, []);
 
-useEffect(() => {
-  if (activeTestCallIndex < 0 || !testCallScrollRef.current?.scrollTo) {
-    return;
-  }
-  const averageRowHeight = 96;
-  testCallScrollRef.current.scrollTo({
-    y: Math.max(0, activeTestCallIndex * averageRowHeight - 40),
-    animated: true,
-  });
-}, [activeTestCallIndex]);
+  useEffect(() => {
+    if (activeTestCallIndex < 0 || !testCallScrollRef.current?.scrollTo) {
+      return;
+    }
+    const averageRowHeight = 96;
+    testCallScrollRef.current.scrollTo({
+      y: Math.max(0, activeTestCallIndex * averageRowHeight - 40),
+      animated: true,
+    });
+  }, [activeTestCallIndex]);
 
   useEffect(() => {
     return () => {
       if (previewSoundRef.current) {
-        previewSoundRef.current.unloadAsync().catch(() => {});
-      previewSoundRef.current = null;
-    }
+        previewSoundRef.current.unloadAsync().catch(() => { });
+        previewSoundRef.current = null;
+      }
       if (previewUriRef.current) {
-        FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => { });
         previewUriRef.current = null;
       }
       if (koalaLoopTimerRef.current) {
@@ -255,21 +280,21 @@ useEffect(() => {
       koalaScale.stopAnimation(() => {
         koalaScale.setValue(1);
       });
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = null;
-    }
-    if (testCallSoundRef.current) {
-      testCallSoundRef.current.unloadAsync().catch(() => {});
-      testCallSoundRef.current = null;
-    }
-    if (testCallAudioUriRef.current) {
-      FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => {});
-      testCallAudioUriRef.current = null;
-    }
-    testCallCancelledRef.current = true;
-  };
-}, [koalaScale]);
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+      if (testCallSoundRef.current) {
+        testCallSoundRef.current.unloadAsync().catch(() => { });
+        testCallSoundRef.current = null;
+      }
+      if (testCallAudioUriRef.current) {
+        FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => { });
+        testCallAudioUriRef.current = null;
+      }
+      testCallCancelledRef.current = true;
+    };
+  }, [koalaScale]);
 
   const generateCallerAnswer = useCallback((question: string, index: number) => {
     if (!question) {
@@ -541,29 +566,7 @@ useEffect(() => {
     }
   };
 
-  const clearKoalaLoopTimer = useCallback(() => {
-    if (koalaLoopTimerRef.current) {
-      clearTimeout(koalaLoopTimerRef.current);
-      koalaLoopTimerRef.current = null;
-    }
-  }, []);
 
-  const animateKoalaScale = useCallback(
-    (toValue: number) => {
-      Animated.timing(koalaScale, {
-        toValue,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-    },
-    [koalaScale]
-  );
-
-  const stopKoalaAnimation = useCallback(() => {
-    clearKoalaLoopTimer();
-    setIsKoalaTalking(false);
-    animateKoalaScale(1);
-  }, [animateKoalaScale, clearKoalaLoopTimer]);
 
   const startKoalaAnimationLoop = useCallback(
     (durationMillis?: number) => {
@@ -612,10 +615,10 @@ useEffect(() => {
     } catch (error) {
       console.warn('[ReceptionistScreen] Failed to stop preview', error);
     } finally {
-      sound.unloadAsync().catch(() => {});
+      sound.unloadAsync().catch(() => { });
       previewSoundRef.current = null;
       if (previewUriRef.current) {
-        FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => { });
         previewUriRef.current = null;
       }
       stopKoalaAnimation();
@@ -663,7 +666,7 @@ useEffect(() => {
       const preview = await ReceptionistService.previewGreeting(trimmedGreeting, selectedVoice, voiceProfileId);
 
       if (previewUriRef.current) {
-        await FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        await FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => { });
         previewUriRef.current = null;
       }
 
@@ -701,14 +704,14 @@ useEffect(() => {
         }
 
         if (status.didJustFinish) {
-          stopPreview().catch(() => {});
+          stopPreview().catch(() => { });
         }
       });
 
       await sound.playAsync();
     } catch (error) {
       console.error('[ReceptionistScreen] Failed to play greeting preview', error);
-      stopPreview().catch(() => {});
+      stopPreview().catch(() => { });
       Alert.alert('Preview failed', error instanceof Error ? error.message : 'Unable to play the greeting right now.');
       setIsKoalaTalking(false);
       setIsGreetingPreviewPlaying(false);
@@ -766,7 +769,7 @@ useEffect(() => {
       const preview = await ReceptionistService.previewGreeting(questionText, selectedVoice, voiceProfileId);
 
       if (previewUriRef.current) {
-        await FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => {});
+        await FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => { });
         previewUriRef.current = null;
       }
 
@@ -804,14 +807,14 @@ useEffect(() => {
         }
 
         if (status.didJustFinish) {
-          stopPreview().catch(() => {});
+          stopPreview().catch(() => { });
         }
       });
 
       await sound.playAsync();
     } catch (error) {
       console.error('[ReceptionistScreen] Failed to play question preview', error);
-      stopPreview().catch(() => {});
+      stopPreview().catch(() => { });
       Alert.alert('Preview failed', error instanceof Error ? error.message : 'Unable to play this question right now.');
       setIsKoalaTalking(false);
     } finally {
@@ -847,7 +850,7 @@ useEffect(() => {
     const preview = await ReceptionistService.previewGreeting(text, selectedVoice, voiceProfileId);
 
     if (testCallAudioUriRef.current) {
-      await FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => {});
+      await FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => { });
       testCallAudioUriRef.current = null;
     }
 
@@ -888,19 +891,19 @@ useEffect(() => {
         }
 
         if (testCallCancelledRef.current) {
-          sound.setOnPlaybackStatusUpdate(undefined);
+          sound.setOnPlaybackStatusUpdate(null);
           resolve();
           return;
         }
 
         if (playbackStatus.didJustFinish) {
-          sound.setOnPlaybackStatusUpdate(undefined);
+          sound.setOnPlaybackStatusUpdate(null);
           resolve();
         }
       });
 
       sound.playAsync().catch((error) => {
-        sound.setOnPlaybackStatusUpdate(undefined);
+        sound.setOnPlaybackStatusUpdate(null);
         reject(error);
       });
     });
@@ -917,7 +920,7 @@ useEffect(() => {
     setTestCallModalVisible(false);
     setIsTestCallRunning(false);
     setActiveTestCallIndex(-1);
-    stopTestCallAudio().catch(() => {});
+    stopTestCallAudio().catch(() => { });
   }, [stopTestCallAudio]);
 
   const handleStartTestCall = useCallback(async () => {
@@ -972,7 +975,7 @@ useEffect(() => {
       Alert.alert('Test call', error instanceof Error ? error.message : 'Simulation interrupted.');
     } finally {
       setIsTestCallRunning(false);
-      stopTestCallAudio().catch(() => {});
+      stopTestCallAudio().catch(() => { });
     }
   }, [
     buildTestCallScript,
@@ -987,406 +990,406 @@ useEffect(() => {
   return (
     <View style={styles.screen}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.heroCard}>
-        <Animated.View style={[styles.heroAvatar, { transform: [{ scale: koalaScale }] }]}>
-          <Image
-            key={isKoalaTalking ? `koala-${koalaAnimationKey}` : 'koala-static'}
-            source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
-          style={styles.heroAvatarImage}
-          resizeMode="contain"
-        />
-      </Animated.View>
-        <View style={styles.heroTextWrapper}>
-          <Text style={styles.heroTitle}>Koala Concierge</Text>
-          <Text style={styles.heroSubtitle}>
-            Manage the voice, behaviour, and scripts your AI receptionist uses on every call.
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={styles.previewButton}
-          onPress={handlePlayGreeting}
-          activeOpacity={0.85}
-          disabled={isGreetingPreviewLoading}
-        >
-          {isGreetingPreviewLoading ? (
-            <ActivityIndicator color="#2563eb" size="small" />
-          ) : (
-            <View style={styles.previewButtonContent}>
-              <FlynnIcon
-                name={isGreetingPreviewPlaying ? 'pause-circle' : 'play-circle'}
-                size={22}
-                color="#2563eb"
-              />
-              <Text style={styles.previewButtonLabel}>
-                {isGreetingPreviewPlaying ? 'Stop' : 'Play greeting'}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.testCallCard}>
-        <View style={styles.testCallHeader}>
-          <Text style={styles.cardTitle}>Run a Koala test call</Text>
-          <Text style={styles.betaPill}>Beta</Text>
-        </View>
-        <Text style={styles.cardHint}>
-          Hear how your script sounds before provisioning a number. Koala will ask your configured
-          questions and generate a realistic caller response.
-        </Text>
-        {!isApiConfigured() && (
-          <Text style={styles.cardWarning}>
-            Connect the API base URL in your build configuration to enable test calls.
-          </Text>
-        )}
-        <FlynnButton
-          title={isTestCallRunning ? 'Running test call…' : 'Start test call'}
-          onPress={handleStartTestCall}
-          variant="secondary"
-          disabled={isTestCallRunning || !isApiConfigured()}
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Voice profile</Text>
-        <Text style={styles.cardHint}>Choose who callers hear when Flynn answers.</Text>
-        {voiceOptions.map(option => {
-          const isSelected = option.id === selectedVoice;
-          return (
-            <TouchableOpacity
-              key={option.id}
-              style={[styles.listItem, isSelected && styles.listItemSelected]}
-              onPress={() => setSelectedVoice(option.id)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.listItemLabel}>{option.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-        {selectedVoice === 'custom_voice' && (
-          <View style={styles.noticeBanner}>
-            <FlynnIcon name="mic" size={18} color="#1d4ed8" style={styles.noticeIcon} />
-            <Text style={styles.noticeText}>
-              Upload 60 seconds of clean audio so Flynn can clone your voice. We guide you through the script when you tap “Record now”.
-            </Text>
-            <FlynnButton
-              title={isUploadingSample ? 'Uploading…' : 'Record now'}
-              onPress={() => setRecordModalVisible(true)}
-              variant="secondary"
-              disabled={isUploadingSample}
+        <View style={styles.heroCard}>
+          <Animated.View style={[styles.heroAvatar, { transform: [{ scale: koalaScale }] }]}>
+            <Image
+              key={isKoalaTalking ? `koala-${koalaAnimationKey}` : 'koala-static'}
+              source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
+              style={styles.heroAvatarImage}
+              resizeMode="contain"
             />
-            {customVoiceProfile && (
-              <View style={styles.profileStatusRow}>
-                <FlynnIcon name={customVoiceProfile.status === 'ready' ? 'checkmark-circle' : 'time'} size={16} color={customVoiceProfile.status === 'ready' ? '#10B981' : '#2563eb'} />
-                <Text style={styles.profileStatusText}>
-                  {customVoiceProfile.status === 'ready'
-                    ? 'Ready for calls'
-                    : customVoiceProfile.status === 'error'
-                      ? 'Clone failed — record a new sample'
-                      : customVoiceProfile.status === 'cloning'
-                        ? 'Cloning in progress'
-                        : 'Awaiting cloning'}
+          </Animated.View>
+          <View style={styles.heroTextWrapper}>
+            <Text style={styles.heroTitle}>Koala Concierge</Text>
+            <Text style={styles.heroSubtitle}>
+              Manage the voice, behaviour, and scripts your AI receptionist uses on every call.
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.previewButton}
+            onPress={handlePlayGreeting}
+            activeOpacity={0.85}
+            disabled={isGreetingPreviewLoading}
+          >
+            {isGreetingPreviewLoading ? (
+              <ActivityIndicator color="#2563eb" size="small" />
+            ) : (
+              <View style={styles.previewButtonContent}>
+                <FlynnIcon
+                  name={isGreetingPreviewPlaying ? 'pause-circle' : 'play-circle'}
+                  size={22}
+                  color="#2563eb"
+                />
+                <Text style={styles.previewButtonLabel}>
+                  {isGreetingPreviewPlaying ? 'Stop' : 'Play greeting'}
                 </Text>
-                <TouchableOpacity onPress={refreshVoiceProfiles} disabled={loadingProfiles}>
-                  <Text style={styles.refreshLink}>{loadingProfiles ? 'Refreshing…' : 'Refresh'}</Text>
-                </TouchableOpacity>
               </View>
             )}
+          </TouchableOpacity>
+        </View>
+
+        <FlynnCard style={styles.testCallCard}>
+          <View style={styles.testCallHeader}>
+            <Text style={styles.cardTitle}>Run a Koala test call</Text>
+            <Text style={styles.betaPill}>Beta</Text>
           </View>
-        )}
-      </View>
+          <Text style={styles.cardHint}>
+            Hear how your script sounds before provisioning a number. Koala will ask your configured
+            questions and generate a realistic caller response.
+          </Text>
+          {!isApiConfigured() && (
+            <Text style={styles.cardWarning}>
+              Connect the API base URL in your build configuration to enable test calls.
+            </Text>
+          )}
+          <FlynnButton
+            title={isTestCallRunning ? 'Running test call…' : 'Start test call'}
+            onPress={handleStartTestCall}
+            variant="secondary"
+            disabled={isTestCallRunning || !isApiConfigured()}
+          />
+        </FlynnCard>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Call routing</Text>
-        <Text style={styles.cardHint}>Decide whether Flynn greets everyone or offers a voicemail fallback.</Text>
-        {RECEPTIONIST_MODES.map(option => {
-          const isSelected = mode === option.id;
-          return (
-            <TouchableOpacity
-              key={option.id}
-              style={[styles.modeOption, isSelected && styles.modeOptionSelected]}
-              onPress={() => setMode(option.id)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.modeCopy}>
-                <Text style={[styles.modeTitle, isSelected && styles.modeTitleSelected]}>{option.title}</Text>
-                <Text style={styles.modeDescription}>{option.description}</Text>
-              </View>
-              <FlynnIcon
-                name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                size={20}
-                color={isSelected ? '#2563eb' : '#94a3b8'}
-              />
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Greeting script</Text>
-        <Text style={styles.cardHint}>Set the opening line and tone for every caller.</Text>
-        <FlynnInput
-          multiline
-          numberOfLines={3}
-          value={greeting}
-          onChangeText={setGreeting}
-          placeholder="Hello! You've reached ..."
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Conversation flow</Text>
-        <Text style={styles.cardHint}>
-          Choose a template and tailor the follow-up questions Flynn uses to capture event details.
-        </Text>
-
-        <Text style={styles.sectionLabel}>Start from a template</Text>
-        <View style={styles.templateList}>
-          {FOLLOW_UP_TEMPLATES.map(template => {
-            const isSelected = activeTemplateId === template.id;
+        <FlynnCard style={styles.card}>
+          <Text style={styles.cardTitle}>Voice profile</Text>
+          <Text style={styles.cardHint}>Choose who callers hear when Flynn answers.</Text>
+          {voiceOptions.map(option => {
+            const isSelected = option.id === selectedVoice;
             return (
               <TouchableOpacity
-                key={template.id}
-                style={[styles.templateChip, isSelected && styles.templateChipSelected]}
-                onPress={() => handleApplyTemplate(template.id)}
+                key={option.id}
+                style={[styles.listItem, isSelected && styles.listItemSelected]}
+                onPress={() => setSelectedVoice(option.id)}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.templateChipLabel, isSelected && styles.templateChipLabelSelected]}>
-                  {template.label}
-                </Text>
-                <Text
-                  style={[styles.templateChipDescription, isSelected && styles.templateChipDescriptionSelected]}
-                >
-                  {template.description}
-                </Text>
+                <Text style={styles.listItemLabel}>{option.label}</Text>
               </TouchableOpacity>
             );
           })}
-        </View>
-
-        <Text style={styles.sectionLabel}>Customise the questions</Text>
-        {followUpQuestions.map((question, index) => {
-          const canRemove = followUpQuestions.length > 1;
-          return (
-            <View key={`question-${index}`} style={styles.questionRow}>
-              <FlynnInput
-                multiline
-                numberOfLines={2}
-                value={question}
-                onChangeText={value => handleQuestionChange(index, value)}
-                placeholder={`Follow-up question ${index + 1}`}
-                containerStyle={styles.questionInputContainer}
+          {selectedVoice === 'custom_voice' && (
+            <View style={styles.noticeBanner}>
+              <FlynnIcon name="mic" size={18} color={colors.primary} style={styles.noticeIcon} />
+              <Text style={styles.noticeText}>
+                Upload 60 seconds of clean audio so Flynn can clone your voice. We guide you through the script when you tap “Record now”.
+              </Text>
+              <FlynnButton
+                title={isUploadingSample ? 'Uploading…' : 'Record now'}
+                onPress={() => setRecordModalVisible(true)}
+                variant="secondary"
+                disabled={isUploadingSample}
               />
-              <View style={styles.questionActions}>
-                <TouchableOpacity
-                  onPress={() => handlePlayQuestion(index)}
-                  style={styles.questionActionButton}
-                  activeOpacity={0.7}
-                  disabled={questionPreviewLoadingIndex !== null && questionPreviewLoadingIndex !== index}
-                >
-                  {questionPreviewLoadingIndex === index ? (
-                    <ActivityIndicator size="small" color="#2563eb" />
-                  ) : (
-                    <FlynnIcon
-                      name={questionPreviewPlayingIndex === index ? 'pause-circle' : 'play-circle'}
-                      size={22}
-                      color="#2563eb"
-                    />
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleRemoveQuestion(index)}
-                  style={[styles.removeQuestionButton, !canRemove && styles.removeQuestionButtonDisabled]}
-                  disabled={!canRemove}
-                  activeOpacity={0.7}
-                >
-                  <FlynnIcon
-                    name="trash"
-                    size={18}
-                    color={canRemove ? '#dc2626' : '#94a3b8'}
-                  />
-                </TouchableOpacity>
-              </View>
+              {customVoiceProfile && (
+                <View style={styles.profileStatusRow}>
+                  <FlynnIcon name={customVoiceProfile.status === 'ready' ? 'checkmark-circle' : 'time'} size={16} color={customVoiceProfile.status === 'ready' ? colors.success : colors.primary} />
+                  <Text style={styles.profileStatusText}>
+                    {customVoiceProfile.status === 'ready'
+                      ? 'Ready for calls'
+                      : customVoiceProfile.status === 'error'
+                        ? 'Clone failed — record a new sample'
+                        : customVoiceProfile.status === 'cloning'
+                          ? 'Cloning in progress'
+                          : 'Awaiting cloning'}
+                  </Text>
+                  <TouchableOpacity onPress={refreshVoiceProfiles} disabled={loadingProfiles}>
+                    <Text style={styles.refreshLink}>{loadingProfiles ? 'Refreshing…' : 'Refresh'}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-          );
-        })}
+          )}
+        </FlynnCard>
 
-        <FlynnButton
-          title="Add question"
-          variant="secondary"
-          icon={<FlynnIcon name="add" size={18} color="#2563eb" />}
-          onPress={handleAddQuestion}
-          size="small"
-          style={styles.addQuestionButton}
-          textStyle={styles.addQuestionButtonText}
-        />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Acknowledgement phrases</Text>
-        <Text style={styles.cardHint}>Flynn rotates through these quick responses while processing the caller&apos;s answer.</Text>
-        <View style={styles.ackList}>
-          {ackLibrary.map((phrase) => {
-            const canRemove = ackLibrary.length > 3;
+        <FlynnCard style={styles.card}>
+          <Text style={styles.cardTitle}>Call routing</Text>
+          <Text style={styles.cardHint}>Decide whether Flynn greets everyone or offers a voicemail fallback.</Text>
+          {RECEPTIONIST_MODES.map(option => {
+            const isSelected = mode === option.id;
             return (
-              <View key={phrase} style={styles.ackItem}>
-                <Text style={styles.ackText}>{phrase}</Text>
+              <TouchableOpacity
+                key={option.id}
+                style={[styles.modeOption, isSelected && styles.modeOptionSelected]}
+                onPress={() => setMode(option.id)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.modeCopy}>
+                  <Text style={[styles.modeTitle, isSelected && styles.modeTitleSelected]}>{option.title}</Text>
+                  <Text style={styles.modeDescription}>{option.description}</Text>
+                </View>
+                <FlynnIcon
+                  name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={isSelected ? colors.primary : colors.gray400}
+                />
+              </TouchableOpacity>
+            );
+          })}
+        </FlynnCard>
+
+        <FlynnCard style={styles.card}>
+          <Text style={styles.cardTitle}>Greeting script</Text>
+          <Text style={styles.cardHint}>Set the opening line and tone for every caller.</Text>
+          <FlynnInput
+            multiline
+            numberOfLines={3}
+            value={greeting}
+            onChangeText={setGreeting}
+            placeholder="Hello! You've reached ..."
+          />
+        </FlynnCard>
+
+        <FlynnCard style={styles.card}>
+          <Text style={styles.cardTitle}>Conversation flow</Text>
+          <Text style={styles.cardHint}>
+            Choose a template and tailor the follow-up questions Flynn uses to capture event details.
+          </Text>
+
+          <Text style={styles.sectionLabel}>Start from a template</Text>
+          <View style={styles.templateList}>
+            {FOLLOW_UP_TEMPLATES.map(template => {
+              const isSelected = activeTemplateId === template.id;
+              return (
                 <TouchableOpacity
-                  onPress={() => handleRemoveAckPhrase(phrase)}
-                  disabled={!canRemove}
-                  style={[styles.ackRemoveButton, !canRemove && styles.ackRemoveButtonDisabled]}
-                  activeOpacity={0.7}
+                  key={template.id}
+                  style={[styles.templateChip, isSelected && styles.templateChipSelected]}
+                  onPress={() => handleApplyTemplate(template.id)}
+                  activeOpacity={0.85}
                 >
-                  <FlynnIcon name="close" size={16} color={canRemove ? '#dc2626' : '#cbd5f5'} />
+                  <Text style={[styles.templateChipLabel, isSelected && styles.templateChipLabelSelected]}>
+                    {template.label}
+                  </Text>
+                  <Text
+                    style={[styles.templateChipDescription, isSelected && styles.templateChipDescriptionSelected]}
+                  >
+                    {template.description}
+                  </Text>
                 </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={styles.sectionLabel}>Customise the questions</Text>
+          {followUpQuestions.map((question, index) => {
+            const canRemove = followUpQuestions.length > 1;
+            return (
+              <View key={`question-${index}`} style={styles.questionRow}>
+                <FlynnInput
+                  multiline
+                  numberOfLines={2}
+                  value={question}
+                  onChangeText={value => handleQuestionChange(index, value)}
+                  placeholder={`Follow-up question ${index + 1}`}
+                  containerStyle={styles.questionInputContainer}
+                />
+                <View style={styles.questionActions}>
+                  <TouchableOpacity
+                    onPress={() => handlePlayQuestion(index)}
+                    style={styles.questionActionButton}
+                    activeOpacity={0.7}
+                    disabled={questionPreviewLoadingIndex !== null && questionPreviewLoadingIndex !== index}
+                  >
+                    {questionPreviewLoadingIndex === index ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <FlynnIcon
+                        name={questionPreviewPlayingIndex === index ? 'pause-circle' : 'play-circle'}
+                        size={22}
+                        color={colors.primary}
+                      />
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveQuestion(index)}
+                    style={[styles.removeQuestionButton, !canRemove && styles.removeQuestionButtonDisabled]}
+                    disabled={!canRemove}
+                    activeOpacity={0.7}
+                  >
+                    <FlynnIcon
+                      name="trash"
+                      size={18}
+                      color={canRemove ? colors.white : colors.gray400}
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })}
-        </View>
-        <FlynnInput
-          value={newAckPhrase}
-          onChangeText={setNewAckPhrase}
-          placeholder="Add a new acknowledgement"
-          containerStyle={styles.ackInput}
-        />
-        <FlynnButton
-          title="Add phrase"
-          variant="secondary"
-          onPress={handleAddAckPhrase}
-          disabled={!newAckPhrase.trim()}
-          size="small"
-        />
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Call intelligence</Text>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleCopy}>
-            <Text style={styles.toggleLabel}>Call recording</Text>
-            <Text style={styles.toggleHint}>Keep high-quality recordings for coaching and compliance.</Text>
-          </View>
-          <Switch
-            value={callRecordingEnabled}
-            onValueChange={setCallRecordingEnabled}
-            thumbColor={callRecordingEnabled ? '#3B82F6' : '#f1f5f9'}
-            trackColor={{ false: '#cbd5f5', true: '#bfdbfe' }}
+          <FlynnButton
+            title="Add question"
+            variant="secondary"
+            icon={<FlynnIcon name="add" size={18} color={colors.primary} />}
+            onPress={handleAddQuestion}
+            size="small"
+            style={styles.addQuestionButton}
+            textStyle={styles.addQuestionButtonText}
           />
-        </View>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleCopy}>
-            <Text style={styles.toggleLabel}>Automatic summaries</Text>
-            <Text style={styles.toggleHint}>Send AI-generated summaries and follow-up tasks to your team.</Text>
+        </FlynnCard>
+
+        <FlynnCard style={styles.card}>
+          <Text style={styles.cardTitle}>Acknowledgement phrases</Text>
+          <Text style={styles.cardHint}>Flynn rotates through these quick responses while processing the caller&apos;s answer.</Text>
+          <View style={styles.ackList}>
+            {ackLibrary.map((phrase) => {
+              const canRemove = ackLibrary.length > 3;
+              return (
+                <View key={phrase} style={styles.ackItem}>
+                  <Text style={styles.ackText}>{phrase}</Text>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveAckPhrase(phrase)}
+                    disabled={!canRemove}
+                    style={[styles.ackRemoveButton, !canRemove && styles.ackRemoveButtonDisabled]}
+                    activeOpacity={0.7}
+                  >
+                    <FlynnIcon name="close" size={16} color={canRemove ? colors.white : colors.gray400} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </View>
-          <Switch
-            value={autoSummaryEnabled}
-            onValueChange={setAutoSummaryEnabled}
-            thumbColor={autoSummaryEnabled ? '#3B82F6' : '#f1f5f9'}
-            trackColor={{ false: '#cbd5f5', true: '#bfdbfe' }}
+          <FlynnInput
+            value={newAckPhrase}
+            onChangeText={setNewAckPhrase}
+            placeholder="Add a new acknowledgement"
+            containerStyle={styles.ackInput}
           />
+          <FlynnButton
+            title="Add phrase"
+            variant="secondary"
+            onPress={handleAddAckPhrase}
+            disabled={!newAckPhrase.trim()}
+            size="small"
+          />
+        </FlynnCard>
+
+        <FlynnCard style={styles.card}>
+          <Text style={styles.cardTitle}>Call intelligence</Text>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleCopy}>
+              <Text style={styles.toggleLabel}>Call recording</Text>
+              <Text style={styles.toggleHint}>Keep high-quality recordings for coaching and compliance.</Text>
+            </View>
+            <Switch
+              value={callRecordingEnabled}
+              onValueChange={setCallRecordingEnabled}
+              thumbColor={callRecordingEnabled ? colors.primary : colors.gray100}
+              trackColor={{ false: colors.gray300, true: colors.primaryLight }}
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleCopy}>
+              <Text style={styles.toggleLabel}>Automatic summaries</Text>
+              <Text style={styles.toggleHint}>Send AI-generated summaries and follow-up tasks to your team.</Text>
+            </View>
+            <Switch
+              value={autoSummaryEnabled}
+              onValueChange={setAutoSummaryEnabled}
+              thumbColor={autoSummaryEnabled ? colors.primary : colors.gray100}
+              trackColor={{ false: colors.gray300, true: colors.primaryLight }}
+            />
+          </View>
+        </FlynnCard>
+
+        <View style={styles.actions}>
+          <FlynnButton title={isSaving ? 'Saving…' : 'Save profile'} onPress={handleSaveProfile} variant="primary" disabled={isSaving} />
         </View>
-      </View>
 
-      <View style={styles.actions}>
-        <FlynnButton title={isSaving ? 'Saving…' : 'Save profile'} onPress={handleSaveProfile} variant="primary" disabled={isSaving} />
-      </View>
-
-      <RecordVoiceModal
-        visible={recordModalVisible}
-        onDismiss={() => {
-          setRecordModalVisible(false);
-          setRecording(null);
-          setIsRecording(false);
-          setRecordingDuration(0);
-        }}
-        onStartRecording={async () => {
-          try {
+        <RecordVoiceModal
+          visible={recordModalVisible}
+          onDismiss={() => {
+            setRecordModalVisible(false);
+            setRecording(null);
+            setIsRecording(false);
             setRecordingDuration(0);
-            setIsRecording(true);
+          }}
+          onStartRecording={async () => {
+            try {
+              setRecordingDuration(0);
+              setIsRecording(true);
 
-            const permission = await Audio.requestPermissionsAsync();
-            if (!permission.granted) {
+              const permission = await Audio.requestPermissionsAsync();
+              if (!permission.granted) {
+                setIsRecording(false);
+                setIsUploadingSample(false);
+                Alert.alert('Microphone permission', 'We need microphone access to capture your voice sample.');
+                return;
+              }
+
+              await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true,
+                staysActiveInBackground: false,
+                interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+                shouldDuckAndroid: true,
+                playThroughEarpieceAndroid: false,
+                interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+              });
+
+              const recordingInstance = new Audio.Recording();
+              recordingInstance.setOnRecordingStatusUpdate((status) => {
+                if (status?.isRecording) {
+                  setRecordingDuration(status.durationMillis ?? 0);
+                }
+              });
+              await recordingInstance.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+              await recordingInstance.startAsync();
+              setRecording(recordingInstance);
+            } catch (error) {
+              console.error('[ReceptionistScreen] Failed to start recording', error);
               setIsRecording(false);
-              setIsUploadingSample(false);
-              Alert.alert('Microphone permission', 'We need microphone access to capture your voice sample.');
+              Alert.alert('Recording failed', error instanceof Error ? error.message : 'Unable to start recording.');
+            }
+          }}
+          onStopRecording={async () => {
+            if (!recording) {
+              setRecordModalVisible(false);
+              setIsRecording(false);
               return;
             }
 
-            await Audio.setAudioModeAsync({
-              allowsRecordingIOS: true,
-              playsInSilentModeIOS: true,
-              staysActiveInBackground: false,
-              interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-              shouldDuckAndroid: true,
-              playThroughEarpieceAndroid: false,
-              interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-            });
+            try {
+              await recording.stopAndUnloadAsync();
+              const uri = recording.getURI();
+              setRecording(null);
+              setIsRecording(false);
 
-            const recordingInstance = new Audio.Recording();
-            recordingInstance.setOnRecordingStatusUpdate((status) => {
-              if (status?.isRecording) {
-                setRecordingDuration(status.durationMillis ?? 0);
+              if (!uri) {
+                throw new Error('Recording file unavailable.');
               }
-            });
-            await recordingInstance.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-            await recordingInstance.startAsync();
-            setRecording(recordingInstance);
-          } catch (error) {
-            console.error('[ReceptionistScreen] Failed to start recording', error);
-            setIsRecording(false);
-            Alert.alert('Recording failed', error instanceof Error ? error.message : 'Unable to start recording.');
-          }
-        }}
-        onStopRecording={async () => {
-          if (!recording) {
-            setRecordModalVisible(false);
-            setIsRecording(false);
-            return;
-          }
 
-          try {
-            await recording.stopAndUnloadAsync();
-            const uri = recording.getURI();
-            setRecording(null);
-            setIsRecording(false);
+              setIsUploadingSample(true);
+              const profile = await ReceptionistService.createVoiceProfile(
+                `Your voice ${new Date().toLocaleDateString()}`,
+                uri,
+              );
 
-            if (!uri) {
-              throw new Error('Recording file unavailable.');
+              setActiveVoiceProfileId(profile.id);
+              setSelectedVoice('custom_voice');
+              updateOnboardingData({ receptionistVoiceProfileId: profile.id, receptionistVoice: 'custom_voice' });
+              await refreshVoiceProfiles();
+              Alert.alert('Voice sample uploaded', 'We are cloning your voice. This usually takes a few minutes.');
+            } catch (error) {
+              console.error('[ReceptionistScreen] Voice sample upload failed', error);
+              Alert.alert('Upload failed', error instanceof Error ? error.message : 'Unable to upload voice sample.');
+            } finally {
+              setRecordModalVisible(false);
+              setIsUploadingSample(false);
+              setRecordingDuration(0);
+              await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
             }
+          }}
+          isRecording={isRecording}
+          durationMillis={recordingDuration}
+          uploading={isUploadingSample}
+        />
 
-            setIsUploadingSample(true);
-            const profile = await ReceptionistService.createVoiceProfile(
-              `Your voice ${new Date().toLocaleDateString()}`,
-              uri,
-            );
-
-            setActiveVoiceProfileId(profile.id);
-            setSelectedVoice('custom_voice');
-            updateOnboardingData({ receptionistVoiceProfileId: profile.id, receptionistVoice: 'custom_voice' });
-            await refreshVoiceProfiles();
-            Alert.alert('Voice sample uploaded', 'We are cloning your voice. This usually takes a few minutes.');
-          } catch (error) {
-            console.error('[ReceptionistScreen] Voice sample upload failed', error);
-            Alert.alert('Upload failed', error instanceof Error ? error.message : 'Unable to upload voice sample.');
-          } finally {
-            setRecordModalVisible(false);
-            setIsUploadingSample(false);
-            setRecordingDuration(0);
-            await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-          }
-        }}
-        isRecording={isRecording}
-        durationMillis={recordingDuration}
-        uploading={isUploadingSample}
-      />
-
-      <TestCallModal
-        visible={testCallModalVisible}
-        steps={testCallSteps}
-        activeIndex={activeTestCallIndex}
-        running={isTestCallRunning}
-        onClose={handleCloseTestCallModal}
-        scrollRef={testCallScrollRef}
-      />
+        <TestCallModal
+          visible={testCallModalVisible}
+          steps={testCallSteps}
+          activeIndex={activeTestCallIndex}
+          running={isTestCallRunning}
+          onClose={handleCloseTestCallModal}
+          scrollRef={testCallScrollRef}
+        />
       </ScrollView>
 
       {toastState && (
@@ -1433,7 +1436,7 @@ interface TestCallModalProps {
   activeIndex: number;
   running: boolean;
   onClose: () => void;
-  scrollRef: React.RefObject<ScrollView>;
+  scrollRef: React.RefObject<ScrollView | null>;
 }
 
 const RecordVoiceModal: React.FC<RecordVoiceModalProps> = ({
@@ -1539,11 +1542,11 @@ const TestCallModal: React.FC<TestCallModalProps> = ({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.lg,
@@ -1551,25 +1554,26 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   heroCard: {
-    backgroundColor: '#fff7ed',
-    borderRadius: borderRadius.xl,
+    backgroundColor: colors.primaryLight,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     flexDirection: 'row',
     gap: spacing.md,
-    borderWidth: 1,
-    borderColor: '#fed7aa',
+    borderWidth: 2,
+    borderColor: colors.black,
     alignItems: 'center',
+    ...shadows.md,
   },
   heroAvatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#fed7aa',
+    borderWidth: 2,
+    borderColor: colors.black,
   },
   heroAvatarImage: {
     width: '100%',
@@ -1580,20 +1584,21 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     ...typography.h3,
-    color: '#9a3412',
+    color: colors.textPrimary,
   },
   heroSubtitle: {
     ...typography.bodyMedium,
-    color: '#b45309',
+    color: colors.textSecondary,
     marginTop: spacing.xs,
   },
   previewButton: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: borderRadius.lg,
-    backgroundColor: '#eef2ff',
-    borderWidth: 1,
-    borderColor: '#c7d2fe',
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.black,
+    ...shadows.xs,
   },
   previewButtonContent: {
     flexDirection: 'row',
@@ -1602,39 +1607,33 @@ const styles = StyleSheet.create({
   },
   previewButtonLabel: {
     ...typography.caption,
-    color: '#2563eb',
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: '700',
     marginLeft: spacing.xxxs,
+    textTransform: 'uppercase',
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    // Styles now handled by FlynnCard, but keeping for layout if needed
+    marginBottom: spacing.sm,
   },
   cardTitle: {
     ...typography.h3,
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginBottom: spacing.sm,
   },
   cardHint: {
     ...typography.bodySmall,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginBottom: spacing.md,
   },
   testCallCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: borderRadius.xl,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderWidth: 2,
+    borderColor: colors.black,
     marginBottom: spacing.xl,
+    ...shadows.md,
   },
   testCallHeader: {
     flexDirection: 'row',
@@ -1644,29 +1643,31 @@ const styles = StyleSheet.create({
   },
   betaPill: {
     ...typography.caption,
-    color: '#1d4ed8',
-    backgroundColor: '#e0f2fe',
+    color: colors.black,
+    backgroundColor: colors.warning,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxxs,
     borderRadius: borderRadius.full,
     fontWeight: '700',
+    borderWidth: 1,
+    borderColor: colors.black,
   },
   cardWarning: {
     ...typography.bodySmall,
-    color: '#b45309',
-    backgroundColor: '#fef3c7',
+    color: colors.black,
+    backgroundColor: colors.warning,
     padding: spacing.sm,
     borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: '#fcd34d',
+    borderWidth: 2,
+    borderColor: colors.black,
     marginBottom: spacing.md,
   },
   sectionLabel: {
     ...typography.caption,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    color: '#1d4ed8',
-    fontWeight: '600',
+    color: colors.textSecondary,
+    fontWeight: '700',
     marginBottom: spacing.xs,
   },
   templateList: {
@@ -1674,31 +1675,33 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   templateChip: {
-    borderWidth: 1,
-    borderColor: '#cbd5f5',
-    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.black,
+    borderRadius: borderRadius.md,
     padding: spacing.md,
-    backgroundColor: '#f8fbff',
+    backgroundColor: colors.white,
+    ...shadows.xs,
   },
   templateChipSelected: {
-    borderColor: '#2563eb',
-    backgroundColor: '#e0f2fe',
+    borderColor: colors.black,
+    backgroundColor: colors.primaryLight,
+    ...shadows.sm,
   },
   templateChipLabel: {
     ...typography.bodyMedium,
-    color: '#0f172a',
-    fontWeight: '600',
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
   templateChipLabelSelected: {
-    color: '#1d4ed8',
+    color: colors.primaryDark,
   },
   templateChipDescription: {
     ...typography.bodySmall,
-    color: '#475569',
+    color: colors.textSecondary,
     marginTop: spacing.xxxs,
   },
   templateChipDescriptionSelected: {
-    color: '#1d4ed8',
+    color: colors.textPrimary,
   },
   questionRow: {
     flexDirection: 'row',
@@ -1716,65 +1719,72 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   questionActionButton: {
-    height: 48,
-    width: 48,
+    height: 52,
+    width: 52,
     padding: spacing.sm,
     borderRadius: borderRadius.md,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.black,
+    ...shadows.xs,
   },
   removeQuestionButton: {
     padding: spacing.sm,
     borderRadius: borderRadius.md,
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 48,
-    width: 48,
+    height: 52,
+    width: 52,
+    borderWidth: 2,
+    borderColor: colors.black,
+    ...shadows.xs,
   },
   removeQuestionButtonDisabled: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.gray200,
+    borderColor: colors.gray400,
   },
   addQuestionButton: {
     alignSelf: 'flex-start',
     marginTop: spacing.xs,
   },
   addQuestionButtonText: {
-    color: '#2563eb',
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   toast: {
     position: 'absolute',
     left: spacing.lg,
     right: spacing.lg,
     bottom: spacing.lg,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-    borderWidth: 1,
+    backgroundColor: colors.black,
+    borderWidth: 2,
+    borderColor: colors.black,
+    ...shadows.lg,
   },
   toastSuccess: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#bbf7d0',
+    backgroundColor: colors.success,
+    borderColor: colors.black,
   },
   toastError: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
+    backgroundColor: colors.error,
+    borderColor: colors.black,
   },
   toastIcon: {
     marginRight: spacing.xs,
   },
   toastText: {
     ...typography.bodySmall,
-    color: '#0f172a',
+    color: colors.black,
+    fontWeight: '600',
     flex: 1,
   },
   listItem: {
@@ -1784,46 +1794,52 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.sm,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   listItemSelected: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.black,
+    ...shadows.xs,
   },
   listItemLabel: {
     flex: 1,
     ...typography.bodyLarge,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   modeOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.black,
+    borderRadius: borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     gap: spacing.md,
+    ...shadows.xs,
   },
   modeOptionSelected: {
-    borderColor: '#2563eb',
-    backgroundColor: '#f0f7ff',
+    borderColor: colors.black,
+    backgroundColor: colors.primaryLight,
+    ...shadows.sm,
   },
   modeCopy: {
     flex: 1,
   },
   modeTitle: {
     ...typography.bodyLarge,
-    color: '#0f172a',
-    fontWeight: '600',
+    color: colors.textPrimary,
+    fontWeight: '700',
     marginBottom: spacing.xs / 2,
   },
   modeTitleSelected: {
-    color: '#1d4ed8',
+    color: colors.primaryDark,
   },
   modeDescription: {
     ...typography.bodySmall,
-    color: '#475569',
+    color: colors.textSecondary,
   },
   ackList: {
     gap: spacing.xs,
@@ -1833,43 +1849,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.black,
+    borderRadius: borderRadius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
+    ...shadows.xs,
   },
   ackText: {
     flex: 1,
     ...typography.bodyMedium,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   ackRemoveButton: {
     marginLeft: spacing.md,
     padding: spacing.xs,
-    borderRadius: 999,
-    backgroundColor: '#fee2e2',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.error,
+    borderWidth: 1,
+    borderColor: colors.black,
   },
   ackRemoveButtonDisabled: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.gray200,
+    borderColor: colors.gray400,
   },
   ackInput: {
     marginBottom: spacing.sm,
   },
   noticeBanner: {
     marginTop: spacing.md,
-    backgroundColor: '#e0f2fe',
-    borderRadius: borderRadius.lg,
+    backgroundColor: colors.primaryLight,
+    borderRadius: borderRadius.md,
     padding: spacing.md,
     gap: spacing.sm,
+    borderWidth: 2,
+    borderColor: colors.black,
   },
   noticeIcon: {
     marginBottom: spacing.xs,
   },
   noticeText: {
     ...typography.bodySmall,
-    color: '#1d4ed8',
+    color: colors.textPrimary,
   },
   profileStatusRow: {
     flexDirection: 'row',
@@ -1879,13 +1901,16 @@ const styles = StyleSheet.create({
   },
   profileStatusText: {
     ...typography.bodySmall,
-    color: '#1d4ed8',
+    color: colors.primary,
     flex: 1,
+    fontWeight: '600',
   },
   refreshLink: {
     ...typography.bodySmall,
-    color: '#2563eb',
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    textDecorationLine: 'underline',
   },
   toggleRow: {
     flexDirection: 'row',
@@ -1899,12 +1924,12 @@ const styles = StyleSheet.create({
   },
   toggleLabel: {
     ...typography.bodyMedium,
-    color: '#0f172a',
-    fontWeight: '600',
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
   toggleHint: {
     ...typography.caption,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: spacing.xxxs,
   },
   actions: {
@@ -1917,25 +1942,28 @@ const styles = StyleSheet.create({
 const modalStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
   },
   card: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.xl,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     gap: spacing.lg,
+    borderWidth: 2,
+    borderColor: colors.black,
+    ...shadows.lg,
   },
   title: {
     ...typography.h3,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   subtitle: {
     ...typography.bodyMedium,
-    color: '#475569',
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   timerContainer: {
@@ -1949,15 +1977,19 @@ const modalStyles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.full,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.gray100,
+    borderWidth: 2,
+    borderColor: colors.black,
   },
   timerBadgeActive: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.error,
+    borderColor: colors.black,
   },
   timerText: {
     ...typography.bodyMedium,
-    color: '#0f172a',
+    color: colors.textPrimary,
     fontVariant: ['tabular-nums'],
+    fontWeight: '700',
   },
   uploadRow: {
     flexDirection: 'row',
@@ -1966,7 +1998,7 @@ const modalStyles = StyleSheet.create({
   },
   uploadText: {
     ...typography.bodySmall,
-    color: '#2563eb',
+    color: colors.primary,
   },
   actions: {
     flexDirection: 'row',
@@ -1976,10 +2008,13 @@ const modalStyles = StyleSheet.create({
   testCallCard: {
     width: '100%',
     maxHeight: '85%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: borderRadius.xl,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
     padding: spacing.lg,
     gap: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.black,
+    ...shadows.lg,
   },
   testCallHeader: {
     flexDirection: 'row',
@@ -1989,11 +2024,13 @@ const modalStyles = StyleSheet.create({
   closeButton: {
     padding: spacing.xs,
     borderRadius: borderRadius.full,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.gray100,
+    borderWidth: 1,
+    borderColor: colors.black,
   },
   testCallDescription: {
     ...typography.bodySmall,
-    color: '#475569',
+    color: colors.textSecondary,
   },
   testCallScroll: {
     flex: 1,
@@ -2003,30 +2040,32 @@ const modalStyles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   chatRow: {
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     padding: spacing.md,
-    borderWidth: 1,
+    borderWidth: 2,
+    borderColor: colors.black,
+    ...shadows.xs,
   },
   conciergeChatRow: {
-    borderColor: '#bfdbfe',
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.primaryLight,
   },
   callerChatRow: {
-    borderColor: '#fde68a',
-    backgroundColor: '#fffbeb',
+    backgroundColor: colors.white,
   },
   chatRowActive: {
-    borderColor: '#2563eb',
+    borderColor: colors.primary,
+    ...shadows.sm,
   },
   chatRole: {
     ...typography.caption,
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginBottom: spacing.xxxs,
     textTransform: 'uppercase',
+    fontWeight: '700',
   },
   chatText: {
     ...typography.bodyMedium,
-    color: '#0f172a',
+    color: colors.textPrimary,
     lineHeight: 20,
   },
 });
