@@ -142,20 +142,43 @@ const createSystemPrompt = async (session, getBusinessContextForOrg) => {
   }
 
   return [
-    'You are Flynn, a friendly but efficient AI receptionist for a service business.',
-    'Be concise, natural, and conversational.',
-    'Your job: Acknowledge what the caller says briefly, then naturally ask the next intake question.',
-    'Keep responses brief (1-2 sentences max). Never repeat the same acknowledgement twice in a row.',
-    'Acknowledgment rules:',
-    '- For yes/no answers: Use simple "Got it" or "Perfect" - do NOT say "keep going" or ask them to continue',
-    '- For detailed answers: Use varied acknowledgments like "Understood", "Thanks for that", "Noted"',
-    '- Always move straight to the next question after acknowledging',
-    'After asking all intake questions, confirm with the caller: "Is there anything else I should know?"',
-    'Only when they say no/that\'s all/nothing else should you end the conversation with "Great, thanks for that. We\'ll be in touch soon to confirm the details."',
+    'You are Flynn, a casual and friendly AI receptionist for a service business.',
+    '',
+    'CONVERSATION STYLE:',
+    '- Talk like a real person - casual, warm, natural',
+    '- Use casual acknowledgments: "Cool", "Awesome", "Perfect", "No worries", "Sounds good"',
+    '- Keep responses SHORT (5-10 words max) - you\'re on a phone call, not writing an essay',
+    '- Let callers talk as much as they want - they often give ALL the info upfront',
+    '- Be friendly but efficient - don\'t waste their time',
+    '',
+    'LISTENING & EXTRACTING INFO:',
+    '- Callers usually give MULTIPLE details in one go ("I need a removal on Saturday at 8am, we have stairs...")',
+    '- LISTEN CAREFULLY and extract ALL information they provide',
+    '- Track what you already know from what they\'ve said',
+    '- Don\'t ask questions if you already have the answer from their previous message',
+    '',
+    'SMART FOLLOW-UPS:',
+    '- ONLY ask about information that\'s MISSING',
+    '- If they mentioned stairs, DON\'T ask about elevator access',
+    '- If they mentioned a date/time, DON\'T ask when they want it',
+    '- If they already gave their phone number, DON\'T ask for contact info',
+    '- Use context clues - if they said "we have a lift", that means no stairs',
+    '',
+    'QUESTION STRATEGY:',
+    questionBlock,
+    '- Ask ONE question at a time, and only if that info wasn\'t already provided',
+    '- Acknowledge what they said FIRST with something casual, THEN ask your follow-up',
+    '- Example: "Cool, Saturday morning works. And what\'s the best number to reach you?"',
+    '',
+    'ENDING THE CALL:',
+    '- Once you have: name, contact info, service details, and timing → CONFIRM and hang up',
+    '- Confirmation format: "Perfect! So I\'ve got you down for [service] on [date/time]. We\'ll call you at [phone] to confirm. Sound good?"',
+    '- After they confirm, say: "Awesome, we\'ll be in touch soon!" and END THE CALL',
+    '- DO NOT keep chatting after confirmation - wrap it up',
+    '',
     businessType,
     businessFacts,
     businessContext,
-    questionBlock,
     greeting,
   ].filter(Boolean).join('\n\n');
 };
@@ -410,8 +433,8 @@ class RealtimeCallHandler extends EventEmitter {
         interim_results: true,
         punctuate: true,
         vad_events: true,
-        endpointing: 1000, // 1 second of silence (balanced for responsiveness vs completeness)
-        utterance_end_ms: 1200, // Additional 200ms buffer before finalizing
+        endpointing: 2000, // 2 seconds for natural pauses (ums, ahs, thinking)
+        utterance_end_ms: 1500, // 1.5s buffer for complete natural sentences
         smart_format: true, // Better formatting for more natural speech detection
       });
 
@@ -637,11 +660,21 @@ class RealtimeCallHandler extends EventEmitter {
         await this.enqueueSpeech(response);
         const fullResponse = quickAck ? `${quickAck} ${response}` : response;
         this.turns.push({ role: 'assistant', content: fullResponse });
+
+        // Check if AI just confirmed the job and is wrapping up
+        if (this.isJobConfirmed(response)) {
+          console.log('[Realtime] Job confirmation detected, ending call:', {
+            callSid: this.callSid,
+            response: response.slice(0, 50),
+          });
+          // Give user a moment to respond, then hang up
+          await sleep(3000);
+          this.tearDown('complete');
+          return;
+        }
       }
 
-      // Note: AI naturally incorporates questions into responses,
-      // so we don't call maybeAskNextQuestion() here to avoid duplication.
-      // Instead, we check if the conversation should close.
+      // Check if user explicitly wants to end the call
       if (this.shouldCloseConversation(transcript)) {
         await this.generateAndSpeakSummary();
         await this.enqueueSpeech('Thanks for calling. I\'ll send this through to the team right now. Talk soon!');
@@ -653,86 +686,51 @@ class RealtimeCallHandler extends EventEmitter {
   }
 
   shouldSendQuickAck(transcript) {
-    // Don't acknowledge very short transcripts (likely incomplete)
-    if (transcript.length < 10) {
+    // With 2-second endpointing, we can be more relaxed about acknowledgments
+    // Deepgram will wait for natural pauses, so most transcripts should be complete
+
+    // Don't acknowledge very short transcripts (likely noise or incomplete)
+    if (transcript.length < 15) {
       return false;
     }
 
-    // Get the last few words of the transcript for better context
     const words = transcript.trim().toLowerCase().split(/\s+/);
     const lastWord = words[words.length - 1];
-    const lastTwoWords = words.slice(-2).join(' ');
-    const lastThreeWords = words.slice(-3).join(' ');
 
-    // Number words that indicate phone number in progress - don't acknowledge
-    const numberWords = [
-      'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
-      'double', 'triple', 'oh'
-    ];
-
-    // Check if last word is a number word (phone number in progress)
-    if (numberWords.includes(lastWord)) {
-      console.log('[Realtime] Skipping quick ack - phone number in progress:', {
+    // Only skip acknowledgment if clearly in the middle of giving a phone number
+    const numberWords = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+    if (numberWords.includes(lastWord) && words.length < 12) {
+      // Phone numbers are typically 10-11 words
+      console.log('[Realtime] Skipping ack - phone number in progress:', {
         callSid: this.callSid,
-        lastWord: lastWord,
+        lastWord,
       });
       return false;
     }
 
-    // Multi-word phrases that indicate more is coming
-    const continuationPhrases = [
-      'i need', 'i want', 'i have', 'we need', 'we want', 'we have',
-      'i\'m looking', 'i am looking', 'looking for', 'i\'d like',
-      'can you', 'could you', 'will you', 'would you',
-      'it\'s at', 'it is at', 'it\'s on', 'it is on',
-      'the address is', 'address is', 'located at', 'located in'
-    ];
-
-    if (continuationPhrases.some(phrase => lastThreeWords.includes(phrase) || lastTwoWords.includes(phrase))) {
-      console.log('[Realtime] Skipping quick ack - continuation phrase detected:', {
-        callSid: this.callSid,
-        lastWords: lastThreeWords,
-      });
-      return false;
-    }
-
-    // Words that indicate more is coming - don't acknowledge
-    const continuationWords = [
-      'on', 'at', 'to', 'for', 'with', 'in', 'of', 'and', 'or', 'but',
-      'the', 'a', 'an', 'i', 'my', 'your', 'our', 'their', 'his', 'her', 'its',
-      'is', 'are', 'was', 'were', 'be', 'been', 'being',
-      'can', 'will', 'would', 'should', 'could', 'might', 'may', 'must',
-      'need', 'want', 'have', 'has', 'had', 'having',
-      'about', 'around', 'from', 'into', 'through', 'during', 'between',
-      'it\'s', 'that\'s', 'there\'s', 'here\'s', 'what\'s', 'who\'s', 'where\'s'
-    ];
-
-    if (continuationWords.includes(lastWord)) {
-      console.log('[Realtime] Skipping quick ack - transcript seems incomplete:', {
-        callSid: this.callSid,
-        lastWord: lastWord,
-      });
-      return false;
-    }
-
-    // Check if sentence ends with natural punctuation in the transcript
-    // (Deepgram adds punctuation when it's confident the utterance is complete)
-    const endsWithPunctuation = /[.!?]$/.test(transcript);
-    if (!endsWithPunctuation && words.length < 5) {
-      console.log('[Realtime] Skipping quick ack - short transcript without punctuation:', {
-        callSid: this.callSid,
-        wordCount: words.length,
-      });
-      return false;
-    }
-
+    // Otherwise, trust Deepgram's 2-second endpointing and send acknowledgment
+    // The longer wait time means they've likely finished their thought
     return true;
   }
 
   selectAcknowledgement({ shortOnly = false } = {}) {
+    // Default casual, human-like acknowledgments
+    const defaultLibrary = [
+      'Cool',
+      'Awesome',
+      'Perfect',
+      'Got it',
+      'Sounds good',
+      'No worries',
+      'Right',
+      'Yep',
+      'Sure thing',
+      'Nice',
+    ];
+
     const rawLibrary = Array.isArray(this.session?.ackLibrary) && this.session.ackLibrary.length > 0
       ? this.session.ackLibrary
-      : ['Got it.'];
+      : defaultLibrary;
 
     // Filter out problematic acknowledgments that don't work well in all contexts
     let library = rawLibrary.filter((ack) => {
@@ -741,19 +739,18 @@ class RealtimeCallHandler extends EventEmitter {
     });
 
     // If shortOnly requested, filter to only brief acknowledgments (≤ 15 characters)
-    // Examples: "Got it.", "Perfect.", "Thanks!", "Okay.", "Great!"
     if (shortOnly) {
       library = library.filter((ack) => ack.length <= 15);
 
-      // If no short acks available, use default short ones
+      // If no short acks available, use default casual ones
       if (library.length === 0) {
-        library = ['Got it.', 'Perfect.', 'Thanks!', 'Okay.'];
+        library = ['Cool', 'Awesome', 'Perfect', 'Got it', 'Nice'];
       }
     }
 
     // Ensure we have at least one option
     if (library.length === 0) {
-      library.push('Got it.');
+      library = defaultLibrary;
     }
 
     const history = Array.isArray(this.session?.ackHistory) ? this.session.ackHistory : [];
@@ -807,6 +804,43 @@ class RealtimeCallHandler extends EventEmitter {
       console.error('[Realtime] Failed to generate assistant response.', { callSid: this.callSid, error });
       return 'Thanks, I have what I need.';
     }
+  }
+
+  isJobConfirmed(aiResponse) {
+    // Check if AI response indicates job has been confirmed and call should end
+    if (!aiResponse || typeof aiResponse !== 'string') {
+      return false;
+    }
+
+    const lower = aiResponse.toLowerCase();
+
+    // Phrases that indicate confirmation and wrap-up
+    const confirmationPhrases = [
+      'we\'ll be in touch',
+      'we\'ll call you',
+      'we\'ll reach out',
+      'we\'ll contact you',
+      'talk to you soon',
+      'speak to you soon',
+      'we\'ll get back to you',
+      'someone will call you',
+      'you\'ll hear from us',
+      'we\'ll follow up',
+      'we\'ll confirm',
+      'i\'ve got you down',
+      'you\'re all set',
+      'we\'re all set',
+    ];
+
+    // Check if any confirmation phrase is present
+    const hasConfirmation = confirmationPhrases.some(phrase => lower.includes(phrase));
+
+    // Also check if response seems to be wrapping up (short and includes "thanks" or "awesome")
+    const isWrappingUp = (lower.includes('awesome') || lower.includes('perfect') || lower.includes('great')) &&
+                         (lower.includes('thanks') || lower.includes('thank you')) &&
+                         aiResponse.length < 100; // Short response = likely ending
+
+    return hasConfirmation || isWrappingUp;
   }
 
   shouldCloseConversation(latestUserTranscript) {

@@ -1,15 +1,88 @@
+# Dependencies
 node_modules
-build
-dist
-vendor
-*.log
-logs
-.expo
-.expo-shared
 flynnai-lookup/node_modules
 flynn-landing/node_modules
-ios/build
-android/app/build
+
+# Build outputs
+build
+dist
+.expo
+.expo-shared
 .sourcemaps
 coverage
 tmp
+
+# iOS build artifacts
+ios/build
+ios/Pods
+ios/.bundle
+ios/vendor
+ios/FlynnAI.xcworkspace
+ios/FlynnAITests
+ios/fastlane
+*.xcarchive
+*.app
+*.dSYM
+
+# Android build artifacts
+android/app/build
+android/build
+android/.gradle
+*.apk
+*.aab
+
+# Simulator/Emulator builds (LARGE!)
+build/
+
+# Screenshots and media (LARGE!)
+screenshots
+
+# Ruby/Fastlane
+.bundle
+vendor
+Gemfile.lock
+Gemfile.local.lock
+
+# Logs
+*.log
+logs
+
+# Backend server files (not needed for mobile build)
+server.js
+supabaseMcpClient.js
+llmClient.js
+telephony
+services/websiteScraper.js
+services/businessProfileGenerator.js
+notifications
+middleware
+
+# Supabase
+supabase/.temp
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Test files
+__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.test.js
+
+# IDE
+.vscode
+.idea
+.DS_Store
+
+# Git
+.git
+.gitignore
+
+# Scripts
+scripts
+
+# Environment
+.env.local
+.env.development

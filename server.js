@@ -42,6 +42,8 @@ const {
   getBusinessContextForOrg,
 } = require('./supabaseMcpClient');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
+const { scrapeWebsite } = require('./services/websiteScraper');
+const { generateReceptionistConfig } = require('./services/businessProfileGenerator');
 
 dotenv.config();
 
@@ -1045,113 +1047,137 @@ app.post('/webhooks/jobber/client-updated', async (req, res) => {
  * Scrape a business website and extract relevant information
  * Uses OpenAI to intelligently parse website content
  */
-app.post('/api/scrape-website', async (req, res) => {
-  const { url } = req.body;
+/**
+ * Scrape website and generate AI receptionist configuration
+ * POST /api/scrape-website
+ * Body: { url: string, applyConfig?: boolean }
+ */
+app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
+  const { url, applyConfig = false } = req.body;
+  const userId = req.user?.id;
 
   if (!url) {
     return res.status(400).json({ error: 'URL is required' });
   }
 
-  console.log('[Website Scraper] Starting scrape for:', url);
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  console.log('[API] Scraping website and generating config:', { url, userId, applyConfig });
 
   try {
-    // Fetch website content
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Flynn AI Business Context Bot/1.0',
-      },
-    });
+    // Step 1: Scrape the website
+    const scrapedData = await scrapeWebsite(url);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch website: ${response.status} ${response.statusText}`);
+    // Step 2: Generate receptionist configuration
+    const config = await generateReceptionistConfig(scrapedData);
+
+    // Step 3: Optionally apply config to user's settings
+    if (applyConfig) {
+      if (!supabaseStorageClient) {
+        throw new Error('Supabase client not configured');
+      }
+
+      const { error } = await supabaseStorageClient
+        .from('users')
+        .update({
+          receptionist_greeting: config.greetingScript,
+          receptionist_questions: config.intakeQuestions,
+          receptionist_business_profile: config.businessProfile,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('[API] Failed to apply config:', error);
+        throw new Error('Failed to apply configuration to user settings');
+      }
+
+      console.log('[API] Successfully applied receptionist config to user:', userId);
     }
 
-    const html = await response.text();
-
-    // Extract text content from HTML (simple approach - remove tags)
-    const textContent = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove scripts
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove styles
-      .replace(/<[^>]+>/g, ' ') // Remove HTML tags
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .trim();
-
-    // Limit content length for AI processing (first 8000 characters)
-    const contentForAI = textContent.substring(0, 8000);
-
-    console.log('[Website Scraper] Website fetched, content length:', contentForAI.length);
-
-    // Use OpenAI to extract business information
-    const llmClient = getLLMClient();
-
-    const extractionPrompt = `Analyze this business website content and extract the following information in JSON format:
-
-{
-  "services": [
-    {"name": "Service name", "description": "Brief description", "price_range": "$X-$Y or pricing info"}
-  ],
-  "business_hours": {
-    "monday": {"open": "09:00", "close": "17:00", "closed": false},
-    "tuesday": {"open": "09:00", "close": "17:00", "closed": false},
-    ...similar for all days...
-  },
-  "pricing_notes": "General pricing information or starting rates",
-  "contact_info": {
-    "phone": "phone number if found",
-    "email": "email if found",
-    "address": "physical address if found"
-  },
-  "about": "Brief description of the business",
-  "policies": {
-    "cancellation": "Cancellation policy if mentioned",
-    "payment": "Payment terms if mentioned"
-  }
-}
-
-Only include information that is explicitly stated on the website. If something is not found, omit that field or set it to null.
-
-Website content:
-${contentForAI}`;
-
-    const completion = await llmClient.chat.completions.create({
-      model: process.env.JOB_EXTRACTION_MODEL || 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a business information extraction assistant. Extract structured data from website content accurately and concisely. Return only valid JSON.',
-        },
-        {
-          role: 'user',
-          content: extractionPrompt,
-        },
-      ],
-      temperature: 0.1,
-      response_format: { type: 'json_object' },
-    });
-
-    const extractedText = completion.choices[0]?.message?.content;
-    if (!extractedText) {
-      throw new Error('No response from AI extraction');
-    }
-
-    const extractedData = JSON.parse(extractedText);
-    console.log('[Website Scraper] Data extracted successfully');
-
-    // Return result
     res.status(200).json({
       success: true,
       url,
-      scraped_at: new Date().toISOString(),
-      data: extractedData,
+      scraped_at: scrapedData.scrapedAt,
+      config: {
+        businessProfile: config.businessProfile,
+        greetingScript: config.greetingScript,
+        intakeQuestions: config.intakeQuestions,
+      },
+      applied: applyConfig,
     });
   } catch (error) {
-    console.error('[Website Scraper] Error:', error);
+    console.error('[API] Error scraping website:', error);
     res.status(500).json({
       success: false,
-      url,
-      scraped_at: new Date().toISOString(),
-      data: {},
-      error: error.message || 'Failed to scrape website',
+      error: error.message || 'Failed to scrape website and generate configuration',
+    });
+  }
+});
+
+/**
+ * Apply generated receptionist configuration to user settings
+ * POST /api/receptionist/apply-config
+ * Body: { greetingScript: string, intakeQuestions: string[], businessProfile: object }
+ */
+app.post('/api/receptionist/apply-config', authenticateJwt, async (req, res) => {
+  const { greetingScript, intakeQuestions, businessProfile } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (!greetingScript && !intakeQuestions && !businessProfile) {
+    return res.status(400).json({ error: 'At least one configuration field is required' });
+  }
+
+  console.log('[API] Applying receptionist config:', { userId, hasGreeting: !!greetingScript, questionsCount: intakeQuestions?.length || 0 });
+
+  try {
+    if (!supabaseStorageClient) {
+      throw new Error('Supabase client not configured');
+    }
+
+    const updates = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (greetingScript) {
+      updates.receptionist_greeting = greetingScript;
+    }
+
+    if (intakeQuestions && Array.isArray(intakeQuestions)) {
+      updates.receptionist_questions = intakeQuestions;
+    }
+
+    if (businessProfile) {
+      updates.receptionist_business_profile = businessProfile;
+    }
+
+    const { error } = await supabaseStorageClient
+      .from('users')
+      .update(updates)
+      .eq('id', userId);
+
+    if (error) {
+      console.error('[API] Failed to apply config:', error);
+      throw new Error('Failed to apply configuration');
+    }
+
+    console.log('[API] Successfully applied receptionist config');
+
+    res.status(200).json({
+      success: true,
+      applied: Object.keys(updates).filter(k => k !== 'updated_at'),
+    });
+  } catch (error) {
+    console.error('[API] Error applying config:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to apply configuration',
     });
   }
 });
