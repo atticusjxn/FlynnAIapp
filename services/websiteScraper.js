@@ -37,8 +37,12 @@ const extractMetadata = ($) => {
     title: $('title').text().trim() || null,
     description: $('meta[name="description"]').attr('content') ||
                  $('meta[property="og:description"]').attr('content') || null,
-    siteName: $('meta[property="og:site_name"]').attr('content') || null,
+    siteName: $('meta[property="og:site_name"]').attr('content') ||
+              $('meta[property="og:title"]').attr('content') || null,
     keywords: $('meta[name="keywords"]').attr('content') || null,
+    author: $('meta[name="author"]').attr('content') || null,
+    ogTitle: $('meta[property="og:title"]').attr('content') || null,
+    ogImage: $('meta[property="og:image"]').attr('content') || null,
   };
 
   return metadata;
@@ -176,6 +180,46 @@ const extractBusinessHours = (content, structuredData) => {
 };
 
 /**
+ * Extract services from keywords meta tag
+ */
+const extractServicesFromKeywords = (keywords) => {
+  if (!keywords) return [];
+
+  // Common service-related keywords to extract
+  const serviceKeywords = keywords
+    .toLowerCase()
+    .split(',')
+    .map(k => k.trim())
+    .filter(k => {
+      // Filter for service-related keywords (contains "service", "repair", etc.)
+      return k.includes('service') ||
+             k.includes('repair') ||
+             k.includes('installation') ||
+             k.includes('cleaning') ||
+             k.includes('maintenance') ||
+             k.includes('contractor') ||
+             k.includes('tradesperson') ||
+             k.includes('professional');
+    })
+    .map(k => {
+      // Clean up the keyword (remove "services", "near me", etc.)
+      return k
+        .replace(/\s*services?\s*/gi, '')
+        .replace(/\s*near\s+me\s*/gi, '')
+        .replace(/\s*local\s*/gi, '')
+        .replace(/^\s+|\s+$/g, '')
+        .replace(/^(the|a|an)\s+/i, '');
+    })
+    .filter(k => k.length > 2) // Remove very short keywords
+    .map(k => {
+      // Capitalize first letter
+      return k.charAt(0).toUpperCase() + k.slice(1);
+    });
+
+  return [...new Set(serviceKeywords)]; // Remove duplicates
+};
+
+/**
  * Main scraping function
  */
 const scrapeWebsite = async (url) => {
@@ -218,6 +262,13 @@ const scrapeWebsite = async (url) => {
       }
     });
 
+    // If we didn't find many services from content, try extracting from keywords
+    if (services.length < 3 && metadata.keywords) {
+      const keywordServices = extractServicesFromKeywords(metadata.keywords);
+      services.push(...keywordServices);
+      console.log('[WebsiteScraper] Extracted services from keywords:', keywordServices);
+    }
+
     const result = {
       url,
       metadata,
@@ -225,16 +276,30 @@ const scrapeWebsite = async (url) => {
       structuredData,
       contact,
       businessHours,
-      services: services.slice(0, 10), // Limit to 10 services
+      services: [...new Set(services)].slice(0, 10), // Remove duplicates and limit to 10
       scrapedAt: new Date().toISOString(),
     };
+
+    // Check if we got minimal content (likely JS-rendered site)
+    const isMinimalContent = mainContent.length < 500;
 
     console.log('[WebsiteScraper] Successfully scraped website:', {
       url,
       contentLength: mainContent.length,
       servicesFound: services.length,
       hasStructuredData: structuredData.length > 0,
+      hasMetadata: !!metadata.description,
+      isMinimalContent,
+      extractionMethod: isMinimalContent ? 'metadata-based' : 'content-based',
     });
+
+    if (isMinimalContent) {
+      console.log('[WebsiteScraper] Minimal content detected - likely JS-rendered site. Relying on metadata:', {
+        title: metadata.title,
+        hasDescription: !!metadata.description,
+        hasKeywords: !!metadata.keywords,
+      });
+    }
 
     return result;
   } catch (error) {

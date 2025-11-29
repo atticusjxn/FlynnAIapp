@@ -39,7 +39,10 @@ const generateBusinessProfile = async (scrapedData) => {
 
   const systemPrompt = `You are a business analysis expert. Extract key business information from website content.
 
-Analyze the provided website content and extract:
+IMPORTANT: Many modern websites use client-side rendering, so the main content may be minimal.
+In these cases, PRIORITIZE the metadata (title, description, keywords) and structured data to extract information.
+
+Analyze the provided website data and extract:
 1. Business name and legal name (if different)
 2. A compelling headline (one sentence that captures what they do)
 3. A 2-3 sentence description of the business
@@ -67,18 +70,28 @@ Return ONLY valid JSON with this structure:
 
   const userPrompt = `Website URL: ${scrapedData.url}
 
+METADATA (High Priority):
 Title: ${scrapedData.metadata?.title || 'N/A'}
 Description: ${scrapedData.metadata?.description || 'N/A'}
+Keywords: ${scrapedData.metadata?.keywords || 'N/A'}
+Site Name: ${scrapedData.metadata?.siteName || 'N/A'}
 
-Services found: ${scrapedData.services?.join(', ') || 'None'}
+STRUCTURED DATA:
+${scrapedData.structuredData ? JSON.stringify(scrapedData.structuredData, null, 2) : 'None'}
 
-Content:
-${scrapedData.content}
+SERVICES FOUND:
+${scrapedData.services?.join(', ') || 'None'}
 
-Contact: ${JSON.stringify(scrapedData.contact, null, 2)}
-Business Hours: ${scrapedData.businessHours || 'Not specified'}
+CONTACT INFO:
+${JSON.stringify(scrapedData.contact, null, 2)}
 
-Extract business profile information and return as JSON.`;
+BUSINESS HOURS:
+${scrapedData.businessHours || 'Not specified'}
+
+PAGE CONTENT (may be minimal if JS-rendered):
+${scrapedData.content?.slice(0, 2000) || 'Minimal content - relying on metadata'}
+
+Extract business profile information and return as JSON. If content is minimal, rely heavily on metadata and keywords.`;
 
   try {
     const completion = await llmClient.chat.completions.create({
