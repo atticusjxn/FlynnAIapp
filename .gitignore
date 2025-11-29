@@ -10,6 +10,13 @@ ios/build/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 
+# Build directories (NEVER commit these!)
+build/
+dist/
+.expo/
+.next/
+out/
+
 # Ruby/Bundler
 vendor/bundle/
 vendor/cache/
