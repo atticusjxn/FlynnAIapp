@@ -191,7 +191,9 @@ export const BusinessProfileScreen: React.FC = () => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Info Banner */}
         <View style={styles.infoBanner}>
-          <FlynnIcon name="information-circle" size={20} color={colors.primary} />
+          <View style={styles.infoBannerIcon}>
+            <FlynnIcon name="information-circle" size={20} color={colors.primary} />
+          </View>
           <Text style={styles.infoText}>
             This information helps Flynn provide accurate, personalized responses during calls.
           </Text>
@@ -218,7 +220,7 @@ export const BusinessProfileScreen: React.FC = () => {
             variant="secondary"
             onPress={handleScrapeWebsite}
             disabled={scraping || !websiteUrl.trim()}
-            icon={scraping ? undefined : 'globe-outline'}
+            icon={scraping ? undefined : <FlynnIcon name="globe-outline" size={20} color={colors.textPrimary} />}
           />
 
           <View style={styles.autoUpdateRow}>
@@ -347,7 +349,7 @@ export const BusinessProfileScreen: React.FC = () => {
             variant="primary"
             onPress={handleSave}
             disabled={saving}
-            icon="checkmark-circle-outline"
+            icon={<FlynnIcon name="checkmark-circle-outline" size={20} color={colors.white} />}
           />
         </View>
 
@@ -400,12 +402,14 @@ const createStyles = (colors: any) => StyleSheet.create({
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
     backgroundColor: colors.primary + '15',
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
+  },
+  infoBannerIcon: {
+    marginRight: spacing.sm,
   },
   infoText: {
     flex: 1,

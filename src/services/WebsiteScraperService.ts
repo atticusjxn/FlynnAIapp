@@ -12,8 +12,7 @@ import type {
   BusinessService,
   BusinessHours,
 } from '../types/businessProfile';
-
-const SCRAPER_API_URL = process.env.EXPO_PUBLIC_APP_BASE_URL || 'http://localhost:8080';
+import { apiClient } from './apiClient';
 
 export class WebsiteScraperError extends Error {
   constructor(
@@ -38,25 +37,57 @@ class WebsiteScraperServiceClass {
 
       console.log('[WebsiteScraper] Starting scrape for:', url);
 
-      // Call backend scraper endpoint
-      const response = await fetch(`${SCRAPER_API_URL}/api/scrape-website`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
-      });
+      // Call backend scraper endpoint using apiClient (handles auth automatically)
+      const response = await apiClient.post<{
+        success: boolean;
+        url: string;
+        scraped_at: string;
+        config?: {
+          businessProfile: any;
+          greetingScript: string;
+          intakeQuestions: any[];
+        };
+        data?: any;
+        error?: string;
+      }>('/api/scrape-website', { url });
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
+      if (!response.success) {
         throw new WebsiteScraperError(
-          `Failed to scrape website: ${error.message || response.statusText}`,
+          response.error || 'Failed to scrape website',
           'SCRAPE_FAILED',
-          response.status
+          500
         );
       }
 
-      const result: WebsiteScrapeResult = await response.json();
+      // Check if config exists
+      if (!response.config) {
+        throw new WebsiteScraperError(
+          'Server returned incomplete data',
+          'INVALID_RESPONSE',
+          500
+        );
+      }
+
+      // Extract contact info from scraped data
+      const contactInfo = response.config.businessProfile?.contact_info || {};
+
+      // Transform server response to expected format
+      const result: WebsiteScrapeResult = {
+        success: true,
+        data: {
+          business_hours: response.config.businessProfile?.business_hours,
+          contact_info: {
+            phone: contactInfo.phones?.[0] || contactInfo.phone,
+            email: contactInfo.emails?.[0] || contactInfo.email,
+            address: contactInfo.address,
+          },
+          pricing_notes: response.config.businessProfile?.pricing_notes,
+          policies: {
+            cancellation: response.config.businessProfile?.cancellation_policy,
+            payment: response.config.businessProfile?.payment_terms,
+          },
+        },
+      };
 
       console.log('[WebsiteScraper] Scrape completed successfully');
       return result;
@@ -67,8 +98,10 @@ class WebsiteScraperServiceClass {
         throw error;
       }
 
+      const errorMessage = error instanceof Error ? error.message : 'Failed to scrape website';
+
       throw new WebsiteScraperError(
-        'Failed to scrape website',
+        errorMessage,
         'SCRAPE_ERROR',
         500,
         error

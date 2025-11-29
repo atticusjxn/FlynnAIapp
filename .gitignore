@@ -4,6 +4,17 @@
 node_modules/
 .supabase/
 
+# iOS
+ios/Pods/
+ios/build/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Ruby/Bundler
+vendor/bundle/
+vendor/cache/
+.bundle/
+
 # Expo
 .expo/
 dist/
