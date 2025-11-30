@@ -24,15 +24,16 @@ import ReceptionistService, { VoiceProfile } from '../services/ReceptionistServi
 import { isApiConfigured } from '../services/apiClient';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
+import { TestCallModal } from '../components/receptionist/TestCallModal';
 
-const KOALA_ANIMATION = require('../../assets/images/koala3s.gif');
-const KOALA_STATIC = require('../../assets/images/icon.png');
-const KOALA_LOOP_DURATION_MS = 3000;
+const FLYNN_ANIMATION = require('../../assets/images/flynn3s.gif');
+const FLYNN_STATIC = require('../../assets/images/icon.png');
+const FLYNN_LOOP_DURATION_MS = 3000;
 
 const BASE_VOICE_OPTIONS = [
-  { id: 'koala_warm', label: 'Avery — Warm & Friendly' },
-  { id: 'koala_expert', label: 'Sloane — Expert Concierge' },
-  { id: 'koala_hype', label: 'Maya — High Energy' },
+  { id: 'flynn_warm', label: 'Avery — Warm & Friendly' },
+  { id: 'flynn_expert', label: 'Sloane — Expert Concierge' },
+  { id: 'flynn_hype', label: 'Maya — High Energy' },
 ];
 
 const RECEPTIONIST_MODES: Array<{ id: 'voicemail_only' | 'ai_only' | 'hybrid_choice'; title: string; description: string }> = [
@@ -128,7 +129,7 @@ const TEST_CALL_FALLBACK_RESPONSES = [
 ];
 const CALLER_OPENING_LINES = [
   'Hi, I’m checking if you have availability for an upcoming event.',
-  'Hello! I was referred to you and wanted to see how Koala Concierge works.',
+  'Hello! I was referred to you and wanted to see how Flynn Concierge works.',
   'Hi there, we’re planning something special and need a reliable receptionist.',
 ];
 
@@ -176,8 +177,8 @@ export const ReceptionistScreen: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isUploadingSample, setIsUploadingSample] = useState(false);
-  const [isKoalaTalking, setIsKoalaTalking] = useState(false);
-  const [koalaAnimationKey, setKoalaAnimationKey] = useState(0);
+  const [isFlynnTalking, setIsFlynnTalking] = useState(false);
+  const [flynnAnimationKey, setFlynnAnimationKey] = useState(0);
   const previewSoundRef = useRef<Audio.Sound | null>(null);
   const previewUriRef = useRef<string | null>(null);
   const [isGreetingPreviewLoading, setIsGreetingPreviewLoading] = useState(false);
@@ -185,12 +186,13 @@ export const ReceptionistScreen: React.FC = () => {
   const [questionPreviewLoadingIndex, setQuestionPreviewLoadingIndex] = useState<number | null>(null);
   const [questionPreviewPlayingIndex, setQuestionPreviewPlayingIndex] = useState<number | null>(null);
   const [toastState, setToastState] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
-  const koalaLoopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const koalaScale = useRef(new Animated.Value(1)).current;
+  const flynnLoopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flynnScale = useRef(new Animated.Value(1)).current;
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mode, setMode] = useState<'voicemail_only' | 'ai_only' | 'hybrid_choice'>(
     onboardingData.receptionistMode || 'ai_only'
   );
+  const [testCallModalVisible, setTestCallModalVisible] = useState(false);
   const [ackLibrary, setAckLibrary] = useState<string[]>(
     onboardingData.receptionistAckLibrary && onboardingData.receptionistAckLibrary.length > 0
       ? onboardingData.receptionistAckLibrary
@@ -207,29 +209,29 @@ export const ReceptionistScreen: React.FC = () => {
   const testCallScrollRef = useRef<ScrollView | null>(null);
   const businessName = (user?.user_metadata?.business_name as string | undefined)?.trim();
 
-  const clearKoalaLoopTimer = useCallback(() => {
-    if (koalaLoopTimerRef.current) {
-      clearTimeout(koalaLoopTimerRef.current);
-      koalaLoopTimerRef.current = null;
+  const clearFlynnLoopTimer = useCallback(() => {
+    if (flynnLoopTimerRef.current) {
+      clearTimeout(flynnLoopTimerRef.current);
+      flynnLoopTimerRef.current = null;
     }
   }, []);
 
-  const animateKoalaScale = useCallback(
+  const animateFlynnScale = useCallback(
     (toValue: number) => {
-      Animated.timing(koalaScale, {
+      Animated.timing(flynnScale, {
         toValue,
         duration: 250,
         useNativeDriver: true,
       }).start();
     },
-    [koalaScale]
+    [flynnScale]
   );
 
-  const stopKoalaAnimation = useCallback(() => {
-    clearKoalaLoopTimer();
-    setIsKoalaTalking(false);
-    animateKoalaScale(1);
-  }, [animateKoalaScale, clearKoalaLoopTimer]);
+  const stopFlynnAnimation = useCallback(() => {
+    clearFlynnLoopTimer();
+    setIsFlynnTalking(false);
+    animateFlynnScale(1);
+  }, [animateFlynnScale, clearFlynnLoopTimer]);
 
   const stopTestCallAudio = useCallback(async () => {
     if (testCallSoundRef.current) {
@@ -245,8 +247,8 @@ export const ReceptionistScreen: React.FC = () => {
       await FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => { });
       testCallAudioUriRef.current = null;
     }
-    stopKoalaAnimation();
-  }, [stopKoalaAnimation]);
+    stopFlynnAnimation();
+  }, [stopFlynnAnimation]);
 
   useEffect(() => {
     refreshVoiceProfiles();
@@ -273,12 +275,12 @@ export const ReceptionistScreen: React.FC = () => {
         FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => { });
         previewUriRef.current = null;
       }
-      if (koalaLoopTimerRef.current) {
-        clearTimeout(koalaLoopTimerRef.current);
-        koalaLoopTimerRef.current = null;
+      if (flynnLoopTimerRef.current) {
+        clearTimeout(flynnLoopTimerRef.current);
+        flynnLoopTimerRef.current = null;
       }
-      koalaScale.stopAnimation(() => {
-        koalaScale.setValue(1);
+      flynnScale.stopAnimation(() => {
+        flynnScale.setValue(1);
       });
       if (toastTimerRef.current) {
         clearTimeout(toastTimerRef.current);
@@ -294,7 +296,7 @@ export const ReceptionistScreen: React.FC = () => {
       }
       testCallCancelledRef.current = true;
     };
-  }, [koalaScale]);
+  }, [flynnScale]);
 
   const generateCallerAnswer = useCallback((question: string, index: number) => {
     if (!question) {
@@ -568,37 +570,37 @@ export const ReceptionistScreen: React.FC = () => {
 
 
 
-  const startKoalaAnimationLoop = useCallback(
+  const startFlynnAnimationLoop = useCallback(
     (durationMillis?: number) => {
-      clearKoalaLoopTimer();
+      clearFlynnLoopTimer();
       const loops = durationMillis
-        ? Math.max(1, Math.round(durationMillis / KOALA_LOOP_DURATION_MS))
+        ? Math.max(1, Math.round(durationMillis / FLYNN_LOOP_DURATION_MS))
         : 1;
 
       if (!loops) {
-        setIsKoalaTalking(false);
+        setIsFlynnTalking(false);
         return;
       }
 
       let remaining = loops;
-      setIsKoalaTalking(true);
-      setKoalaAnimationKey(prev => prev + 1);
-      animateKoalaScale(1.35);
+      setIsFlynnTalking(true);
+      setFlynnAnimationKey(prev => prev + 1);
+      animateFlynnScale(1.35);
 
       const scheduleNext = () => {
         remaining -= 1;
         if (remaining <= 0) {
-          koalaLoopTimerRef.current = null;
+          flynnLoopTimerRef.current = null;
           return;
         }
 
-        setKoalaAnimationKey(prev => prev + 1);
-        koalaLoopTimerRef.current = setTimeout(scheduleNext, KOALA_LOOP_DURATION_MS);
+        setFlynnAnimationKey(prev => prev + 1);
+        flynnLoopTimerRef.current = setTimeout(scheduleNext, FLYNN_LOOP_DURATION_MS);
       };
 
-      koalaLoopTimerRef.current = setTimeout(scheduleNext, KOALA_LOOP_DURATION_MS);
+      flynnLoopTimerRef.current = setTimeout(scheduleNext, FLYNN_LOOP_DURATION_MS);
     },
-    [animateKoalaScale, clearKoalaLoopTimer]
+    [animateFlynnScale, clearFlynnLoopTimer]
   );
 
   const stopPreview = useCallback(async () => {
@@ -621,13 +623,13 @@ export const ReceptionistScreen: React.FC = () => {
         FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => { });
         previewUriRef.current = null;
       }
-      stopKoalaAnimation();
+      stopFlynnAnimation();
       setIsGreetingPreviewPlaying(false);
       setIsGreetingPreviewLoading(false);
       setQuestionPreviewPlayingIndex(null);
       setQuestionPreviewLoadingIndex(null);
     }
-  }, [stopKoalaAnimation]);
+  }, [stopFlynnAnimation]);
 
   const handlePlayGreeting = useCallback(async () => {
     if (isGreetingPreviewLoading) {
@@ -693,7 +695,7 @@ export const ReceptionistScreen: React.FC = () => {
 
       const playbackStatus = await sound.getStatusAsync();
       const durationMillis = playbackStatus.isLoaded ? playbackStatus.durationMillis ?? undefined : undefined;
-      startKoalaAnimationLoop(durationMillis);
+      startFlynnAnimationLoop(durationMillis);
 
       sound.setOnPlaybackStatusUpdate(status => {
         if (!status.isLoaded) {
@@ -713,7 +715,7 @@ export const ReceptionistScreen: React.FC = () => {
       console.error('[ReceptionistScreen] Failed to play greeting preview', error);
       stopPreview().catch(() => { });
       Alert.alert('Preview failed', error instanceof Error ? error.message : 'Unable to play the greeting right now.');
-      setIsKoalaTalking(false);
+      setIsFlynnTalking(false);
       setIsGreetingPreviewPlaying(false);
     } finally {
       setIsGreetingPreviewLoading(false);
@@ -726,7 +728,7 @@ export const ReceptionistScreen: React.FC = () => {
     isGreetingPreviewPlaying,
     selectedVoice,
     stopPreview,
-    startKoalaAnimationLoop,
+    startFlynnAnimationLoop,
   ]);
 
   const handlePlayQuestion = useCallback(async (index: number) => {
@@ -796,7 +798,7 @@ export const ReceptionistScreen: React.FC = () => {
 
       const playbackStatus = await sound.getStatusAsync();
       const durationMillis = playbackStatus.isLoaded ? playbackStatus.durationMillis ?? undefined : undefined;
-      startKoalaAnimationLoop(durationMillis);
+      startFlynnAnimationLoop(durationMillis);
 
       sound.setOnPlaybackStatusUpdate(status => {
         if (!status.isLoaded) {
@@ -816,7 +818,7 @@ export const ReceptionistScreen: React.FC = () => {
       console.error('[ReceptionistScreen] Failed to play question preview', error);
       stopPreview().catch(() => { });
       Alert.alert('Preview failed', error instanceof Error ? error.message : 'Unable to play this question right now.');
-      setIsKoalaTalking(false);
+      setIsFlynnTalking(false);
     } finally {
       setQuestionPreviewLoadingIndex(prev => (prev === index ? null : prev));
     }
@@ -827,7 +829,7 @@ export const ReceptionistScreen: React.FC = () => {
     questionPreviewLoadingIndex,
     questionPreviewPlayingIndex,
     selectedVoice,
-    startKoalaAnimationLoop,
+    startFlynnAnimationLoop,
     stopPreview,
   ]);
 
@@ -879,7 +881,7 @@ export const ReceptionistScreen: React.FC = () => {
 
     const status = await sound.getStatusAsync();
     const durationMillis = status.isLoaded ? status.durationMillis ?? undefined : undefined;
-    startKoalaAnimationLoop(durationMillis);
+    startFlynnAnimationLoop(durationMillis);
 
     await new Promise<void>((resolve, reject) => {
       sound.setOnPlaybackStatusUpdate((playbackStatus) => {
@@ -911,7 +913,7 @@ export const ReceptionistScreen: React.FC = () => {
     activeVoiceProfileId,
     customVoiceProfile,
     selectedVoice,
-    startKoalaAnimationLoop,
+    startFlynnAnimationLoop,
     stopTestCallAudio,
   ]);
 
@@ -931,7 +933,7 @@ export const ReceptionistScreen: React.FC = () => {
     if (!isApiConfigured()) {
       Alert.alert(
         'Test call unavailable',
-        'Connect the API base URL to enable Koala test calls. This Beta feature stays hidden until configured.'
+        'Connect the API base URL to enable Flynn test calls. This Beta feature stays hidden until configured.'
       );
       return;
     }
@@ -991,16 +993,16 @@ export const ReceptionistScreen: React.FC = () => {
     <View style={styles.screen}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.heroCard}>
-          <Animated.View style={[styles.heroAvatar, { transform: [{ scale: koalaScale }] }]}>
+          <Animated.View style={[styles.heroAvatar, { transform: [{ scale: flynnScale }] }]}>
             <Image
-              key={isKoalaTalking ? `koala-${koalaAnimationKey}` : 'koala-static'}
-              source={isKoalaTalking ? KOALA_ANIMATION : KOALA_STATIC}
+              key={isFlynnTalking ? `flynn-${flynnAnimationKey}` : 'flynn-static'}
+              source={isFlynnTalking ? FLYNN_ANIMATION : FLYNN_STATIC}
               style={styles.heroAvatarImage}
               resizeMode="contain"
             />
           </Animated.View>
           <View style={styles.heroTextWrapper}>
-            <Text style={styles.heroTitle}>Koala Concierge</Text>
+            <Text style={styles.heroTitle}>Flynn Concierge</Text>
             <Text style={styles.heroSubtitle}>
               Manage the voice, behaviour, and scripts your AI receptionist uses on every call.
             </Text>
@@ -1030,23 +1032,17 @@ export const ReceptionistScreen: React.FC = () => {
 
         <FlynnCard style={styles.testCallCard}>
           <View style={styles.testCallHeader}>
-            <Text style={styles.cardTitle}>Run a Koala test call</Text>
+            <Text style={styles.cardTitle}>Run a Flynn test call</Text>
             <Text style={styles.betaPill}>Beta</Text>
           </View>
           <Text style={styles.cardHint}>
-            Hear how your script sounds before provisioning a number. Koala will ask your configured
-            questions and generate a realistic caller response.
+            Talk to your AI receptionist live to test how the conversation flows. Experience the same low-latency
+            interaction your callers will have before you provision a number.
           </Text>
-          {!isApiConfigured() && (
-            <Text style={styles.cardWarning}>
-              Connect the API base URL in your build configuration to enable test calls.
-            </Text>
-          )}
           <FlynnButton
-            title={isTestCallRunning ? 'Running test call…' : 'Start test call'}
-            onPress={handleStartTestCall}
+            title="START TEST CALL"
+            onPress={() => setTestCallModalVisible(true)}
             variant="secondary"
-            disabled={isTestCallRunning || !isApiConfigured()}
           />
         </FlynnCard>
 
@@ -1409,6 +1405,14 @@ export const ReceptionistScreen: React.FC = () => {
           <Text style={styles.toastText}>{toastState.message}</Text>
         </View>
       )}
+
+      <TestCallModal
+        visible={testCallModalVisible}
+        onClose={() => setTestCallModalVisible(false)}
+        greeting={greeting}
+        questions={followUpQuestions}
+        voiceId={selectedVoice}
+      />
     </View>
   );
 };
@@ -1497,14 +1501,14 @@ const TestCallModal: React.FC<TestCallModalProps> = ({
     <View style={modalStyles.overlay}>
       <View style={modalStyles.testCallCard}>
         <View style={modalStyles.testCallHeader}>
-          <Text style={modalStyles.title}>Koala concierge test call</Text>
+          <Text style={modalStyles.title}>Flynn concierge test call</Text>
           <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
             <FlynnIcon name="close" size={18} color="#0f172a" />
           </TouchableOpacity>
         </View>
         <Text style={modalStyles.testCallDescription}>
           {running
-            ? 'Koala is playing your script with realistic caller replies. Sit back and listen!'
+            ? 'Flynn is playing your script with realistic caller replies. Sit back and listen!'
             : 'Review the simulated call below. Update your script and run it again any time.'}
         </Text>
         <ScrollView
@@ -1523,7 +1527,7 @@ const TestCallModal: React.FC<TestCallModalProps> = ({
                 activeIndex === index && modalStyles.chatRowActive,
               ]}
             >
-              <Text style={modalStyles.chatRole}>{step.role === 'concierge' ? 'Koala' : 'Caller'}</Text>
+              <Text style={modalStyles.chatRole}>{step.role === 'concierge' ? 'Flynn' : 'Caller'}</Text>
               <Text style={modalStyles.chatText}>{step.text}</Text>
             </View>
           ))}

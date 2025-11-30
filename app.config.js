@@ -2,6 +2,7 @@ const API_BASE_URL = process.env.APP_BASE_URL || process.env.EXPO_PUBLIC_API_BAS
 
 export default {
   expo: {
+    scheme: "flynnai",
     plugins: [
       "expo-asset",
       "expo-secure-store",

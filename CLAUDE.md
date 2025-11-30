@@ -12,7 +12,7 @@ Flynn receives forwarded voicemails, transcribes and classifies them, drafts res
 
 #### Voicemail Processing (Primary Focus)
 - **Voicemail intake**: Call forwarding (conditional or dedicated Flynn number) routes voicemails to Flynn via Twilio
-- **Custom greetings**: Upload existing greeting, record new one, or choose koala-themed persona (male/female, accents) via TTS
+- **Custom greetings**: Upload existing greeting, record new one, or choose flynn-themed persona (male/female, accents) via TTS
 - **AI transcription**: Automatic transcription via Whisper/Deepgram with confidence scoring
 - **Smart classification**: AI extracts client name, phone, service type, urgency, and key details
 - **Job card creation**: Draft job cards pre-filled with transcript summary and contact info
@@ -39,7 +39,7 @@ Flynn receives forwarded voicemails, transcribes and classifies them, drafts res
 - Voicemail forwarding setup UX with carrier-specific instructions
 - Backend pipeline: recording → transcription → job draft
 - Job review UI with manual approval gates
-- Basic koala persona greetings
+- Basic flynn persona greetings
 
 #### Phase 2: Automated Follow-Up (Next)
 - Template manager for SMS/email responses
@@ -61,7 +61,7 @@ Flynn receives forwarded voicemails, transcribes and classifies them, drafts res
 FlynnAI uses React Native's built-in StyleSheet API as the foundation for all UI components. This document outlines the design rules, patterns, and best practices for maintaining consistency across the application.
 
 ### Brand Personality:
-- **Friendly and approachable** - Laid-back koala mascot with optional persona voice packs
+- **Friendly and approachable** - Laid-back flynn mascot with optional persona voice packs
 - **Professional and reliable** - Service providers need to trust Flynn with their leads
 - **Efficient and time-saving** - Focus on fast follow-ups and lead conversion
 - **Human-in-the-loop** - Manual approval gates maintain control and quality
@@ -553,7 +553,7 @@ const responsive = {
 - Keep copy concise - users are busy and on-the-go
 
 ### Voice & Tone:
-- **Friendly but professional** - Like a helpful receptionist (the koala mascot reinforces this)
+- **Friendly but professional** - Like a helpful receptionist (the flynn mascot reinforces this)
 - **Action-oriented** - "Create job", "Send response", "Approve reply", "View transcript"
 - **Encouraging** - "Great! Your response has been sent", "New lead captured!"
 - **Clear status updates** - "Transcribing...", "Processing voicemail", "Response sent", "Waiting for approval"
@@ -722,7 +722,7 @@ export default FlynnJobCard;
 - **v2.0.0** - Voicemail receptionist pivot (January 2025)
   - New primary focus: "Flynn turns missed calls into booked jobs"
   - Added voicemail intake, transcription, and approval workflows
-  - Introduced koala persona greeting system
+  - Introduced flynn persona greeting system
   - Updated brand personality and messaging
   - Preserved screenshot and iOS Shortcuts features as supporting functionality
 - **v1.0.0** - Initial design system implementation (December 2024)
@@ -870,7 +870,7 @@ Flynn's core feature is its AI-powered voicemail receptionist that captures miss
 Users can customize their voicemail greeting:
 - **Upload existing greeting**: Use their current voicemail audio file
 - **Record new greeting**: Record directly in the app
-- **Koala persona voices**: Choose from AI-generated greetings with different accents and genders
+- **Flynn persona voices**: Choose from AI-generated greetings with different accents and genders
   - Male/female options
   - Various accent options (Australian, American, British, etc.)
   - Generated via TTS and cached in Supabase Storage for fast playback

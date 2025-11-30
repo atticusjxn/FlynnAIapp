@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export const metadata = {
   title: "Terms of Service | Flynn AI",
-  description: "Read the terms that govern your use of Flynn AI and the Koala concierge experience.",
+  description: "Read the terms that govern your use of Flynn AI and the Flynn concierge experience.",
 };
 
 const sections = [
@@ -47,7 +47,7 @@ const sections = [
   {
     title: "6. Intellectual Property",
     text: [
-      "Flynn and its licensors own all rights in the Service, including Koala concierge branding and software.",
+      "Flynn and its licensors own all rights in the Service, including Flynn concierge branding and software.",
       "You may not copy, modify, distribute, or create derivative works based on the Service except as allowed in these terms.",
     ],
   },
@@ -106,7 +106,7 @@ export default function TermsPage() {
           <h1 className="text-3xl font-semibold text-slate-900">Terms of Service</h1>
           <p className="text-sm text-slate-500">Last updated: February 22, 2025</p>
           <p className="text-base text-slate-600">
-            These terms govern your use of Flynn AI and the Koala concierge experience. By creating an account or using the Service you agree to the rules below.
+            These terms govern your use of Flynn AI and the Flynn concierge experience. By creating an account or using the Service you agree to the rules below.
           </p>
         </header>
         <div className="space-y-10">

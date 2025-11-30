@@ -11,7 +11,7 @@ const sections = [
     title: "1. Information We Collect",
     content: (
       <div className="space-y-4 text-slate-600">
-        <p>We collect the minimum information required to run Koala concierge effectively:</p>
+        <p>We collect the minimum information required to run Flynn concierge effectively:</p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
             <strong>Account & contact information</strong> such as name, email, company, and phone number when you create an account or contact support.

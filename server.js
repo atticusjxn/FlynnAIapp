@@ -385,9 +385,9 @@ const voiceProfileBucket = process.env.VOICE_PROFILE_BUCKET || 'voice-profiles';
 const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
 const elevenLabsModelId = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
 const elevenLabsPresetVoices = {
-  koala_warm: process.env.ELEVENLABS_VOICE_KOALA_WARM_ID,
-  koala_expert: process.env.ELEVENLABS_VOICE_KOALA_EXPERT_ID,
-  koala_hype: process.env.ELEVENLABS_VOICE_KOALA_HYPE_ID,
+  flynn_warm: process.env.ELEVENLABS_VOICE_FLYNN_WARM_ID,
+  flynn_expert: process.env.ELEVENLABS_VOICE_FLYNN_EXPERT_ID,
+  flynn_hype: process.env.ELEVENLABS_VOICE_FLYNN_HYPE_ID,
 };
 
 const azureSpeechKey = process.env.AZURE_SPEECH_KEY ? process.env.AZURE_SPEECH_KEY.trim() : '';
@@ -395,9 +395,9 @@ const azureSpeechRegion = process.env.AZURE_SPEECH_REGION ? process.env.AZURE_SP
 const azureSpeechEndpoint = process.env.AZURE_SPEECH_ENDPOINT ? process.env.AZURE_SPEECH_ENDPOINT.trim() : '';
 const azureDefaultVoice = process.env.AZURE_TTS_DEFAULT_VOICE || 'en-AU-NatashaNeural';
 const azurePresetVoices = {
-  koala_warm: process.env.AZURE_VOICE_KOALA_WARM || azureDefaultVoice,
-  koala_expert: process.env.AZURE_VOICE_KOALA_EXPERT || 'en-AU-WilliamNeural',
-  koala_hype: process.env.AZURE_VOICE_KOALA_HYPE || 'en-AU-CarlyNeural',
+  flynn_warm: process.env.AZURE_VOICE_FLYNN_WARM || azureDefaultVoice,
+  flynn_expert: process.env.AZURE_VOICE_FLYNN_EXPERT || 'en-AU-WilliamNeural',
+  flynn_hype: process.env.AZURE_VOICE_FLYNN_HYPE || 'en-AU-CarlyNeural',
   // Simple gender-based voices for Azure
   male: 'en-AU-WilliamNeural',
   female: 'en-AU-NatashaNeural',
@@ -603,7 +603,7 @@ const cacheReceptionistSession = ({ callSid, profile, toNumber }) => {
     startedAt: Date.now(),
     ackLibrary,
     greeting: (profile.receptionist_greeting || '').trim(),
-    voiceOption: profile.receptionist_voice || 'koala_warm',
+    voiceOption: profile.receptionist_voice || 'flynn_warm',
     voiceProfileId: profile.receptionist_voice_profile_id || null,
     voiceId: profile.receptionist_voice_id || null,
     voiceStatus: profile.receptionist_voice_status || null,
@@ -1932,8 +1932,8 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
       const presets = voiceConfig.azure?.presetVoices || voiceConfig.presetVoices || {};
       return presets?.[voiceOption]
         || voiceConfig.azure?.defaultVoice
-        || presets.koala_warm
-        || presets.koala_expert
+        || presets.flynn_warm
+        || presets.flynn_expert
         || Object.values(presets).find(Boolean)
         || voiceConfig.azure?.defaultVoice
         || null;
@@ -1942,8 +1942,8 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
     if (provider === 'elevenlabs') {
       const presets = voiceConfig.elevenLabs?.presetVoices || voiceConfig.presetVoices || {};
       return presets?.[voiceOption]
-        || presets.koala_expert
-        || presets.koala_warm
+        || presets.flynn_expert
+        || presets.flynn_warm
         || Object.values(presets).find(Boolean)
         || null;
     }

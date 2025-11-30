@@ -4,7 +4,7 @@ FlynnAI is an AI receptionist for service businesses. It answers inbound calls, 
 
 ## Features
 
-- **Koala Concierge**: Tune your AI receptionist’s voice, greeting script, and required intake questions.
+- **Flynn Concierge**: Tune your AI receptionist’s voice, greeting script, and required intake questions.
 - **Call Intelligence**: Record, transcribe, and summarise every call with automatic follow-up drafts.
 - **Events Timeline**: Manage upcoming work, approvals, and completions from the new Events tab.
 - **Client Management**: Keep a living history of customer calls, preferences, and approvals.
@@ -120,7 +120,7 @@ FlynnAI/
     -H "x-user-id: 00000000-0000-0000-0000-000000000001"
   ```
 
-### Koala Concierge Controls
+### Flynn Concierge Controls
 - Choose from curated voice profiles or record your own
 - Configure greetings and dynamic question flows
 - Preview the experience with in-app call simulations
@@ -135,7 +135,7 @@ FlynnAI/
 
 ### Dashboard
 - Real-time statistics for calls, follow-ups, and events
-- One tap access to the koala concierge and client records
+- One tap access to the flynn concierge and client records
 - Pull-to-refresh functionality
 
 ## Development Notes
@@ -198,7 +198,7 @@ Live call audio is generated through the configured TTS provider. Azure Speech i
 - `AZURE_SPEECH_REGION` – Azure region (for example `australiaeast`).
 - `AZURE_SPEECH_ENDPOINT` *(optional)* – override for the generated endpoint URL.
 - `AZURE_TTS_DEFAULT_VOICE` *(optional)* – fallback voice (defaults to `en-AU-NatashaNeural`).
-- `AZURE_VOICE_KOALA_WARM`, `AZURE_VOICE_KOALA_EXPERT`, `AZURE_VOICE_KOALA_HYPE` *(optional)* – map receptionist presets to Azure voices.
+- `AZURE_VOICE_FLYNN_WARM`, `AZURE_VOICE_FLYNN_EXPERT`, `AZURE_VOICE_FLYNN_HYPE` *(optional)* – map receptionist presets to Azure voices.
 - `TTS_PROVIDER` *(optional)* – force `azure` or `elevenlabs`; when unset the server prefers Azure when credentials exist and falls back to ElevenLabs.
 - `TTS_CACHE_TTL_MS` / `TTS_CACHE_MAX_ENTRIES` *(optional)* – control in-memory audio cache duration and size.
 
@@ -209,7 +209,7 @@ Both endpoints return success/failure details; the notify endpoint reports the n
 ## Next Steps
 
 - Voice marketplace with premium profiles and fine-grained tone sliders
-- Animated koala avatar that lip-syncs during call previews
+- Animated flynn avatar that lip-syncs during call previews
 - Call simulation studio for QA before going live
 - Deeper event automations (task checklists, templated follow-ups)
 - Analytics for receptionist performance and conversion rates

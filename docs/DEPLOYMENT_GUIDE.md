@@ -57,9 +57,9 @@ APNS_HOST=https://api.push.apple.com
 ```bash
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
 ELEVENLABS_MODEL_ID=eleven_multilingual_v2
-ELEVENLABS_VOICE_KOALA_WARM_ID=voice_id_1
-ELEVENLABS_VOICE_KOALA_EXPERT_ID=voice_id_2
-ELEVENLABS_VOICE_KOALA_HYPE_ID=voice_id_3
+ELEVENLABS_VOICE_FLYNN_WARM_ID=voice_id_1
+ELEVENLABS_VOICE_FLYNN_EXPERT_ID=voice_id_2
+ELEVENLABS_VOICE_FLYNN_HYPE_ID=voice_id_3
 VOICE_PROFILE_BUCKET=voice-profiles
 ```
 
@@ -114,9 +114,9 @@ flyctl secrets set APNS_HOST="https://api.push.apple.com" --app flynnai-telephon
 # ElevenLabs Voice
 flyctl secrets set ELEVENLABS_API_KEY="your_key" --app flynnai-telephony
 flyctl secrets set ELEVENLABS_MODEL_ID="eleven_multilingual_v2" --app flynnai-telephony
-flyctl secrets set ELEVENLABS_VOICE_KOALA_WARM_ID="voice_id_1" --app flynnai-telephony
-flyctl secrets set ELEVENLABS_VOICE_KOALA_EXPERT_ID="voice_id_2" --app flynnai-telephony
-flyctl secrets set ELEVENLABS_VOICE_KOALA_HYPE_ID="voice_id_3" --app flynnai-telephony
+flyctl secrets set ELEVENLABS_VOICE_FLYNN_WARM_ID="voice_id_1" --app flynnai-telephony
+flyctl secrets set ELEVENLABS_VOICE_FLYNN_EXPERT_ID="voice_id_2" --app flynnai-telephony
+flyctl secrets set ELEVENLABS_VOICE_FLYNN_HYPE_ID="voice_id_3" --app flynnai-telephony
 flyctl secrets set VOICE_PROFILE_BUCKET="voice-profiles" --app flynnai-telephony
 ```
 

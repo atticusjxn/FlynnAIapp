@@ -1,6 +1,6 @@
 # FlynnAI Support
 
-Welcome to the FlynnAI support page. If you run into an issue or need help with our koala concierge app, use the contacts below and we’ll reply as quickly as possible.
+Welcome to the FlynnAI support page. If you run into an issue or need help with our flynn concierge app, use the contacts below and we’ll reply as quickly as possible.
 
 ## Contact
 - Email: admin@mates-rates.app

@@ -2,7 +2,7 @@
 
 _Last updated: February 22, 2025_
 
-Flynn AI (“Flynn”, “we”, “our”, or “us”) provides an AI receptionist that captures missed calls, converts them into structured job summaries, and helps teams follow up quickly. This Privacy Policy describes how we collect, use, and share information when you use the Flynn mobile app, the Koala concierge experience, and related services (collectively, the “Service”).
+Flynn AI (“Flynn”, “we”, “our”, or “us”) provides an AI receptionist that captures missed calls, converts them into structured job summaries, and helps teams follow up quickly. This Privacy Policy describes how we collect, use, and share information when you use the Flynn mobile app, the Flynn concierge experience, and related services (collectively, the “Service”).
 
 By creating an account or using the Service you agree to the practices described below. If you do not agree, please do not use the Service.
 

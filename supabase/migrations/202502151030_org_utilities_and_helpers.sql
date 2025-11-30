@@ -89,7 +89,7 @@ begin
   insert into public.receptionist_configs (org_id, greeting_script, intake_questions, summary_delivery, timezone)
   values (
     new_org_id,
-    'Hi, this is FlynnAI, the koala concierge for ' || trim(p_display_name) || '. How can I help with your upcoming event?',
+    'Hi, this is FlynnAI, the AI receptionist for ' || trim(p_display_name) || '. How can I help with your upcoming event?',
     jsonb_build_array(),
     'push',
     coalesce(p_timezone, 'UTC')

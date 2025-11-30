@@ -2,7 +2,7 @@
 
 _Last updated: February 22, 2025_
 
-These Terms of Service (“Terms”) govern your access to and use of the Flynn AI mobile application, Koala concierge voice experience, websites, and related services (the “Service”). By creating an account or using the Service you agree to these Terms and to our [Privacy Policy](./privacy-policy.md). If you are using the Service on behalf of a company or organisation, you represent that you have authority to bind that entity to these Terms.
+These Terms of Service (“Terms”) govern your access to and use of the Flynn AI mobile application, Flynn concierge voice experience, websites, and related services (the “Service”). By creating an account or using the Service you agree to these Terms and to our [Privacy Policy](./privacy-policy.md). If you are using the Service on behalf of a company or organisation, you represent that you have authority to bind that entity to these Terms.
 
 ## 1. Account Registration & Security
 - You must provide accurate account information and keep your credentials secure. You are responsible for all activity that occurs under your account.
@@ -30,7 +30,7 @@ These Terms of Service (“Terms”) govern your access to and use of the Flynn 
 - Flynn is not responsible for outages or acts/omissions of third parties, but we work to mitigate disruptions.
 
 ## 6. Intellectual Property
-- Flynn and its licensors own all rights, title, and interest in the Service, including software, branding, Koala Concierge assets, and documentation.
+- Flynn and its licensors own all rights, title, and interest in the Service, including software, branding, Flynn Concierge assets, and documentation.
 - You may not copy, modify, distribute, or create derivative works based on the Service except as expressly allowed by these Terms.
 
 ## 7. Disclaimers

@@ -81,7 +81,7 @@ export const BillingPaywallModal: React.FC<BillingPaywallModalProps> = ({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
-          <Text style={styles.badge}>Koala concierge</Text>
+          <Text style={styles.badge}>Flynn concierge</Text>
           <Text style={styles.title}>Subscribe to provision your Flynn number</Text>
           <Text style={styles.subtitle}>
             Your AI receptionist captures every event lead, routes summaries to your team, and keeps

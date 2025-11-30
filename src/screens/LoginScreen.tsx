@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,7 +40,7 @@ const GoogleIcon = () => (
 type AuthMode = 'landing' | 'email_code' | 'email_password' | 'signup';
 
 export const LoginScreen = () => {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithOTP, verifyOTP, resetPassword, signInWithGoogle } = useAuth();
   const [mode, setMode] = useState<AuthMode>('landing');
 
   // Form States
@@ -49,25 +49,53 @@ export const LoginScreen = () => {
   const [code, setCode] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Handlers
-  const handleGoogleLogin = () => console.log('Google Login'); // TODO: Implement
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await signInWithGoogle();
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message || 'Failed to sign in with Google');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEmailCodeSubmit = async () => {
     setLoading(true);
-    // TODO: Implement send code logic
-    setTimeout(() => {
+    setError('');
+    try {
+      if (!codeSent) {
+        // Step 1: Send the code
+        await signInWithOTP(email);
+        setCodeSent(true);
+        setSuccessMessage('Code sent! Check your email.');
+      } else {
+        // Step 2: Verify the code
+        await verifyOTP(email, code);
+      }
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message || 'Failed to process email code');
+    } finally {
       setLoading(false);
-      console.log('Code sent to', email);
-    }, 1000);
+    }
   };
 
   const handleEmailPasswordSubmit = async () => {
     setLoading(true);
+    setError('');
     try {
       await signIn(email, password);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError(e.message || 'Failed to sign in');
     } finally {
       setLoading(false);
     }
@@ -75,10 +103,30 @@ export const LoginScreen = () => {
 
   const handleSignUpSubmit = async () => {
     setLoading(true);
+    setError('');
     try {
       await signUp(email, password, businessName);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError(e.message || 'Failed to sign up');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address first');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      await resetPassword(email);
+      setSuccessMessage('Password reset email sent! Check your inbox.');
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message || 'Failed to send reset email');
     } finally {
       setLoading(false);
     }
@@ -147,6 +195,8 @@ export const LoginScreen = () => {
     <>
       {renderHeader('Log in with code')}
       <View style={styles.formContainer}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
         <FlynnInput
           label="Email address"
           placeholder="name@company.com"
@@ -154,15 +204,30 @@ export const LoginScreen = () => {
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
+          editable={!codeSent}
         />
-        {/* Placeholder for Code Input if step 2 */}
+        {codeSent && (
+          <FlynnInput
+            label="Enter 6-digit code"
+            placeholder="000000"
+            value={code}
+            onChangeText={setCode}
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+        )}
         <FlynnButton
-          title="Send Login Code"
+          title={codeSent ? "Verify Code" : "Send Login Code"}
           onPress={handleEmailCodeSubmit}
           loading={loading}
           fullWidth
           style={styles.submitButton}
         />
+        {codeSent && (
+          <TouchableOpacity onPress={() => { setCodeSent(false); setCode(''); setSuccessMessage(''); }}>
+            <Text style={styles.linkText}>Use a different email</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </>
   );
@@ -171,6 +236,8 @@ export const LoginScreen = () => {
     <>
       {renderHeader('Log in')}
       <View style={styles.formContainer}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
         <FlynnInput
           label="Email address"
           placeholder="name@company.com"
@@ -193,7 +260,7 @@ export const LoginScreen = () => {
           fullWidth
           style={styles.submitButton}
         />
-        <TouchableOpacity style={styles.forgotPassword}>
+        <TouchableOpacity style={styles.forgotPassword} onPress={handleForgotPassword}>
           <Text style={styles.linkText}>Forgot password?</Text>
         </TouchableOpacity>
       </View>
@@ -204,6 +271,21 @@ export const LoginScreen = () => {
     <>
       {renderHeader('Create Account')}
       <View style={styles.formContainer}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
+        <FlynnButton
+          title="Continue with Google"
+          onPress={handleGoogleLogin}
+          variant="secondary"
+          icon={<GoogleIcon />}
+          iconPosition="left"
+          style={styles.actionButton}
+          textStyle={styles.actionButtonText}
+          fullWidth
+        />
+        <View style={styles.divider}>
+          <Text style={styles.dividerText}>Or sign up with email</Text>
+        </View>
         <FlynnInput
           label="Business Name"
           placeholder="Acme Corp"
@@ -294,8 +376,8 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: 0,
-    top: 0,
+    left: -spacing.xs,
+    top: spacing.xs,
     padding: spacing.sm,
     zIndex: 10,
   },
@@ -381,5 +463,23 @@ const styles = StyleSheet.create({
   forgotPassword: {
     alignItems: 'center',
     marginTop: spacing.md,
+  },
+  errorText: {
+    ...typography.bodyMedium,
+    color: colors.error,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    backgroundColor: colors.errorLight,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  successText: {
+    ...typography.bodyMedium,
+    color: colors.success,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    backgroundColor: colors.successLight,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
   },
 });

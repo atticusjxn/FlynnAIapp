@@ -65,7 +65,7 @@ update public.notification_tokens nt
 -- Mark receptionist configs for newly created organizations if missing.
 insert into public.receptionist_configs (org_id, greeting_script, intake_questions, summary_delivery, timezone)
 select o.id,
-       'Hi, this is FlynnAI, the koala concierge for ' || o.display_name || '. How can I help with your upcoming event?',
+       'Hi, this is FlynnAI, the AI receptionist for ' || o.display_name || '. How can I help with your upcoming event?',
        '[]'::jsonb,
        'push',
        o.timezone

@@ -60,7 +60,7 @@ Provide these in Render → Service → Environment. Do not commit secrets.
   - `DEEPGRAM_API_KEY`
   - `ELEVENLABS_API_KEY`
   - `ELEVENLABS_MODEL_ID` (default set to `eleven_multilingual_v2`)
-  - Optional voice presets: `ELEVENLABS_VOICE_KOALA_WARM_ID`, `ELEVENLABS_VOICE_KOALA_EXPERT_ID`, `ELEVENLABS_VOICE_KOALA_HYPE_ID`
+  - Optional voice presets: `ELEVENLABS_VOICE_FLYNN_WARM_ID`, `ELEVENLABS_VOICE_FLYNN_EXPERT_ID`, `ELEVENLABS_VOICE_FLYNN_HYPE_ID`
 - Receptionist behavior
   - `ENABLE_CONVERSATION_ORCHESTRATOR=true`
   - `MAX_QUESTIONS_PER_TURN=1`

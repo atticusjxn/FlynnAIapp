@@ -1229,8 +1229,8 @@ class RealtimeCallHandler extends EventEmitter {
       const presets = azure.presetVoices || this.voiceConfig?.presetVoices || {};
       return (voiceOption && presets?.[voiceOption])
         || azure.defaultVoice
-        || presets.koala_warm
-        || presets.koala_expert
+        || presets.flynn_warm
+        || presets.flynn_expert
         || Object.values(presets).find(Boolean)
         || azure.defaultVoice
         || null;
@@ -1240,8 +1240,8 @@ class RealtimeCallHandler extends EventEmitter {
       const eleven = this.voiceConfig?.elevenLabs || {};
       const presets = eleven.presetVoices || this.voiceConfig?.presetVoices || {};
       return (voiceOption && presets?.[voiceOption])
-        || presets.koala_expert
-        || presets.koala_warm
+        || presets.flynn_expert
+        || presets.flynn_warm
         || Object.values(presets).find(Boolean)
         || null;
     }
@@ -1299,6 +1299,71 @@ class RealtimeCallHandler extends EventEmitter {
     }
   }
 
+  async extractJobFromTranscript(transcript) {
+    if (!this.llmClient) {
+      return null;
+    }
+
+    try {
+      const extractionPrompt = `Extract job booking details from this conversation transcript:
+
+"""
+${transcript}
+"""
+
+Extract the following information if mentioned:
+- Client name
+- Client phone number or email
+- Type of service requested
+- Preferred date and time
+- Location/address
+- Any special notes or requirements
+- Urgency level (low/medium/high)
+
+Return the data as JSON with a confidence score (0-1) indicating how complete the information is.
+
+Format:
+{
+  "clientName": "...",
+  "clientPhone": "...",
+  "clientEmail": "...",
+  "serviceType": "...",
+  "scheduledDate": "...",
+  "scheduledTime": "...",
+  "location": "...",
+  "notes": "...",
+  "urgency": "medium",
+  "confidence": 0.85
+}`;
+
+      const response = await this.llmClient.chat.completions.create({
+        model: DEFAULT_RECEPTIONIST_MODEL,
+        messages: [
+          { role: 'system', content: 'You are a job data extraction assistant. Extract information and return valid JSON only.' },
+          { role: 'user', content: extractionPrompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+
+      const content = normaliseChoiceContent(response.choices?.[0]);
+      if (!content) {
+        return null;
+      }
+
+      // Try to parse JSON from response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[Realtime] Job extraction failed:', error);
+      return null;
+    }
+  }
+
   async tearDown(reason) {
     if (this.closed) {
       return;
@@ -1319,6 +1384,26 @@ class RealtimeCallHandler extends EventEmitter {
       this.session.userTranscript = this.userTranscript.join(' ');
       this.session.turns = this.turns;
       this.sessionCache.set(this.callSid, this.session);
+    }
+
+    // Extract job data from conversation if this is a test call or regular call
+    if (this.userTranscript && this.userTranscript.length > 0) {
+      try {
+        const fullTranscript = this.userTranscript.join(' ');
+        const jobData = await this.extractJobFromTranscript(fullTranscript);
+
+        if (jobData && jobData.confidence > 0.5) {
+          // Send job extraction to client via WebSocket
+          if (this.ws && this.ws.readyState === this.ws.OPEN) {
+            this.ws.send(JSON.stringify({
+              event: 'job_extracted',
+              job: jobData,
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('[Realtime] Failed to extract job data.', { callSid: this.callSid, error });
+      }
     }
 
     if (typeof this.onConversationComplete === 'function') {

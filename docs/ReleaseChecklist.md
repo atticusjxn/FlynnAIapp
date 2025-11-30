@@ -24,7 +24,7 @@ Follow this list whenever we prep a TestFlight / Google Play build.
 ## 4. Builds & Submission
 1. `npm install` (locked versions) then `npm run release:eas`.
 2. Attach release notes + privacy answers in App Store Connect / Play Console.
-3. Upload screenshots/video showing the “koala concierge” events terminology.
+3. Upload screenshots/video showing the “flynn concierge” events terminology.
 4. Record manual QA steps and attach to the PR, referencing this checklist.
 
 ## 5. Post-release Monitoring

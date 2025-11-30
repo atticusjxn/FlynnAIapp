@@ -12,7 +12,7 @@
 - **Never miss a lead**: conditional call forwarding or dedicated lines route voicemails straight into Flynn.
 - **Fast follow-ups**: AI-generated summaries, job cards, and templated SMS/email replies with owner approval.
 - **Unified workflow**: jobs flow into Flynn’s templates, calendar, invoices, and accounting integrations.
-- **Friendly brand**: laid-back koala mascot with optional persona voice packs keeps the experience approachable.
+- **Friendly brand**: laid-back flynn mascot with optional persona voice packs keeps the experience approachable.
 
 ## Target Users
 - Tradespeople, beauty/service professionals, and small business owners who can’t answer every call but rely on inbound leads.
@@ -32,7 +32,7 @@
    - Future: integrations with VoIP/PBX providers for direct voicemail routing.
 
 2. **Greeting & Persona System**
-   - Let users upload their existing voicemail greeting, record a new one, or choose a koala-themed persona (male/female, accents) generated via TTS.
+   - Let users upload their existing voicemail greeting, record a new one, or choose a flynn-themed persona (male/female, accents) generated via TTS.
    - Cache generated greetings in storage for fast playback on incoming calls.
 
 3. **Transcription & Classification Pipeline**
@@ -62,7 +62,7 @@
 ## Experience Priorities
 - Onboarding wizard for call forwarding setup (carrier selector, instructions, verification call test).
 - Dashboard modules highlighting recent voicemails, pending approvals, and follow-up SLAs.
-- Koala persona selector exposed during greeting setup and in confirmation screens to reinforce brand tone.
+- Flynn persona selector exposed during greeting setup and in confirmation screens to reinforce brand tone.
 - Accessibility: clear transcript display, edit tools, and message templates.
 
 ## Roadmap Outline
@@ -74,7 +74,7 @@
 2. **Automated Follow-Up** (Next)
    - Template manager for SMS/email.
    - Approval queue and analytics on response times.
-   - Basic koala voice greetings.
+   - Basic flynn voice greetings.
 
 3. **Financial Integrations** (Soon)
    - Invoice generation from job cards.
@@ -100,6 +100,6 @@
 
 ## Immediate Next Steps
 1. Validate Twilio voicemail flow end-to-end in staging; document webhook payloads.
-2. Design onboarding/forwarding setup screens with koala persona preview.
+2. Design onboarding/forwarding setup screens with flynn persona preview.
 3. Define API contracts for voicemail ingestion, transcription, and job creation.
 4. Update backlog with MVP stories and acceptance criteria tied to this brief.

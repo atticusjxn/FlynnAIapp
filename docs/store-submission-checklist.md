@@ -55,7 +55,7 @@ Email: review+flynn@flynnai.com
 Password: ********
 
 1. Log in, skip provisioning.
-2. Open AI Receptionist tab > "Start test call" to hear scripted Koala demo without provisioning.
+2. Open AI Receptionist tab > "Start test call" to hear scripted Flynn demo without provisioning.
 3. To provision a live number, go to Settings > Call Setup (requires paid plan; contact us if you need a reviewer plan upgrade).
 
 Stripe test card: 4242 4242 4242 4242, exp 12/34, CVC 123.

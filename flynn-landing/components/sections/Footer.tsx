@@ -14,7 +14,7 @@ export default function Footer() {
         <div>
           <p className="text-base font-semibold tracking-wide text-white">Flynn AI</p>
           <p className="text-sm text-slate-400">
-            Koala concierge for event & service teams. Never miss another lead.
+            Flynn concierge for event & service teams. Never miss another lead.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-sm">

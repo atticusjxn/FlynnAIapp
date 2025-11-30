@@ -24,9 +24,9 @@ interface ReceptionistSetupScreenProps {
 }
 
 const voiceOptions = [
-  { id: 'koala_warm', label: 'Avery — Warm & Friendly', description: 'Balanced tone ideal for inbound service calls.' },
-  { id: 'koala_expert', label: 'Sloane — Expert Concierge', description: 'Calm, confident delivery for premium services.' },
-  { id: 'koala_hype', label: 'Maya — High Energy', description: 'Upbeat tone that keeps callers engaged.' },
+  { id: 'flynn_warm', label: 'Avery — Warm & Friendly', description: 'Balanced tone ideal for inbound service calls.' },
+  { id: 'flynn_expert', label: 'Sloane — Expert Concierge', description: 'Calm, confident delivery for premium services.' },
+  { id: 'flynn_hype', label: 'Maya — High Energy', description: 'Upbeat tone that keeps callers engaged.' },
   { id: 'custom_voice', label: 'Record Your Own', description: 'Clone your voice so it sounds like you answering.' },
 ];
 
@@ -179,7 +179,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
           </View>
           <Text style={styles.title}>Tune your AI receptionist</Text>
           <Text style={styles.subtitle}>
-            Choose a voice, set the greeting script, and decide what your koala concierge should ask every caller.
+            Choose a voice, set the greeting script, and decide what your flynn concierge should ask every caller.
           </Text>
         </View>
 
@@ -205,7 +205,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
                   <Text style={styles.voiceTitle}>{option.label}</Text>
                   <Text style={styles.voiceDescription}>{option.description}</Text>
                 </View>
-                {option.id === 'koala_warm' && (
+                {option.id === 'flynn_warm' && (
                   <Text style={styles.voiceBadge}>Popular</Text>
                 )}
               </TouchableOpacity>
@@ -286,11 +286,11 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Preview</Text>
-          <Text style={styles.sectionHint}>See how your koala concierge responds to callers.</Text>
+          <Text style={styles.sectionHint}>See how your flynn concierge responds to callers.</Text>
           <View style={styles.previewContainer}>
             <View style={styles.previewAvatar}>
               <FlynnIcon name="paw" size={28} color="#f97316" />
-              <Text style={styles.previewAvatarLabel}>Koala</Text>
+              <Text style={styles.previewAvatarLabel}>Flynn</Text>
             </View>
             <View style={styles.previewBubble}>
               <Text style={styles.previewBubbleText} numberOfLines={3}>
