@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlynnAI Instagram Post Generator</title>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            /* Brutalist Theme */
+            --primary: #ff4500;
+            /* International Orange */
+            --black: #000000;
+            --white: #ffffff;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+
+            /* Instagram Portrait Dimensions 4:5 (1080x1350) */
+            --screen-width: 1080px;
+            --screen-height: 1350px;
+            --scale: 0.4;
+            /* Scale for preview */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #111;
+            color: white;
+            padding: 20px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .controls {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #000;
+            padding: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--primary);
+            color: white;
+            border: 2px solid white;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            font-size: 16px;
+            box-shadow: 4px 4px 0px 0px white;
+            transition: transform 0.1s;
+        }
+
+        button:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px 0px white;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            margin-top: 120px;
+            justify-content: center;
+        }
+
+        .screenshot-wrapper {
+            position: relative;
+            width: calc(var(--screen-width) * var(--scale));
+            height: calc(var(--screen-height) * var(--scale));
+            /* Brutalist Frame */
+            border: 2px solid var(--gray-300);
+            box-shadow: 0 0 0 1px #333;
+            overflow: hidden;
+            background: white;
+        }
+
+        .screenshot {
+            width: var(--screen-width);
+            height: var(--screen-height);
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform: scale(var(--scale));
+            transform-origin: top left;
+            background: #f8f8f8;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Grid Background Pattern */
+        .grid-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Slide Typography */
+        .slide-header {
+            padding: 80px 60px 40px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .step-indicator {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--black);
+            border: 4px solid var(--black);
+            padding: 8px 20px;
+            background: white;
+            box-shadow: 6px 6px 0px 0px var(--primary);
+        }
+
+        .slide-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 100px;
+            font-weight: 800;
+            color: var(--black);
+            margin-bottom: 20px;
+            line-height: 0.95;
+            text-transform: uppercase;
+            letter-spacing: -3px;
+        }
+
+        .highlight {
+            color: var(--primary);
+            background: var(--black);
+            padding: 0 15px;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+        }
+
+        .slide-subtitle {
+            font-family: 'Inter', sans-serif;
+            font-size: 36px;
+            color: var(--black);
+            font-weight: 500;
+            max-width: 90%;
+            line-height: 1.4;
+            margin-top: 20px;
+            border-left: 8px solid var(--black);
+            padding-left: 30px;
+        }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            padding: 0 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            z-index: 2;
+            position: relative;
+        }
+
+        /* Phone Mockup */
+        .phone-mockup {
+            width: 100%;
+            height: 800px;
+            background: white;
+            border: 12px solid var(--black);
+            border-bottom: 0;
+            border-top-left-radius: 60px;
+            border-top-right-radius: 60px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 20px 20px 0px 0px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .phone-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40%;
+            height: 40px;
+            background: var(--black);
+            border-bottom-left-radius: 24px;
+            border-bottom-right-radius: 24px;
+            z-index: 10;
+        }
+
+        .phone-screen {
+            flex: 1;
+            background: #f9fafb;
+            padding: 60px 30px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* UI Components */
+        .chat-bubble {
+            padding: 24px;
+            border-radius: 24px;
+            font-size: 24px;
+            line-height: 1.4;
+            max-width: 85%;
+            margin-bottom: 20px;
+            position: relative;
+            box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-user {
+            background: var(--black);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-ai {
+            background: white;
+            color: var(--black);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 2px solid var(--black);
+        }
+
+        .notification-card {
+            background: white;
+            border: 4px solid var(--black);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .icon-box {
+            width: 80px;
+            height: 80px;
+            background: var(--gray-100);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            border: 2px solid var(--black);
+            flex-shrink: 0;
+        }
+
+        .notif-content h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .notif-content p {
+            font-size: 22px;
+            color: #666;
+            line-height: 1.3;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 12px;
+            border: 2px solid #166534;
+        }
+
+        .spam-alert {
+            background: #fee2e2;
+            border-color: #ef4444;
+        }
+
+        .spam-alert .icon-box {
+            background: #ef4444;
+            color: white;
+            border-color: #b91c1c;
+        }
+
+        .spam-badge {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #991b1b;
+        }
+
+        /* Footer */
+        .slide-footer {
+            padding: 40px 60px;
+            border-top: 4px solid var(--black);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            z-index: 2;
+        }
+
+        .brand-logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .brand-url {
+            font-family: 'Inter', sans-serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        /* CTA Specific */
+        .app-icon-large {
+            width: 180px;
+            height: 180px;
+            background: var(--primary);
+            border: 6px solid var(--black);
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+            color: white;
+            box-shadow: 12px 12px 0px 0px var(--black);
+            margin-bottom: 40px;
+        }
+
+        .download-btn {
+            background: var(--black);
+            color: white;
+            padding: 24px 48px;
+            border-radius: 16px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+            justify-content: center;
+            margin-bottom: 20px;
+            box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="controls">
+        <h1 style="font-family: 'Space Grotesk'; text-transform: uppercase; margin-right: 20px;">FlynnAI Instagram Gen
+            v2</h1>
+        <button onclick="downloadAll()">Download All Slides</button>
+    </div>
+
+    <div class="container">
+
+        <!-- Slide 1: Intro / Dashboard -->
+        <div class="screenshot-wrapper">
+            <div class="screenshot" id="slide1">
+                <div class="grid-bg"></div>
+                <div class="step-indicator">01</div>
+                <div class="slide-header">
+                    <div class="slide-title">What is <br><span class="highlight">FlynnAI?</span></div>
+                    <div class="slide-subtitle">The phone system built for modern business.</div>
+                </div>
+                <div class="content-area">
+                    <div class="phone-mockup">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <!-- Dashboard Header -->
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <div>
+                                    <div style="font-size: 18px; color: #666; font-weight: 600;">Good Morning,</div>
+                                    <div style="font-size: 32px; font-weight: 800; font-family: 'Space Grotesk';">Dave's
+                                        Plumbing</div>
+                                </div>
+                                <div
+                                    style="width: 50px; height: 50px; background: #eee; border-radius: 50%; border: 2px solid black;">
+                                </div>
+                            </div>
+
+                            <!-- Active Status Card -->
+                            <div class="notification-card"
+                                style="background: var(--black); color: white; border: none;">
+                                <div class="icon-box"
+                                    style="background: rgba(255,255,255,0.2); border: none; color: white;">✨</div>
+                                <div class="notif-content">
+                                    <h3 style="color: white;">Flynn is Active</h3>
+                                    <p style="color: rgba(255,255,255,0.8); font-size: 18px;">Call forwarding enabled.
+                                        I'm handling your calls.</p>
+                                </div>
+                            </div>
+
+                            <!-- Recent Activity -->
+                            <div
+                                style="font-size: 20px; font-weight: 700; margin-top: 20px; margin-bottom: 10px; font-family: 'Space Grotesk';">
+                                Recent Activity</div>
+
+                            <div class="notification-card" style="padding: 20px;">
+                                <div class="icon-box" style="width: 50px; height: 50px; font-size: 24px;">📞</div>
+                                <div class="notif-content">
+                                    <h3 style="font-size: 20px;">Missed Call • 2m ago</h3>
+                                    <p style="font-size: 16px;">(555) 123-4567</p>
+                                    <div class="status-badge"
+                                        style="font-size: 14px; padding: 4px 12px; margin-top: 8px;">Booked Job</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <div class="brand-logo">Flynn.ai</div>
+                    <div class="brand-url">@flynn.ai</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 2: The AI Receptionist / Chat UI -->
+        <div class="screenshot-wrapper">
+            <div class="screenshot" id="slide2">
+                <div class="grid-bg"></div>
+                <div class="step-indicator">02</div>
+                <div class="slide-header">
+                    <div class="slide-title">The AI <br><span class="highlight">Receptionist</span></div>
+                </div>
+                <div class="content-area">
+                    <div class="phone-mockup">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen" style="justify-content: flex-end;">
+                            <div
+                                style="text-align: center; color: #999; font-size: 18px; margin-bottom: auto; margin-top: 20px;">
+                                Today 9:41 AM</div>
+
+                            <div class="chat-bubble chat-user">
+                                Hi, do you have any availability for a pipe repair today?
+                            </div>
+
+                            <div class="chat-bubble chat-ai">
+                                <div
+                                    style="font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 4px; text-transform: uppercase;">
+                                    Flynn AI</div>
+                                Yes! We have a slot open at 2:00 PM. Would you like me to book that for you?
+                            </div>
+
+                            <div class="chat-bubble chat-user">
+                                That works perfectly. My address is 123 Main St.
+                            </div>
+
+                            <div class="chat-bubble chat-ai">
+                                <div
+                                    style="font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 4px; text-transform: uppercase;">
+                                    Flynn AI</div>
+                                Great, you're booked for 2:00 PM at 123 Main St. I've notified the team!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <div class="brand-logo">Flynn.ai</div>
+                    <div class="brand-url">@flynn.ai</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 3: Books Jobs / Notification UI -->
+        <div class="screenshot-wrapper">
+            <div class="screenshot" id="slide3">
+                <div class="grid-bg"></div>
+                <div class="step-indicator">03</div>
+                <div class="slide-header">
+                    <div class="slide-title">Books Jobs <br><span class="highlight">24/7</span></div>
+                </div>
+                <div class="content-area">
+                    <div class="phone-mockup">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen" style="background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);">
+                            <!-- Lock Screen Notification -->
+                            <div style="color: white; text-align: center; margin-top: 60px; margin-bottom: 40px;">
+                                <div style="font-size: 80px; font-weight: 200;">9:41</div>
+                                <div style="font-size: 24px;">Tuesday, November 14</div>
+                            </div>
+
+                            <div class="notification-card" style="width: 100%; margin-bottom: 20px;">
+                                <div class="icon-box" style="background: var(--primary); border: none; color: white;">⚡️
+                                </div>
+                                <div class="notif-content">
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <h3 style="font-size: 22px;">Flynn AI</h3>
+                                        <span style="font-size: 18px; color: #999;">now</span>
+                                    </div>
+                                    <p style="font-size: 20px; color: #333; font-weight: 500;">New Job Booked! 💰</p>
+                                    <p style="font-size: 18px; margin-top: 4px;">Mike T. for Pipe Repair @ 2pm</p>
+                                </div>
+                            </div>
+
+                            <div class="notification-card" style="width: 100%;">
+                                <div class="icon-box" style="background: white; border: 2px solid #eee;">📅</div>
+                                <div class="notif-content">
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <h3 style="font-size: 22px;">Calendar</h3>
+                                        <span style="font-size: 18px; color: #999;">1m ago</span>
+                                    </div>
+                                    <p style="font-size: 20px; color: #333; font-weight: 500;">Event Added: Pipe Repair
+                                    </p>
+                                    <p style="font-size: 18px; margin-top: 4px;">123 Main St • 2:00 PM - 3:00 PM</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <div class="brand-logo">Flynn.ai</div>
+                    <div class="brand-url">@flynn.ai</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 4: Filters Spam / Spam UI -->
+        <div class="screenshot-wrapper">
+            <div class="screenshot" id="slide4">
+                <div class="grid-bg"></div>
+                <div class="step-indicator">04</div>
+                <div class="slide-header">
+                    <div class="slide-title">Filters <br><span class="highlight">Spam</span></div>
+                </div>
+                <div class="content-area">
+                    <div class="phone-mockup">
+                        <div class="phone-notch"></div>
+                        <div class="phone-screen">
+                            <!-- Call Log Header -->
+                            <div
+                                style="font-size: 32px; font-weight: 800; font-family: 'Space Grotesk'; margin-bottom: 20px;">
+                                Call History</div>
+
+                            <!-- Valid Call -->
+                            <div class="notification-card" style="padding: 20px; margin-bottom: 20px;">
+                                <div class="icon-box" style="width: 50px; height: 50px; font-size: 24px;">👤</div>
+                                <div class="notif-content">
+                                    <h3 style="font-size: 20px;">Sarah Johnson</h3>
+                                    <p style="font-size: 16px;">Incoming Call • 10:30 AM</p>
+                                    <div class="status-badge"
+                                        style="font-size: 14px; padding: 4px 12px; margin-top: 8px;">Transferred</div>
+                                </div>
+                            </div>
+
+                            <!-- Spam Call -->
+                            <div class="notification-card spam-alert" style="padding: 20px; margin-bottom: 20px;">
+                                <div class="icon-box" style="width: 50px; height: 50px; font-size: 24px;">🚫</div>
+                                <div class="notif-content">
+                                    <h3 style="font-size: 20px; color: #991b1b;">Unknown Caller</h3>
+                                    <p style="font-size: 16px; color: #b91c1c;">Blocked Call • 11:15 AM</p>
+                                    <div class="status-badge spam-badge"
+                                        style="font-size: 14px; padding: 4px 12px; margin-top: 8px;">Spam Detected</div>
+                                </div>
+                            </div>
+
+                            <!-- Spam Call 2 -->
+                            <div class="notification-card spam-alert" style="padding: 20px;">
+                                <div class="icon-box" style="width: 50px; height: 50px; font-size: 24px;">🤖</div>
+                                <div class="notif-content">
+                                    <h3 style="font-size: 20px; color: #991b1b;">Telemarketer</h3>
+                                    <p style="font-size: 16px; color: #b91c1c;">Blocked Call • 11:45 AM</p>
+                                    <div class="status-badge spam-badge"
+                                        style="font-size: 14px; padding: 4px 12px; margin-top: 8px;">Spam Detected</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <div class="brand-logo">Flynn.ai</div>
+                    <div class="brand-url">@flynn.ai</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 5: CTA / App Store -->
+        <div class="screenshot-wrapper">
+            <div class="screenshot" id="slide5">
+                <div class="grid-bg"></div>
+                <div class="step-indicator">05</div>
+                <div class="slide-header">
+                    <div class="slide-title">Get Started <br><span class="highlight">Today</span></div>
+                </div>
+                <div class="content-area">
+                    <div class="app-icon-large" style="background: none; border: none; box-shadow: none;">
+                        <img src="icon.png"
+                            style="width: 100%; height: 100%; border-radius: 40px; border: 6px solid var(--black); box-shadow: 12px 12px 0px 0px var(--black);">
+                    </div>
+
+                    <div class="download-btn">
+                        <span style="font-size: 40px;"></span>
+                        <span>App Store</span>
+                    </div>
+
+                    <div class="download-btn" style="background: white; color: black; border: 4px solid black;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="40" height="40"
+                            style="margin-right: 0;">
+                            <path fill="#2196f3"
+                                d="M74.4 68.5L32.2 26.3C27.5 31.7 24.9 38.6 24.9 46.1v419.8c0 7.5 2.6 14.4 7.3 19.8l42.2-42.2 144.3-144.3-144.3-230.7z" />
+                            <path fill="#4caf50"
+                                d="M381.5 352.1l-66.6-66.6-40.6 40.6 107.2 107.2c6.2 3.6 13.5 3.6 19.7 0l82.7-47.8-102.4-33.4z" />
+                            <path fill="#f44336"
+                                d="M314.9 159.9l66.6-66.6 102.4-33.4-82.7-47.8c-6.2-3.6-13.5-3.6-19.7 0L274.3 119.3l40.6 40.6z" />
+                            <path fill="#ffeb3b"
+                                d="M483.9 227.1c11.5 6.6 11.5 17.5 0 24.1l-102.4 59.1-66.6-66.6 66.6-66.6 102.4 59.1z" />
+                        </svg>
+                        <span>Google Play</span>
+                    </div>
+
+                    <div style="margin-top: 40px; text-align: center;">
+                        <div style="font-size: 24px; font-weight: 600; color: #666;">Try it free for 7 days.</div>
+                        <div style="font-size: 24px; font-weight: 600; color: #666; margin-top: 10px;">No credit card
+                            required.</div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <div class="brand-logo">Flynn.ai</div>
+                    <div class="brand-url">Link in Bio</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        async function downloadAll() {
+            const zip = new JSZip();
+            const slides = ['slide1', 'slide2', 'slide3', 'slide4', 'slide5'];
+
+            for (let i = 0; i < slides.length; i++) {
+                const element = document.getElementById(slides[i]);
+                const canvas = await html2canvas(element, {
+                    scale: 2, // High res
+                    useCORS: true,
+                    backgroundColor: null
+                });
+
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                zip.file(`flynn_insta_slide_${i + 1}.png`, blob);
+            }
+
+            const content = await zip.generateAsync({ type: "blob" });
+            saveAs(content, "flynn_instagram_post.zip");
+        }
+    </script>
+</body>
+
+</html>
