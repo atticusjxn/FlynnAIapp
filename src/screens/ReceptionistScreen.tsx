@@ -103,47 +103,6 @@ const matchTemplateId = (questions: string[]): string => {
   return match?.id ?? 'custom';
 };
 
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-const pickRandom = <T,>(items: T[], fallback: T): T => {
-  if (!items || items.length === 0) {
-    return fallback;
-  }
-  return items[Math.floor(Math.random() * items.length)] ?? fallback;
-};
-
-const TEST_CALL_KEYWORD_RESPONSES: Array<{ keywords: string[]; answer: string }> = [
-  { keywords: ['when', 'date', 'time', 'schedule', 'day'], answer: 'We’re hoping for Saturday 24 August, but we can be flexible by a day if needed.' },
-  { keywords: ['where', 'address', 'location', 'venue'], answer: 'It’s at our space in Southbank, Melbourne.' },
-  { keywords: ['guest', 'people', 'attendee', 'party size'], answer: 'We’re expecting around 80 guests with a handful of VIPs.' },
-  { keywords: ['budget', 'cost', 'price'], answer: 'We’re aiming to keep the budget around $7,500.' },
-  { keywords: ['contact', 'email', 'phone', 'reach'], answer: 'Reach me at jess@example.com or 555-0134.' },
-];
-
-const TEST_CALL_FALLBACK_RESPONSES = [
-  'We need help coordinating a launch event with catering and live music.',
-  'It’s happening next month in the CBD.',
-  'We’ll have about 60 attendees and a few VIP guests.',
-  'Please keep everything polished but relaxed.',
-  'You can text or email me the recap so I can confirm with my team.',
-];
-const CALLER_OPENING_LINES = [
-  'Hi, I’m checking if you have availability for an upcoming event.',
-  'Hello! I was referred to you and wanted to see how Flynn Concierge works.',
-  'Hi there, we’re planning something special and need a reliable receptionist.',
-];
-
-const CALLER_CLOSING_LINES = [
-  'That sounds perfect, thanks Flynn!',
-  'Appreciate the help—chat soon!',
-  'Great, I’ll look out for your summary. Thanks again!',
-];
-
-interface TestCallStep {
-  role: 'concierge' | 'caller';
-  text: string;
-  delayMs?: number;
-}
 
 export const ReceptionistScreen: React.FC = () => {
   const { user } = useAuth();
@@ -199,14 +158,6 @@ export const ReceptionistScreen: React.FC = () => {
       : ['Got it!', 'Perfect, thanks!', 'Understood.', 'Great, let me note that.']
   );
   const [newAckPhrase, setNewAckPhrase] = useState('');
-  const [testCallModalVisible, setTestCallModalVisible] = useState(false);
-  const [testCallSteps, setTestCallSteps] = useState<TestCallStep[]>([]);
-  const [activeTestCallIndex, setActiveTestCallIndex] = useState(-1);
-  const [isTestCallRunning, setIsTestCallRunning] = useState(false);
-  const testCallSoundRef = useRef<Audio.Sound | null>(null);
-  const testCallAudioUriRef = useRef<string | null>(null);
-  const testCallCancelledRef = useRef(false);
-  const testCallScrollRef = useRef<ScrollView | null>(null);
   const businessName = (user?.user_metadata?.business_name as string | undefined)?.trim();
 
   const clearFlynnLoopTimer = useCallback(() => {
@@ -233,37 +184,11 @@ export const ReceptionistScreen: React.FC = () => {
     animateFlynnScale(1);
   }, [animateFlynnScale, clearFlynnLoopTimer]);
 
-  const stopTestCallAudio = useCallback(async () => {
-    if (testCallSoundRef.current) {
-      try {
-        await testCallSoundRef.current.stopAsync();
-      } catch (_) {
-        // ignore
-      }
-      await testCallSoundRef.current.unloadAsync().catch(() => { });
-      testCallSoundRef.current = null;
-    }
-    if (testCallAudioUriRef.current) {
-      await FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => { });
-      testCallAudioUriRef.current = null;
-    }
-    stopFlynnAnimation();
-  }, [stopFlynnAnimation]);
 
   useEffect(() => {
     refreshVoiceProfiles();
   }, []);
 
-  useEffect(() => {
-    if (activeTestCallIndex < 0 || !testCallScrollRef.current?.scrollTo) {
-      return;
-    }
-    const averageRowHeight = 96;
-    testCallScrollRef.current.scrollTo({
-      y: Math.max(0, activeTestCallIndex * averageRowHeight - 40),
-      animated: true,
-    });
-  }, [activeTestCallIndex]);
 
   useEffect(() => {
     return () => {
@@ -286,78 +211,9 @@ export const ReceptionistScreen: React.FC = () => {
         clearTimeout(toastTimerRef.current);
         toastTimerRef.current = null;
       }
-      if (testCallSoundRef.current) {
-        testCallSoundRef.current.unloadAsync().catch(() => { });
-        testCallSoundRef.current = null;
-      }
-      if (testCallAudioUriRef.current) {
-        FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => { });
-        testCallAudioUriRef.current = null;
-      }
-      testCallCancelledRef.current = true;
     };
   }, [flynnScale]);
 
-  const generateCallerAnswer = useCallback((question: string, index: number) => {
-    if (!question) {
-      return TEST_CALL_FALLBACK_RESPONSES[index % TEST_CALL_FALLBACK_RESPONSES.length];
-    }
-    const normalized = question.toLowerCase();
-    const keywordResponse = TEST_CALL_KEYWORD_RESPONSES.find(entry =>
-      entry.keywords.some(keyword => normalized.includes(keyword))
-    );
-    if (keywordResponse) {
-      return keywordResponse.answer;
-    }
-    return TEST_CALL_FALLBACK_RESPONSES[index % TEST_CALL_FALLBACK_RESPONSES.length];
-  }, []);
-
-  const buildTestCallScript = useCallback((): TestCallStep[] => {
-    const script: TestCallStep[] = [];
-    const greetingText = (greeting || defaultGreeting || 'Hello!').trim();
-    const ackPhrase = pickRandom(
-      ackLibrary.length > 0 ? ackLibrary : ['Great!', 'Perfect, thanks!'],
-      'Great!'
-    );
-    const orgDescriptor = onboardingData.businessType
-      ? onboardingData.businessType.replace(/_/g, ' ')
-      : 'events';
-    const callerOpening = pickRandom(CALLER_OPENING_LINES, CALLER_OPENING_LINES[0]);
-    const callerClosing = pickRandom(CALLER_CLOSING_LINES, CALLER_CLOSING_LINES[0]);
-
-    script.push({ role: 'concierge', text: greetingText });
-    script.push({ role: 'caller', text: `${callerOpening} We’re planning a ${orgDescriptor} project.`, delayMs: 1600 });
-
-    followUpQuestions
-      .map(question => question?.trim())
-      .filter((question): question is string => Boolean(question))
-      .forEach((question, index) => {
-        script.push({ role: 'concierge', text: question });
-        script.push({
-          role: 'caller',
-          text: generateCallerAnswer(question, index),
-          delayMs: 1700,
-        });
-      });
-
-    const teamName = businessName || 'your team';
-    script.push({
-      role: 'concierge',
-      text: `${ackPhrase} I’ll send a summary once I brief ${teamName}. Anything else you’d like me to capture?`,
-    });
-    script.push({ role: 'caller', text: callerClosing, delayMs: 1500 });
-    script.push({ role: 'concierge', text: 'Wonderful. Chat soon!' });
-
-    return script;
-  }, [
-    ackLibrary,
-    businessName,
-    defaultGreeting,
-    followUpQuestions,
-    generateCallerAnswer,
-    greeting,
-    onboardingData.businessType,
-  ]);
 
   useEffect(() => {
     if (onboardingData.receptionistVoice) {
@@ -833,161 +689,6 @@ export const ReceptionistScreen: React.FC = () => {
     stopPreview,
   ]);
 
-  const playTestCallAudio = useCallback(async (text: string) => {
-    if (!text?.trim()) {
-      await wait(800);
-      return;
-    }
-
-    if (selectedVoice === 'custom_voice' && customVoiceProfile?.status !== 'ready') {
-      throw new Error('Custom voice not ready');
-    }
-
-    await stopTestCallAudio();
-
-    const voiceProfileId = selectedVoice === 'custom_voice'
-      ? (customVoiceProfile?.id ?? activeVoiceProfileId ?? undefined)
-      : undefined;
-
-    const preview = await ReceptionistService.previewGreeting(text, selectedVoice, voiceProfileId);
-
-    if (testCallAudioUriRef.current) {
-      await FileSystem.deleteAsync(testCallAudioUriRef.current, { idempotent: true }).catch(() => { });
-      testCallAudioUriRef.current = null;
-    }
-
-    const extension = preview.contentType.includes('wav')
-      ? 'wav'
-      : preview.contentType.includes('ogg')
-        ? 'ogg'
-        : 'mp3';
-    const base64Encoding = (FileSystem as any).EncodingType?.Base64 ?? 'base64';
-    const fileUri = `${FileSystem.cacheDirectory}receptionist-test-${Date.now()}.${extension}`;
-    await FileSystem.writeAsStringAsync(fileUri, preview.audio, { encoding: base64Encoding });
-    testCallAudioUriRef.current = fileUri;
-
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-      interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
-    });
-
-    const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
-    testCallSoundRef.current = sound;
-
-    const status = await sound.getStatusAsync();
-    const durationMillis = status.isLoaded ? status.durationMillis ?? undefined : undefined;
-    startFlynnAnimationLoop(durationMillis);
-
-    await new Promise<void>((resolve, reject) => {
-      sound.setOnPlaybackStatusUpdate((playbackStatus) => {
-        if (!playbackStatus.isLoaded) {
-          if (playbackStatus.error) {
-            reject(new Error(playbackStatus.error));
-          }
-          return;
-        }
-
-        if (testCallCancelledRef.current) {
-          sound.setOnPlaybackStatusUpdate(null);
-          resolve();
-          return;
-        }
-
-        if (playbackStatus.didJustFinish) {
-          sound.setOnPlaybackStatusUpdate(null);
-          resolve();
-        }
-      });
-
-      sound.playAsync().catch((error) => {
-        sound.setOnPlaybackStatusUpdate(null);
-        reject(error);
-      });
-    });
-  }, [
-    activeVoiceProfileId,
-    customVoiceProfile,
-    selectedVoice,
-    startFlynnAnimationLoop,
-    stopTestCallAudio,
-  ]);
-
-  const handleCloseTestCallModal = useCallback(() => {
-    testCallCancelledRef.current = true;
-    setTestCallModalVisible(false);
-    setIsTestCallRunning(false);
-    setActiveTestCallIndex(-1);
-    stopTestCallAudio().catch(() => { });
-  }, [stopTestCallAudio]);
-
-  const handleStartTestCall = useCallback(async () => {
-    if (isTestCallRunning) {
-      return;
-    }
-
-    if (!isApiConfigured()) {
-      Alert.alert(
-        'Test call unavailable',
-        'Connect the API base URL to enable Flynn test calls. This Beta feature stays hidden until configured.'
-      );
-      return;
-    }
-
-    if (selectedVoice === 'custom_voice' && customVoiceProfile?.status !== 'ready') {
-      Alert.alert('Voice not ready', 'Finish cloning your custom voice before running a test call.');
-      return;
-    }
-
-    await stopPreview();
-    const script = buildTestCallScript();
-
-    if (script.length === 0) {
-      Alert.alert('Add greeting', 'Configure a greeting or questions before running a test call.');
-      return;
-    }
-
-    setTestCallSteps(script);
-    setTestCallModalVisible(true);
-    setActiveTestCallIndex(-1);
-    setIsTestCallRunning(true);
-    testCallCancelledRef.current = false;
-
-    try {
-      for (let i = 0; i < script.length; i += 1) {
-        if (testCallCancelledRef.current) {
-          break;
-        }
-
-        setActiveTestCallIndex(i);
-        const step = script[i];
-
-        if (step.role === 'concierge') {
-          await playTestCallAudio(step.text);
-        } else {
-          await wait(step.delayMs ?? 1800);
-        }
-      }
-    } catch (error) {
-      console.error('[ReceptionistScreen] Test call simulation failed', error);
-      Alert.alert('Test call', error instanceof Error ? error.message : 'Simulation interrupted.');
-    } finally {
-      setIsTestCallRunning(false);
-      stopTestCallAudio().catch(() => { });
-    }
-  }, [
-    buildTestCallScript,
-    customVoiceProfile,
-    isTestCallRunning,
-    playTestCallAudio,
-    selectedVoice,
-    stopPreview,
-    stopTestCallAudio,
-  ]);
 
   return (
     <View style={styles.screen}>
@@ -1378,14 +1079,6 @@ export const ReceptionistScreen: React.FC = () => {
           uploading={isUploadingSample}
         />
 
-        <TestCallModal
-          visible={testCallModalVisible}
-          steps={testCallSteps}
-          activeIndex={activeTestCallIndex}
-          running={isTestCallRunning}
-          onClose={handleCloseTestCallModal}
-          scrollRef={testCallScrollRef}
-        />
       </ScrollView>
 
       {toastState && (
@@ -1434,15 +1127,6 @@ interface RecordVoiceModalProps {
   onDismiss: () => void;
 }
 
-interface TestCallModalProps {
-  visible: boolean;
-  steps: TestCallStep[];
-  activeIndex: number;
-  running: boolean;
-  onClose: () => void;
-  scrollRef: React.RefObject<ScrollView | null>;
-}
-
 const RecordVoiceModal: React.FC<RecordVoiceModalProps> = ({
   visible,
   isRecording,
@@ -1489,59 +1173,6 @@ const RecordVoiceModal: React.FC<RecordVoiceModalProps> = ({
   );
 };
 
-const TestCallModal: React.FC<TestCallModalProps> = ({
-  visible,
-  steps,
-  activeIndex,
-  running,
-  onClose,
-  scrollRef,
-}) => (
-  <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-    <View style={modalStyles.overlay}>
-      <View style={modalStyles.testCallCard}>
-        <View style={modalStyles.testCallHeader}>
-          <Text style={modalStyles.title}>Flynn concierge test call</Text>
-          <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
-            <FlynnIcon name="close" size={18} color="#0f172a" />
-          </TouchableOpacity>
-        </View>
-        <Text style={modalStyles.testCallDescription}>
-          {running
-            ? 'Flynn is playing your script with realistic caller replies. Sit back and listen!'
-            : 'Review the simulated call below. Update your script and run it again any time.'}
-        </Text>
-        <ScrollView
-          ref={scrollRef}
-          style={modalStyles.testCallScroll}
-          contentContainerStyle={modalStyles.testCallContent}
-        >
-          {steps.map((step, index) => (
-            <View
-              key={`${index}-${step.role}`}
-              style={[
-                modalStyles.chatRow,
-                step.role === 'concierge'
-                  ? modalStyles.conciergeChatRow
-                  : modalStyles.callerChatRow,
-                activeIndex === index && modalStyles.chatRowActive,
-              ]}
-            >
-              <Text style={modalStyles.chatRole}>{step.role === 'concierge' ? 'Flynn' : 'Caller'}</Text>
-              <Text style={modalStyles.chatText}>{step.text}</Text>
-            </View>
-          ))}
-        </ScrollView>
-        <FlynnButton
-          title={running ? 'Stop simulation' : 'Close'}
-          onPress={onClose}
-          variant={running ? 'danger' : 'secondary'}
-          fullWidth
-        />
-      </View>
-    </View>
-  </Modal>
-);
 
 const styles = StyleSheet.create({
   screen: {
@@ -2008,69 +1639,6 @@ const modalStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     justifyContent: 'space-between',
-  },
-  testCallCard: {
-    width: '100%',
-    maxHeight: '85%',
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
-    borderWidth: 2,
-    borderColor: colors.black,
-    ...shadows.lg,
-  },
-  testCallHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  closeButton: {
-    padding: spacing.xs,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.gray100,
-    borderWidth: 1,
-    borderColor: colors.black,
-  },
-  testCallDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  testCallScroll: {
-    flex: 1,
-  },
-  testCallContent: {
-    gap: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  chatRow: {
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 2,
-    borderColor: colors.black,
-    ...shadows.xs,
-  },
-  conciergeChatRow: {
-    backgroundColor: colors.primaryLight,
-  },
-  callerChatRow: {
-    backgroundColor: colors.white,
-  },
-  chatRowActive: {
-    borderColor: colors.primary,
-    ...shadows.sm,
-  },
-  chatRole: {
-    ...typography.caption,
-    color: colors.textPrimary,
-    marginBottom: spacing.xxxs,
-    textTransform: 'uppercase',
-    fontWeight: '700',
-  },
-  chatText: {
-    ...typography.bodyMedium,
-    color: colors.textPrimary,
-    lineHeight: 20,
   },
 });
 

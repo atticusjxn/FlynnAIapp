@@ -35,7 +35,8 @@ android/.gradle
 build/
 
 # Screenshots and media (LARGE!)
-screenshots
+screenshots/
+screenshots_generator/
 
 # Ruby/Fastlane
 .bundle
@@ -45,25 +46,42 @@ Gemfile.local.lock
 
 # Logs
 *.log
-logs
+logs/
 
 # Backend server files (not needed for mobile build)
 server.js
 supabaseMcpClient.js
 llmClient.js
-telephony
+telephony/
 services/websiteScraper.js
 services/businessProfileGenerator.js
-notifications
-middleware
+notifications/
+middleware/
+
+# Landing page (not needed for mobile)
+flynn-landing/
+flynnai-lookup/
+flynn-ai-new-landingpage/
 
 # Supabase
 supabase/.temp
 
-# Documentation
-docs
+# Documentation (large files)
+docs/
 *.md
 !README.md
+
+# Database migrations (not needed for build)
+supabase/migrations/
+supabase/functions/
+
+# Large asset files
+assets/**/*.gif
+!assets/images/flynn3s.gif
+!assets/images/icon.png
+!assets/images/adaptive-icon.png
+!assets/images/splash-icon.png
+!assets/images/favicon.png
 
 # Test files
 __tests__
