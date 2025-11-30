@@ -3,150 +3,383 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
-  Image,
-  Dimensions,
+  SafeAreaView,
+  TouchableOpacity,
+  Linking,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useAuth } from '../context/AuthContext';
 import { FlynnButton, FlynnInput, colors, typography, spacing, shadows, borderRadius } from '../components/ui';
-import { LoginCarousel } from '../components/LoginCarousel';
+import { Mail, Sparkles, KeyRound, ArrowLeft } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 
-const { height } = Dimensions.get('window');
+// Simple Google Logo SVG
+const GoogleIcon = () => (
+  <Svg width={20} height={20} viewBox="0 0 24 24">
+    <Path
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      fill="#4285F4"
+    />
+    <Path
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      fill="#34A853"
+    />
+    <Path
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      fill="#FBBC05"
+    />
+    <Path
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      fill="#EA4335"
+    />
+  </Svg>
+);
+
+type AuthMode = 'landing' | 'email_code' | 'email_password' | 'signup';
 
 export const LoginScreen = () => {
+  const { signIn, signUp } = useAuth();
+  const [mode, setMode] = useState<AuthMode>('landing');
+
+  // Form States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [businessName, setBusinessName] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async () => {
+  // Handlers
+  const handleGoogleLogin = () => console.log('Google Login'); // TODO: Implement
+
+  const handleEmailCodeSubmit = async () => {
+    setLoading(true);
+    // TODO: Implement send code logic
+    setTimeout(() => {
+      setLoading(false);
+      console.log('Code sent to', email);
+    }, 1000);
+  };
+
+  const handleEmailPasswordSubmit = async () => {
+    setLoading(true);
     try {
-      if (isSignUp) {
-        await signUp(email, password, businessName);
-      } else {
-        await signIn(email, password);
-      }
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+      await signIn(email, password);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Top Section: Carousel */}
-      <View style={styles.carouselContainer}>
-        <LoginCarousel />
-      </View>
+  const handleSignUpSubmit = async () => {
+    setLoading(true);
+    try {
+      await signUp(email, password, businessName);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      {/* Bottom Section: Login Form */}
-      <KeyboardAwareScrollView
-        style={styles.formSection}
-        contentContainerStyle={styles.scrollContent}
-        extraScrollHeight={24}
-        enableOnAndroid
-        keyboardShouldPersistTaps="handled"
-        bounces={false}
-      >
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>FlynnAI</Text>
-          <Text style={styles.subtitle}>
-            {isSignUp ? 'Create your account' : 'Welcome back'}
-          </Text>
-
-          {isSignUp && (
-            <FlynnInput
-              placeholder="Business Name"
-              value={businessName}
-              onChangeText={setBusinessName}
-              autoCapitalize="words"
-            />
-          )}
-
-          <FlynnInput
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            autoComplete="email"
-          />
-
-          <FlynnInput
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-
-          <FlynnButton
-            title={isSignUp ? 'Sign Up' : 'Sign In'}
-            onPress={handleSubmit}
-            variant="primary"
-            fullWidth
-            style={styles.submitButton}
-          />
-
-          <FlynnButton
-            title={
-              isSignUp
-                ? 'Already have an account? Sign In'
-                : "Don't have an account? Sign Up"
-            }
-            onPress={() => setIsSignUp(!isSignUp)}
-            variant="ghost"
-            style={styles.switchButton}
-          />
-        </View>
-      </KeyboardAwareScrollView>
+  const renderHeader = (title: string, subtitle?: string) => (
+    <View style={styles.header}>
+      {mode !== 'landing' && (
+        <TouchableOpacity onPress={() => setMode('landing')} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.black} />
+        </TouchableOpacity>
+      )}
+      <Text style={styles.title}>{title}</Text>
+      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
     </View>
+  );
+
+  const renderLanding = () => (
+    <>
+      {renderHeader('Flynn.ai', 'The phone system\nfor better customer\nservice')}
+      <View style={styles.actions}>
+        <FlynnButton
+          title="Continue with Google"
+          onPress={handleGoogleLogin}
+          variant="secondary"
+          icon={<GoogleIcon />}
+          iconPosition="left"
+          style={styles.actionButton}
+          textStyle={styles.actionButtonText}
+          fullWidth
+        />
+        <View style={styles.divider}>
+          <Text style={styles.dividerText}>Or log in with your email</Text>
+        </View>
+        <FlynnButton
+          title="Email code"
+          onPress={() => setMode('email_code')}
+          variant="secondary"
+          icon={<Sparkles size={20} color={colors.warning} />}
+          iconPosition="left"
+          style={styles.actionButton}
+          textStyle={styles.actionButtonText}
+          fullWidth
+        />
+        <FlynnButton
+          title="Email & password"
+          onPress={() => setMode('email_password')}
+          variant="secondary"
+          icon={<Mail size={20} color={colors.primary} />}
+          iconPosition="left"
+          style={styles.actionButton}
+          textStyle={styles.actionButtonText}
+          fullWidth
+        />
+        <View style={styles.footerLinks}>
+          <Text style={styles.footerText}>Don't have an account yet?</Text>
+          <TouchableOpacity onPress={() => setMode('signup')}>
+            <Text style={styles.linkText}>Sign up</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </>
+  );
+
+  const renderEmailCode = () => (
+    <>
+      {renderHeader('Log in with code')}
+      <View style={styles.formContainer}>
+        <FlynnInput
+          label="Email address"
+          placeholder="name@company.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        {/* Placeholder for Code Input if step 2 */}
+        <FlynnButton
+          title="Send Login Code"
+          onPress={handleEmailCodeSubmit}
+          loading={loading}
+          fullWidth
+          style={styles.submitButton}
+        />
+      </View>
+    </>
+  );
+
+  const renderEmailPassword = () => (
+    <>
+      {renderHeader('Log in')}
+      <View style={styles.formContainer}>
+        <FlynnInput
+          label="Email address"
+          placeholder="name@company.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <FlynnInput
+          label="Password"
+          placeholder="Enter your password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+        <FlynnButton
+          title="Log In"
+          onPress={handleEmailPasswordSubmit}
+          loading={loading}
+          fullWidth
+          style={styles.submitButton}
+        />
+        <TouchableOpacity style={styles.forgotPassword}>
+          <Text style={styles.linkText}>Forgot password?</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
+  const renderSignUp = () => (
+    <>
+      {renderHeader('Create Account')}
+      <View style={styles.formContainer}>
+        <FlynnInput
+          label="Business Name"
+          placeholder="Acme Corp"
+          value={businessName}
+          onChangeText={setBusinessName}
+        />
+        <FlynnInput
+          label="Email address"
+          placeholder="name@company.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <FlynnInput
+          label="Password"
+          placeholder="Create a password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+        <FlynnButton
+          title="Sign Up"
+          onPress={handleSignUpSubmit}
+          loading={loading}
+          fullWidth
+          style={styles.submitButton}
+        />
+      </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.content}>
+            {mode === 'landing' && renderLanding()}
+            {mode === 'email_code' && renderEmailCode()}
+            {mode === 'email_password' && renderEmailPassword()}
+            {mode === 'signup' && renderSignUp()}
+
+            {/* Footer Terms - Always visible or only on landing? Quo shows it on landing. */}
+            {mode === 'landing' && (
+              <View style={styles.footer}>
+                <Text style={styles.termsText}>
+                  By continuing, you acknowledge and accept our{'\n'}
+                  <Text style={styles.termsLink} onPress={() => Linking.openURL('https://flynn.ai/terms')}>Terms of Service</Text>
+                  {' and '}
+                  <Text style={styles.termsLink} onPress={() => Linking.openURL('https://flynn.ai/privacy')}>Privacy Policy</Text>.
+                </Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  carouselContainer: {
-    height: height * 0.45, // Top 45%
     backgroundColor: colors.white,
   },
-  formSection: {
+  keyboardView: {
     flex: 1,
-    backgroundColor: colors.background,
-    borderTopWidth: 2,
-    borderTopColor: colors.black,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingVertical: spacing.xl,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xxl,
+    minHeight: 600, // Ensure minimum height for layout
+  },
+  header: {
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    marginBottom: spacing.xl,
+    position: 'relative',
+    width: '100%',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    padding: spacing.sm,
+    zIndex: 10,
+  },
+  title: {
+    ...typography.displayMedium,
+    color: colors.black,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  subtitle: {
+    ...typography.h2,
+    color: colors.black,
+    textAlign: 'center',
+    lineHeight: 32,
+  },
+  actions: {
+    width: '100%',
+    gap: spacing.md,
+    flex: 1,
+    justifyContent: 'center',
   },
   formContainer: {
     width: '100%',
-    maxWidth: 420,
-    alignSelf: 'center',
-    paddingHorizontal: spacing.xl,
+    gap: spacing.lg,
+    flex: 1,
   },
-  title: {
-    ...typography.displayLarge,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
+  actionButton: {
+    backgroundColor: colors.white,
+    // Re-applying theme styles to match "Brutalist" but "High Quality":
+    borderColor: colors.black,
+    borderWidth: 2,
+    ...shadows.sm,
+    justifyContent: 'flex-start',
+    paddingHorizontal: spacing.lg,
   },
-  subtitle: {
-    ...typography.bodyLarge,
-    color: colors.textSecondary,
+  actionButtonText: {
+    flex: 1,
     textAlign: 'center',
-    marginBottom: spacing.xl,
+    color: colors.black,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 16,
+  },
+  divider: {
+    alignItems: 'center',
+    marginVertical: spacing.sm,
+  },
+  dividerText: {
+    ...typography.bodyMedium,
+    color: colors.gray500,
+  },
+  footerLinks: {
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    gap: spacing.xs,
+  },
+  footerText: {
+    ...typography.bodyMedium,
+    color: colors.gray600,
+  },
+  linkText: {
+    ...typography.bodyMedium,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  footer: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    marginTop: 'auto',
+  },
+  termsText: {
+    ...typography.caption,
+    color: colors.gray400,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  termsLink: {
+    textDecorationLine: 'underline',
+    color: colors.gray500,
   },
   submitButton: {
     marginTop: spacing.md,
   },
-  switchButton: {
-    marginTop: spacing.lg,
+  forgotPassword: {
+    alignItems: 'center',
+    marginTop: spacing.md,
   },
 });

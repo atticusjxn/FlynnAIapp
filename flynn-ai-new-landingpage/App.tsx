@@ -8,61 +8,51 @@ import Footer from './components/Footer';
 import StoreButtons from './components/StoreButtons';
 import { ArrowRight, Star, PlayCircle, RefreshCcw, Loader } from 'lucide-react';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
-import { generateClientImage } from './services/geminiService';
+import plumberImg from './assets/plumber.png';
 
 const ClientGenerator = () => {
-  const [image, setImage] = useState<string | null>(null);
+  const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [profession, setProfession] = useState('Plumber');
 
-  const handleGenerate = async () => {
-    setLoading(true);
-    const professions = ['Electrician', 'Florist', 'Carpenter', 'Baker', 'Mechanic', 'Landscaper', 'Barber', 'Chef'];
-    const randomProf = professions[Math.floor(Math.random() * professions.length)];
-    setProfession(randomProf);
+  const clients = [
+    { profession: 'Plumber', image: plumberImg },
+    { profession: 'Electrician', image: plumberImg }, // Placeholder using same image for now
+    { profession: 'Florist', image: plumberImg },     // Placeholder
+  ];
 
-    const imgUrl = await generateClientImage(randomProf);
-    if (imgUrl) setImage(imgUrl);
-    setLoading(false);
-  };
-
-  // Generate one on mount if possible, but let's rely on user interaction to save resources initially
-  // or trigger one automatically once to show off.
   useEffect(() => {
-    // Initial generation for effect
-    handleGenerate();
+    const interval = setInterval(() => {
+      setLoading(true);
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % clients.length);
+        setLoading(false);
+      }, 800); // Transition time
+    }, 4000); // Change every 4 seconds
+
+    return () => clearInterval(interval);
   }, []);
+
+  const currentClient = clients[index];
 
   return (
     <div className="relative w-full max-w-md aspect-[4/5] bg-white border-[6px] border-black shadow-[12px_12px_0px_0px_#000000] overflow-hidden group">
-      {loading ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-surface-100">
-          <div className="flex flex-col items-center gap-4">
-            <Loader className="animate-spin text-brand-500 w-10 h-10" />
-            <span className="font-display font-bold uppercase tracking-widest text-sm">Visualizing {profession}...</span>
-          </div>
-        </div>
-      ) : image ? (
-        <img src={image} alt="Generated Client" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
-      ) : (
-        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-          <span className="text-gray-400">AI Generation Ready</span>
-        </div>
-      )}
+      <div className={`w-full h-full transition-opacity duration-700 ${loading ? 'opacity-50 blur-sm' : 'opacity-100 blur-0'}`}>
+        <img
+          src={currentClient.image}
+          alt={`The Happy ${currentClient.profession}`}
+          className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+        />
+      </div>
 
       <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
         <div className="flex justify-between items-end">
           <div>
-            <p className="text-white/60 text-xs font-mono uppercase mb-1">Generated with Gemini 2.5 Flash Image</p>
-            <p className="text-white font-display font-bold text-xl">The Happy {profession}</p>
+            <p className="text-white/60 text-xs font-mono uppercase mb-1">Flynn Community</p>
+            <p className="text-white font-display font-bold text-xl">The Happy {currentClient.profession}</p>
           </div>
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="bg-brand-500 text-white p-3 rounded-full hover:scale-110 transition-transform disabled:opacity-50"
-          >
+          <div className="bg-brand-500 text-white p-3 rounded-full">
             <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
-          </button>
+          </div>
         </div>
       </div>
     </div>
