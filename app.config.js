@@ -11,7 +11,7 @@ export default {
     ],
     name: "FlynnAI",
     slug: "FlynnAI",
-    version: "1.1.1",
+    version: "1.1.2",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     userInterfaceStyle: "light",
@@ -30,7 +30,7 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.flynnai.app",
       deploymentTarget: "13.4",
-      buildNumber: "19",
+      buildNumber: "20",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSCameraUsageDescription: "FlynnAI uses the camera to capture screenshots of job details, quotes, and work orders. This helps automatically extract information and create calendar events for your business.",
@@ -40,7 +40,7 @@ export default {
       }
     },
     android: {
-      versionCode: 19,
+      versionCode: 20,
       permissions: [
         "RECORD_AUDIO",
         "READ_PHONE_STATE",

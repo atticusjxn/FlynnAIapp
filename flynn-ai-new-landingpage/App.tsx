@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef } from 'react';
 import Navbar from './components/Navbar';
 import Features from './components/Features';
 import DemoChat from './components/DemoChat';
@@ -6,53 +6,25 @@ import Pricing from './components/Pricing';
 
 import Footer from './components/Footer';
 import StoreButtons from './components/StoreButtons';
-import { ArrowRight, Star, PlayCircle, RefreshCcw, Loader } from 'lucide-react';
+import { ArrowRight, Star, PlayCircle, Loader } from 'lucide-react';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import plumberImg from './assets/plumber.png';
 
 const ClientGenerator = () => {
-  const [index, setIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  const clients = [
-    { profession: 'Plumber', image: plumberImg },
-    { profession: 'Electrician', image: plumberImg }, // Placeholder using same image for now
-    { profession: 'Florist', image: plumberImg },     // Placeholder
-  ];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLoading(true);
-      setTimeout(() => {
-        setIndex((prev) => (prev + 1) % clients.length);
-        setLoading(false);
-      }, 800); // Transition time
-    }, 4000); // Change every 4 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const currentClient = clients[index];
-
   return (
     <div className="relative w-full max-w-md aspect-[4/5] bg-white border-[6px] border-black shadow-[12px_12px_0px_0px_#000000] overflow-hidden group">
-      <div className={`w-full h-full transition-opacity duration-700 ${loading ? 'opacity-50 blur-sm' : 'opacity-100 blur-0'}`}>
+      <div className="w-full h-full">
         <img
-          src={currentClient.image}
-          alt={`The Happy ${currentClient.profession}`}
+          src={plumberImg}
+          alt="The Happy Electrician"
           className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
         />
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-        <div className="flex justify-between items-end">
-          <div>
-            <p className="text-white/60 text-xs font-mono uppercase mb-1">Flynn Community</p>
-            <p className="text-white font-display font-bold text-xl">The Happy {currentClient.profession}</p>
-          </div>
-          <div className="bg-brand-500 text-white p-3 rounded-full">
-            <RefreshCcw size={20} className={loading ? "animate-spin" : ""} />
-          </div>
+        <div>
+          <p className="text-white/60 text-xs font-mono uppercase mb-1">Flynn Community</p>
+          <p className="text-white font-display font-bold text-xl">The Happy Electrician</p>
         </div>
       </div>
     </div>
