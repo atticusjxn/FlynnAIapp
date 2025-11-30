@@ -59,5 +59,6 @@ yarn-error.*
 
 # Deployment docs and scripts with secrets
 RAILWAY_DEPLOYMENT.md
+FLY_DEPLOYMENT.md
 deploy-secrets.sh
 deploy-multiline-secrets.sh
