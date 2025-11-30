@@ -21,28 +21,29 @@ const Footer: React.FC = () => {
           <div>
             <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Product</h4>
             <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><a href="#" className="hover:text-brand-500 transition-colors">Features</a></li>
-              <li><a href="#" className="hover:text-brand-500 transition-colors">Pricing</a></li>
-              <li><a href="#" className="hover:text-brand-500 transition-colors">Case Studies</a></li>
-              <li><a href="#" className="hover:text-brand-500 transition-colors">Live Demo</a></li>
+              <li><a href="#features" className="hover:text-brand-500 transition-colors">Features</a></li>
+              <li><a href="#pricing" className="hover:text-brand-500 transition-colors">Pricing</a></li>
+              <li><a href="#how-it-works" className="hover:text-brand-500 transition-colors">Workflow</a></li>
+              <li><a href="mailto:support@flynnai.app?subject=FlynnAI%20demo" className="hover:text-brand-500 transition-colors">Book a demo</a></li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Company</h4>
             <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><a href="#" className="hover:text-brand-500 transition-colors">About</a></li>
-              <li><a href="#" className="hover:text-brand-500 transition-colors">Blog</a></li>
-              <li><a href="#" className="hover:text-brand-500 transition-colors">Careers</a></li>
-              <li><a href="#" className="hover:text-brand-500 transition-colors">Contact</a></li>
+              <li><a href="mailto:support@flynnai.app" className="hover:text-brand-500 transition-colors">Contact</a></li>
+              <li><a href="mailto:support@flynnai.app?subject=Partnership" className="hover:text-brand-500 transition-colors">Partnerships</a></li>
+              <li><a href="https://apps.apple.com/tr/app/flynnai/id6752254950" className="hover:text-brand-500 transition-colors">iOS App</a></li>
+              <li><a href="https://play.google.com/store/apps/details?id=com.flynnai.app" className="hover:text-brand-500 transition-colors">Android App</a></li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Legal</h4>
             <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><a href="#" className="hover:text-brand-500 transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-brand-500 transition-colors">Terms of Service</a></li>
+              <li><a href="/privacy" className="hover:text-brand-500 transition-colors">Privacy Policy</a></li>
+              <li><a href="/delete-account" className="hover:text-brand-500 transition-colors">Account Deletion</a></li>
+              <li><a href="mailto:support@flynnai.app?subject=Security" className="hover:text-brand-500 transition-colors">Security</a></li>
             </ul>
           </div>
         </div>
