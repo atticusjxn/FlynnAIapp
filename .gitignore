@@ -19,6 +19,7 @@ out/
 
 # Ruby/Bundler
 vendor/bundle/
+ios/vendor/bundle/
 vendor/cache/
 .bundle/
 
