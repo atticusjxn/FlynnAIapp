@@ -16,9 +16,8 @@ const Navbar: React.FC = () => {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? 'bg-surface-100/80 backdrop-blur-xl border-b border-black/5 py-2' : 'bg-transparent py-6'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'bg-surface-100/80 backdrop-blur-xl border-b border-black/5 py-2' : 'bg-transparent py-6'
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
@@ -38,6 +37,7 @@ const Navbar: React.FC = () => {
               <a href="#features" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Features</a>
               <a href="#pricing" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Pricing</a>
               <a href="#how-it-works" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">How it Works</a>
+              <a href="/sites" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Websites (New)</a>
               <button className="bg-black text-white px-6 py-3 text-sm font-bold font-display uppercase hover:bg-brand-500 transition-all shadow-[4px_4px_0px_0px_rgba(100,100,100,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">
                 Get Started
               </button>
@@ -69,6 +69,7 @@ const Navbar: React.FC = () => {
               <a href="#features" className="text-black block text-3xl font-display font-bold hover:text-brand-500">Features</a>
               <a href="#how-it-works" className="text-black block text-3xl font-display font-bold hover:text-brand-500">How it Works</a>
               <a href="#pricing" className="text-black block text-3xl font-display font-bold hover:text-brand-500">Pricing</a>
+              <a href="/sites" className="text-black block text-3xl font-display font-bold hover:text-brand-500">Websites (New)</a>
               <button className="w-full text-center mt-8 bg-brand-500 text-white px-5 py-4 font-bold text-xl font-display uppercase">
                 Get Started
               </button>

@@ -405,13 +405,24 @@ const azurePresetVoices = {
 
 const resolveTtsProvider = () => {
   const explicit = (process.env.TTS_PROVIDER || '').trim().toLowerCase();
-  if (explicit) {
-    return explicit;
+  const hasAzure = Boolean(azureSpeechKey && (azureSpeechRegion || azureSpeechEndpoint));
+  const hasEleven = Boolean(elevenLabsApiKey);
+
+  if (!hasAzure && !hasEleven) {
+    return 'none';
   }
-  if (azureSpeechKey && azureSpeechRegion) {
+
+  if (explicit === 'azure' && hasAzure) {
     return 'azure';
   }
-  return elevenLabsApiKey ? 'elevenlabs' : 'none';
+  if (explicit === 'elevenlabs' && hasEleven) {
+    return 'elevenlabs';
+  }
+
+  // Default: prefer Azure when available, otherwise ElevenLabs
+  if (hasAzure) return 'azure';
+  if (hasEleven) return 'elevenlabs';
+  return 'none';
 };
 
 const ttsProvider = resolveTtsProvider();
@@ -699,6 +710,8 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
           callSid,
           transcriptText: transcript,
           llmClient,
+          userId,
+          orgId,
         });
       } else {
         console.warn('[Jobs] Skipping job creation; no LLM client configured.', { callSid });

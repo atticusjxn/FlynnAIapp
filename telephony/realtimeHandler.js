@@ -632,9 +632,9 @@ class RealtimeCallHandler extends EventEmitter {
         return response;
       });
 
-      // Wait 1000ms to see if we need to send an acknowledgment
+      // Wait briefly to see if we need to send an acknowledgment
       if (shouldAcknowledge) {
-        await sleep(1000);
+        await sleep(700);
 
         // If response still not ready after 1000ms, send short acknowledgment
         if (!responseReady) {
@@ -645,7 +645,7 @@ class RealtimeCallHandler extends EventEmitter {
             elapsed: Date.now() - startTime,
           });
           await this.enqueueSpeech(quickAck, { priority: false });
-          await sleep(100);
+          await sleep(50);
         } else {
           console.log('[Realtime] Response ready in <1000ms, skipping acknowledgment:', {
             callSid: this.callSid,
@@ -1386,21 +1386,12 @@ Format:
       this.sessionCache.set(this.callSid, this.session);
     }
 
-    // Extract job data from conversation if this is a test call or regular call
+    // Avoid sending custom events back to Twilio's media stream socket; it only accepts media/mark.
+    // Job extraction still runs and is persisted via onConversationComplete.
     if (this.userTranscript && this.userTranscript.length > 0) {
       try {
         const fullTranscript = this.userTranscript.join(' ');
-        const jobData = await this.extractJobFromTranscript(fullTranscript);
-
-        if (jobData && jobData.confidence > 0.5) {
-          // Send job extraction to client via WebSocket
-          if (this.ws && this.ws.readyState === this.ws.OPEN) {
-            this.ws.send(JSON.stringify({
-              event: 'job_extracted',
-              job: jobData,
-            }));
-          }
-        }
+        await this.extractJobFromTranscript(fullTranscript);
       } catch (error) {
         console.error('[Realtime] Failed to extract job data.', { callSid: this.callSid, error });
       }

@@ -105,7 +105,13 @@ Always respond with JSON containing customer_name, customer_phone, customer_emai
   };
 };
 
-const ensureJobForTranscript = async ({ callSid, transcriptText, llmClient }) => {
+const ensureJobForTranscript = async ({
+  callSid,
+  transcriptText,
+  llmClient,
+  userId: overrideUserId = null,
+  orgId: overrideOrgId = null,
+}) => {
   if (!callSid) {
     throw new Error('callSid is required to create a job.');
   }
@@ -125,9 +131,12 @@ const ensureJobForTranscript = async ({ callSid, transcriptText, llmClient }) =>
     throw error;
   });
 
+  const resolvedUserId = overrideUserId || callRecord?.user_id || null;
+  const resolvedOrgId = overrideOrgId || callRecord?.org_id || null;
+
   let userProfile = null;
-  if (callRecord?.user_id) {
-    userProfile = await getUserProfileById(callRecord.user_id).catch((error) => {
+  if (resolvedUserId) {
+    userProfile = await getUserProfileById(resolvedUserId).catch((error) => {
       console.warn('[Jobs] Failed to load user profile before job creation.', { userId: callRecord.user_id, error });
       return null;
     });
@@ -140,8 +149,8 @@ const ensureJobForTranscript = async ({ callSid, transcriptText, llmClient }) =>
   });
 
   const jobPayload = {
-    userId: callRecord?.user_id || null,
-    orgId: callRecord?.org_id || userProfile?.default_org_id || null,
+    userId: resolvedUserId,
+    orgId: resolvedOrgId || userProfile?.default_org_id || null,
     callSid,
     customerName: extracted.customerName,
     customerPhone: extracted.customerPhone,
@@ -150,7 +159,7 @@ const ensureJobForTranscript = async ({ callSid, transcriptText, llmClient }) =>
     serviceType: extracted.serviceType,
     status: 'new',
     businessType: userProfile?.business_type || null,
-    source: 'voicemail',
+    source: 'ai_receptionist',
     capturedAt: callRecord?.recorded_at || new Date().toISOString(),
     voicemailTranscript: transcriptText,
     voicemailRecordingUrl: callRecord?.recording_url || null,

@@ -16,6 +16,7 @@ COPY supabaseMcpClient.js ./
 COPY telephony/ ./telephony/
 COPY middleware/ ./middleware/
 COPY notifications/ ./notifications/
+COPY services/ ./services/
 
 # Expose port (Fly.io will set PORT env var)
 EXPOSE 8080
