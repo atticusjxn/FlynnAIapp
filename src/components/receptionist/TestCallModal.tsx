@@ -55,6 +55,7 @@ export const TestCallModal: React.FC<TestCallModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [extractedJob, setExtractedJob] = useState<JobExtraction | null>(null);
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
+  const [hasAudioPermission, setHasAudioPermission] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
@@ -66,7 +67,7 @@ export const TestCallModal: React.FC<TestCallModalProps> = ({
 
   useEffect(() => {
     if (visible && callState === 'idle') {
-      setupAudioPermissions();
+      ensureAudioPermissions();
     }
   }, [visible]);
 
@@ -76,26 +77,35 @@ export const TestCallModal: React.FC<TestCallModalProps> = ({
     };
   }, []);
 
-  const setupAudioPermissions = async () => {
+  const ensureAudioPermissions = async () => {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
+      const existing = await Audio.getPermissionsAsync();
+      const permission = existing.status === 'granted'
+        ? existing
+        : await Audio.requestPermissionsAsync();
+
+      if (permission.status !== 'granted') {
         setError('Microphone permission is required for test calls');
         Alert.alert('Permission Required', 'Please enable microphone access to use test calls');
-      } else {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          interruptionModeIOS: 1, // DoNotMix
-          shouldDuckAndroid: true,
-          interruptionModeAndroid: 1, // DoNotMix
-          playThroughEarpieceAndroid: false,
-        });
+        return false;
       }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        interruptionModeIOS: 1, // DoNotMix
+        shouldDuckAndroid: true,
+        interruptionModeAndroid: 1, // DoNotMix
+        playThroughEarpieceAndroid: false,
+      });
+
+      setHasAudioPermission(true);
+      return true;
     } catch (err) {
       console.error('Audio permissions error:', err);
       setError('Failed to setup audio permissions');
+      return false;
     }
   };
 
@@ -105,9 +115,16 @@ export const TestCallModal: React.FC<TestCallModalProps> = ({
       return;
     }
 
-    setCallState('connecting');
     setError(null);
     setTranscript([]);
+
+    const permissionGranted = await ensureAudioPermissions();
+    if (!permissionGranted) {
+      setCallState('idle');
+      return;
+    }
+
+    setCallState('connecting');
 
     try {
       // Connect to WebSocket
@@ -198,6 +215,18 @@ export const TestCallModal: React.FC<TestCallModalProps> = ({
 
   const startRecording = async () => {
     try {
+      if (!hasAudioPermission) {
+        const permissionGranted = await ensureAudioPermissions();
+        if (!permissionGranted) {
+          setError('Microphone permission is required to record the call');
+          setCallState('ended');
+          if (wsRef.current) {
+            wsRef.current.close();
+          }
+          return;
+        }
+      }
+
       const recording = new Audio.Recording();
       await recording.prepareToRecordAsync({
         ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
@@ -229,6 +258,10 @@ export const TestCallModal: React.FC<TestCallModalProps> = ({
     } catch (err) {
       console.error('[TestCall] Recording error:', err);
       setError('Failed to start recording');
+      setCallState('ended');
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     }
   };
 
