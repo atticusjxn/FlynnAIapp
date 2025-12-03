@@ -400,22 +400,32 @@ const executeSql = async (query) => {
   try {
     const client = getDirectClient();
 
-    // Use Supabase's RPC to execute raw SQL via a Postgres function
-    // Note: This requires a database function, so we'll use the REST API directly
-    const { data, error } = await client.rpc('execute_sql', { sql: query });
+    // Clean up query: remove trailing semicolons and whitespace
+    const cleanedQuery = query.trim().replace(/;+\s*$/, '');
+
+    // Use Supabase's execute_sql RPC to execute raw SQL
+    const { data, error } = await client.rpc('execute_sql', { sql: cleanedQuery });
 
     if (error) {
-      // If the RPC function doesn't exist, we need to query tables directly
-      // For now, return empty result and log the error
-      console.error('[Supabase] SQL execution error:', error);
-      return { rows: [], error };
+      console.error('[Supabase] SQL execution error:', {
+        error,
+        query: cleanedQuery.substring(0, 200),
+      });
+      throw new Error(`SQL execution failed: ${error.message || JSON.stringify(error)}`);
     }
 
-    console.log('[Supabase] Query successful, rows:', data?.length || 0);
-    return { rows: data || [], error: null };
+    // The execute_sql function returns a JSONB array of rows
+    // Unwrap it properly
+    const rows = Array.isArray(data) ? data : [];
+
+    console.log('[Supabase] Query successful, rows:', rows.length);
+    return { rows, error: null };
   } catch (error) {
-    console.error('[Supabase] SQL execution failed:', error);
-    return { rows: [], error };
+    console.error('[Supabase] SQL execution failed:', {
+      error: error.message,
+      query: query.substring(0, 200),
+    });
+    throw error;
   }
 };
 
@@ -524,7 +534,7 @@ const getTranscriptByCallSid = async (callSid) => {
   return Array.isArray(result.rows) && result.rows.length > 0 ? result.rows[0] : null;
 };
 
-const insertTranscription = async ({ id, callSid, engine, text, confidence, language, orgId }) => {
+const insertTranscription = async ({ id, callSid, engine, text, confidence, language, orgId, userId }) => {
   if (!id) {
     throw new Error('id is required for transcription insert.');
   }
@@ -537,11 +547,16 @@ const insertTranscription = async ({ id, callSid, engine, text, confidence, lang
     ? sqlString(orgId)
     : `(select org_id from public.calls where call_sid = ${sqlString(callSid)} limit 1)`;
 
+  const resolvedUserId = userId
+    ? sqlString(userId)
+    : `(select user_id from public.calls where call_sid = ${sqlString(callSid)} limit 1)`;
+
   const query = `
-    insert into public.transcriptions (id, call_sid, org_id, engine, "text", confidence, language)
+    insert into public.transcriptions (id, call_sid, user_id, org_id, engine, "text", confidence, language)
     values (
       ${sqlString(id)},
       ${sqlString(callSid)},
+      ${resolvedUserId},
       ${resolvedOrgId},
       ${sqlString(engine)},
       ${sqlString(text)},
@@ -549,6 +564,7 @@ const insertTranscription = async ({ id, callSid, engine, text, confidence, lang
       ${sqlString(language)}
     )
     on conflict (call_sid) do update set
+      user_id = coalesce(excluded.user_id, public.transcriptions.user_id),
       org_id = coalesce(excluded.org_id, public.transcriptions.org_id),
       engine = excluded.engine,
       "text" = excluded."text",

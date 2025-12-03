@@ -44,6 +44,7 @@ const {
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 const { scrapeWebsite } = require('./services/websiteScraper');
 const { generateReceptionistConfig } = require('./services/businessProfileGenerator');
+const { generateSiteFromInstagram } = require('./services/sites/siteGenerationService');
 
 dotenv.config();
 
@@ -96,9 +97,60 @@ const parseIntegerEnv = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const computeReportPeriod = (period, customStartDate, customEndDate) => {
+  const now = new Date();
+  const startOfQuarter = (year, quarterIndex) => new Date(year, quarterIndex * 3, 1);
+  const endOfQuarter = (year, quarterIndex) => new Date(year, quarterIndex * 3 + 3, 0, 23, 59, 59, 999);
+
+  switch (period) {
+    case 'currentQuarter': {
+      const quarterIndex = Math.floor(now.getMonth() / 3);
+      const year = now.getFullYear();
+      return { start: startOfQuarter(year, quarterIndex), end: endOfQuarter(year, quarterIndex) };
+    }
+    case 'lastQuarter': {
+      let quarterIndex = Math.floor(now.getMonth() / 3) - 1;
+      let year = now.getFullYear();
+      if (quarterIndex < 0) {
+        quarterIndex = 3;
+        year -= 1;
+      }
+      return { start: startOfQuarter(year, quarterIndex), end: endOfQuarter(year, quarterIndex) };
+    }
+    case 'currentFinancialYear': {
+      // AU financial year: Jul 1 - Jun 30
+      const year = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+      return { start: new Date(year, 6, 1), end: new Date(year + 1, 5, 30, 23, 59, 59, 999) };
+    }
+    case 'lastFinancialYear': {
+      const year = now.getMonth() >= 6 ? now.getFullYear() - 1 : now.getFullYear() - 2;
+      return { start: new Date(year, 6, 1), end: new Date(year + 1, 5, 30, 23, 59, 59, 999) };
+    }
+    case 'custom': {
+      const start = customStartDate ? new Date(customStartDate) : null;
+      const end = customEndDate ? new Date(customEndDate) : null;
+      if (!start || Number.isNaN(start.getTime()) || !end || Number.isNaN(end.getTime())) {
+        return null;
+      }
+      return { start, end: new Date(end.getTime()) };
+    }
+    default:
+      return null;
+  }
+};
+
 const voicemailBucket = process.env.VOICEMAIL_STORAGE_BUCKET || 'voicemails';
 const voicemailSignedUrlTtlSeconds = parseIntegerEnv(process.env.VOICEMAIL_SIGNED_URL_TTL_SECONDS, 3600);
 const voicemailRetentionDays = parseIntegerEnv(process.env.VOICEMAIL_RETENTION_DAYS, 30);
+
+const allowedSummaryTypes = new Set(['Payments', 'Earnings']);
+const allowedSummaryPeriods = new Set([
+  'currentQuarter',
+  'lastQuarter',
+  'currentFinancialYear',
+  'lastFinancialYear',
+  'custom',
+]);
 
 const supabaseClientOptions = {
   auth: {
@@ -165,13 +217,13 @@ const stripeClient = stripeSecretKey
 
 const planPriceMapping = {};
 if (stripeBasicPriceId) {
-  planPriceMapping[stripeBasicPriceId] = 'concierge_basic';
+  planPriceMapping[stripeBasicPriceId] = 'starter';
 }
 if (stripeGrowthPriceId) {
-  planPriceMapping[stripeGrowthPriceId] = 'concierge_growth';
+  planPriceMapping[stripeGrowthPriceId] = 'growth';
 }
 
-const knownPlanIds = new Set(['concierge_basic', 'concierge_growth']);
+const knownPlanIds = new Set(['trial', 'starter', 'growth', 'enterprise']);
 
 const resolvePlanFromPriceId = (priceId) => {
   if (!priceId) {
@@ -383,11 +435,15 @@ const twilioMessagingClient = twilioAccountSid && twilioAuthToken
 
 const voiceProfileBucket = process.env.VOICE_PROFILE_BUCKET || 'voice-profiles';
 const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-const elevenLabsModelId = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
+const elevenLabsModelId = process.env.ELEVENLABS_MODEL_ID || 'eleven_flash_v2_5';
 const elevenLabsPresetVoices = {
   flynn_warm: process.env.ELEVENLABS_VOICE_FLYNN_WARM_ID,
   flynn_expert: process.env.ELEVENLABS_VOICE_FLYNN_EXPERT_ID,
   flynn_hype: process.env.ELEVENLABS_VOICE_FLYNN_HYPE_ID,
+  // Koala persona aliases used by receptionist configs
+  koala_warm: process.env.ELEVENLABS_VOICE_KOALA_WARM_ID,
+  koala_expert: process.env.ELEVENLABS_VOICE_KOALA_EXPERT_ID,
+  koala_hype: process.env.ELEVENLABS_VOICE_KOALA_HYPE_ID,
 };
 
 const azureSpeechKey = process.env.AZURE_SPEECH_KEY ? process.env.AZURE_SPEECH_KEY.trim() : '';
@@ -684,6 +740,8 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
       await insertTranscription({
         id: randomUUID(),
         callSid,
+        userId: userId || null,
+        orgId: orgId || null,
         engine: 'realtime',
         text: transcript.trim(),
         confidence: 0.92,
@@ -779,6 +837,60 @@ if (stripeClient && stripeWebhookSecret) {
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+// ========================================
+// Payments Summary CSV (Mates Rates compatibility)
+// ========================================
+app.post('/downloadPaymentSummary', async (req, res) => {
+  try {
+    const {
+      type,
+      period,
+      customStartDate,
+      customEndDate,
+    } = req.body || {};
+
+    if (!allowedSummaryTypes.has(type)) {
+      return res.status(400).json({ err: 'Invalid type. Use "Payments" or "Earnings".' });
+    }
+
+    if (!allowedSummaryPeriods.has(period)) {
+      return res.status(400).json({ err: 'Invalid period selection.' });
+    }
+
+    const range = computeReportPeriod(period, customStartDate, customEndDate);
+    if (!range) {
+      return res.status(400).json({ err: 'Invalid or missing dates for custom period.' });
+    }
+
+    // TODO: Replace placeholder data with real transaction records when the data source is available.
+    const rows = [
+      ['Date', 'Type', 'Title', 'Client', 'Worker', 'Amount', 'Commission', 'Status', 'JobId'],
+    ];
+
+    // Example placeholder row for easier manual verification
+    rows.push([
+      range.start.toISOString().slice(0, 10),
+      type,
+      'Example job',
+      'N/A',
+      'N/A',
+      '0.00',
+      '0.00',
+      'N/A',
+      'sample-id',
+    ]);
+
+    const csv = rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="payment_summary.csv"');
+    return res.status(200).send(csv);
+  } catch (error) {
+    console.error('[PaymentsSummary] Failed to generate summary', error);
+    return res.status(500).json({ err: 'Failed to generate payment summary.' });
+  }
+});
 
 // ========================================
 // Jobber Integration OAuth Endpoints
@@ -1055,6 +1167,41 @@ app.post('/webhooks/jobber/client-updated', async (req, res) => {
 // ========================================
 // Website Scraping & Business Profile API
 // ========================================
+
+// FlynnAI Sites: Instagram -> Gemini -> site spec
+app.post('/api/sites/generate', authenticateJwt, async (req, res) => {
+  const { handle, imageLimit = 12 } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (!handle) {
+    return res.status(400).json({ error: 'Instagram handle is required' });
+  }
+
+  const normalizedHandle = String(handle).replace(/^@/, '').trim();
+
+  try {
+    const result = await generateSiteFromInstagram({
+      handle: normalizedHandle,
+      imageLimit: Math.min(Math.max(Number.parseInt(imageLimit, 10) || 12, 1), 25),
+    });
+
+    res.status(200).json({
+      success: true,
+      handle: normalizedHandle,
+      ...result,
+    });
+  } catch (error) {
+    console.error('[Sites] Failed to generate site from Instagram', { error });
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate site',
+    });
+  }
+});
 
 /**
  * Scrape a business website and extract relevant information
@@ -1603,6 +1750,19 @@ const handleInboundVoice = async (req, res) => {
 
     const orgId = receptionistProfile?.default_org_id || null;
 
+    if (callSid) {
+      await upsertCallRecord({
+        callSid,
+        userId: receptionistProfile?.id || null,
+        orgId,
+        fromNumber,
+        toNumber,
+        status: 'ringing',
+      }).catch((error) => {
+        console.warn('[Telephony] Failed to upsert initial call record.', { callSid, error });
+      });
+    }
+
     await logCallEvent({
       orgId,
       callSid,
@@ -1616,19 +1776,6 @@ const handleInboundVoice = async (req, res) => {
         conversationalPath: Boolean(receptionistProfile),
       },
     });
-
-    if (callSid) {
-      await upsertCallRecord({
-        callSid,
-        userId: receptionistProfile?.id || null,
-        orgId,
-        fromNumber,
-        toNumber,
-        status: 'ringing',
-      }).catch((error) => {
-        console.warn('[Telephony] Failed to upsert initial call record.', { callSid, error });
-      });
-    }
 
     const receptionistConfigured = Boolean(receptionistProfile?.receptionist_configured);
 
@@ -2344,6 +2491,8 @@ app.post('/telephony/recording-complete', async (req, res) => {
       await insertTranscription({
         id: randomUUID(),
         callSid: CallSid,
+        userId: callEventContext?.user_id || null,
+        orgId: callEventContext?.org_id || null,
         engine: 'whisper',
         text: transcriptText,
         confidence: 0.8,
