@@ -701,6 +701,17 @@ const respondWithAiReceptionist = ({ req, res, inboundParams, profile, callSid }
   // IMPORTANT: Cache the session BEFORE sending TwiML response
   cacheReceptionistSession({ callSid, profile, toNumber: inboundParams.To || inboundParams.Called });
 
+  // Enable call recording for playback in the app
+  response.record({
+    action: buildRecordingCallbackUrl(req),
+    method: 'POST',
+    recordingStatusCallback: buildRecordingCallbackUrl(req),
+    recordingStatusCallbackMethod: 'POST',
+    maxLength: 3600, // 1 hour max
+    transcribe: false, // We handle transcription ourselves
+    playBeep: false, // No beep - this is a live AI conversation
+  });
+
   const connect = response.connect();
   const stream = connect.stream({
     url: streamUrl,
