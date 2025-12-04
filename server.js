@@ -701,16 +701,28 @@ const respondWithAiReceptionist = ({ req, res, inboundParams, profile, callSid }
   // IMPORTANT: Cache the session BEFORE sending TwiML response
   cacheReceptionistSession({ callSid, profile, toNumber: inboundParams.To || inboundParams.Called });
 
-  // Enable call recording for playback in the app
-  response.record({
-    action: buildRecordingCallbackUrl(req),
-    method: 'POST',
-    recordingStatusCallback: buildRecordingCallbackUrl(req),
-    recordingStatusCallbackMethod: 'POST',
-    maxLength: 3600, // 1 hour max
-    transcribe: false, // We handle transcription ourselves
-    playBeep: false, // No beep - this is a live AI conversation
-  });
+  // Start call recording via Twilio REST API (runs in parallel with stream)
+  if (twilioMessagingClient && callSid) {
+    const recordingCallbackUrl = buildRecordingCallbackUrl(req);
+    twilioMessagingClient.calls(callSid)
+      .recordings
+      .create({
+        recordingStatusCallback: recordingCallbackUrl,
+        recordingStatusCallbackMethod: 'POST',
+      })
+      .then((recording) => {
+        console.log('[Telephony] Call recording started via API.', {
+          callSid,
+          recordingSid: recording.sid,
+        });
+      })
+      .catch((error) => {
+        console.error('[Telephony] Failed to start call recording.', {
+          callSid,
+          error: error.message,
+        });
+      });
+  }
 
   const connect = response.connect();
   const stream = connect.stream({
