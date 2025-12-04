@@ -39,7 +39,7 @@ const normalizePhone = (value) => {
   return null;
 };
 
-const extractJobDetails = async ({ transcriptText, llmClient, userBusinessType }) => {
+const extractJobDetails = async ({ transcriptText, llmClient, userBusinessType, recordedAt }) => {
   if (!llmClient) {
     throw new Error('LLM client is not configured for job extraction.');
   }
@@ -53,12 +53,25 @@ const extractJobDetails = async ({ transcriptText, llmClient, userBusinessType }
     ? `This business is a ${userBusinessType.replace(/_/g, ' ')} service provider.`
     : '';
 
+  // Add date context for relative date parsing
+  const callDate = recordedAt ? new Date(recordedAt) : new Date();
+  const dayOfWeek = callDate.toLocaleDateString('en-US', { weekday: 'long' });
+  const dateStr = callDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const dateContext = `Today is ${dayOfWeek}, ${dateStr}.`;
+
   const systemPrompt = `Extract customer details from service voicemails. ${businessTypeContext}
+
+${dateContext}
 
 Always respond with JSON containing customer_name, customer_phone, customer_email, service_type, summary, scheduled_date, scheduled_time, location, and notes. Use null when a field is unknown.
 
 - service_type should be specific to the business type (e.g., "Leaky faucet repair" for plumbers, "Haircut and color" for salons)
-- scheduled_date should be in YYYY-MM-DD format if mentioned
+- customer_phone: If the caller mentions a contact number, extract it. If not mentioned in the voicemail, return null (we'll use caller ID automatically)
+- scheduled_date should be in YYYY-MM-DD format if mentioned. Parse relative dates correctly:
+  - If they say "Saturday" and today is Wednesday Dec 3, 2025, return the upcoming Saturday (2025-12-06)
+  - If they say "tomorrow" and today is Wednesday Dec 3, return 2025-12-04
+  - If they say "next Monday" and today is Wednesday Dec 3, return 2025-12-08
+  - Always use the NEXT occurrence of the mentioned day, not the current week if it's already passed
 - scheduled_time should be in HH:MM format if mentioned
 - location should include address details if provided
 - notes should capture special requirements or urgency`;
@@ -146,6 +159,7 @@ const ensureJobForTranscript = async ({
     transcriptText,
     llmClient,
     userBusinessType: userProfile?.business_type || null,
+    recordedAt: callRecord?.recorded_at || new Date().toISOString(),
   });
 
   const jobPayload = {
@@ -153,7 +167,7 @@ const ensureJobForTranscript = async ({
     orgId: resolvedOrgId || userProfile?.default_org_id || null,
     callSid,
     customerName: extracted.customerName,
-    customerPhone: extracted.customerPhone,
+    customerPhone: extracted.customerPhone || callRecord?.from_number || null,
     customerEmail: extracted.customerEmail || null,
     summary: extracted.summary,
     serviceType: extracted.serviceType,

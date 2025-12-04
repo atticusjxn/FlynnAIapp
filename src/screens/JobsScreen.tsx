@@ -89,12 +89,12 @@ export const JobsScreen = () => {
     }
   }, [jobs, activeFilter]);
 
-  // Sort jobs by date and time
+  // Sort jobs by date and time (newest first)
   const sortedJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.time}`);
       const dateB = new Date(`${b.date}T${b.time}`);
-      return dateA.getTime() - dateB.getTime();
+      return dateB.getTime() - dateA.getTime(); // DESC: newest first
     });
   }, [filteredJobs]);
 
