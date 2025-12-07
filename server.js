@@ -410,7 +410,7 @@ if (!openaiApiKey && (!llmClient || llmClient.provider !== PROVIDERS.GROK)) {
 }
 
 let transcriptionClient = llmClient;
-if (!transcriptionClient || transcriptionClient.provider === PROVIDERS.GROK) {
+if (!transcriptionClient || transcriptionClient.provider === PROVIDERS.GROK || transcriptionClient.provider === PROVIDERS.GEMINI) {
   const fallbackKey = (process.env.OPENAI_API_KEY || '').trim();
   if (fallbackKey) {
     try {
@@ -421,8 +421,8 @@ if (!transcriptionClient || transcriptionClient.provider === PROVIDERS.GROK) {
       console.warn('[LLM] Failed to initialise OpenAI transcription fallback.', { error: error.message });
       transcriptionClient = null;
     }
-  } else if (llmClient && llmClient.provider === PROVIDERS.GROK) {
-    console.warn('[LLM] Grok provider active without transcription fallback; voicemail transcription will be disabled.');
+  } else if (llmClient && (llmClient.provider === PROVIDERS.GROK || llmClient.provider === PROVIDERS.GEMINI)) {
+    console.warn('[LLM] Non-OpenAI provider active without transcription fallback; voicemail transcription will be disabled.');
   }
 }
 
@@ -1436,7 +1436,7 @@ const isAudioResponse = (response, url) => {
   return /\.(mp3|wav)(\?|$)/i.test(url);
 };
 
-const downloadTwilioRecording = async (recordingUrl) => {
+const downloadTwilioRecording = async (recordingUrl, recordingSid) => {
   if (!recordingUrl) {
     throw new Error('RecordingUrl is required to download audio.');
   }
@@ -1445,6 +1445,50 @@ const downloadTwilioRecording = async (recordingUrl) => {
     throw new Error('Twilio credentials are not configured.');
   }
 
+  // First, try using Twilio SDK to fetch the recording (works with regional endpoints)
+  if (recordingSid && twilioMessagingClient) {
+    try {
+      console.log('[Telephony] Attempting to download recording via Twilio SDK.', {
+        recordingSid,
+        recordingUrl,
+      });
+
+      const recording = await twilioMessagingClient.recordings(recordingSid).fetch();
+
+      // Get the media URL with proper authentication
+      const mediaUrl = `https://api.twilio.com${recording.uri.replace('.json', '.mp3')}`;
+
+      const authHeader = `Basic ${Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64')}`;
+
+      const response = await fetch(mediaUrl, {
+        headers: {
+          Authorization: authHeader,
+        },
+      });
+
+      if (response.ok && isAudioResponse(response, mediaUrl)) {
+        console.log('[Telephony] Successfully downloaded recording via Twilio SDK.', {
+          recordingSid,
+          url: mediaUrl,
+        });
+        return { response, resolvedUrl: mediaUrl };
+      }
+
+      console.warn('[Telephony] Twilio SDK recording fetch returned unexpected response.', {
+        url: mediaUrl,
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+      });
+    } catch (sdkError) {
+      console.warn('[Telephony] Failed to download recording via Twilio SDK, falling back to direct URL fetch.', {
+        recordingSid,
+        error: sdkError.message,
+      });
+    }
+  }
+
+  // Fallback: Try direct URL fetch with Basic Auth
   const authHeader = `Basic ${Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64')}`;
   const candidateUrls = [recordingUrl];
 
@@ -2408,7 +2452,7 @@ app.post('/telephony/recording-complete', async (req, res) => {
     let storageMetadata;
 
     try {
-      ({ response: recordingResponse, resolvedUrl } = await downloadTwilioRecording(RecordingUrl));
+      ({ response: recordingResponse, resolvedUrl } = await downloadTwilioRecording(RecordingUrl, RecordingSid));
       storageMetadata = await persistRecordingToSupabaseStorage({
         callSid: CallSid,
         recordingSid: RecordingSid,

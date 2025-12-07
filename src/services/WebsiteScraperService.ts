@@ -42,6 +42,7 @@ class WebsiteScraperServiceClass {
         success: boolean;
         url: string;
         scraped_at: string;
+        applied?: boolean;
         config?: {
           businessProfile: any;
           greetingScript: string;
@@ -74,7 +75,13 @@ class WebsiteScraperServiceClass {
       // Transform server response to expected format
       const result: WebsiteScrapeResult = {
         success: true,
+        url: response.url,
+        scraped_at: response.scraped_at,
+        config: response.config,
         data: {
+          services: response.config.businessProfile?.services?.map((name: string) => ({
+            name,
+          })),
           business_hours: response.config.businessProfile?.business_hours,
           contact_info: {
             phone: contactInfo.phones?.[0] || contactInfo.phone,

@@ -100,6 +100,28 @@ export const BusinessProfileScreen: React.FC = () => {
         return;
       }
 
+      // Auto-fill top-level fields from generated config
+      const configProfile = result.config?.businessProfile;
+
+      if (configProfile?.public_name) {
+        setBusinessName(configProfile.public_name);
+      }
+
+      if (configProfile?.headline) {
+        setBusinessType(configProfile.headline);
+      }
+
+      if (configProfile?.description || configProfile?.value_propositions?.length) {
+        const valueProps = (configProfile.value_propositions || []).join('; ');
+        const instructionsParts = [
+          configProfile.description,
+          valueProps ? `Highlight: ${valueProps}.` : undefined,
+        ].filter(Boolean);
+        if (instructionsParts.length) {
+          setAiInstructions(instructionsParts.join(' '));
+        }
+      }
+
       // Update form with scraped data
       if (result.data.business_hours) {
         // Business hours would need a more complex UI - skipping for now

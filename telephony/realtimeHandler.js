@@ -15,11 +15,18 @@ const ACTIVE_LLM_PROVIDER = (() => {
   if (explicit) {
     return explicit;
   }
+  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
+    return 'gemini';
+  }
   return (process.env.XAI_API_KEY || process.env.GROK_API_KEY) ? 'grok' : 'openai';
 })();
 
 const DEFAULT_RECEPTIONIST_MODEL = process.env.RECEPTIONIST_MODEL
-  || (ACTIVE_LLM_PROVIDER === 'grok' ? 'grok-4-fast' : 'gpt-4o-mini');
+  || (ACTIVE_LLM_PROVIDER === 'gemini' ? 'gemini-2.5-flash' :
+      ACTIVE_LLM_PROVIDER === 'grok' ? 'grok-4-fast' : 'gpt-4o-mini');
+
+// Fastest ElevenLabs text-to-speech model for realtime phone usage
+const ELEVEN_LABS_FAST_MODEL = process.env.ELEVEN_LABS_MODEL_ID || 'eleven_flash_v2_5';
 
 const normaliseChoiceContent = (choice) => {
   if (!choice) {
@@ -315,6 +322,8 @@ class RealtimeCallHandler extends EventEmitter {
     this.lastInterimTime = 0; // Timestamp of last interim result
     this.followUpLimit = (session && session.maxQuestionsPerTurn) || 1;
     this.minAckVariety = (session && session.minAckVariety) || 3;
+    // Allow disabling quick acknowledgments if they feel like duplicate responses
+    this.quickAckEnabled = process.env.ENABLE_QUICK_ACK !== 'false';
     this.pendingFollowUps = Array.isArray(session?.questions) ? [...session.questions] : [];
     this.systemPrompt = null; // Will be initialized in initialize()
     this.ttsProviderPriority = this.buildProviderPriority();
@@ -326,6 +335,57 @@ class RealtimeCallHandler extends EventEmitter {
       1,
       Number(this.voiceConfig?.cacheControl?.maxEntries) || TTS_DEFAULT_CACHE_MAX_ENTRIES,
     );
+  }
+
+  buildDeepgramKeywords() {
+    // Boost common name spellings, street types, and business-specific terms
+    // Format: ["keyword:boost_value"] where boost is 0.0-4.0
+    const commonKeywords = [
+      'atticus:2.5',
+      'escott:2.5',
+      'langside:2.5',
+      'saturday:1.5',
+      'sunday:1.5',
+      'monday:1.5',
+      'street:1.5',
+      'road:1.5',
+      'avenue:1.5',
+      'drive:1.5',
+      'lane:1.5',
+      'garden:1.5',
+      'cleanup:1.5',
+      'removal:1.5',
+      'event:1.5',
+    ];
+
+    // Add business-specific keywords if available
+    if (this.session?.businessProfile?.services) {
+      this.session.businessProfile.services.forEach(service => {
+        if (service.name) {
+          commonKeywords.push(`${service.name.toLowerCase()}:2.0`);
+        }
+      });
+    }
+
+    return commonKeywords;
+  }
+
+  hydrateSessionFromCustomParams(customParams = {}) {
+    if (this.session) return;
+
+    const questions = Array.isArray(customParams.questions) ? customParams.questions.filter(Boolean) : [];
+    this.session = {
+      isTestCall: Boolean(customParams.isTestCall),
+      greeting: customParams.greeting || 'Hi! This is Flynn, your AI receptionist. How can I help you today?',
+      questions,
+      voiceId: customParams.voiceId || null,
+      ackLibrary: Array.isArray(customParams.ackLibrary) ? customParams.ackLibrary : null,
+      minAckVariety: this.minAckVariety,
+      maxQuestionsPerTurn: this.followUpLimit,
+    };
+
+    // Rehydrate derived fields based on the newly created session
+    this.pendingFollowUps = [...questions];
   }
 
   buildProviderPriority() {
@@ -426,17 +486,23 @@ class RealtimeCallHandler extends EventEmitter {
 
   async createDeepgramStream() {
     try {
-      this.deepgramStream = this.deepgramClient.listen.live({
-        model: 'nova-2-conversationalai',
+      // Deepgram configuration optimized for phone call transcription
+      const deepgramConfig = {
+        model: 'nova-2-phonecall', // Phone call optimized model (better than conversationalai)
         encoding: 'mulaw',
         sample_rate: 8000,
         interim_results: true,
         punctuate: true,
         vad_events: true,
-        endpointing: 2000, // 2 seconds for natural pauses (ums, ahs, thinking)
-        utterance_end_ms: 1500, // 1.5s buffer for complete natural sentences
-        smart_format: true, // Better formatting for more natural speech detection
-      });
+        endpointing: 1200, // Reduced from 2000ms for faster responses
+        utterance_end_ms: 1000, // Reduced from 1500ms for faster finalization
+        smart_format: true, // Better formatting for addresses, numbers, names
+        filler_words: false, // Remove "um", "uh" for cleaner transcripts
+        numerals: true, // Convert numbers to digits (important for addresses/phone numbers)
+        keywords: this.buildDeepgramKeywords(), // Custom keywords for better accuracy
+      };
+
+      this.deepgramStream = this.deepgramClient.listen.live(deepgramConfig);
 
       this.deepgramStream.on(LiveTranscriptionEvents.Open, () => {
         console.log('[Realtime] Deepgram stream established.', { callSid: this.callSid });
@@ -494,19 +560,22 @@ class RealtimeCallHandler extends EventEmitter {
         case 'start':
           this.streamSid = payload.start?.streamSid || null;
 
-          // Extract custom parameters from start event
-          const customParams = payload.start?.customParameters || {};
-          if (customParams.callSid) {
-            this.callSid = customParams.callSid;
-          }
-          if (customParams.userId) {
-            this.userId = customParams.userId;
-          }
+        // Extract custom parameters from start event
+        const customParams = payload.start?.customParameters || {};
+        if (customParams.callSid) {
+          this.callSid = customParams.callSid;
+        }
+        if (customParams.userId) {
+          this.userId = customParams.userId;
+        }
 
-          console.log('[Realtime] Stream started with parameters:', {
-            streamSid: this.streamSid,
-            callSid: this.callSid,
-            userId: this.userId,
+        // For test calls (or any sessionless connection), build a session from client-provided params
+        this.hydrateSessionFromCustomParams(customParams);
+
+        console.log('[Realtime] Stream started with parameters:', {
+          streamSid: this.streamSid,
+          callSid: this.callSid,
+          userId: this.userId,
           });
 
           // If we now have a callSid and didn't have a session before, try to load it
@@ -526,6 +595,11 @@ class RealtimeCallHandler extends EventEmitter {
             } else {
               console.warn('[Realtime] No session found in cache for callSid.', { callSid: this.callSid });
             }
+          } else if (this.session && !this.systemPrompt) {
+            // We have a freshly hydrated session; initialize now
+            this.initialize().catch((error) => {
+              console.error('[Realtime] Failed to initialize after hydrating session.', { callSid: this.callSid, error });
+            });
           }
           break;
         case 'media':
@@ -611,11 +685,13 @@ class RealtimeCallHandler extends EventEmitter {
       this.userTranscript.push(transcript);
       this.turns.push({ role: 'user', content: transcript });
 
+      const transcriptReceivedTime = Date.now();
       // Log user transcript for conversation analysis
-      console.log('[Realtime] USER SAID:', {
+      console.log('[Realtime] ⏱️ USER SAID (transcript final):', {
         callSid: this.callSid,
         transcript: transcript,
         length: transcript.length,
+        timestamp: new Date().toISOString(),
       });
 
       // CONDITIONAL ACKNOWLEDGMENT: Only send if AI response takes > 1000ms
@@ -634,7 +710,7 @@ class RealtimeCallHandler extends EventEmitter {
 
       // Wait briefly to see if we need to send an acknowledgment
       if (shouldAcknowledge) {
-        await sleep(700);
+        await sleep(400);
 
         // If response still not ready after 1000ms, send short acknowledgment
         if (!responseReady) {
@@ -645,7 +721,7 @@ class RealtimeCallHandler extends EventEmitter {
             elapsed: Date.now() - startTime,
           });
           await this.enqueueSpeech(quickAck, { priority: false });
-          await sleep(50);
+          await sleep(30);
         } else {
           console.log('[Realtime] Response ready in <1000ms, skipping acknowledgment:', {
             callSid: this.callSid,
@@ -657,6 +733,13 @@ class RealtimeCallHandler extends EventEmitter {
       // Wait for and send full AI response
       const response = await responsePromise;
       if (response) {
+        const responseReadyTime = Date.now();
+        console.log('[Realtime] ⏱️ Total response pipeline duration:', {
+          callSid: this.callSid,
+          totalDuration: `${responseReadyTime - transcriptReceivedTime}ms`,
+          timestamp: new Date().toISOString(),
+        });
+
         await this.enqueueSpeech(response);
         const fullResponse = quickAck ? `${quickAck} ${response}` : response;
         this.turns.push({ role: 'assistant', content: fullResponse });
@@ -686,6 +769,9 @@ class RealtimeCallHandler extends EventEmitter {
   }
 
   shouldSendQuickAck(transcript) {
+    if (!this.quickAckEnabled) {
+      return false;
+    }
     // With 2-second endpointing, we can be more relaxed about acknowledgments
     // Deepgram will wait for natural pauses, so most transcripts should be complete
 
@@ -780,6 +866,7 @@ class RealtimeCallHandler extends EventEmitter {
         : 'Appreciate it. I\'ll pass this on right away.';
     }
 
+    const llmStartTime = Date.now();
     try {
       const messages = [
         { role: 'system', content: this.systemPrompt },
@@ -787,11 +874,27 @@ class RealtimeCallHandler extends EventEmitter {
         { role: 'user', content: userText },
       ];
 
+      console.log('[Realtime] ⏱️ LLM request starting', {
+        callSid: this.callSid,
+        model: this.session?.openaiModel || DEFAULT_RECEPTIONIST_MODEL,
+        provider: ACTIVE_LLM_PROVIDER,
+        timestamp: new Date().toISOString(),
+      });
+
       const completion = await this.llmClient.chat.completions.create({
         model: this.session?.openaiModel || DEFAULT_RECEPTIONIST_MODEL,
         messages,
         temperature: 0.4,
         max_tokens: 180,
+        // Enable streaming for faster response times (not yet implemented in playback)
+        stream: false,
+      });
+
+      const llmDuration = Date.now() - llmStartTime;
+      console.log('[Realtime] ⏱️ LLM response received', {
+        callSid: this.callSid,
+        duration: `${llmDuration}ms`,
+        timestamp: new Date().toISOString(),
       });
 
       const assistantMessage = normaliseChoiceContent(completion?.choices?.[0]);
@@ -801,7 +904,12 @@ class RealtimeCallHandler extends EventEmitter {
 
       return null;
     } catch (error) {
-      console.error('[Realtime] Failed to generate assistant response.', { callSid: this.callSid, error });
+      const llmDuration = Date.now() - llmStartTime;
+      console.error('[Realtime] ⏱️ LLM request failed', {
+        callSid: this.callSid,
+        duration: `${llmDuration}ms`,
+        error: error.message,
+      });
       return 'Thanks, I have what I need.';
     }
   }
@@ -907,16 +1015,17 @@ class RealtimeCallHandler extends EventEmitter {
       return;
     }
 
-    const buffer = await this.textToSpeech(normalized);
-    if (!buffer || !buffer.length) {
+    const audio = await this.textToSpeech(normalized);
+    if (!audio) {
       return;
     }
 
-    if (priority) {
-      this.pendingAudioQueue.unshift({ buffer, text: normalized });
-    } else {
-      this.pendingAudioQueue.push({ buffer, text: normalized });
-    }
+    const queueItem = audio.streamReader
+      ? { streamReader: audio.streamReader, text: normalized }
+      : { buffer: audio.buffer, text: normalized };
+
+    if (priority) this.pendingAudioQueue.unshift(queueItem);
+    else this.pendingAudioQueue.push(queueItem);
 
     if (!this.isPlaying) {
       this.processAudioQueue().catch((error) => {
@@ -936,7 +1045,11 @@ class RealtimeCallHandler extends EventEmitter {
       if (!item) {
         break;
       }
-      await this.playAudioBuffer(item.buffer);
+      if (item.streamReader) {
+        await this.playAudioStream(item.streamReader);
+      } else if (item.buffer) {
+        await this.playAudioBuffer(item.buffer);
+      }
     }
     this.isPlaying = false;
   }
@@ -969,6 +1082,66 @@ class RealtimeCallHandler extends EventEmitter {
     }));
   }
 
+  async playAudioStream(reader) {
+    if (!reader || !this.streamSid || this.closed) {
+      return;
+    }
+
+    const chunkSize = 160; // 20ms of µ-law @ 8kHz
+    let buffer = Buffer.alloc(0);
+
+    try {
+      // Stream audio as soon as bytes arrive from ElevenLabs
+      while (!this.closed) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        const incoming = Buffer.from(value);
+        buffer = Buffer.concat([buffer, incoming]);
+
+        while (buffer.length >= chunkSize && !this.closed) {
+          const slice = buffer.subarray(0, chunkSize);
+          buffer = buffer.subarray(chunkSize);
+          const payload = slice.toString('base64');
+          this.ws.send(JSON.stringify({
+            event: 'media',
+            streamSid: this.streamSid,
+            media: { payload, track: 'outbound' },
+          }));
+          await sleep(18); // slight headroom while staying near-real-time
+        }
+      }
+
+      // Flush any remainder
+      while (buffer.length > 0 && !this.closed) {
+        const slice = buffer.subarray(0, chunkSize);
+        buffer = buffer.subarray(chunkSize);
+        const payload = slice.toString('base64');
+        this.ws.send(JSON.stringify({
+          event: 'media',
+          streamSid: this.streamSid,
+          media: { payload, track: 'outbound' },
+        }));
+        await sleep(18);
+      }
+
+      this.ws.send(JSON.stringify({
+        event: 'mark',
+        streamSid: this.streamSid,
+        mark: { name: 'audio_complete' },
+      }));
+    } catch (error) {
+      console.error('[Realtime] Failed to stream audio to caller.', { callSid: this.callSid, error });
+      try {
+        await reader.cancel();
+      } catch (_) {
+        // ignore
+      }
+    }
+  }
+
   async textToSpeech(text) {
     if (!text || !this.ttsProviderPriority.length) {
       console.error('[Realtime] No TTS providers configured.', { callSid: this.callSid });
@@ -999,22 +1172,30 @@ class RealtimeCallHandler extends EventEmitter {
           provider,
           voiceId,
         });
-        return cached;
+        return { buffer: cached };
       }
 
       let buffer = null;
+      let streamReader = null;
       if (provider === 'azure') {
         buffer = await this.textToSpeechAzure(trimmed, voiceId);
       } else if (provider === 'elevenlabs') {
-        buffer = await this.textToSpeechElevenLabs(trimmed, voiceId);
+        const elevenResult = await this.textToSpeechElevenLabs(trimmed, voiceId);
+        buffer = elevenResult?.buffer || null;
+        streamReader = elevenResult?.streamReader || null;
       } else {
         console.warn('[Realtime] Unknown TTS provider encountered.', { provider });
         continue;
       }
 
+      if (streamReader) {
+        // Streaming path: skip cache (content not fully buffered) and return reader
+        return { streamReader };
+      }
+
       if (buffer && buffer.length) {
         setCachedAudio(cacheKey, buffer, this.ttsCacheMaxEntries);
-        return buffer;
+        return { buffer };
       }
 
       console.warn('[Realtime] TTS provider failed to generate audio; trying next provider.', {
@@ -1109,24 +1290,29 @@ class RealtimeCallHandler extends EventEmitter {
 
     const body = {
       text,
-      model_id: config.modelId || 'eleven_multilingual_v2',
+      // Flash model is tuned for lowest latency phone playback
+      model_id: config.modelId || ELEVEN_LABS_FAST_MODEL,
       voice_settings: {
         stability: 0.45,
         similarity_boost: 0.85,
       },
       output_format: 'ulaw_8000',
-      optimize_streaming_latency: 2,
+      optimize_streaming_latency: 4, // Maximum latency optimization (0-4)
     };
 
-    console.log('[Realtime] Generating ElevenLabs TTS audio.', {
+    const ttsStartTime = Date.now();
+    console.log('[Realtime] ⏱️ TTS request starting (ElevenLabs)', {
       callSid: this.callSid,
       voiceId,
       textLength: text.length,
       textPreview: text.substring(0, 50),
+      model: body.model_id,
+      timestamp: new Date().toISOString(),
     });
 
     try {
-      const baseUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+      // Use streaming endpoint and explicitly request ulaw
+      const baseUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=ulaw_8000`;
       const response = await fetch(baseUrl, {
         method: 'POST',
         headers: {
@@ -1155,17 +1341,29 @@ class RealtimeCallHandler extends EventEmitter {
       }
 
       let contentType = response.headers?.get ? (response.headers.get('content-type') || '') : '';
-      let arrayBuffer = await response.arrayBuffer();
-      let buffer = Buffer.from(arrayBuffer);
 
+      // If response supports streaming, return the reader for immediate playback
+      if (response.body?.getReader) {
+        const reader = response.body.getReader();
+        const ttsDuration = Date.now() - ttsStartTime;
+        console.log('[Realtime] ⏱️ TTS first byte received (ElevenLabs)', {
+          callSid: this.callSid,
+          duration: `${ttsDuration}ms`,
+          timestamp: new Date().toISOString(),
+        });
+        return { streamReader: reader };
+      }
+
+      let buffer = Buffer.from(await response.arrayBuffer());
+
+      // If ElevenLabs still returns MP3, retry once with an explicit ulaw request
       if (/mpeg/i.test(contentType)) {
-        console.warn('[Realtime] ElevenLabs returned MP3; retrying streaming endpoint for µ-law.', {
+        console.warn('[Realtime] ElevenLabs returned MP3; retrying with explicit ulaw.', {
           callSid: this.callSid,
           contentType,
         });
 
-        const streamUrl = `${baseUrl}/stream?output_format=ulaw_8000`;
-        const retry = await fetch(streamUrl, {
+        const retry = await fetch(baseUrl, {
           method: 'POST',
           headers: {
             'xi-api-key': apiKey,
@@ -1177,24 +1375,23 @@ class RealtimeCallHandler extends EventEmitter {
 
         if (!retry.ok) {
           const retryText = await retry.text();
-          console.error('[Realtime] ElevenLabs streaming retry failed.', {
+          console.error('[Realtime] ElevenLabs retry failed.', {
             callSid: this.callSid,
             status: retry.status,
-            body: retryText,
+            body: retryText.substring(0, 200),
           });
-
-          if (retry.status === 401 && retryText.includes('quota_exceeded')) {
-            console.warn('[Realtime] ElevenLabs quota exceeded on retry. Skipping TTS.', {
-              callSid: this.callSid,
-            });
-          }
-
           return null;
         }
 
         contentType = retry.headers?.get ? (retry.headers.get('content-type') || '') : '';
-        arrayBuffer = await retry.arrayBuffer();
-        buffer = Buffer.from(arrayBuffer);
+
+        if (retry.body?.getReader) {
+          const reader = retry.body.getReader();
+          console.log('[Realtime] ElevenLabs streaming reader ready after retry.', { callSid: this.callSid });
+          return { streamReader: reader };
+        }
+
+        buffer = Buffer.from(await retry.arrayBuffer());
       }
 
       const isRiff = buffer.length >= 12
@@ -1211,7 +1408,7 @@ class RealtimeCallHandler extends EventEmitter {
         callSid: this.callSid,
         bufferSize: buffer.length,
       });
-      return buffer;
+      return { buffer };
     } catch (error) {
       console.error('[Realtime] ElevenLabs request error.', { callSid: this.callSid, error });
       return null;

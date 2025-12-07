@@ -1,7 +1,9 @@
 import type { BillingPlanId } from '../types/billing';
 import { isPaidPlanId } from '../types/billing';
 
-const basicPaymentLink = process.env.EXPO_PUBLIC_STRIPE_BASIC_LINK || '';
+const starterPaymentLink = process.env.EXPO_PUBLIC_STRIPE_STARTER_LINK
+  || process.env.EXPO_PUBLIC_STRIPE_BASIC_LINK
+  || '';
 const growthPaymentLink = process.env.EXPO_PUBLIC_STRIPE_GROWTH_LINK || '';
 
 export interface BillingPlanDefinition {
@@ -24,45 +26,72 @@ export interface BillingPlanDefinition {
 
 export const billingPlans: BillingPlanDefinition[] = [
   {
-    id: 'concierge_basic',
-    name: 'Concierge Basic',
-    headline: 'Unlock your AI receptionist',
-    price: 49,
-    priceText: '$49/mo',
-    callAllowanceLabel: 'Up to 100 missed calls',
+    id: 'starter',
+    name: 'Starter',
+    headline: 'Perfect for small businesses',
+    price: 29,
+    priceText: '$29/mo',
+    callAllowanceLabel: '50 AI calls included',
     highlights: [
-      'Dedicated Flynn number provisioning',
-      'Human-like concierge summaries',
-      'Voice customisation + event scripts',
+      '50 AI receptionist calls/month',
+      'Dedicated phone number provisioning',
+      'Voice customization',
+      'Job card creation',
+      '$0.80 per additional call',
     ],
     recommended: true,
-    paymentLink: basicPaymentLink || 'https://flynn.ai/pricing#concierge-basic',
+    paymentLink: starterPaymentLink || 'https://flynn.ai/pricing#starter',
     additionalCosts: [
       {
-        label: 'Flynn Phone Number',
-        cost: 2,
-        description: 'Dedicated number for your business ($2/month recurring)',
+        label: 'Additional Calls',
+        cost: 0.80,
+        description: 'Per call over 50 included calls',
       },
     ],
   },
   {
-    id: 'concierge_growth',
-    name: 'Concierge Growth',
-    headline: 'Scale to squad-level volume',
-    price: 99,
-    priceText: '$99/mo',
-    callAllowanceLabel: 'Up to 500 missed calls',
+    id: 'growth',
+    name: 'Professional',
+    headline: 'For busy service providers',
+    price: 79,
+    priceText: '$79/mo',
+    callAllowanceLabel: '150 AI calls included',
     highlights: [
-      'Priority routing + analytics',
-      'Multi-event intake scripts',
-      'Team notifications + exports',
+      '150 AI receptionist calls/month',
+      'All Starter features',
+      'Priority support',
+      'Advanced analytics',
+      '$0.70 per additional call',
     ],
-    paymentLink: growthPaymentLink || 'https://flynn.ai/pricing#concierge-growth',
+    paymentLink: growthPaymentLink || 'https://flynn.ai/pricing#professional',
     additionalCosts: [
       {
-        label: 'Flynn Phone Number',
-        cost: 2,
-        description: 'Dedicated number for your business ($2/month recurring)',
+        label: 'Additional Calls',
+        cost: 0.70,
+        description: 'Per call over 150 included calls',
+      },
+    ],
+  },
+  {
+    id: 'enterprise',
+    name: 'Business',
+    headline: 'For high-volume operations',
+    price: 149,
+    priceText: '$149/mo',
+    callAllowanceLabel: '350 AI calls included',
+    highlights: [
+      '350 AI receptionist calls/month',
+      'All Professional features',
+      'Dedicated support',
+      'Custom integrations',
+      '$0.60 per additional call',
+    ],
+    paymentLink: 'https://flynn.ai/pricing#business',
+    additionalCosts: [
+      {
+        label: 'Additional Calls',
+        cost: 0.60,
+        description: 'Per call over 350 included calls',
       },
     ],
   },

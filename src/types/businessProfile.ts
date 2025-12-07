@@ -162,6 +162,25 @@ export interface WebsiteScrapeResult {
   success: boolean;
   url: string;
   scraped_at: string;
+  // Optional full receptionist config returned by the backend
+  config?: {
+    businessProfile: {
+      public_name: string;
+      headline?: string;
+      description?: string;
+      services?: string[];
+      brand_voice?: {
+        tone?: string;
+        formality?: string;
+        personality?: string;
+        characteristics?: string[];
+      };
+      target_audience?: string;
+      value_propositions?: string[];
+    };
+    greetingScript?: string;
+    intakeQuestions?: string[];
+  };
   data: {
     services?: BusinessService[];
     business_hours?: BusinessHours;
