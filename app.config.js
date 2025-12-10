@@ -19,9 +19,9 @@ export default {
     ],
     name: "FlynnAI",
     slug: "FlynnAI",
-    version: "1.1.2",
+    version: "1.1.3",
     orientation: "portrait",
-    icon: "./assets/images/icon.png",
+    icon: "./assets/images/adaptive-icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     updates: {
@@ -38,7 +38,8 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.flynnai.app",
       deploymentTarget: "13.4",
-      buildNumber: "52",
+      buildNumber: "53",
+      icon: "./assets/images/adaptive-icon.png",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSCameraUsageDescription: "FlynnAI uses the camera to capture screenshots of job details, quotes, and work orders. This helps automatically extract information and create calendar events for your business.",
@@ -48,7 +49,7 @@ export default {
       }
     },
     android: {
-      versionCode: 52,
+      versionCode: 53,
       permissions: [
         "RECORD_AUDIO",
         "READ_PHONE_STATE",
@@ -59,7 +60,7 @@ export default {
       ],
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
-        backgroundColor: "#3B82F6"
+        backgroundColor: "#FF6B35"
       },
       edgeToEdgeEnabled: true,
       package: "com.flynnai.app"
