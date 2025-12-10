@@ -3,6 +3,10 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import { AuthTokenStorage } from '../services/authTokenStorage';
 import { registerDevicePushToken } from '../services/pushRegistration';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
+
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextType {
   user: User | null;
@@ -127,13 +131,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithGoogle = async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: 'flynnai://auth/callback',
+    try {
+      // Generate the redirect URI for the OAuth flow
+      const redirectTo = makeRedirectUri({
+        scheme: 'flynnai',
+        path: 'auth/callback'
+      });
+
+      console.log('[AuthContext] Google OAuth redirect URI:', redirectTo);
+
+      // Start the OAuth flow
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: false,
+        }
+      });
+
+      if (error) {
+        console.error('[AuthContext] Google OAuth error:', error);
+        throw error;
       }
-    });
-    if (error) throw error;
+
+      if (!data?.url) {
+        throw new Error('No OAuth URL returned from Supabase');
+      }
+
+      console.log('[AuthContext] Opening OAuth URL:', data.url);
+
+      // Open the OAuth URL in the browser
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectTo
+      );
+
+      console.log('[AuthContext] OAuth result:', result);
+
+      if (result.type === 'success') {
+        // The session will be set automatically by the onAuthStateChange listener
+        console.log('[AuthContext] Google OAuth successful');
+      } else if (result.type === 'cancel') {
+        throw new Error('Google sign-in was cancelled');
+      } else {
+        throw new Error('Google sign-in failed');
+      }
+    } catch (error) {
+      console.error('[AuthContext] signInWithGoogle error:', error);
+      throw error;
+    }
   };
 
   return (

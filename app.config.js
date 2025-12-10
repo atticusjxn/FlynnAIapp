@@ -8,6 +8,7 @@ export default {
       "expo-secure-store",
       "expo-notifications",
       "expo-font",
+      "expo-web-browser",
       [
         "expo-image-picker",
         {
