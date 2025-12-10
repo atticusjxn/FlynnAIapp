@@ -4,7 +4,6 @@ import { supabase } from '../services/supabase';
 import { AuthTokenStorage } from '../services/authTokenStorage';
 import { registerDevicePushToken } from '../services/pushRegistration';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -132,19 +131,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
-      // Generate the redirect URI for the OAuth flow
-      const redirectTo = makeRedirectUri({
-        scheme: 'flynnai',
-        path: 'auth/callback'
-      });
+      console.log('[AuthContext] Starting Google OAuth flow');
 
-      console.log('[AuthContext] Google OAuth redirect URI:', redirectTo);
-
-      // Start the OAuth flow
+      // Start the OAuth flow - Supabase handles the callback URL
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo,
+          // Supabase will use its own callback URL: https://zvfeafmmtfplzpnocyjw.supabase.co/auth/v1/callback
           skipBrowserRedirect: false,
         }
       });
@@ -158,12 +151,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('No OAuth URL returned from Supabase');
       }
 
-      console.log('[AuthContext] Opening OAuth URL:', data.url);
+      console.log('[AuthContext] Opening OAuth URL');
 
       // Open the OAuth URL in the browser
+      // Supabase's callback URL will handle the redirect and set the session
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
-        redirectTo
+        // Return to app after OAuth completes
+        'flynnai://'
       );
 
       console.log('[AuthContext] OAuth result:', result);
