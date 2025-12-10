@@ -4,7 +4,10 @@ import { isPaidPlanId } from '../types/billing';
 const starterPaymentLink = process.env.EXPO_PUBLIC_STRIPE_STARTER_LINK
   || process.env.EXPO_PUBLIC_STRIPE_BASIC_LINK
   || '';
-const growthPaymentLink = process.env.EXPO_PUBLIC_STRIPE_GROWTH_LINK || '';
+const professionalPaymentLink = process.env.EXPO_PUBLIC_STRIPE_PROFESSIONAL_LINK
+  || process.env.EXPO_PUBLIC_STRIPE_GROWTH_LINK
+  || '';
+const businessPaymentLink = process.env.EXPO_PUBLIC_STRIPE_BUSINESS_LINK || '';
 
 export interface BillingPlanDefinition {
   id: BillingPlanId;
@@ -63,7 +66,7 @@ export const billingPlans: BillingPlanDefinition[] = [
       'Advanced analytics',
       '$0.70 per additional call',
     ],
-    paymentLink: growthPaymentLink || 'https://flynn.ai/pricing#professional',
+    paymentLink: professionalPaymentLink || 'https://flynn.ai/pricing#professional',
     additionalCosts: [
       {
         label: 'Additional Calls',
@@ -86,7 +89,7 @@ export const billingPlans: BillingPlanDefinition[] = [
       'Custom integrations',
       '$0.60 per additional call',
     ],
-    paymentLink: 'https://flynn.ai/pricing#business',
+    paymentLink: businessPaymentLink || 'https://flynn.ai/pricing#business',
     additionalCosts: [
       {
         label: 'Additional Calls',

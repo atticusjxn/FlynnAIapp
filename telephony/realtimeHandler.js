@@ -148,8 +148,20 @@ const createSystemPrompt = async (session, getBusinessContextForOrg) => {
     }
   }
 
+  // Handle hybrid_choice mode - offer caller option to leave message or book
+  const receptionistMode = session?.receptionistMode || 'ai_only';
+  const hybridModeInstructions = receptionistMode === 'hybrid_choice'
+    ? `CALLER CHOICE MODE:
+- At the start of the conversation (after the greeting), ask: "Would you like to leave a message, or would you prefer to book an appointment with me now?"
+- If they choose "leave a message": Say "No worries! Please leave your message after the beep, and we'll get back to you soon." Then END THE CALL.
+- If they choose "book an appointment" or "book now" or similar: Proceed with the intake questions to capture their booking details.
+- If they're unsure, briefly explain: "I can take your details now and get you booked in, or you can just leave a message. What works better for you?"`
+    : '';
+
   return [
     'You are Flynn, a casual and friendly AI receptionist for a service business.',
+    '',
+    hybridModeInstructions,
     '',
     'CONVERSATION STYLE:',
     '- Talk like a real person - casual, warm, natural',

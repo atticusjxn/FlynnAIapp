@@ -756,6 +756,39 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
     console.warn('[Realtime] Unable to load call context for event logging.', { callSid, error });
   }
 
+  // Log AI call usage for billing
+  if (orgId && userId) {
+    try {
+      const durationSeconds = callContext?.call_duration || 0;
+      const callCostCents = 40; // $0.40 AUD per call
+      const billingMonth = new Date();
+      billingMonth.setDate(1);
+      billingMonth.setHours(0, 0, 0, 0);
+
+      await supabaseClient.from('ai_call_usage').insert({
+        organization_id: orgId,
+        user_id: userId,
+        call_sid: callSid,
+        call_duration_seconds: durationSeconds,
+        call_cost_cents: callCostCents,
+        billing_period_month: billingMonth.toISOString().split('T')[0],
+      }).then(({ error }) => {
+        if (error) {
+          console.warn('[Billing] Failed to log call usage.', { callSid, orgId, error });
+        } else {
+          console.log('[Billing] Call usage logged successfully.', {
+            callSid,
+            orgId,
+            userId,
+            cost: `$${(callCostCents / 100).toFixed(2)} AUD`,
+          });
+        }
+      });
+    } catch (usageError) {
+      console.error('[Billing] Error logging call usage.', { callSid, orgId, error: usageError });
+    }
+  }
+
   try {
     const existingTranscript = await getTranscriptByCallSid(callSid);
 
@@ -1943,6 +1976,50 @@ const handleInboundVoice = async (req, res) => {
         return respondWithVoicemail(req, res, inboundParams);
       }
       // default to AI receptionist when uncertain
+    }
+
+    // Check subscription status before allowing AI receptionist
+    if (orgId) {
+      try {
+        const { data: org, error: orgError } = await supabaseClient
+          .from('organizations')
+          .select('billing_plan_id, subscription_status')
+          .eq('id', orgId)
+          .single();
+
+        if (orgError) {
+          console.warn('[Telephony] Failed to check organization billing status.', { orgId, error: orgError });
+        } else {
+          const isPaidPlan = org?.billing_plan_id && org.billing_plan_id !== 'trial';
+          const isActiveSubscription = ['active', 'trialing'].includes(org?.subscription_status);
+
+          if (!isPaidPlan || !isActiveSubscription) {
+            console.log('[Telephony] Organization subscription inactive, routing to voicemail.', {
+              callSid,
+              orgId,
+              billingPlan: org?.billing_plan_id,
+              subscriptionStatus: org?.subscription_status,
+            });
+
+            await logCallEvent({
+              orgId,
+              callSid,
+              eventType: 'call_routed_voicemail',
+              direction: 'inbound',
+              payload: {
+                reason: 'subscription_inactive',
+                billingPlan: org?.billing_plan_id,
+                subscriptionStatus: org?.subscription_status,
+              },
+            });
+
+            return respondWithVoicemail(req, res, inboundParams);
+          }
+        }
+      } catch (billingCheckError) {
+        console.error('[Telephony] Error checking billing status.', { orgId, error: billingCheckError });
+        // On error, allow call through to avoid breaking existing users
+      }
     }
 
     if (callSid) {

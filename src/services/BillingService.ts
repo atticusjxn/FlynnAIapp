@@ -74,11 +74,12 @@ export async function getSubscriptionStatus(userId: string): Promise<Subscriptio
 
     // Count AI receptionist calls this billing period
     const billingPeriodStart = getBillingPeriodStart();
+    const billingPeriodMonth = billingPeriodStart.toISOString().split('T')[0];
     const { count: callsUsed, error: callsError } = await supabase
-      .from('realtime_calls')
+      .from('ai_call_usage')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', billingPeriodStart.toISOString());
+      .eq('organization_id', profile.default_org_id)
+      .eq('billing_period_month', billingPeriodMonth);
 
     if (callsError) {
       console.error('[BillingService] Failed to count calls:', callsError);

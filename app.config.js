@@ -8,6 +8,14 @@ export default {
       "expo-secure-store",
       "expo-notifications",
       "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FlynnAI accesses your photo library to select images containing job details that can be automatically processed into calendar events and client information.",
+          "cameraPermission": "FlynnAI uses the camera to capture screenshots of job details, quotes, and work orders. This helps automatically extract information and create calendar events for your business.",
+          "androidUsesGalleryAsImagePicker": true
+        }
+      ],
     ],
     name: "FlynnAI",
     slug: "FlynnAI",
