@@ -46,6 +46,7 @@ const { scrapeWebsite } = require('./services/websiteScraper');
 const { generateReceptionistConfig } = require('./services/businessProfileGenerator');
 const { generateSiteFromInstagram } = require('./services/sites/siteGenerationService');
 const { generateSpeech: generateGeminiSpeech, resolveVoiceName: resolveGeminiVoice } = require('./services/geminiTTSService');
+const reminderScheduler = require('./services/reminderScheduler');
 
 dotenv.config();
 
@@ -3148,6 +3149,212 @@ app.post('/jobs/:id/confirm', async (req, res) => {
   }
 });
 
+// ============================================================================
+// Reminder System API Endpoints
+// ============================================================================
+
+// GET /api/reminders/settings - Get reminder settings for organization
+app.get('/api/reminders/settings', authenticateJwt, async (req, res) => {
+  try {
+    const orgId = req.user?.org_id;
+
+    if (!orgId) {
+      return res.status(400).json({ error: 'Organization ID not found' });
+    }
+
+    const { data, error } = await supabaseStorageClient
+      .from('reminder_settings')
+      .select('*')
+      .eq('org_id', orgId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = not found, which is OK
+      throw error;
+    }
+
+    // Return default settings if none exist
+    if (!data) {
+      return res.status(200).json({
+        enabled: true,
+        default_enabled: true,
+        confirmation_enabled: true,
+        one_day_before_enabled: true,
+        one_day_before_time: '18:00',
+        morning_of_enabled: false,
+        morning_of_time: '08:00',
+        two_hours_before_enabled: false,
+        custom_reminders: [],
+        skip_weekends_for_morning: false,
+        respect_quiet_hours: true,
+        quiet_hours_start: '21:00',
+        quiet_hours_end: '08:00',
+        post_job_enabled: false,
+        post_job_delay_hours: 2,
+        confirmation_template: 'Hi {{clientName}}! Your {{serviceType}} appointment is confirmed for {{date}} at {{time}} at {{location}}. Reply YES to confirm.',
+        one_day_before_template: 'Hi {{clientName}}! Reminder: We\'ll see you tomorrow at {{time}} for {{serviceType}} at {{location}}.',
+        morning_of_template: 'Good morning {{clientName}}! We\'re looking forward to seeing you today at {{time}} for {{serviceType}}.',
+        two_hours_before_template: 'Hi {{clientName}}! We\'ll be there in about 2 hours for your {{serviceType}} appointment.',
+        on_the_way_template: 'Hi {{clientName}}! We\'re on our way to your location. We\'ll arrive in approximately {{eta}} minutes.',
+        post_job_template: 'Thanks for choosing {{businessName}}! Your job is complete. We\'d love your feedback!',
+      });
+    }
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('[Reminders] Error fetching reminder settings:', error);
+    res.status(500).json({ error: 'Failed to fetch reminder settings' });
+  }
+});
+
+// PUT /api/reminders/settings - Update reminder settings
+app.put('/api/reminders/settings', authenticateJwt, async (req, res) => {
+  try {
+    const orgId = req.user?.org_id;
+
+    if (!orgId) {
+      return res.status(400).json({ error: 'Organization ID not found' });
+    }
+
+    const settings = req.body;
+
+    const { data, error } = await supabaseStorageClient
+      .from('reminder_settings')
+      .upsert({
+        org_id: orgId,
+        ...settings,
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    console.log('[Reminders] Settings updated for org:', orgId);
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('[Reminders] Error updating reminder settings:', error);
+    res.status(500).json({ error: 'Failed to update reminder settings' });
+  }
+});
+
+// GET /api/jobs/:jobId/reminders - List reminders for a job
+app.get('/api/jobs/:jobId/reminders', authenticateJwt, async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const orgId = req.user?.org_id;
+
+    if (!orgId) {
+      return res.status(400).json({ error: 'Organization ID not found' });
+    }
+
+    const { data, error } = await supabaseStorageClient
+      .from('scheduled_reminders')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('job_id', jobId)
+      .order('scheduled_for', { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    res.status(200).json(data || []);
+  } catch (error) {
+    console.error('[Reminders] Error fetching job reminders:', error);
+    res.status(500).json({ error: 'Failed to fetch job reminders' });
+  }
+});
+
+// POST /api/jobs/:jobId/reminders/reschedule - Reschedule reminders for a job
+app.post('/api/jobs/:jobId/reminders/reschedule', authenticateJwt, async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const orgId = req.user?.org_id;
+
+    if (!orgId) {
+      return res.status(400).json({ error: 'Organization ID not found' });
+    }
+
+    const result = await reminderScheduler.scheduleRemindersForJob(jobId, orgId);
+
+    console.log('[Reminders] Rescheduled reminders for job:', jobId);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('[Reminders] Error rescheduling reminders:', error);
+    res.status(500).json({ error: 'Failed to reschedule reminders' });
+  }
+});
+
+// POST /api/jobs/:jobId/reminders/on-the-way - Send "on the way" notification
+app.post('/api/jobs/:jobId/reminders/on-the-way', authenticateJwt, async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { eta = 15 } = req.body;
+
+    const result = await reminderScheduler.sendOnTheWayNotification(jobId, eta);
+
+    console.log('[Reminders] Sent on-the-way notification for job:', jobId);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('[Reminders] Error sending on-the-way notification:', error);
+    res.status(500).json({ error: 'Failed to send notification' });
+  }
+});
+
+// DELETE /api/reminders/:reminderId - Cancel a reminder
+app.delete('/api/reminders/:reminderId', authenticateJwt, async (req, res) => {
+  try {
+    const { reminderId } = req.params;
+    const orgId = req.user?.org_id;
+
+    if (!orgId) {
+      return res.status(400).json({ error: 'Organization ID not found' });
+    }
+
+    const { error } = await supabaseStorageClient
+      .from('scheduled_reminders')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', reminderId)
+      .eq('org_id', orgId);
+
+    if (error) {
+      throw error;
+    }
+
+    console.log('[Reminders] Cancelled reminder:', reminderId);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[Reminders] Error cancelling reminder:', error);
+    res.status(500).json({ error: 'Failed to cancel reminder' });
+  }
+});
+
+// GET /api/reminders/stats - Get reminder statistics
+app.get('/api/reminders/stats', authenticateJwt, async (req, res) => {
+  try {
+    const orgId = req.user?.org_id;
+
+    if (!orgId) {
+      return res.status(400).json({ error: 'Organization ID not found' });
+    }
+
+    const { startDate, endDate } = req.query;
+    const stats = await reminderScheduler.getReminderStats(
+      orgId,
+      startDate ? new Date(startDate).toISOString() : null,
+      endDate ? new Date(endDate).toISOString() : null
+    );
+
+    res.status(200).json(stats);
+  } catch (error) {
+    console.error('[Reminders] Error fetching stats:', error);
+    res.status(500).json({ error: 'Failed to fetch reminder statistics' });
+  }
+});
+
 if (require.main === module) {
   const httpServer = http.createServer(app);
 
@@ -3181,6 +3388,21 @@ if (require.main === module) {
     console.error('[Server] Failed to start HTTP server:', error);
     process.exit(1);
   });
+
+  // ============================================================================
+  // Cron Job: Process Pending Reminders
+  // ============================================================================
+
+  // Process reminders every minute
+  setInterval(async () => {
+    try {
+      await reminderScheduler.processPendingReminders();
+    } catch (error) {
+      console.error('[Cron] Reminder processor error:', error);
+    }
+  }, 60 * 1000); // Every 60 seconds
+
+  console.log('[Server] Reminder processor scheduled (runs every 60 seconds)');
 }
 
 module.exports = app;
