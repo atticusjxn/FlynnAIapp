@@ -45,6 +45,7 @@ const { sendJobCreatedNotification } = require('./notifications/pushService');
 const { scrapeWebsite } = require('./services/websiteScraper');
 const { generateReceptionistConfig } = require('./services/businessProfileGenerator');
 const { generateSiteFromInstagram } = require('./services/sites/siteGenerationService');
+const { generateSpeech: generateGeminiSpeech, resolveVoiceName: resolveGeminiVoice } = require('./services/geminiTTSService');
 
 dotenv.config();
 
@@ -459,15 +460,34 @@ const azurePresetVoices = {
   female: 'en-AU-NatashaNeural',
 };
 
+// Gemini TTS Configuration (Google's latest superior TTS)
+const geminiApiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : '';
+const geminiTtsModel = process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
+const geminiDefaultVoice = process.env.GEMINI_TTS_DEFAULT_VOICE || 'Kore';
+const geminiPresetVoices = {
+  flynn_warm: 'Sulafat',     // Warm voice
+  flynn_expert: 'Kore',      // Firm, professional
+  flynn_hype: 'Puck',        // Upbeat, energetic
+  koala_warm: 'Sulafat',
+  koala_expert: 'Kore',
+  koala_hype: 'Puck',
+  male: 'Orus',              // Firm male-sounding
+  female: 'Aoede',           // Breezy female-sounding
+};
+
 const resolveTtsProvider = () => {
   const explicit = (process.env.TTS_PROVIDER || '').trim().toLowerCase();
+  const hasGemini = Boolean(geminiApiKey);
   const hasAzure = Boolean(azureSpeechKey && (azureSpeechRegion || azureSpeechEndpoint));
   const hasEleven = Boolean(elevenLabsApiKey);
 
-  if (!hasAzure && !hasEleven) {
+  if (!hasGemini && !hasAzure && !hasEleven) {
     return 'none';
   }
 
+  if (explicit === 'gemini' && hasGemini) {
+    return 'gemini';
+  }
   if (explicit === 'azure' && hasAzure) {
     return 'azure';
   }
@@ -475,7 +495,8 @@ const resolveTtsProvider = () => {
     return 'elevenlabs';
   }
 
-  // Default: prefer Azure when available, otherwise ElevenLabs
+  // Default: prefer Gemini (superior quality), then Azure, then ElevenLabs
+  if (hasGemini) return 'gemini';
   if (hasAzure) return 'azure';
   if (hasEleven) return 'elevenlabs';
   return 'none';
@@ -484,13 +505,22 @@ const resolveTtsProvider = () => {
 const ttsProvider = resolveTtsProvider();
 const ttsCacheTtlMs = parseIntegerEnv(process.env.TTS_CACHE_TTL_MS, 15 * 60 * 1000);
 const ttsCacheMaxEntries = parseIntegerEnv(process.env.TTS_CACHE_MAX_ENTRIES, 256);
-const activePresetVoices = ttsProvider === 'azure' ? azurePresetVoices : elevenLabsPresetVoices;
+const activePresetVoices =
+  ttsProvider === 'gemini' ? geminiPresetVoices :
+  ttsProvider === 'azure' ? azurePresetVoices :
+  elevenLabsPresetVoices;
 const voiceConfig = {
   provider: ttsProvider,
   presetVoices: activePresetVoices,
   cacheControl: {
     ttlMs: ttsCacheTtlMs,
     maxEntries: ttsCacheMaxEntries,
+  },
+  gemini: {
+    apiKey: geminiApiKey,
+    model: geminiTtsModel,
+    defaultVoice: geminiDefaultVoice,
+    presetVoices: geminiPresetVoices,
   },
   azure: {
     key: azureSpeechKey,
@@ -508,6 +538,7 @@ const voiceConfig = {
 
 console.log('[TTS] Provider configuration detected.', {
   provider: voiceConfig.provider,
+  hasGemini: Boolean(voiceConfig.gemini.apiKey),
   hasAzure: Boolean(voiceConfig.azure.key && (voiceConfig.azure.endpoint || voiceConfig.azure.region)),
   hasElevenLabs: Boolean(voiceConfig.elevenLabs.apiKey),
   cacheTtlMs: voiceConfig.cacheControl.ttlMs,
@@ -1218,6 +1249,130 @@ app.post('/webhooks/jobber/client-updated', async (req, res) => {
   console.log('[Jobber Webhook] Client updated:', req.body);
   // TODO: Implement client updated webhook handler
   res.status(200).json({ received: true });
+});
+
+// ========================================
+// AI Testing API (for in-app receptionist testing)
+// ========================================
+
+// Transcribe audio using Whisper
+app.post('/ai/transcribe', authenticateJwt, async (req, res) => {
+  const multer = require('multer');
+  const upload = multer({ storage: multer.memoryStorage() });
+
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      console.error('[AI/Transcribe] Upload error:', err);
+      return res.status(400).json({ error: 'Failed to upload audio file' });
+    }
+
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No audio file provided' });
+      }
+
+      const llmClient = getLLMClient();
+      const fileBuffer = req.file.buffer;
+
+      // Convert buffer to File object for OpenAI
+      const audioFile = await toFile(fileBuffer, 'audio.m4a', { type: 'audio/m4a' });
+
+      const transcription = await llmClient.audio.transcriptions.create({
+        file: audioFile,
+        model: 'whisper-1',
+      });
+
+      res.status(200).json({
+        text: transcription.text || '',
+      });
+    } catch (error) {
+      console.error('[AI/Transcribe] Error:', error);
+      res.status(500).json({
+        error: 'Failed to transcribe audio',
+        details: error.message,
+      });
+    }
+  });
+});
+
+// Generate AI chat response
+app.post('/ai/chat', authenticateJwt, async (req, res) => {
+  try {
+    const { messages, model = 'gpt-4o-mini', temperature = 0.7, max_tokens = 150 } = req.body;
+
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Messages array is required' });
+    }
+
+    const llmClient = getLLMClient();
+
+    const response = await llmClient.chat.completions.create({
+      model,
+      messages,
+      temperature,
+      max_tokens,
+    });
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('[AI/Chat] Error:', error);
+    res.status(500).json({
+      error: 'Failed to generate AI response',
+      details: error.message,
+    });
+  }
+});
+
+// Extract job details from conversation
+app.post('/ai/extract-job', authenticateJwt, async (req, res) => {
+  try {
+    const { transcript } = req.body;
+
+    if (!transcript) {
+      return res.status(400).json({ error: 'Transcript is required' });
+    }
+
+    const llmClient = getLLMClient();
+
+    const extractionPrompt = `Extract job booking details from this conversation transcript. Return ONLY valid JSON with these fields:
+{
+  "clientName": string or null,
+  "clientPhone": string or null,
+  "clientEmail": string or null,
+  "serviceType": string or null,
+  "scheduledDate": string (YYYY-MM-DD) or null,
+  "scheduledTime": string (HH:MM) or null,
+  "location": string or null,
+  "notes": string or null,
+  "urgency": "low" | "medium" | "high" | null,
+  "confidence": number (0-1)
+}
+
+Transcript:
+${transcript}`;
+
+    const response = await llmClient.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant that extracts structured job data from conversation transcripts. Always respond with valid JSON.' },
+        { role: 'user', content: extractionPrompt },
+      ],
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    });
+
+    const extracted = JSON.parse(response.choices[0].message.content || '{}');
+
+    res.status(200).json({
+      job: extracted,
+    });
+  } catch (error) {
+    console.error('[AI/ExtractJob] Error:', error);
+    res.status(500).json({
+      error: 'Failed to extract job details',
+      details: error.message,
+    });
+  }
 });
 
 // ========================================
@@ -2227,11 +2382,22 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
     return res.status(400).json({ error: 'Voice option is required' });
   }
 
-  const providerPriority = voiceConfig.provider === 'azure'
-    ? ['azure', 'elevenlabs']
-    : ['elevenlabs', 'azure'];
+  const providerPriority =
+    voiceConfig.provider === 'gemini' ? ['gemini', 'azure', 'elevenlabs'] :
+    voiceConfig.provider === 'azure' ? ['azure', 'gemini', 'elevenlabs'] :
+    ['elevenlabs', 'gemini', 'azure'];
 
   const resolveVoiceForPreview = (provider) => {
+    if (provider === 'gemini') {
+      const presets = voiceConfig.gemini?.presetVoices || voiceConfig.presetVoices || {};
+      return presets?.[voiceOption]
+        || voiceConfig.gemini?.defaultVoice
+        || presets.flynn_expert
+        || presets.flynn_warm
+        || Object.values(presets).find(Boolean)
+        || 'Kore';
+    }
+
     if (provider === 'azure') {
       const presets = voiceConfig.azure?.presetVoices || voiceConfig.presetVoices || {};
       return presets?.[voiceOption]
@@ -2253,6 +2419,25 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
     }
 
     return null;
+  };
+
+  const synthesizeGeminiPreview = async (voiceName) => {
+    const gemini = voiceConfig.gemini || {};
+    if (!gemini.apiKey) {
+      throw new Error('Gemini API key not configured');
+    }
+
+    const result = await generateGeminiSpeech(gemini.apiKey, text, {
+      voiceName: voiceName || gemini.defaultVoice,
+      model: gemini.model,
+      outputFormat: 'wav',
+      style: 'professional and friendly',
+    });
+
+    return {
+      audio: result.audio,
+      contentType: result.contentType,
+    };
   };
 
   const synthesizeAzurePreview = async (voiceName) => {
@@ -2367,6 +2552,15 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
 
     for (const provider of providerPriority) {
       try {
+        if (provider === 'gemini') {
+          const voiceName = resolveVoiceForPreview('gemini');
+          if (!voiceName) {
+            continue;
+          }
+          const preview = await synthesizeGeminiPreview(voiceName);
+          return res.json(preview);
+        }
+
         if (provider === 'azure') {
           const voiceName = resolveVoiceForPreview('azure');
           if (!voiceName) {

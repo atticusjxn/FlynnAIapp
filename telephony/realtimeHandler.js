@@ -1,5 +1,10 @@
 const { Buffer } = require('buffer');
 const EventEmitter = require('events');
+const {
+  generateSpeech: generateGeminiSpeech,
+  detectLocationFromProfile,
+  getAccentFromLocation
+} = require('../services/geminiTTSService');
 let LiveTranscriptionEvents = { Open: 'open', Close: 'close', Error: 'error', Transcript: 'transcript' };
 try {
   ({ LiveTranscriptionEvents } = require('@deepgram/sdk'));
@@ -27,6 +32,11 @@ const DEFAULT_RECEPTIONIST_MODEL = process.env.RECEPTIONIST_MODEL
 
 // Fastest ElevenLabs text-to-speech model for realtime phone usage
 const ELEVEN_LABS_FAST_MODEL = process.env.ELEVEN_LABS_MODEL_ID || 'eleven_flash_v2_5';
+
+// Gemini TTS Configuration for realtime calls
+const GEMINI_TTS_ENABLED = Boolean(process.env.GEMINI_API_KEY);
+const GEMINI_TTS_MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
+const GEMINI_TTS_DEFAULT_VOICE = process.env.GEMINI_TTS_DEFAULT_VOICE || 'Kore';
 
 const normaliseChoiceContent = (choice) => {
   if (!choice) {
@@ -1189,7 +1199,9 @@ class RealtimeCallHandler extends EventEmitter {
 
       let buffer = null;
       let streamReader = null;
-      if (provider === 'azure') {
+      if (provider === 'gemini') {
+        buffer = await this.textToSpeechGemini(trimmed, voiceId);
+      } else if (provider === 'azure') {
         buffer = await this.textToSpeechAzure(trimmed, voiceId);
       } else if (provider === 'elevenlabs') {
         const elevenResult = await this.textToSpeechElevenLabs(trimmed, voiceId);
@@ -1427,10 +1439,129 @@ class RealtimeCallHandler extends EventEmitter {
     }
   }
 
+  async textToSpeechGemini(text, voiceName) {
+    if (!GEMINI_TTS_ENABLED || !process.env.GEMINI_API_KEY) {
+      console.error('[Realtime] Gemini API key not configured.', { callSid: this.callSid });
+      return null;
+    }
+
+    // Detect location-based accent from business profile
+    let accent = null;
+    if (this.session?.businessProfile?.locations) {
+      const locationCode = detectLocationFromProfile(this.session.businessProfile.locations);
+      if (locationCode) {
+        accent = getAccentFromLocation(locationCode);
+      }
+    }
+
+    const ttsStartTime = Date.now();
+    console.log('[Realtime] ⏱️ TTS request starting (Gemini)', {
+      callSid: this.callSid,
+      voiceName,
+      accent: accent || 'default',
+      textLength: text.length,
+      textPreview: text.substring(0, 50),
+      model: GEMINI_TTS_MODEL,
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      const result = await generateGeminiSpeech(
+        process.env.GEMINI_API_KEY,
+        text,
+        {
+          voiceName: voiceName || GEMINI_TTS_DEFAULT_VOICE,
+          model: GEMINI_TTS_MODEL,
+          outputFormat: 'pcm', // Return raw PCM for realtime streaming
+          style: 'professional and friendly',
+          accent: accent, // Use location-based accent if available
+        }
+      );
+
+      if (!result || !result.audio) {
+        console.error('[Realtime] Gemini TTS returned no audio.', { callSid: this.callSid });
+        return null;
+      }
+
+      // Convert base64 PCM to buffer
+      const pcmBuffer = Buffer.from(result.audio, 'base64');
+
+      // Gemini returns 24kHz 16-bit PCM mono, need to convert to 8kHz µ-law for Twilio
+      const ulawBuffer = this.convertPcm24kToUlaw8k(pcmBuffer);
+
+      const ttsDuration = Date.now() - ttsStartTime;
+      console.log('[Realtime] ⏱️ Gemini TTS audio generated successfully.', {
+        callSid: this.callSid,
+        duration: `${ttsDuration}ms`,
+        bufferSize: ulawBuffer.length,
+        timestamp: new Date().toISOString(),
+      });
+
+      return ulawBuffer;
+    } catch (error) {
+      console.error('[Realtime] Gemini TTS request error.', {
+        callSid: this.callSid,
+        error: error.message || error
+      });
+      return null;
+    }
+  }
+
+  // Convert 24kHz 16-bit PCM to 8kHz µ-law for Twilio
+  convertPcm24kToUlaw8k(pcm24k) {
+    // Simple downsampling: take every 3rd sample (24000 / 3 = 8000)
+    const pcm8k = Buffer.alloc(Math.floor(pcm24k.length / 6)); // 16-bit = 2 bytes, so /6
+
+    for (let i = 0; i < pcm8k.length / 2; i++) {
+      const sourceIdx = i * 6; // Every 3rd sample, 2 bytes each
+      if (sourceIdx + 1 < pcm24k.length) {
+        pcm8k.writeInt16LE(pcm24k.readInt16LE(sourceIdx), i * 2);
+      }
+    }
+
+    // Convert PCM to µ-law
+    const ulaw = Buffer.alloc(pcm8k.length / 2);
+    for (let i = 0; i < ulaw.length; i++) {
+      const sample = pcm8k.readInt16LE(i * 2);
+      ulaw[i] = this.linearToUlaw(sample);
+    }
+
+    return ulaw;
+  }
+
+  // Linear PCM to µ-law conversion
+  linearToUlaw(sample) {
+    const BIAS = 0x84;
+    const CLIP = 32635;
+    const sign = (sample >> 8) & 0x80;
+
+    if (sign !== 0) sample = -sample;
+    if (sample > CLIP) sample = CLIP;
+
+    sample = sample + BIAS;
+    const exponent = Math.floor(Math.log2(sample) - 7);
+    const mantissa = (sample >> (exponent + 3)) & 0x0F;
+    const ulawByte = ~(sign | (exponent << 4) | mantissa);
+
+    return ulawByte & 0xFF;
+  }
+
   resolveVoiceForProvider(provider) {
     const voiceOption = this.session?.voiceOption;
     if (voiceOption === 'custom_voice' && this.session?.voiceId) {
       return this.session.voiceId;
+    }
+
+    if (provider === 'gemini') {
+      const gemini = this.voiceConfig?.gemini || {};
+      const presets = gemini.presetVoices || this.voiceConfig?.presetVoices || {};
+      return (voiceOption && presets?.[voiceOption])
+        || gemini.defaultVoice
+        || presets.flynn_expert
+        || presets.flynn_warm
+        || Object.values(presets).find(Boolean)
+        || GEMINI_TTS_DEFAULT_VOICE
+        || 'Kore';
     }
 
     if (provider === 'azure') {

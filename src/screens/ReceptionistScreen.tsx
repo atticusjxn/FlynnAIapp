@@ -25,6 +25,7 @@ import { isApiConfigured } from '../services/apiClient';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { TestCallModal } from '../components/receptionist/TestCallModal';
+import { LocalTestModal } from '../components/receptionist/LocalTestModal';
 
 const FLYNN_ANIMATION = require('../../assets/images/flynn3s.gif');
 const FLYNN_STATIC = require('../../assets/images/icon.png');
@@ -1099,7 +1100,7 @@ export const ReceptionistScreen: React.FC = () => {
         </View>
       )}
 
-      <TestCallModal
+      <LocalTestModal
         visible={testCallModalVisible}
         onClose={() => setTestCallModalVisible(false)}
         greeting={greeting}
