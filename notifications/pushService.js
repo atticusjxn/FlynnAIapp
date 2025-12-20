@@ -283,15 +283,22 @@ const sendJobCreatedNotification = async ({ userId, job }) => {
     return { attempted: 0, sent: 0 };
   }
 
-  const title = 'New job created';
-  const body = job.customer_name
-    ? `A new job for ${job.customer_name} is ready to review.`
-    : 'A new job is ready to review.';
+  const title = 'Job captured';
+  let body = job.customer_name
+    ? `New job captured for ${job.customer_name}`
+    : 'New job captured';
+
+  // Add service type if available
+  if (job.service_type) {
+    body += ` (${job.service_type})`;
+  }
+  body += '.';
 
   const data = {
     jobId: job.id,
     callSid: job.call_sid,
     status: job.status,
+    serviceType: job.service_type || '',
   };
 
   return sendPushNotificationsToUser({ userId, title, body, data });

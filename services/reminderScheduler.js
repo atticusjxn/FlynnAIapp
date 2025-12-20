@@ -5,16 +5,26 @@ const { createClient } = require('@supabase/supabase-js');
 
 class ReminderScheduler {
   constructor() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
-    );
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('[ReminderScheduler] Supabase credentials not configured, service disabled');
+      this.supabase = null;
+      return;
+    }
+
+    this.supabase = createClient(supabaseUrl, supabaseKey);
   }
 
   /**
    * Schedule all reminders for a job when it's created or updated
    */
   async scheduleRemindersForJob(jobId, orgId) {
+    if (!this.supabase) {
+      return { scheduled: 0, message: 'Reminder service not configured' };
+    }
+
     try {
       console.log(`[ReminderScheduler] Scheduling reminders for job ${jobId}`);
 
@@ -223,6 +233,7 @@ class ReminderScheduler {
    * Cancel pending reminders for a job (when rescheduled or cancelled)
    */
   async cancelPendingReminders(jobId) {
+    if (!this.supabase) return;
     try {
       const { error } = await this.supabase
         .from('scheduled_reminders')
@@ -246,6 +257,7 @@ class ReminderScheduler {
    * Process pending reminders (run via cron job every minute)
    */
   async processPendingReminders() {
+    if (!this.supabase) return { processed: 0 };
     try {
       const now = new Date();
 
@@ -399,10 +411,10 @@ class ReminderScheduler {
       serviceType: job.service_type || 'appointment',
       date: job.scheduled_date
         ? new Date(job.scheduled_date).toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-          })
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        })
         : 'soon',
       time: job.scheduled_time || '',
       location: job.location || 'your location',
@@ -421,6 +433,7 @@ class ReminderScheduler {
    * Send "on the way" notification manually
    */
   async sendOnTheWayNotification(jobId, eta = 15) {
+    if (!this.supabase) throw new Error('Reminder service not configured');
     try {
       console.log(`[ReminderScheduler] Sending on-the-way notification for job ${jobId}`);
 
@@ -491,6 +504,7 @@ class ReminderScheduler {
    * Get reminder statistics for an organization
    */
   async getReminderStats(orgId, startDate = null, endDate = null) {
+    if (!this.supabase) return { total: 0, sent: 0, pending: 0, failed: 0, cancelled: 0, byType: {} };
     try {
       let query = this.supabase
         .from('scheduled_reminders')

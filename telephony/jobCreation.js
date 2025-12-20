@@ -63,9 +63,9 @@ const extractJobDetails = async ({ transcriptText, llmClient, userBusinessType, 
 
 ${dateContext}
 
-Always respond with JSON containing customer_name, customer_phone, customer_email, service_type, summary, scheduled_date, scheduled_time, location, and notes. Use null when a field is unknown.
+Always respond with JSON containing customer_name, customer_phone, customer_email, service_type, summary, scheduled_date, scheduled_time, location, pickup_location, dropoff_location, and notes. Use null when a field is unknown.
 
-- service_type should be specific to the business type (e.g., "Leaky faucet repair" for plumbers, "Haircut and color" for salons)
+- service_type should be specific to the business type (e.g., "Leaky faucet repair" for plumbers, "House removal" for removalists)
 - customer_phone: If the caller mentions a contact number, extract it. If not mentioned in the voicemail, return null (we'll use caller ID automatically)
 - scheduled_date should be in YYYY-MM-DD format if mentioned. Parse relative dates correctly:
   - If they say "Saturday" and today is Wednesday Dec 3, 2025, return the upcoming Saturday (2025-12-06)
@@ -73,8 +73,10 @@ Always respond with JSON containing customer_name, customer_phone, customer_emai
   - If they say "next Monday" and today is Wednesday Dec 3, return 2025-12-08
   - Always use the NEXT occurrence of the mentioned day, not the current week if it's already passed
 - scheduled_time should be in HH:MM format if mentioned
-- location should include address details if provided
-- notes should capture special requirements or urgency`;
+- location should include address details if provided (use for single-location services)
+- pickup_location: For removals/moving/delivery jobs, extract the pickup/origin/from address
+- dropoff_location: For removals/moving/delivery jobs, extract the dropoff/destination/to address
+- notes should capture special requirements, access info (stairs, elevator), or urgency`;
 
   const completion = await llmClient.chat.completions.create({
     model: JOB_EXTRACTION_MODEL,
@@ -114,6 +116,8 @@ Always respond with JSON containing customer_name, customer_phone, customer_emai
     scheduledDate: sanitizeText(parsed.scheduled_date),
     scheduledTime: sanitizeText(parsed.scheduled_time),
     location: sanitizeText(parsed.location),
+    pickupLocation: sanitizeText(parsed.pickup_location),
+    dropoffLocation: sanitizeText(parsed.dropoff_location),
     notes: sanitizeText(parsed.notes),
   };
 };
@@ -180,6 +184,8 @@ const ensureJobForTranscript = async ({
     scheduledDate: extracted.scheduledDate || null,
     scheduledTime: extracted.scheduledTime || null,
     location: extracted.location || null,
+    pickupLocation: extracted.pickupLocation || null,
+    dropoffLocation: extracted.dropoffLocation || null,
     notes: extracted.notes || null,
     estimatedDuration: extracted.estimatedDuration || null,
     followUpDraft: extracted.followUpDraft || null,
@@ -197,6 +203,7 @@ const ensureJobForTranscript = async ({
     id: inserted?.id || jobPayload.id,
     call_sid: callSid,
     customer_name: jobPayload.customerName,
+    service_type: jobPayload.serviceType,
     status: jobPayload.status || 'new',
   };
 

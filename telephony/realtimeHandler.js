@@ -28,7 +28,7 @@ const ACTIVE_LLM_PROVIDER = (() => {
 
 const DEFAULT_RECEPTIONIST_MODEL = process.env.RECEPTIONIST_MODEL
   || (ACTIVE_LLM_PROVIDER === 'gemini' ? 'gemini-2.5-flash' :
-      ACTIVE_LLM_PROVIDER === 'grok' ? 'grok-4-fast' : 'gpt-4o-mini');
+    ACTIVE_LLM_PROVIDER === 'grok' ? 'grok-4-fast' : 'gpt-4o-mini');
 
 // Fastest ElevenLabs text-to-speech model for realtime phone usage
 const ELEVEN_LABS_FAST_MODEL = process.env.ELEVEN_LABS_MODEL_ID || 'eleven_flash_v2_5';
@@ -582,22 +582,22 @@ class RealtimeCallHandler extends EventEmitter {
         case 'start':
           this.streamSid = payload.start?.streamSid || null;
 
-        // Extract custom parameters from start event
-        const customParams = payload.start?.customParameters || {};
-        if (customParams.callSid) {
-          this.callSid = customParams.callSid;
-        }
-        if (customParams.userId) {
-          this.userId = customParams.userId;
-        }
+          // Extract custom parameters from start event
+          const customParams = payload.start?.customParameters || {};
+          if (customParams.callSid) {
+            this.callSid = customParams.callSid;
+          }
+          if (customParams.userId) {
+            this.userId = customParams.userId;
+          }
 
-        // For test calls (or any sessionless connection), build a session from client-provided params
-        this.hydrateSessionFromCustomParams(customParams);
+          // For test calls (or any sessionless connection), build a session from client-provided params
+          this.hydrateSessionFromCustomParams(customParams);
 
-        console.log('[Realtime] Stream started with parameters:', {
-          streamSid: this.streamSid,
-          callSid: this.callSid,
-          userId: this.userId,
+          console.log('[Realtime] Stream started with parameters:', {
+            streamSid: this.streamSid,
+            callSid: this.callSid,
+            userId: this.userId,
           });
 
           // If we now have a callSid and didn't have a session before, try to load it
@@ -772,9 +772,9 @@ class RealtimeCallHandler extends EventEmitter {
             callSid: this.callSid,
             response: response.slice(0, 50),
           });
-          // Give user a moment to respond, then hang up
-          await sleep(3000);
-          this.tearDown('complete');
+          // Give user a moment to respond, then say goodbye properly
+          await sleep(2000);
+          await this.sendFarewellAndEndCall();
           return;
         }
       }
@@ -782,8 +782,7 @@ class RealtimeCallHandler extends EventEmitter {
       // Check if user explicitly wants to end the call
       if (this.shouldCloseConversation(transcript)) {
         await this.generateAndSpeakSummary();
-        await this.enqueueSpeech('Thanks for calling. I\'ll send this through to the team right now. Talk soon!');
-        this.tearDown('complete');
+        await this.sendFarewellAndEndCall();
       }
     } catch (error) {
       console.error('[Realtime] Failed to process transcript.', { callSid: this.callSid, error });
@@ -967,8 +966,8 @@ class RealtimeCallHandler extends EventEmitter {
 
     // Also check if response seems to be wrapping up (short and includes "thanks" or "awesome")
     const isWrappingUp = (lower.includes('awesome') || lower.includes('perfect') || lower.includes('great')) &&
-                         (lower.includes('thanks') || lower.includes('thank you')) &&
-                         aiResponse.length < 100; // Short response = likely ending
+      (lower.includes('thanks') || lower.includes('thank you')) &&
+      aiResponse.length < 100; // Short response = likely ending
 
     return hasConfirmation || isWrappingUp;
   }
@@ -983,12 +982,12 @@ class RealtimeCallHandler extends EventEmitter {
     // Check if user explicitly wants to end the call
     const lower = (latestUserTranscript || '').toLowerCase();
     const explicitEnd = lower.includes('that\'s all') ||
-                        lower.includes('that is all') ||
-                        lower.includes('nothing else') ||
-                        lower.includes('no thanks') ||
-                        lower.includes('bye') ||
-                        lower.includes('goodbye') ||
-                        lower.includes('that\'s it');
+      lower.includes('that is all') ||
+      lower.includes('nothing else') ||
+      lower.includes('no thanks') ||
+      lower.includes('bye') ||
+      lower.includes('goodbye') ||
+      lower.includes('that\'s it');
 
     // Only close if user explicitly confirms they're done
     // This prevents premature hang-ups
@@ -1025,6 +1024,33 @@ class RealtimeCallHandler extends EventEmitter {
       // Fallback summary if AI fails
       await this.enqueueSpeech('Perfect, I\'ve got all the details.');
     }
+  }
+
+  async sendFarewellAndEndCall() {
+    const farewellPhrases = [
+      "Thanks for calling! We'll be in touch soon. Take care!",
+      "Thanks so much for calling. Have a great day!",
+      "Awesome, we'll be in touch shortly. Thanks for calling!",
+      "Perfect, we've got everything we need. Thanks for calling, bye!",
+      "Thanks for calling. We'll get back to you soon. Cheers!",
+    ];
+
+    const farewell = farewellPhrases[Math.floor(Math.random() * farewellPhrases.length)];
+
+    console.log('[Realtime] Sending farewell message before ending call:', {
+      callSid: this.callSid,
+      farewell,
+    });
+
+    // Say goodbye
+    await this.enqueueSpeech(farewell);
+    this.turns.push({ role: 'assistant', content: farewell });
+
+    // Wait for audio to complete playing before hanging up
+    // Average TTS + playback time for a short phrase is ~2-3 seconds
+    await sleep(3500);
+
+    this.tearDown('complete');
   }
 
   async enqueueSpeech(text, { priority = false } = {}) {
