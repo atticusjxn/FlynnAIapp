@@ -1,14 +1,15 @@
 import React from 'react';
 import { Zap, Instagram, Twitter, Linkedin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Footer: React.FC = () => {
   return (
     <footer className="bg-white border-t-2 border-black pt-20 pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-12 mb-16">
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-2 mb-6">
-               <div className="w-8 h-8 bg-brand-500 flex items-center justify-center shadow-[3px_3px_0px_0px_#000000]">
+              <div className="w-8 h-8 bg-brand-500 flex items-center justify-center shadow-[3px_3px_0px_0px_#000000]">
                 <Zap className="w-5 h-5 text-white" fill="currentColor" />
               </div>
               <span className="font-display font-bold text-2xl text-black">Flynn.ai</span>
@@ -17,21 +18,33 @@ const Footer: React.FC = () => {
               The AI receptionist for service businesses. We are building the future of blue-collar work automation.
             </p>
           </div>
-          
+
           <div>
             <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Product</h4>
             <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><a href="#features" className="hover:text-brand-500 transition-colors">Features</a></li>
-              <li><a href="#pricing" className="hover:text-brand-500 transition-colors">Pricing</a></li>
-              <li><a href="#how-it-works" className="hover:text-brand-500 transition-colors">Workflow</a></li>
-              <li><a href="mailto:support@flynnai.app?subject=FlynnAI%20demo" className="hover:text-brand-500 transition-colors">Book a demo</a></li>
+              <li><Link to="/features" className="hover:text-brand-500 transition-colors">Features</Link></li>
+              <li><Link to="/pricing" className="hover:text-brand-500 transition-colors">Pricing</Link></li>
+              <li><Link to="/how-it-works" className="hover:text-brand-500 transition-colors">Workflow</Link></li>
+              <li><Link to="/sites" className="hover:text-brand-500 transition-colors">Websites</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Industries</h4>
+            <ul className="space-y-3 text-sm text-gray-500 font-medium">
+              <li><Link to="/industries/plumbers" className="hover:text-brand-500 transition-colors">Plumbers</Link></li>
+              <li><Link to="/industries/electricians" className="hover:text-brand-500 transition-colors">Electricians</Link></li>
+              <li><Link to="/industries/hvac" className="hover:text-brand-500 transition-colors">HVAC</Link></li>
+              <li><Link to="/industries/cleaners" className="hover:text-brand-500 transition-colors">Cleaners</Link></li>
+              <li><Link to="/industries" className="hover:text-brand-500 transition-colors text-brand-500">View All</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Company</h4>
             <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><a href="mailto:support@flynnai.app" className="hover:text-brand-500 transition-colors">Contact</a></li>
+              <li><Link to="/blog" className="hover:text-brand-500 transition-colors">Blog</Link></li>
+              <li><Link to="/contact" className="hover:text-brand-500 transition-colors">Contact</Link></li>
               <li><a href="mailto:support@flynnai.app?subject=Partnership" className="hover:text-brand-500 transition-colors">Partnerships</a></li>
               <li><a href="https://apps.apple.com/tr/app/flynnai/id6752254950" className="hover:text-brand-500 transition-colors">iOS App</a></li>
               <li><a href="https://play.google.com/store/apps/details?id=com.flynnai.app" className="hover:text-brand-500 transition-colors">Android App</a></li>
@@ -41,13 +54,13 @@ const Footer: React.FC = () => {
           <div>
             <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Legal</h4>
             <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><a href="/privacy" className="hover:text-brand-500 transition-colors">Privacy Policy</a></li>
-              <li><a href="/delete-account" className="hover:text-brand-500 transition-colors">Account Deletion</a></li>
+              <li><Link to="/privacy" className="hover:text-brand-500 transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/delete-account" className="hover:text-brand-500 transition-colors">Account Deletion</Link></li>
               <li><a href="mailto:support@flynnai.app?subject=Security" className="hover:text-brand-500 transition-colors">Security</a></li>
             </ul>
           </div>
         </div>
-        
+
         <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-gray-400 text-sm font-medium">© {new Date().getFullYear()} Flynn AI. All rights reserved.</p>
           <div className="flex space-x-6">

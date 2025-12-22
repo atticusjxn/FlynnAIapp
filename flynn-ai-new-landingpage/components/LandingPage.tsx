@@ -170,7 +170,7 @@ function LandingPage() {
                 </div>
             </section>
 
-            <Footer />
+            {/* <Footer /> - Removed as it's included in Layout */}
         </div >
     );
 }

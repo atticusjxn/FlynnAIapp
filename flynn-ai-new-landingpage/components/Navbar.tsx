@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 const Navbar: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -34,13 +35,16 @@ const Navbar: React.FC = () => {
           {/* Desktop Menu */}
           <div className="hidden md:block">
             <div className="ml-10 flex items-center space-x-8">
-              <a href="#features" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Features</a>
-              <a href="#pricing" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Pricing</a>
-              <a href="#how-it-works" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">How it Works</a>
-              <a href="/sites" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Websites (New)</a>
-              <button className="bg-black text-white px-6 py-3 text-sm font-bold font-display uppercase hover:bg-brand-500 transition-all shadow-[4px_4px_0px_0px_rgba(100,100,100,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">
-                Get Started
-              </button>
+              <div className="ml-10 flex items-center space-x-8">
+                <Link to="/" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Home</Link>
+                <Link to="/features" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Features</Link>
+                <Link to="/pricing" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Pricing</Link>
+                <Link to="/how-it-works" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">How it Works</Link>
+                <Link to="/sites" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Websites (New)</Link>
+                <button className="bg-black text-white px-6 py-3 text-sm font-bold font-display uppercase hover:bg-brand-500 transition-all shadow-[4px_4px_0px_0px_rgba(100,100,100,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">
+                  Get Started
+                </button>
+              </div>
             </div>
           </div>
 
@@ -66,10 +70,10 @@ const Navbar: React.FC = () => {
             className="md:hidden bg-white border-b border-black/10 overflow-hidden absolute w-full"
           >
             <div className="px-4 pt-4 pb-8 space-y-4">
-              <a href="#features" className="text-black block text-3xl font-display font-bold hover:text-brand-500">Features</a>
-              <a href="#how-it-works" className="text-black block text-3xl font-display font-bold hover:text-brand-500">How it Works</a>
-              <a href="#pricing" className="text-black block text-3xl font-display font-bold hover:text-brand-500">Pricing</a>
-              <a href="/sites" className="text-black block text-3xl font-display font-bold hover:text-brand-500">Websites (New)</a>
+              <Link to="/features" className="text-black block text-3xl font-display font-bold hover:text-brand-500" onClick={() => setMobileMenuOpen(false)}>Features</Link>
+              <Link to="/how-it-works" className="text-black block text-3xl font-display font-bold hover:text-brand-500" onClick={() => setMobileMenuOpen(false)}>How it Works</Link>
+              <Link to="/pricing" className="text-black block text-3xl font-display font-bold hover:text-brand-500" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
+              <Link to="/sites" className="text-black block text-3xl font-display font-bold hover:text-brand-500" onClick={() => setMobileMenuOpen(false)}>Websites (New)</Link>
               <button className="w-full text-center mt-8 bg-brand-500 text-white px-5 py-4 font-bold text-xl font-display uppercase">
                 Get Started
               </button>
