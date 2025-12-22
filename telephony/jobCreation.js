@@ -66,7 +66,7 @@ ${dateContext}
 Always respond with JSON containing customer_name, customer_phone, customer_email, service_type, summary, scheduled_date, scheduled_time, location, pickup_location, dropoff_location, and notes. Use null when a field is unknown.
 
 - service_type should be specific to the business type (e.g., "Leaky faucet repair" for plumbers, "House removal" for removalists)
-- customer_phone: If the caller mentions a contact number, extract it. If not mentioned in the voicemail, return null (we'll use caller ID automatically)
+- customer_phone: Extract the contact phone number. IMPORTANT: If the caller says "this one", "this number", "the number I'm calling from", "same number", "current number", or similar phrases when asked for a contact number, return "USE_CALLER_ID" as a special value. If they provide a specific phone number, extract it. If no phone is mentioned at all, return null (we'll use caller ID automatically).
 - scheduled_date should be in YYYY-MM-DD format if mentioned. Parse relative dates correctly:
   - If they say "Saturday" and today is Wednesday Dec 3, 2025, return the upcoming Saturday (2025-12-06)
   - If they say "tomorrow" and today is Wednesday Dec 3, return 2025-12-04
@@ -107,9 +107,18 @@ Always respond with JSON containing customer_name, customer_phone, customer_emai
 
   const summary = sanitizeText(parsed.summary) || sanitizedTranscript.slice(0, 250);
 
+  // Handle special case where caller indicated to use the calling number
+  let customerPhone = null;
+  if (parsed.customer_phone === 'USE_CALLER_ID') {
+    // Return special marker to indicate we should use caller ID
+    customerPhone = 'USE_CALLER_ID';
+  } else {
+    customerPhone = normalizePhone(parsed.customer_phone);
+  }
+
   return {
     customerName: sanitizeText(parsed.customer_name),
-    customerPhone: normalizePhone(parsed.customer_phone),
+    customerPhone,
     customerEmail: sanitizeText(parsed.customer_email),
     serviceType: sanitizeText(parsed.service_type),
     summary,
@@ -166,12 +175,20 @@ const ensureJobForTranscript = async ({
     recordedAt: callRecord?.recorded_at || new Date().toISOString(),
   });
 
+  // Determine the customer phone: if extracted phone is "USE_CALLER_ID" or null, use caller ID
+  let finalCustomerPhone = null;
+  if (extracted.customerPhone === 'USE_CALLER_ID' || !extracted.customerPhone) {
+    finalCustomerPhone = callRecord?.from_number || null;
+  } else {
+    finalCustomerPhone = extracted.customerPhone;
+  }
+
   const jobPayload = {
     userId: resolvedUserId,
     orgId: resolvedOrgId || userProfile?.default_org_id || null,
     callSid,
     customerName: extracted.customerName,
-    customerPhone: extracted.customerPhone || callRecord?.from_number || null,
+    customerPhone: finalCustomerPhone,
     customerEmail: extracted.customerEmail || null,
     summary: extracted.summary,
     serviceType: extracted.serviceType,

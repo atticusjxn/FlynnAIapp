@@ -9,8 +9,6 @@ import {
   Switch,
   Modal,
   ActivityIndicator,
-  Image,
-  Animated,
 } from 'react-native';
 import { FlynnIcon } from '../components/ui/FlynnIcon';
 import { useOnboarding } from '../context/OnboardingContext';
@@ -26,10 +24,6 @@ import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { TestCallModal } from '../components/receptionist/TestCallModal';
 import { LocalTestModal } from '../components/receptionist/LocalTestModal';
-
-const FLYNN_ANIMATION = require('../../assets/images/flynn3s.gif');
-const FLYNN_STATIC = require('../../assets/images/icon.png');
-const FLYNN_LOOP_DURATION_MS = 3000;
 
 const BASE_VOICE_OPTIONS = [
   { id: 'flynn_warm', label: 'Avery — Warm & Friendly' },
@@ -137,8 +131,6 @@ export const ReceptionistScreen: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isUploadingSample, setIsUploadingSample] = useState(false);
-  const [isFlynnTalking, setIsFlynnTalking] = useState(false);
-  const [flynnAnimationKey, setFlynnAnimationKey] = useState(0);
   const previewSoundRef = useRef<Audio.Sound | null>(null);
   const previewUriRef = useRef<string | null>(null);
   const [isGreetingPreviewLoading, setIsGreetingPreviewLoading] = useState(false);
@@ -146,8 +138,6 @@ export const ReceptionistScreen: React.FC = () => {
   const [questionPreviewLoadingIndex, setQuestionPreviewLoadingIndex] = useState<number | null>(null);
   const [questionPreviewPlayingIndex, setQuestionPreviewPlayingIndex] = useState<number | null>(null);
   const [toastState, setToastState] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
-  const flynnLoopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flynnScale = useRef(new Animated.Value(1)).current;
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mode, setMode] = useState<'voicemail_only' | 'ai_only' | 'hybrid_choice'>(
     onboardingData.receptionistMode || 'ai_only'
@@ -160,30 +150,6 @@ export const ReceptionistScreen: React.FC = () => {
   );
   const [newAckPhrase, setNewAckPhrase] = useState('');
   const businessName = (user?.user_metadata?.business_name as string | undefined)?.trim();
-
-  const clearFlynnLoopTimer = useCallback(() => {
-    if (flynnLoopTimerRef.current) {
-      clearTimeout(flynnLoopTimerRef.current);
-      flynnLoopTimerRef.current = null;
-    }
-  }, []);
-
-  const animateFlynnScale = useCallback(
-    (toValue: number) => {
-      Animated.timing(flynnScale, {
-        toValue,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-    },
-    [flynnScale]
-  );
-
-  const stopFlynnAnimation = useCallback(() => {
-    clearFlynnLoopTimer();
-    setIsFlynnTalking(false);
-    animateFlynnScale(1);
-  }, [animateFlynnScale, clearFlynnLoopTimer]);
 
 
   useEffect(() => {
@@ -201,19 +167,12 @@ export const ReceptionistScreen: React.FC = () => {
         FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => { });
         previewUriRef.current = null;
       }
-      if (flynnLoopTimerRef.current) {
-        clearTimeout(flynnLoopTimerRef.current);
-        flynnLoopTimerRef.current = null;
-      }
-      flynnScale.stopAnimation(() => {
-        flynnScale.setValue(1);
-      });
       if (toastTimerRef.current) {
         clearTimeout(toastTimerRef.current);
         toastTimerRef.current = null;
       }
     };
-  }, [flynnScale]);
+  }, []);
 
 
   useEffect(() => {
@@ -427,39 +386,6 @@ export const ReceptionistScreen: React.FC = () => {
 
 
 
-  const startFlynnAnimationLoop = useCallback(
-    (durationMillis?: number) => {
-      clearFlynnLoopTimer();
-      const loops = durationMillis
-        ? Math.max(1, Math.round(durationMillis / FLYNN_LOOP_DURATION_MS))
-        : 1;
-
-      if (!loops) {
-        setIsFlynnTalking(false);
-        return;
-      }
-
-      let remaining = loops;
-      setIsFlynnTalking(true);
-      setFlynnAnimationKey(prev => prev + 1);
-      animateFlynnScale(1.35);
-
-      const scheduleNext = () => {
-        remaining -= 1;
-        if (remaining <= 0) {
-          flynnLoopTimerRef.current = null;
-          return;
-        }
-
-        setFlynnAnimationKey(prev => prev + 1);
-        flynnLoopTimerRef.current = setTimeout(scheduleNext, FLYNN_LOOP_DURATION_MS);
-      };
-
-      flynnLoopTimerRef.current = setTimeout(scheduleNext, FLYNN_LOOP_DURATION_MS);
-    },
-    [animateFlynnScale, clearFlynnLoopTimer]
-  );
-
   const stopPreview = useCallback(async () => {
     const sound = previewSoundRef.current;
     if (!sound) {
@@ -480,13 +406,12 @@ export const ReceptionistScreen: React.FC = () => {
         FileSystem.deleteAsync(previewUriRef.current, { idempotent: true }).catch(() => { });
         previewUriRef.current = null;
       }
-      stopFlynnAnimation();
       setIsGreetingPreviewPlaying(false);
       setIsGreetingPreviewLoading(false);
       setQuestionPreviewPlayingIndex(null);
       setQuestionPreviewLoadingIndex(null);
     }
-  }, [stopFlynnAnimation]);
+  }, []);
 
   const handlePlayGreeting = useCallback(async () => {
     if (isGreetingPreviewLoading) {
@@ -550,10 +475,6 @@ export const ReceptionistScreen: React.FC = () => {
       setIsGreetingPreviewPlaying(true);
       setIsGreetingPreviewLoading(false);
 
-      const playbackStatus = await sound.getStatusAsync();
-      const durationMillis = playbackStatus.isLoaded ? playbackStatus.durationMillis ?? undefined : undefined;
-      startFlynnAnimationLoop(durationMillis);
-
       sound.setOnPlaybackStatusUpdate(status => {
         if (!status.isLoaded) {
           if (status.error) {
@@ -572,7 +493,6 @@ export const ReceptionistScreen: React.FC = () => {
       console.error('[ReceptionistScreen] Failed to play greeting preview', error);
       stopPreview().catch(() => { });
       Alert.alert('Preview failed', error instanceof Error ? error.message : 'Unable to play the greeting right now.');
-      setIsFlynnTalking(false);
       setIsGreetingPreviewPlaying(false);
     } finally {
       setIsGreetingPreviewLoading(false);
@@ -585,7 +505,6 @@ export const ReceptionistScreen: React.FC = () => {
     isGreetingPreviewPlaying,
     selectedVoice,
     stopPreview,
-    startFlynnAnimationLoop,
   ]);
 
   const handlePlayQuestion = useCallback(async (index: number) => {
@@ -653,10 +572,6 @@ export const ReceptionistScreen: React.FC = () => {
       setQuestionPreviewPlayingIndex(index);
       setQuestionPreviewLoadingIndex(null);
 
-      const playbackStatus = await sound.getStatusAsync();
-      const durationMillis = playbackStatus.isLoaded ? playbackStatus.durationMillis ?? undefined : undefined;
-      startFlynnAnimationLoop(durationMillis);
-
       sound.setOnPlaybackStatusUpdate(status => {
         if (!status.isLoaded) {
           if (status.error) {
@@ -675,7 +590,6 @@ export const ReceptionistScreen: React.FC = () => {
       console.error('[ReceptionistScreen] Failed to play question preview', error);
       stopPreview().catch(() => { });
       Alert.alert('Preview failed', error instanceof Error ? error.message : 'Unable to play this question right now.');
-      setIsFlynnTalking(false);
     } finally {
       setQuestionPreviewLoadingIndex(prev => (prev === index ? null : prev));
     }
@@ -686,7 +600,6 @@ export const ReceptionistScreen: React.FC = () => {
     questionPreviewLoadingIndex,
     questionPreviewPlayingIndex,
     selectedVoice,
-    startFlynnAnimationLoop,
     stopPreview,
   ]);
 
@@ -694,44 +607,6 @@ export const ReceptionistScreen: React.FC = () => {
   return (
     <View style={styles.screen}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.heroCard}>
-          <Animated.View style={[styles.heroAvatar, { transform: [{ scale: flynnScale }] }]}>
-            <Image
-              key={isFlynnTalking ? `flynn-${flynnAnimationKey}` : 'flynn-static'}
-              source={isFlynnTalking ? FLYNN_ANIMATION : FLYNN_STATIC}
-              style={styles.heroAvatarImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
-          <View style={styles.heroTextWrapper}>
-            <Text style={styles.heroTitle}>Flynn Concierge</Text>
-            <Text style={styles.heroSubtitle}>
-              Manage the voice, behaviour, and scripts your AI receptionist uses on every call.
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={styles.previewButton}
-            onPress={handlePlayGreeting}
-            activeOpacity={0.85}
-            disabled={isGreetingPreviewLoading}
-          >
-            {isGreetingPreviewLoading ? (
-              <ActivityIndicator color="#2563eb" size="small" />
-            ) : (
-              <View style={styles.previewButtonContent}>
-                <FlynnIcon
-                  name={isGreetingPreviewPlaying ? 'pause-circle' : 'play-circle'}
-                  size={22}
-                  color="#2563eb"
-                />
-                <Text style={styles.previewButtonLabel}>
-                  {isGreetingPreviewPlaying ? 'Stop' : 'Play greeting'}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
         <FlynnCard style={styles.testCallCard}>
           <View style={styles.testCallHeader}>
             <Text style={styles.cardTitle}>Run a Flynn test call</Text>
@@ -1188,65 +1063,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
-  },
-  heroCard: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    gap: spacing.md,
-    borderWidth: 2,
-    borderColor: colors.black,
-    alignItems: 'center',
-    ...shadows.md,
-  },
-  heroAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: colors.black,
-  },
-  heroAvatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroTextWrapper: {
-    flex: 1,
-  },
-  heroTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-  },
-  heroSubtitle: {
-    ...typography.bodyMedium,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  previewButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.white,
-    borderWidth: 2,
-    borderColor: colors.black,
-    ...shadows.xs,
-  },
-  previewButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxxs,
-  },
-  previewButtonLabel: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '700',
-    marginLeft: spacing.xxxs,
-    textTransform: 'uppercase',
   },
   card: {
     // Styles now handled by FlynnCard, but keeping for layout if needed

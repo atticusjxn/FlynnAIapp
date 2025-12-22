@@ -4,28 +4,13 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   SafeAreaView,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
+import { colors, spacing, typography, borderRadius } from '../../theme';
 import { FlynnJobForm, JobFormData } from './FlynnJobForm';
+import { OrganizationService } from '../../services/organizationService';
 
-const businessTypes = [
-  { id: 'home_property', label: '🏠 Home & Property Services', emoji: '🏠' },
-  { id: 'personal_beauty', label: '💄 Beauty & Personal Services', emoji: '💄' },
-  { id: 'automotive', label: '🚗 Automotive Services', emoji: '🚗' },
-  { id: 'business_professional', label: '💼 Professional Services', emoji: '💼' },
-  { id: 'moving_delivery', label: '🚚 Moving & Delivery', emoji: '🚚' },
-];
-
-const mockData: Partial<JobFormData> = {
-  clientName: 'John Smith',
-  phone: '+1 (555) 123-4567',
-  date: 'March 15, 2024',
-  time: '2:00 PM',
-  notes: 'Client prefers afternoon appointments',
-};
 
 interface RouteParams {
   prefilledData?: {
@@ -47,12 +32,11 @@ interface RouteParams {
 export const JobFormDemo: React.FC = () => {
   const route = useRoute();
   const routeParams = route.params as RouteParams;
-  
-  // Set initial business type based on prefilled data or default
-  const initialBusinessType = routeParams?.prefilledData?.businessType || 'home_property';
-  const [selectedBusinessType, setSelectedBusinessType] = useState(initialBusinessType);
-  
-  // Initialize form data with prefilled data if available, otherwise use mock data
+
+  const [selectedBusinessType, setSelectedBusinessType] = useState<string>('home_property');
+  const [isLoadingBusinessType, setIsLoadingBusinessType] = useState(true);
+
+  // Initialize form data with prefilled data if available
   const getInitialFormData = (): JobFormData => {
     if (routeParams?.prefilledData) {
       const prefilled = routeParams.prefilledData;
@@ -64,24 +48,49 @@ export const JobFormDemo: React.FC = () => {
         notes: prefilled.notes || '',
       } as JobFormData;
     }
-    return mockData as JobFormData;
+    return {
+      clientName: '',
+      phone: '',
+      date: '',
+      time: '',
+      notes: '',
+    } as JobFormData;
   };
-  
+
   const [formData, setFormData] = useState<JobFormData>(getInitialFormData());
   const [isValid, setIsValid] = useState(false);
+
+  // Fetch user's business type on mount
+  useEffect(() => {
+    const fetchBusinessType = async () => {
+      try {
+        const { data } = await OrganizationService.fetchOnboardingData();
+        if (data.businessType) {
+          setSelectedBusinessType(data.businessType);
+        }
+      } catch (error) {
+        console.error('Error fetching business type:', error);
+        // Default to home_property if fetch fails
+        setSelectedBusinessType('home_property');
+      } finally {
+        setIsLoadingBusinessType(false);
+      }
+    };
+
+    fetchBusinessType();
+  }, []);
 
   // Update form data with pre-filled data from route params
   useEffect(() => {
     if (routeParams?.prefilledData) {
       const prefilled = routeParams.prefilledData;
-      // If editing, use prefilled data; if creating new, use mock data for missing fields
       setFormData(prevData => ({
         ...prevData,
-        clientName: prefilled.clientName || (routeParams.isEditing ? '' : ''),
-        phone: prefilled.phone || (routeParams.isEditing ? '' : ''),
+        clientName: prefilled.clientName || '',
+        phone: prefilled.phone || '',
         date: prefilled.date || prevData.date || '',
         time: prefilled.time || prevData.time || '',
-        notes: prefilled.notes || (routeParams.isEditing ? '' : ''),
+        notes: prefilled.notes || '',
         // Add service location if provided
         ...(prefilled.location && {
           propertyAddress: prefilled.location,
@@ -97,23 +106,6 @@ export const JobFormDemo: React.FC = () => {
     }
   }, [routeParams]);
 
-  const handleBusinessTypeChange = (businessType: string) => {
-    setSelectedBusinessType(businessType);
-    // Reset form data when business type changes, but preserve pre-filled data
-    if (routeParams?.prefilledData) {
-      const prefilled = routeParams.prefilledData;
-      setFormData({
-        clientName: prefilled.clientName || mockData.clientName || '',
-        phone: prefilled.phone || mockData.phone || '',
-        date: prefilled.date || '',
-        time: prefilled.time || '',
-        notes: prefilled.notes || mockData.notes || '',
-      } as JobFormData);
-    } else {
-      setFormData(mockData as JobFormData);
-    }
-  };
-
   const handleDataChange = useCallback((data: JobFormData) => {
     // Update state but prevent the circular dependency
     console.log('Form data changed:', data);
@@ -123,49 +115,24 @@ export const JobFormDemo: React.FC = () => {
     setIsValid(valid);
   }, []);
 
+  // Don't render until we've loaded the business type
+  if (isLoadingBusinessType) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>
-          {routeParams?.isEditing ? 'Edit Job Details' : 'Dynamic Job Forms Demo'}
-        </Text>
-        <Text style={styles.subtitle}>
-          {routeParams?.isEditing 
-            ? 'Update the job information below' 
-            : 'Select a business type to see how the form adapts'
-          }
+          {routeParams?.isEditing ? 'Edit Job Details' : 'Create Job'}
         </Text>
       </View>
-
-      {/* Business Type Selector - Hidden when editing */}
-      {!routeParams?.isEditing && (
-        <View style={styles.selectorContainer}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.selectorContent}
-          >
-            {businessTypes.map((type) => (
-              <TouchableOpacity
-                key={type.id}
-                style={[
-                  styles.businessTypeCard,
-                  selectedBusinessType === type.id && styles.selectedCard
-                ]}
-                onPress={() => handleBusinessTypeChange(type.id)}
-              >
-                <Text style={styles.businessEmoji}>{type.emoji}</Text>
-                <Text style={[
-                  styles.businessLabel,
-                  selectedBusinessType === type.id && styles.selectedLabel
-                ]}>
-                  {type.label.split(' ').slice(1).join(' ')}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
 
       {/* Form Status Indicator */}
       <View style={styles.statusContainer}>
@@ -177,10 +144,7 @@ export const JobFormDemo: React.FC = () => {
             styles.statusText,
             isValid ? styles.validText : styles.invalidText
           ]}>
-            {routeParams?.isEditing 
-              ? `Update Status: ${isValid ? 'Ready to Save' : 'Missing Required Fields'}`
-              : `Form Status: ${isValid ? 'Valid' : 'Missing Required Fields'}`
-            }
+            {isValid ? 'Ready to Save' : 'Missing Required Fields'}
           </Text>
         </View>
       </View>
@@ -204,7 +168,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.gray50,
   },
-  
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+  },
+
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -213,61 +188,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  
+
   title: {
     ...typography.h2,
     color: colors.textPrimary,
-    marginBottom: spacing.xxs,
-  },
-  
-  subtitle: {
-    ...typography.bodyMedium,
-    color: colors.textSecondary,
-  },
-  
-  selectorContainer: {
-    backgroundColor: colors.white,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  
-  selectorContent: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  
-  businessTypeCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.gray100,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    minWidth: 100,
-  },
-  
-  selectedCard: {
-    backgroundColor: colors.primaryLight,
-    borderColor: colors.primary,
-  },
-  
-  businessEmoji: {
-    fontSize: 24,
-    marginBottom: spacing.xxs,
-  },
-  
-  businessLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  
-  selectedLabel: {
-    color: colors.primary,
   },
   
   statusContainer: {
