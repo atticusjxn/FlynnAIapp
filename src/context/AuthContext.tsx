@@ -4,6 +4,7 @@ import { supabase } from '../services/supabase';
 import { AuthTokenStorage } from '../services/authTokenStorage';
 import { registerDevicePushToken } from '../services/pushRegistration';
 import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -101,13 +102,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithOTP = async (email: string) => {
+    console.log('[AuthContext] Sending OTP to email:', email);
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         shouldCreateUser: true,
       }
     });
-    if (error) throw error;
+    if (error) {
+      console.error('[AuthContext] OTP send error:', error);
+      console.error('[AuthContext] Error details:', JSON.stringify(error, null, 2));
+      throw error;
+    }
+    console.log('[AuthContext] OTP sent successfully');
   };
 
   const verifyOTP = async (email: string, token: string) => {
@@ -133,46 +140,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('[AuthContext] Starting Google OAuth flow');
 
+      // Generate proper redirect URI for mobile app
+      const redirectTo = makeRedirectUri({
+        scheme: 'flynnai',
+        path: 'auth/callback'
+      });
+
+      console.log('[AuthContext] Generated redirect URI:', redirectTo);
+
       // Start the OAuth flow - Supabase handles the callback URL
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // Supabase will use its own callback URL: https://zvfeafmmtfplzpnocyjw.supabase.co/auth/v1/callback
+          redirectTo,
           skipBrowserRedirect: false,
         }
       });
 
       if (error) {
         console.error('[AuthContext] Google OAuth error:', error);
+        console.error('[AuthContext] Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
 
       if (!data?.url) {
-        throw new Error('No OAuth URL returned from Supabase');
+        const errorMsg = 'No OAuth URL returned from Supabase';
+        console.error('[AuthContext]', errorMsg);
+        throw new Error(errorMsg);
       }
 
-      console.log('[AuthContext] Opening OAuth URL');
+      console.log('[AuthContext] OAuth URL received, opening browser');
+      console.log('[AuthContext] OAuth URL:', data.url);
 
       // Open the OAuth URL in the browser
       // Supabase's callback URL will handle the redirect and set the session
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
-        // Return to app after OAuth completes
-        'flynnai://'
+        redirectTo
       );
 
-      console.log('[AuthContext] OAuth result:', result);
+      console.log('[AuthContext] OAuth browser result:', JSON.stringify(result, null, 2));
 
       if (result.type === 'success') {
         // The session will be set automatically by the onAuthStateChange listener
         console.log('[AuthContext] Google OAuth successful');
+        if ('url' in result) {
+          console.log('[AuthContext] Callback URL:', result.url);
+        }
       } else if (result.type === 'cancel') {
-        throw new Error('Google sign-in was cancelled');
+        const errorMsg = 'Google sign-in was cancelled by user';
+        console.log('[AuthContext]', errorMsg);
+        throw new Error(errorMsg);
       } else {
-        throw new Error('Google sign-in failed');
+        const errorMsg = `Google sign-in failed with result type: ${result.type}`;
+        console.error('[AuthContext]', errorMsg);
+        throw new Error(errorMsg);
       }
     } catch (error) {
       console.error('[AuthContext] signInWithGoogle error:', error);
+      if (error instanceof Error) {
+        console.error('[AuthContext] Error message:', error.message);
+        console.error('[AuthContext] Error stack:', error.stack);
+      }
       throw error;
     }
   };
