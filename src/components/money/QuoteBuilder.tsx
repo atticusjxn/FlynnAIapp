@@ -167,6 +167,7 @@ const QuoteBuilder: React.FC<QuoteBuilderProps> = ({
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -190,7 +191,11 @@ const QuoteBuilder: React.FC<QuoteBuilderProps> = ({
         </View>
 
         {/* Form */}
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.form}>
             {/* Title */}
             <View style={styles.field}>
@@ -297,7 +302,7 @@ const QuoteBuilder: React.FC<QuoteBuilderProps> = ({
             </View>
 
             {/* Padding at bottom for keyboard */}
-            <View style={{ height: 40 }} />
+            <View style={{ height: 200 }} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

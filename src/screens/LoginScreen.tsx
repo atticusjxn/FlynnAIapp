@@ -58,10 +58,15 @@ export const LoginScreen = () => {
     setLoading(true);
     setError('');
     try {
+      console.log('[LoginScreen] Initiating Google login');
       await signInWithGoogle();
+      console.log('[LoginScreen] Google login completed successfully');
     } catch (e: any) {
-      console.error(e);
-      setError(e.message || 'Failed to sign in with Google');
+      console.error('[LoginScreen] Google login error:', e);
+      console.error('[LoginScreen] Error details:', JSON.stringify(e, null, 2));
+      console.error('[LoginScreen] Error message:', e.message);
+      console.error('[LoginScreen] Error stack:', e.stack);
+      setError(e.message || 'Failed to sign in with Google. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -73,15 +78,20 @@ export const LoginScreen = () => {
     try {
       if (!codeSent) {
         // Step 1: Send the code
+        console.log('[LoginScreen] Sending OTP to:', email);
         await signInWithOTP(email);
         setCodeSent(true);
         setSuccessMessage('Code sent! Check your email.');
       } else {
         // Step 2: Verify the code
+        console.log('[LoginScreen] Verifying OTP code');
         await verifyOTP(email, code);
       }
     } catch (e: any) {
-      console.error(e);
+      console.error('[LoginScreen] Email code error:', e);
+      console.error('[LoginScreen] Error details:', JSON.stringify(e, null, 2));
+      console.error('[LoginScreen] Error message:', e.message);
+      console.error('[LoginScreen] Error status:', e.status);
       setError(e.message || 'Failed to process email code');
     } finally {
       setLoading(false);
@@ -376,7 +386,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: -spacing.xs,
+    left: -spacing.lg,
     top: spacing.xs,
     padding: spacing.sm,
     zIndex: 10,

@@ -115,6 +115,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     minHeight: 52,
     ...shadows.xs,
+    overflow: 'visible',
   },
 
   inputContainerFocused: {
@@ -135,12 +136,11 @@ const styles = StyleSheet.create({
 
   input: {
     flex: 1,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.xs + 2,
+    paddingBottom: spacing.xs + 2,
     paddingHorizontal: spacing.md,
     ...typography.bodyMedium,
     color: colors.textPrimary,
-    textAlignVertical: 'center',
     includeFontPadding: false,
   },
 
