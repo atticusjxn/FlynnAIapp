@@ -182,7 +182,7 @@ CREATE POLICY "Users can view quotes for their organization"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -192,7 +192,7 @@ CREATE POLICY "Users can create quotes for their organization"
   WITH CHECK (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -202,7 +202,7 @@ CREATE POLICY "Users can update quotes for their organization"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -212,7 +212,7 @@ CREATE POLICY "Users can delete quotes for their organization"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -223,7 +223,7 @@ CREATE POLICY "Users can view invoices for their organization"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -233,7 +233,7 @@ CREATE POLICY "Users can create invoices for their organization"
   WITH CHECK (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -243,7 +243,7 @@ CREATE POLICY "Users can update invoices for their organization"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -253,7 +253,7 @@ CREATE POLICY "Users can delete invoices for their organization"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -264,7 +264,7 @@ CREATE POLICY "Users can view payment events for their organization"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );

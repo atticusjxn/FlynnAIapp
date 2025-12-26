@@ -12,6 +12,7 @@ COPY llmClient.js ./
 
 # Copy application code
 COPY server.js ./
+COPY secureApiRoutes.js ./
 COPY supabaseMcpClient.js ./
 COPY telephony/ ./telephony/
 COPY middleware/ ./middleware/

@@ -346,6 +346,15 @@ export const SettingsScreen: React.FC = () => {
             )}
 
             {renderSettingRow(
+              'calendar-outline',
+              'Booking Page',
+              'Set up your booking link and availability',
+              undefined,
+              () => navigation.navigate('BookingPageSetup'),
+              false,
+            )}
+
+            {renderSettingRow(
               'business-outline',
               'Business type',
               businessTypeLabel,

@@ -17,6 +17,9 @@ import { FlynnKeyboardAvoidingView } from '../ui/FlynnKeyboardAvoidingView';
 import { Job } from './JobCard';
 import { generateSmsConfirmation, createSmsUrl } from '../../utils/smsTemplate';
 import { openPhoneDialer } from '../../utils/dialer';
+import BookingPageService from '../../services/BookingPageService';
+import BookingService from '../../services/BookingService';
+import { supabase } from '../../services/supabase';
 
 interface JobDetailsModalProps {
   job: Job | null;
@@ -239,6 +242,72 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
     } catch (error: any) {
       console.error('[JobDetailsModal] Error creating SMS:', error);
       Alert.alert('Error', error.message || 'Unable to create text message. Please check the job details.');
+    }
+  };
+
+  const handleSendBookingLink = async () => {
+    try {
+      // Get user's org_id
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('default_org_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData?.default_org_id) {
+        Alert.alert('Error', 'Organization not found');
+        return;
+      }
+
+      // Check if booking page exists
+      const bookingPage = await BookingPageService.getBookingPage(userData.default_org_id);
+
+      if (!bookingPage) {
+        Alert.alert(
+          'Setup Required',
+          'You need to set up your booking page first. Would you like to do that now?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Set Up Now', onPress: () => {
+              // TODO: Navigate to BookingPageSetup screen
+              Alert.alert('Setup', 'Navigate to Settings > Booking Page to complete setup');
+            }},
+          ]
+        );
+        return;
+      }
+
+      if (!bookingPage.is_active) {
+        Alert.alert('Booking Page Inactive', 'Your booking page is currently paused. Please activate it in settings first.');
+        return;
+      }
+
+      // Generate booking URL
+      const bookingUrl = BookingPageService.getBookingUrl(bookingPage.slug);
+
+      // Get business name for SMS message
+      const businessName = bookingPage.business_name;
+
+      // Generate pre-filled SMS message
+      const message = BookingService.generateBookingLinkMessage(
+        bookingUrl,
+        currentJob.clientName,
+        businessName
+      );
+
+      const smsUrl = createSmsUrl(currentJob.clientPhone, message);
+
+      // Open native SMS app with pre-filled message
+      await Linking.openURL(smsUrl);
+    } catch (error: any) {
+      console.error('[JobDetailsModal] Error sending booking link:', error);
+      Alert.alert('Error', error.message || 'Unable to send booking link. Please try again.');
     }
   };
 
@@ -511,7 +580,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   icon={<FlynnIcon name="chatbubble-outline" size={18} color={colors.white} />}
                   style={styles.communicationButton}
                 />
-                
+
                 <FlynnButton
                   title="Email"
                   onPress={() => onSendEmailConfirmation(currentJob)}
@@ -520,7 +589,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   icon={<FlynnIcon name="mail-outline" size={18} color={colors.primary} />}
                   style={styles.communicationButton}
                 />
-                
+
                 <FlynnButton
                   title="Call"
                   onPress={handleCallClient}
@@ -530,6 +599,23 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                   style={styles.communicationButton}
                 />
               </View>
+
+              {/* Booking Link Action - Show for pending events */}
+              {currentJob.status === 'pending' && (
+                <View style={styles.bookingLinkAction}>
+                  <FlynnButton
+                    title="Send Booking Link"
+                    onPress={handleSendBookingLink}
+                    variant="secondary"
+                    size="medium"
+                    icon={<FlynnIcon name="calendar-outline" size={18} color={colors.primary} />}
+                    fullWidth
+                  />
+                  <Text style={styles.bookingLinkHint}>
+                    Let the client choose their preferred time
+                  </Text>
+                </View>
+              )}
 
               {/* Accounting Actions - Show for completed jobs when accounting software is connected */}
               {currentJob.status === 'complete' && (
@@ -551,20 +637,26 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                     <View style={styles.accountingButtonsRow}>
                       <TouchableOpacity
                         style={styles.accountingAction}
-                        onPress={() => Alert.alert('Send Invoice', 'Invoice will be sent to MYOB for processing')}
+                        onPress={() => {
+                          // TODO: Open Invoice Builder with pre-filled job data
+                          Alert.alert('Create Invoice', 'Open Invoice Builder with job details pre-filled. Navigate to Money tab to create invoices.');
+                        }}
                       >
                         <View style={styles.accountingActionIcon}>
                           <FlynnIcon name="receipt-outline" size={20} color={colors.success} />
                         </View>
                         <Text style={[styles.accountingActionText, { color: colors.success }]}>
-                          Send Invoice
+                          Create Invoice
                         </Text>
-                        <Text style={styles.accountingActionSubtext}>MYOB</Text>
+                        <Text style={styles.accountingActionSubtext}>Flynn Money</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
                         style={styles.accountingAction}
-                        onPress={() => Alert.alert('Create Quote', 'Quote template will be created in MYOB')}
+                        onPress={() => {
+                          // TODO: Open Quote Builder with pre-filled job data
+                          Alert.alert('Create Quote', 'Open Quote Builder with job details pre-filled. Navigate to Money tab to create quotes.');
+                        }}
                       >
                         <View style={styles.accountingActionIcon}>
                           <FlynnIcon name="document-text-outline" size={20} color={colors.primary} />
@@ -572,12 +664,12 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                         <Text style={[styles.accountingActionText, { color: colors.primary }]}>
                           Create Quote
                         </Text>
-                        <Text style={styles.accountingActionSubtext}>MYOB</Text>
+                        <Text style={styles.accountingActionSubtext}>Flynn Money</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
                         style={styles.accountingAction}
-                        onPress={() => Alert.alert('Log Expenses', 'Expense tracking for this job will be logged in MYOB')}
+                        onPress={() => Alert.alert('Log Expenses', 'Track materials and expenses for this job. Coming soon.')}
                       >
                         <View style={styles.accountingActionIcon}>
                           <FlynnIcon name="calculator-outline" size={20} color={colors.warning} />
@@ -585,7 +677,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({
                         <Text style={[styles.accountingActionText, { color: colors.warning }]}>
                           Log Expenses
                         </Text>
-                        <Text style={styles.accountingActionSubtext}>MYOB</Text>
+                        <Text style={styles.accountingActionSubtext}>Coming Soon</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -861,11 +953,28 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },
-  
+
   communicationButton: {
     flex: 1,
   },
-  
+
+  bookingLinkAction: {
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.primaryLight,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+
+  bookingLinkHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+
   secondaryActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',

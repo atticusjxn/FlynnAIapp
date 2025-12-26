@@ -3,7 +3,7 @@ import Navbar from './Navbar';
 import Features from './Features';
 import DemoChat from './DemoChat';
 import Pricing from './Pricing';
-
+import { useNavigate } from 'react-router-dom';
 import Footer from './Footer';
 import StoreButtons from './StoreButtons';
 import { ArrowRight, Star, PlayCircle, Loader } from 'lucide-react';
@@ -32,6 +32,7 @@ const ClientGenerator = () => {
 }
 
 function LandingPage() {
+    const navigate = useNavigate();
     const { scrollY } = useScroll();
     const y1 = useTransform(scrollY, [0, 1000], [0, 200]);
     const rotate = useTransform(scrollY, [0, 1000], [0, 10]);
@@ -164,7 +165,7 @@ function LandingPage() {
                     <p className="text-xl text-black/60 mb-12 max-w-xl mx-auto font-medium">
                         Flynn handles the calls, bookings, and follow-ups — so you can get back to doing the work.
                     </p>
-                    <button className="bg-black text-white hover:bg-white hover:text-black px-12 py-6 text-xl font-bold uppercase tracking-widest border-4 border-black shadow-[8px_8px_0px_0px_rgba(255,255,255,0.3)] transition-all hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]">
+                    <button onClick={() => navigate('/trial')} className="bg-black text-white hover:bg-white hover:text-black px-12 py-6 text-xl font-bold uppercase tracking-widest border-4 border-black shadow-[8px_8px_0px_0px_rgba(255,255,255,0.3)] transition-all hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]">
                         Start 14-Day Free Trial
                     </button>
                 </div>

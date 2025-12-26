@@ -134,7 +134,7 @@ CREATE POLICY "Users can view their organization's booking page"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -144,7 +144,7 @@ CREATE POLICY "Users can insert booking pages for their organization"
   WITH CHECK (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
         AND om.role IN ('owner', 'admin')
     )
@@ -155,7 +155,7 @@ CREATE POLICY "Users can update their organization's booking page"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
         AND om.role IN ('owner', 'admin')
     )
@@ -166,7 +166,7 @@ CREATE POLICY "Users can delete their organization's booking page"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
         AND om.role IN ('owner', 'admin')
     )
@@ -178,7 +178,7 @@ CREATE POLICY "Users can view bookings for their organization"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -193,7 +193,7 @@ CREATE POLICY "Users can update bookings for their organization"
   USING (
     org_id IN (
       SELECT om.org_id
-      FROM organization_members om
+      FROM org_members om
       WHERE om.user_id = auth.uid()
     )
   );
@@ -206,7 +206,7 @@ CREATE POLICY "Users can view cached slots for their organization's booking page
       SELECT id FROM booking_pages
       WHERE org_id IN (
         SELECT om.org_id
-        FROM organization_members om
+        FROM org_members om
         WHERE om.user_id = auth.uid()
       )
     )

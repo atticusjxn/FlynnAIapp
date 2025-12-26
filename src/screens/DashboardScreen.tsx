@@ -24,6 +24,8 @@ import { useJobs } from '../context/JobsContext';
 import { FloatingActionButton } from '../components/common/FloatingActionButton';
 import { generateSmsConfirmation, createSmsUrl } from '../utils/smsTemplate';
 import { openPhoneDialer } from '../utils/dialer';
+import InvoiceService from '../services/InvoiceService';
+import { supabase } from '../services/supabase';
 
 export const DashboardScreen = () => {
   const { user } = useAuth();
@@ -45,6 +47,13 @@ export const DashboardScreen = () => {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<DashboardActivity | null>(null);
   const [activityModalVisible, setActivityModalVisible] = useState(false);
+  const [revenueStats, setRevenueStats] = useState<{
+    totalRevenue: number;
+    paidInvoices: number;
+    pendingRevenue: number;
+    overdueRevenue: number;
+  } | null>(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
   const styles = createStyles(colors);
 
   // Get real data
@@ -69,9 +78,46 @@ export const DashboardScreen = () => {
 
   const onRefresh = async () => {
     try {
-      await Promise.all([refreshJobs(), loadActivities()]);
+      await Promise.all([refreshJobs(), loadActivities(), loadRevenueStats()]);
     } catch (error) {
       console.error('[Dashboard] Refresh failed:', error);
+    }
+  };
+
+  const loadRevenueStats = async () => {
+    if (!user?.id) {
+      setRevenueStats(null);
+      return;
+    }
+
+    setRevenueLoading(true);
+    try {
+      // Get user's org_id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('default_org_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData?.default_org_id) {
+        setRevenueStats(null);
+        return;
+      }
+
+      // Get revenue stats from InvoiceService
+      const stats = await InvoiceService.getRevenueStats(userData.default_org_id, 30);
+
+      setRevenueStats({
+        totalRevenue: stats.total_revenue,
+        paidInvoices: stats.paid_invoices_count,
+        pendingRevenue: stats.pending_amount,
+        overdueRevenue: stats.overdue_amount,
+      });
+    } catch (error) {
+      console.error('[Dashboard] Failed to load revenue stats', error);
+      setRevenueStats(null);
+    } finally {
+      setRevenueLoading(false);
     }
   };
 
@@ -95,6 +141,7 @@ export const DashboardScreen = () => {
 
   useEffect(() => {
     void loadActivities();
+    void loadRevenueStats();
   }, [user?.id]);
 
   const handleCallClient = (phone: string) => {
@@ -235,6 +282,42 @@ export const DashboardScreen = () => {
       <View style={styles.welcomeSection}>
         <Text style={styles.welcomeText}>Welcome back, {getUserName()} 👋</Text>
       </View>
+
+      {/* Revenue Stats Section */}
+      {revenueStats && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FlynnIcon name="cash-outline" size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Revenue (Last 30 Days)</Text>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => navigation.navigate('Money')}
+            >
+              <Text style={styles.viewAllText}>View All</Text>
+              <FlynnIcon name="chevron-forward" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.statsGrid}>
+            <View style={[styles.statCard, styles.statCardPrimary]}>
+              <Text style={styles.statLabel}>Total Revenue</Text>
+              <Text style={styles.statValue}>${revenueStats.totalRevenue.toFixed(2)}</Text>
+              <Text style={styles.statSubtext}>{revenueStats.paidInvoices} paid invoices</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Pending</Text>
+              <Text style={[styles.statValue, { color: colors.warning }]}>
+                ${revenueStats.pendingRevenue.toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Overdue</Text>
+              <Text style={[styles.statValue, { color: colors.error }]}>
+                ${revenueStats.overdueRevenue.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Upcoming Event Section */}
       <View style={styles.section}>
@@ -414,6 +497,39 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...typography.h3,
     color: colors.textPrimary,
     marginLeft: spacing.xs,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.card,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
+  },
+  statCardPrimary: {
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  statLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xxs,
+  },
+  statValue: {
+    ...typography.h3,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  statSubtext: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: spacing.xxxs,
   },
   upcomingEventCard: {
     backgroundColor: colors.card,

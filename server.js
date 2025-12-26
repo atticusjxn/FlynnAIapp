@@ -3150,6 +3150,20 @@ app.post('/jobs/:id/confirm', async (req, res) => {
 });
 
 // ============================================================================
+// SECURE API ENDPOINTS FOR MOBILE APP
+// ============================================================================
+
+const attachSecureApiRoutes = require('./secureApiRoutes');
+attachSecureApiRoutes(app, {
+  twilioAccountSid,
+  twilioAuthToken,
+  twilioSmsFromNumber,
+  authenticateJwt,
+  getLLMClient,
+  twilio,
+});
+
+// ============================================================================
 // Reminder System API Endpoints
 // ============================================================================
 

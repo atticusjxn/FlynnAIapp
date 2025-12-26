@@ -14,6 +14,7 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { JobsScreen } from './src/screens/JobsScreen';
 import { ReceptionistScreen } from './src/screens/ReceptionistScreen';
 import { ClientsScreen } from './src/screens/ClientsScreen';
+import MoneyScreen from './src/screens/MoneyScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { OnboardingNavigator } from './src/screens/onboarding/OnboardingNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -26,6 +27,7 @@ import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
 import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
 import IntegrationsScreen from './src/screens/settings/IntegrationsScreen';
 import { BusinessProfileScreen } from './src/screens/settings/BusinessProfileScreen';
+import BookingPageSetupScreen from './src/screens/settings/BookingPageSetupScreen';
 import {
   useFonts,
   Inter_400Regular,
@@ -56,6 +58,8 @@ function MainTabs() {
             iconName = focused ? 'sparkles' : 'sparkles-outline';
           } else if (route.name === 'Clients') {
             iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Money') {
+            iconName = focused ? 'cash' : 'cash-outline';
           } else if (route.name === 'Settings') {
             iconName = focused ? 'settings' : 'settings-outline';
           }
@@ -81,6 +85,7 @@ function MainTabs() {
       <Tab.Screen name="Events" component={JobsScreen} />
       <Tab.Screen name="Receptionist" component={ReceptionistScreen} />
       <Tab.Screen name="Clients" component={ClientsScreen} />
+      <Tab.Screen name="Money" component={MoneyScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
@@ -138,6 +143,14 @@ function RootNavigator() {
       <Stack.Screen
         name="BusinessProfile"
         component={BusinessProfileScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BookingPageSetup"
+        component={BookingPageSetupScreen}
         options={{
           presentation: 'modal',
           headerShown: false,

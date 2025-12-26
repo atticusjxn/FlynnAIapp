@@ -1,7 +1,10 @@
 import React from 'react';
 import { Check, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const PricingTable: React.FC = () => {
+    const navigate = useNavigate();
+
     return (
         <div className="overflow-x-auto">
             <table className="w-full border-collapse min-w-[600px]">
@@ -48,13 +51,13 @@ const PricingTable: React.FC = () => {
                     <tr>
                         <td className="py-8 px-6"></td>
                         <td className="py-8 px-6 text-center">
-                            <button className="w-full py-3 border-2 border-black font-bold hover:bg-black hover:text-white transition-all">Choose Solo</button>
+                            <button onClick={() => navigate('/trial')} className="w-full py-3 border-2 border-black font-bold hover:bg-black hover:text-white transition-all">Choose Solo</button>
                         </td>
                         <td className="py-8 px-6 text-center bg-surface-50">
-                            <button className="w-full py-3 bg-brand-500 text-white font-bold shadow-[4px_4px_0px_0px_#000000] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_#000000] transition-all">Choose Pro</button>
+                            <button onClick={() => navigate('/trial')} className="w-full py-3 bg-brand-500 text-white font-bold shadow-[4px_4px_0px_0px_#000000] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[2px_2px_0px_0px_#000000] transition-all">Choose Pro</button>
                         </td>
                         <td className="py-8 px-6 text-center">
-                            <button className="w-full py-3 border-2 border-black font-bold hover:bg-black hover:text-white transition-all">Choose Team</button>
+                            <button onClick={() => navigate('/trial')} className="w-full py-3 border-2 border-black font-bold hover:bg-black hover:text-white transition-all">Choose Team</button>
                         </td>
                     </tr>
                 </tbody>

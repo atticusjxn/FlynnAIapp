@@ -12,22 +12,13 @@ import { carrierIdToIsoCountry, inferIsoCountryFromNumber } from '../utils/phone
 import { OrganizationService } from './organizationService';
 import { isPaidPlanId } from '../types/billing';
 
-// Environment configuration
-const TWILIO_ACCOUNT_SID = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.EXPO_PUBLIC_TWILIO_AUTH_TOKEN;
-const TWILIO_WEBHOOK_URL = process.env.EXPO_PUBLIC_TWILIO_WEBHOOK_URL;
+// Environment configuration - SECURE: Only public URLs, no secrets
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://flynnai-telephony.fly.dev';
 
-const EXPO_LLM_PROVIDER = (process.env.EXPO_PUBLIC_LLM_PROVIDER || '').toLowerCase();
-const EXPO_GROK_KEY = process.env.EXPO_PUBLIC_GROK_API_KEY || process.env.EXPO_PUBLIC_XAI_API_KEY;
-const EXPO_OPENAI_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-
-const LLM_PROVIDER = EXPO_LLM_PROVIDER || (EXPO_GROK_KEY ? 'grok' : 'openai');
-const LLM_API_KEY = LLM_PROVIDER === 'grok'
-  ? (EXPO_GROK_KEY || EXPO_OPENAI_KEY || '')
-  : (EXPO_OPENAI_KEY || '');
-const LLM_CHAT_MODEL = process.env.EXPO_PUBLIC_LLM_CHAT_MODEL || (LLM_PROVIDER === 'grok' ? 'grok-4-fast' : 'gpt-4');
-const LLM_BASE_URL = (process.env.EXPO_PUBLIC_LLM_BASE_URL || '').replace(/\/$/, '')
-  || (LLM_PROVIDER === 'grok' ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1');
+// LLM configuration - model info only, keys stored on backend
+const EXPO_LLM_PROVIDER = (process.env.EXPO_PUBLIC_LLM_PROVIDER || 'grok').toLowerCase();
+const LLM_CHAT_MODEL = process.env.EXPO_PUBLIC_LLM_CHAT_MODEL || 'grok-4-fast';
+const LLM_BASE_URL = process.env.EXPO_PUBLIC_LLM_BASE_URL || 'https://api.x.ai/v1';
 
 // Re-export types for backward compatibility
 export type TwilioUserStatus = UserTwilioSettings;
@@ -49,7 +40,6 @@ export interface PhoneNumberProvisionOptions {
 }
 
 class TwilioServiceClass {
-  private baseUrl = 'https://api.twilio.com/2010-04-01';
   private readonly defaultCountryCode = 'US';
   
   /**
@@ -188,46 +178,39 @@ class TwilioServiceClass {
   }
 
   /**
-   * Search for available phone numbers in a country
+   * Search for available phone numbers in a country using backend proxy
    */
   private async searchAvailableNumbers(countryCode: string = this.defaultCountryCode) {
-    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
-      // For development, return mock data
-      const devNumbers: Record<string, string> = {
-        AU: '+61491570156',
-        GB: '+447700900123',
-        IE: '+35315500000',
-        NZ: '+64210123456',
-        US: '+15551234567',
-      };
-
-      const fallback = devNumbers[this.defaultCountryCode];
-      return [{
-        phone_number: devNumbers[countryCode] || fallback,
-        friendly_name: 'Flynn AI Development Number',
-        capabilities: { voice: true, sms: true, fax: false }
-      }];
-    }
-
     try {
-      const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
-      
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
       const response = await fetch(
-        `${this.baseUrl}/Accounts/${TWILIO_ACCOUNT_SID}/AvailablePhoneNumbers/${countryCode}/Local.json?Limit=5&VoiceEnabled=true`,
+        `${API_BASE_URL}/api/twilio/search-numbers`,
         {
+          method: 'POST',
           headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            countryCode,
+            limit: 5,
+            voiceEnabled: true,
+          }),
         }
       );
 
       if (!response.ok) {
-        throw new Error(`Twilio API error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Backend API error: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.available_phone_numbers || [];
+      return data.availableNumbers || [];
     } catch (error) {
       console.error('Error searching available numbers:', error);
       throw new Error('Failed to search for available phone numbers');
@@ -235,52 +218,42 @@ class TwilioServiceClass {
   }
 
   /**
-   * Purchase a specific phone number
+   * Purchase a specific phone number using backend proxy
    */
   private async purchasePhoneNumber(phoneNumber: string, userId: string): Promise<PhoneNumberProvisionResult> {
-    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
-      // For development, return mock data
-      return {
-        phoneNumber: phoneNumber,
-        phoneNumberSid: 'PN' + Math.random().toString(36).substring(2, 15),
-        cost: 1.15
-      };
-    }
-
     try {
-      const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
-      
-      const params = new URLSearchParams({
-        PhoneNumber: phoneNumber,
-        VoiceUrl: `${TWILIO_WEBHOOK_URL}/webhook/voice/${userId}`,
-        VoiceMethod: 'POST',
-        StatusCallback: `${TWILIO_WEBHOOK_URL}/webhook/status/${userId}`,
-        StatusCallbackMethod: 'POST'
-      });
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
 
       const response = await fetch(
-        `${this.baseUrl}/Accounts/${TWILIO_ACCOUNT_SID}/IncomingPhoneNumbers.json`,
+        `${API_BASE_URL}/api/twilio/purchase-number`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
           },
-          body: params.toString()
+          body: JSON.stringify({
+            phoneNumber,
+            userId,
+          }),
         }
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to purchase phone number');
       }
 
       const data = await response.json();
-      
+
       return {
-        phoneNumber: data.phone_number,
-        phoneNumberSid: data.sid,
-        cost: 1.15 // Standard monthly cost
+        phoneNumber: data.phoneNumber,
+        phoneNumberSid: data.phoneNumberSid,
+        cost: data.cost || 1.15,
       };
     } catch (error) {
       console.error('Error purchasing phone number:', error);
@@ -579,95 +552,42 @@ class TwilioServiceClass {
   }
 
   /**
-   * Extract job information from call transcription using OpenAI
+   * Extract job information from call transcription using backend proxy
    */
   async extractJobFromTranscript(transcription: string, businessType?: string): Promise<JobExtraction> {
-    if (!LLM_API_KEY) {
-      console.warn('LLM API key not configured, returning mock data');
-      return {
-        confidence: 0.8,
-        clientName: 'John Smith',
-        clientPhone: '+15551234567',
-        serviceType: 'Plumbing repair',
-        description: 'Kitchen sink is leaking under the cabinet',
-        scheduledDate: '2024-01-15',
-        scheduledTime: '10:00 AM',
-        location: '123 Main St',
-        urgency: 'medium',
-        extractedAt: new Date().toISOString(),
-        processingTime: 1500
-      };
-    }
-
     try {
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
       const prompt = this.buildExtractionPrompt(transcription, businessType);
-      
-      const response = await fetch(`${LLM_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LLM_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: LLM_CHAT_MODEL,
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a helpful assistant that extracts job details from phone call transcriptions for service providers.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.1,
-          max_tokens: 1000
-        })
-      });
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/ai/extract-job`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transcription,
+            businessType,
+            prompt,
+            model: LLM_CHAT_MODEL,
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`LLM API error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Backend API error: ${response.status}`);
       }
 
       const data = await response.json();
-      const choices = Array.isArray(data.choices)
-        ? data.choices
-        : Array.isArray(data.output?.choices)
-          ? data.output.choices
-          : [];
-
-      const primaryChoice = choices[0];
-      const resolveContent = (choice: any): string | null => {
-        if (!choice) return null;
-        const messageContent = choice.message?.content ?? choice.content ?? choice.text;
-        if (typeof messageContent === 'string') {
-          return messageContent;
-        }
-        if (Array.isArray(messageContent)) {
-          return messageContent.map((segment: any) => {
-            if (typeof segment === 'string') {
-              return segment;
-            }
-            if (segment?.text) {
-              return segment.text;
-            }
-            if (segment?.content) {
-              return segment.content;
-            }
-            return '';
-          }).join('');
-        }
-        return null;
-      };
-
-      const content = resolveContent(primaryChoice);
-      if (!content) {
-        throw new Error('LLM response did not include any content.');
-      }
-
-      const result = JSON.parse(content);
-      
-      return result;
+      return data.extraction;
     } catch (error) {
       console.error('Error extracting job from transcript:', error);
       throw error;
@@ -715,29 +635,33 @@ If information is unclear or missing, set those fields to null. Set confidence b
   }
 
   /**
-   * Release a phone number (for cleanup/testing)
+   * Release a phone number (for cleanup/testing) using backend proxy
    */
   async releasePhoneNumber(phoneNumberSid: string): Promise<void> {
-    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
-      console.log('Development mode - would release number:', phoneNumberSid);
-      return;
-    }
-
     try {
-      const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
-      
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
       const response = await fetch(
-        `${this.baseUrl}/Accounts/${TWILIO_ACCOUNT_SID}/IncomingPhoneNumbers/${phoneNumberSid}.json`,
+        `${API_BASE_URL}/api/twilio/release-number`,
         {
           method: 'DELETE',
           headers: {
-            'Authorization': `Basic ${auth}`,
-          }
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            phoneNumberSid,
+          }),
         }
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to release phone number: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to release phone number: ${response.status}`);
       }
     } catch (error) {
       console.error('Error releasing phone number:', error);

@@ -10,6 +10,7 @@ import HowItWorks from './pages/HowItWorks';
 import { IndustriesList, IndustryDetail } from './pages/Industries';
 import { BlogList, BlogPost } from './pages/Blog';
 import Contact from './pages/Contact';
+import Trial from './pages/Trial';
 
 // Placeholder components for new pages
 const Features = () => <div className="p-20 text-center text-3xl font-display">Features (Coming Soon)</div>;
@@ -40,6 +41,7 @@ function App() {
             <Route path="blog" element={<BlogList />} />
             <Route path="blog/:slug" element={<BlogPost />} />
             <Route path="contact" element={<Contact />} />
+            <Route path="trial" element={<Trial />} />
             <Route path="features" element={<Features />} />
           </Route>
           {/* Demo runs outside the main layout if needed, or inside. Keeping outside as it might have its own chrome */}
