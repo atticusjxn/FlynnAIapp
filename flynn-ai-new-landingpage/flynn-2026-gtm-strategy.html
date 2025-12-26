@@ -1,0 +1,2372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flynn AI - 2026 GTM Strategy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --brand-orange: #ff4500;
+      --brand-orange-dark: #ea3e00;
+      --brand-black: #111111;
+      --surface-50: #f9fafb;
+      --surface-100: #f3f4f6;
+      --surface-200: #e5e7eb;
+      --surface-900: #111111;
+      --success-green: #10b981;
+      --warning-amber: #f59e0b;
+      --blue-500: #3b82f6;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface-100);
+      color: var(--brand-black);
+      line-height: 1.6;
+    }
+
+    .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    /* Print optimization for A3 landscape */
+    @media print {
+      @page {
+        size: A3 landscape;
+        margin: 10mm;
+      }
+
+      body {
+        background: white;
+      }
+
+      .page-break {
+        page-break-after: always;
+      }
+
+      .no-print {
+        display: none;
+      }
+
+      .print-only {
+        display: block !important;
+      }
+    }
+
+    /* Page container */
+    .page {
+      width: 420mm; /* A3 landscape width */
+      min-height: 297mm; /* A3 landscape height */
+      background: white;
+      margin: 20px auto;
+      padding: 40px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    /* Header styles */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid var(--brand-orange);
+    }
+
+    .page-title {
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--brand-black);
+    }
+
+    .page-subtitle {
+      font-size: 20px;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    /* Dashboard cards */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .metric-card {
+      background: linear-gradient(135deg, var(--brand-orange) 0%, var(--brand-orange-dark) 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100px;
+      height: 100px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+      transform: translate(30%, -30%);
+    }
+
+    .metric-label {
+      font-size: 14px;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-size: 36px;
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    /* Month grid */
+    .month-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .month-card {
+      background: white;
+      border: 2px solid var(--surface-200);
+      border-radius: 12px;
+      padding: 25px;
+      transition: all 0.3s ease;
+    }
+
+    .month-card:hover {
+      border-color: var(--brand-orange);
+      box-shadow: 0 8px 20px rgba(255, 69, 0, 0.15);
+    }
+
+    .month-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--surface-100);
+    }
+
+    .month-name {
+      font-size: 24px;
+      font-weight: 700;
+      font-family: 'Space Grotesk', sans-serif;
+      color: var(--brand-orange);
+    }
+
+    .month-quarter {
+      font-size: 12px;
+      padding: 4px 12px;
+      background: var(--surface-100);
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    /* Checkbox styling */
+    .checkbox {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--brand-orange);
+      border-radius: 4px;
+      display: inline-block;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .task-item.completed {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+
+    /* Section headers */
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--brand-orange);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    .section-icon {
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+    }
+
+    /* Stats badges */
+    .stat-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      background: var(--surface-100);
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+
+    .stat-badge.success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .stat-badge.warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .stat-badge.primary {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    /* Progress bars */
+    .progress-container {
+      width: 100%;
+      height: 8px;
+      background: var(--surface-200);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--brand-orange) 0%, var(--brand-orange-dark) 100%);
+      transition: width 0.3s ease;
+    }
+
+    /* Timeline styles */
+    .timeline {
+      position: relative;
+      padding-left: 30px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--brand-orange);
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -26px;
+      top: 5px;
+      width: 12px;
+      height: 12px;
+      background: var(--brand-orange);
+      border-radius: 50%;
+      border: 2px solid white;
+    }
+
+    /* Table styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 13px;
+    }
+
+    th {
+      background: var(--brand-black);
+      color: white;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--surface-200);
+    }
+
+    tr:hover {
+      background: var(--surface-50);
+    }
+
+    /* Email sequence styles */
+    .email-sequence {
+      background: var(--surface-50);
+      border-left: 4px solid var(--brand-orange);
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 6px;
+    }
+
+    .email-subject {
+      font-weight: 700;
+      color: var(--brand-black);
+      margin-bottom: 5px;
+    }
+
+    .email-content {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.6;
+    }
+
+    /* Chart placeholders */
+    .chart-container {
+      background: var(--surface-50);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Icons (using emoji/symbols as fallback) */
+    .icon {
+      font-style: normal;
+      font-size: 18px;
+    }
+
+    /* Highlight boxes */
+    .highlight-box {
+      background: linear-gradient(135deg, #fff5eb 0%, #ffe4cc 100%);
+      border: 2px solid var(--brand-orange);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .highlight-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--brand-orange);
+      margin-bottom: 10px;
+    }
+
+    /* Grid helpers */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    /* Print controls */
+    .print-controls {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      z-index: 1000;
+    }
+
+    .btn-print {
+      background: var(--brand-orange);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(255, 69, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .btn-print:hover {
+      background: var(--brand-orange-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 69, 0, 0.4);
+    }
+
+    /* Utility classes */
+    .mt-1 { margin-top: 10px; }
+    .mt-2 { margin-top: 20px; }
+    .mt-3 { margin-top: 30px; }
+    .mb-1 { margin-bottom: 10px; }
+    .mb-2 { margin-bottom: 20px; }
+    .mb-3 { margin-bottom: 30px; }
+
+    .text-center { text-align: center; }
+    .text-sm { font-size: 13px; }
+    .text-xs { font-size: 11px; }
+    .font-bold { font-weight: 700; }
+    .text-gray { color: #666; }
+  </style>
+</head>
+<body>
+
+<!-- PAGE 1: EXECUTIVE DASHBOARD -->
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title font-display">FLYNN AI: 2026 EXECUTION PLAN</h1>
+      <p class="page-subtitle">January 1, 2026 → December 31, 2026</p>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Mission</div>
+      <div style="font-size: 20px; font-weight: 700; color: var(--brand-orange);">Turn missed calls into booked jobs</div>
+    </div>
+  </div>
+
+  <!-- Key Metrics Dashboard -->
+  <div class="dashboard-grid">
+    <div class="metric-card">
+      <div class="metric-label">End of Year Goal</div>
+      <div class="metric-value">3,000+</div>
+      <div style="font-size: 14px; margin-top: 5px;">Paying Customers</div>
+    </div>
+    <div class="metric-card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+      <div class="metric-label">MRR Target</div>
+      <div class="metric-value">$300K</div>
+      <div style="font-size: 14px; margin-top: 5px;">Monthly Recurring Revenue</div>
+    </div>
+    <div class="metric-card" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+      <div class="metric-label">Target CAC</div>
+      <div class="metric-value">$80-100</div>
+      <div style="font-size: 14px; margin-top: 5px;">Customer Acquisition Cost</div>
+    </div>
+    <div class="metric-card" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+      <div class="metric-label">Business Model</div>
+      <div class="metric-value" style="font-size: 24px;">Profitable</div>
+      <div style="font-size: 14px; margin-top: 5px;">From Month 1</div>
+    </div>
+  </div>
+
+  <!-- Strategic Overview -->
+  <div class="grid-2">
+    <div>
+      <h2 class="font-display" style="font-size: 24px; margin-bottom: 15px;">🎯 Strategic Approach</h2>
+      <div class="highlight-box">
+        <div class="highlight-title">🎥 Content-First Strategy</div>
+        <p style="line-height: 1.8; color: #333; margin-bottom: 15px;">
+          <strong>From Day 1:</strong> Professional UGC videos (gimbal + mic), customer interviews,
+          behind-the-scenes content. Hire Fiverr editors ($50-100/video) for polish.
+          <strong>Test small ($1-2K/month)</strong> to learn what converts, then <strong>scale winners in Q2</strong>.
+        </p>
+        <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px;">
+          <strong style="color: var(--brand-orange);">Why This Works:</strong><br>
+          <span style="font-size: 13px; color: #666;">
+            High-quality content = lower CAC, better engagement, organic viral potential.
+            By April, you'll have 20-30 proven videos to scale with confidence.
+          </span>
+        </div>
+      </div>
+
+      <div class="highlight-box" style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); border-color: #0284c7;">
+        <div class="highlight-title" style="color: #075985;">Product-Led Growth (PLG) + Vertical Wedge</div>
+        <p style="line-height: 1.8; color: #075985;">
+          Start with ONE vertical (home services/trades), perfect the product with real users,
+          build viral loops into the core experience, then scale to adjacent verticals once proven.
+          PLG companies grow 2x faster than sales-led with 50% lower CAC.
+        </p>
+      </div>
+
+      <h3 style="font-size: 18px; margin: 20px 0 10px; font-weight: 700;">Core Growth Channels</h3>
+      <div class="timeline">
+        <div class="timeline-item">
+          <strong>Q1: Content Foundation</strong> - Professional UGC videos (gimbal+mic), beta users, small ad tests ($1-2K), learn what works
+        </div>
+        <div class="timeline-item">
+          <strong>Q2: Scale Winners</strong> - Increase budget on proven content ($10-20K/mo), cold email, SEO compounds, referrals
+        </div>
+        <div class="timeline-item">
+          <strong>Q3: Full Throttle</strong> - Meta/TikTok/Google ads ($25-50K/mo), content library of 50+ videos, multi-platform
+        </div>
+        <div class="timeline-item">
+          <strong>Q4: Multi-Vertical + Payment Launch</strong> - New verticals, tax features, viral growth accelerates
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="font-display" style="font-size: 24px; margin-bottom: 15px;">📊 2026 Projections</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Quarter</th>
+            <th>Customers</th>
+            <th>MRR</th>
+            <th>CAC</th>
+            <th>Spend</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Q1 2026</strong></td>
+            <td>120-170</td>
+            <td>$12-17K</td>
+            <td>$80-150</td>
+            <td>$3-5K (content+tests)</td>
+          </tr>
+          <tr>
+            <td><strong>Q2 2026</strong></td>
+            <td>500</td>
+            <td>$45K</td>
+            <td>$120-150</td>
+            <td>$15-25K (scale winners)</td>
+          </tr>
+          <tr>
+            <td><strong>Q3 2026</strong></td>
+            <td>1,500</td>
+            <td>$135K</td>
+            <td>$100-120</td>
+            <td>$40-60K (full throttle)</td>
+          </tr>
+          <tr style="background: #fef3c7;">
+            <td><strong>Q4 2026</strong></td>
+            <td><strong>3,000</strong></td>
+            <td><strong>$300K</strong></td>
+            <td><strong>$80-100</strong></td>
+            <td><strong>$60-100K (multi-vertical)</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="background: #d1fae5; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #10b981;">
+        <strong style="color: #065f46;">💰 Bootstrap Success Formula:</strong><br>
+        <span style="font-size: 13px; color: #065f46;">
+          <strong>1-week trial</strong> proves value, then users pay. No extended free users draining cash on Twilio/API costs.
+          Reinvest MRR from Q1-Q2 into content and ads in Q3-Q4. By Q3, MRR covers all costs with room to scale aggressively.
+        </span>
+      </div>
+
+      <h3 style="font-size: 18px; margin: 20px 0 10px; font-weight: 700;">Key Success Metrics</h3>
+      <div style="background: var(--surface-50); padding: 15px; border-radius: 8px;">
+        <div style="margin-bottom: 10px;">
+          <div style="font-size: 13px; color: #666; margin-bottom: 3px;">Trial → Paid Conversion</div>
+          <div style="font-size: 20px; font-weight: 700; color: var(--success-green);">25-30%</div>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <div style="font-size: 13px; color: #666; margin-bottom: 3px;">Monthly Churn Rate</div>
+          <div style="font-size: 20px; font-weight: 700; color: var(--success-green);">&lt;5%</div>
+        </div>
+        <div style="margin-bottom: 10px;">
+          <div style="font-size: 13px; color: #666; margin-bottom: 3px;">LTV:CAC Ratio</div>
+          <div style="font-size: 20px; font-weight: 700; color: var(--success-green);">15-20x</div>
+        </div>
+        <div>
+          <div style="font-size: 13px; color: #666; margin-bottom: 3px;">Viral K-Factor</div>
+          <div style="font-size: 20px; font-weight: 700; color: var(--success-green);">0.15+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <h2 class="font-display" style="font-size: 24px; margin-bottom: 15px;">🚀 Feature Roadmap 2026</h2>
+    <div class="grid-3">
+      <div style="background: #dbeafe; padding: 20px; border-radius: 12px; border: 2px solid #3b82f6;">
+        <div style="font-size: 18px; font-weight: 700; color: #1e40af; margin-bottom: 10px;">Q1-Q2: Core Product</div>
+        <ul style="list-style: none; padding: 0; font-size: 14px; line-height: 2;">
+          <li>✓ AI receptionist (LIVE)</li>
+          <li>✓ Voicemail → job cards (LIVE)</li>
+          <li>✓ SMS follow-ups (LIVE)</li>
+          <li>✓ Booking pages (LIVE)</li>
+          <li>→ Viral loops ("Powered by Flynn")</li>
+          <li>→ Referral program</li>
+        </ul>
+      </div>
+      <div style="background: #fef3c7; padding: 20px; border-radius: 12px; border: 2px solid #f59e0b;">
+        <div style="font-size: 18px; font-weight: 700; color: #92400e; margin-bottom: 10px;">Q2-Q3: Payment Features</div>
+        <ul style="list-style: none; padding: 0; font-size: 14px; line-height: 2;">
+          <li>→ Tap-to-pay on mobile</li>
+          <li>→ Pay2 link sharing for quotes</li>
+          <li>→ Stripe link for small payments</li>
+          <li>→ Payment tracking dashboard</li>
+          <li>→ Invoice generation v2</li>
+        </ul>
+      </div>
+      <div style="background: #d1fae5; padding: 20px; border-radius: 12px; border: 2px solid #10b981;">
+        <div style="font-size: 18px; font-weight: 700; color: #065f46; margin-bottom: 10px;">Q4: Tax & Expansion</div>
+        <ul style="list-style: none; padding: 0; font-size: 14px; line-height: 2;">
+          <li>→ Tax return creation</li>
+          <li>→ Card payment tracking</li>
+          <li>→ Expense → quote integration</li>
+          <li>→ Multi-vertical expansion</li>
+          <li>→ Advanced analytics</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 2: JANUARY 2026 -->
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title font-display">JANUARY 2026</h1>
+      <p class="page-subtitle">Foundation Month - Beta Launch & Product Polish</p>
+    </div>
+    <div style="text-align: right;">
+      <span class="stat-badge primary">Q1 2026</span>
+      <span class="stat-badge">Week 1-4</span>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Left column -->
+    <div>
+      <div class="section">
+        <h3 class="section-title"><span class="icon">🎯</span> Primary Focus</h3>
+        <div class="highlight-box">
+          <div class="highlight-title">Product Launch + First Paying Customers</div>
+          <p style="margin-bottom: 10px;">Make onboarding seamless (&lt;5 minutes), get first 50-100 customers from Mates Rates network. <strong>No extended free trial</strong> - 1 week free to prove value, then $79-149/month.</p>
+          <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px;">
+            <strong style="color: var(--brand-orange);">Why charge from day 1:</strong><br>
+            <span style="font-size: 13px; color: #666;">
+              Twilio + API costs mean free users drain cash. High-intent users who see Flynn answer their first call will gladly pay $79/mo. If they won't pay after 1 week, they weren't serious leads anyway.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title"><span class="icon">📧</span> Email Outreach</h3>
+
+        <div class="email-sequence">
+          <div class="email-subject">Email 1 (Day 1): "Never miss another job call"</div>
+          <div class="email-content">
+            <strong>To:</strong> All Mates Rates workers (warm leads)<br>
+            <strong>Subject:</strong> "G'day [Name] - Never miss another job again (Try Flynn free for 1 week)"<br>
+            <strong>Body:</strong> Personal intro, explain Flynn AI turns voicemails into booked jobs, <strong>1 week free trial</strong> then $79/mo (special Mates Rates discount from $99)<br>
+            <strong>CTA:</strong> "Start your free week"<br>
+            <strong>Target:</strong> 10% sign-up, 60% convert to paid = 30-60 paying customers
+          </div>
+        </div>
+
+        <div class="email-sequence">
+          <div class="email-subject">Email 2 (Day 3): Social proof</div>
+          <div class="email-content">
+            <strong>Subject:</strong> "3 Brisbane tradies closed $12K in jobs with Flynn this week..."<br>
+            <strong>Body:</strong> Share early wins, screenshots of job dashboard, testimonials<br>
+            <strong>CTA:</strong> "Try Flynn free for 1 week"
+          </div>
+        </div>
+
+        <div class="email-sequence">
+          <div class="email-subject">Email 3 (Day 7): FOMO</div>
+          <div class="email-content">
+            <strong>Subject:</strong> "Limited spots: Mates Rates pricing ($79 vs $99)"<br>
+            <strong>Body:</strong> Lock in $79/mo forever (Mates Rates exclusive), only X spots left<br>
+            <strong>CTA:</strong> "Get my $79 forever pricing"
+          </div>
+        </div>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Send Email 1 to Mates Rates users (target 500-1000 contacts)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Follow up with Email 2 and 3 sequences</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Track open rates (target: 35-45%), reply rates (target: 10%+)</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title"><span class="icon">✍️</span> Professional Content Production (DAY ONE)</h3>
+        <div style="background: linear-gradient(135deg, #fff5eb 0%, #ffe4cc 100%); border: 2px solid var(--brand-orange); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+          <strong style="color: var(--brand-orange);">🎥 Content-First Strategy</strong><br>
+          <span style="font-size: 13px; color: #333;">Professional UGC videos with gimbal + mic, Fiverr editors ($50-100/video), high-quality interviews with real users. This content feeds organic AND paid ads.</span>
+        </div>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Video 1:</strong> "Day in the life" - Tradie using Flynn AI on real job sites</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Video 2:</strong> Customer interview - "How Flynn saved me $5K in missed calls"</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Video 3:</strong> Product demo - "Setting up Flynn in 3 minutes"</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Video 4:</strong> Before/After - "My phone before Flynn vs after Flynn"</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Short-form (Reels/TikTok):</strong> 5-10 short clips (15-30 sec) repurposed from long-form</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Blog:</strong> "Why tradies are using AI to answer calls in 2026"</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>LinkedIn/Instagram/TikTok:</strong> Post content daily, test what resonates</span>
+        </div>
+
+        <div style="background: var(--surface-50); padding: 12px; border-radius: 6px; margin-top: 10px;">
+          <strong>Budget:</strong> $500-1,000 (Fiverr editors, gimbal/mic if needed)<br>
+          <strong>Goal:</strong> Build library of 10-15 high-quality videos to use for organic + paid ads in Q2
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div>
+      <div class="section">
+        <h3 class="section-title"><span class="icon">💰</span> Paid Ads Strategy</h3>
+        <div style="background: var(--surface-50); padding: 15px; border-radius: 8px;">
+          <div style="font-size: 24px; font-weight: 700; color: var(--brand-orange); margin-bottom: 10px;">$500-1,000 Test Budget</div>
+          <p style="font-size: 14px; color: #666; margin-bottom: 10px;">Small test campaigns using the professional content you're creating. Goal: Learn what works before scaling in Q2.</p>
+
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+            <strong>Test Campaigns:</strong>
+            <ul style="font-size: 13px; line-height: 1.8; margin-top: 5px; color: #666;">
+              <li>Meta: $300 - Test 3 video hooks, see which gets best CTR</li>
+              <li>TikTok: $200 - Test short-form UGC content</li>
+              <li>Google: $200 - Test high-intent keywords</li>
+              <li>LinkedIn: $200 - Test B2B targeting (small business owners)</li>
+            </ul>
+          </div>
+          <div style="margin-top: 10px; font-size: 13px; color: #333;">
+            <strong>Goal:</strong> Identify winning creatives and audiences, then scale winners in April
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title"><span class="icon">🛠️</span> Product Tasks</h3>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Critical:</strong> Reduce onboarding to 3 steps (connect phone, business type, test call)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Add "Powered by Flynn AI" watermark to all SMS confirmations (viral loop #1)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Build simple referral tracking (Typeform + Airtable initially)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Create onboarding checklist widget in app</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Set up analytics (Mixpanel or Amplitude)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Fix any critical bugs from production testing</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Add push notifications for new voicemails</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title"><span class="icon">📊</span> Success Metrics - January</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Target</th>
+              <th>Actual</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Trial Sign-ups</td>
+              <td>50-100</td>
+              <td style="border-left: 3px solid var(--success-green);"></td>
+            </tr>
+            <tr>
+              <td>Trial → Paid Conversion</td>
+              <td>60%</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Paying Customers</td>
+              <td>30-60</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Email Open Rate</td>
+              <td>35-45%</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Email Sign-up Rate</td>
+              <td>10%+</td>
+              <td></td>
+            </tr>
+            <tr style="background: #d1fae5;">
+              <td><strong>MRR (End of Jan)</strong></td>
+              <td><strong>$3,000-$5,000</strong></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Customer Testimonials</td>
+              <td>10+ video testimonials</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title"><span class="icon">⚡</span> Week-by-Week Breakdown</h3>
+        <div class="timeline">
+          <div class="timeline-item">
+            <strong>Week 1:</strong> Product polish, simplify onboarding, set up 1-week trial → paid flow
+          </div>
+          <div class="timeline-item">
+            <strong>Week 2:</strong> Launch emails, first trial sign-ups, film UGC content with early users
+          </div>
+          <div class="timeline-item">
+            <strong>Week 3:</strong> First conversions to paid!, gather testimonials, refine onboarding
+          </div>
+          <div class="timeline-item">
+            <strong>Week 4:</strong> End month with 30-60 paying customers, $3-5K MRR, content library started
+          </div>
+        </div>
+      </div>
+
+      <div class="highlight-box">
+        <div class="highlight-title">🎯 January Goal</div>
+        <p style="font-size: 14px; line-height: 1.8;">
+          End the month with <strong>30-60 paying customers</strong> ($3-5K MRR),
+          <strong>10+ video testimonials</strong>, and a product that delivers value in
+          <strong>&lt;5 minutes</strong>. Prove people will PAY for Flynn from day one.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 3: FEBRUARY 2026 -->
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title font-display">FEBRUARY 2026</h1>
+      <p class="page-subtitle">Viral Loop Engineering + Content Foundation</p>
+    </div>
+    <div style="text-align: right;">
+      <span class="stat-badge primary">Q1 2026</span>
+      <span class="stat-badge">Week 5-8</span>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <div class="section">
+        <h3 class="section-title"><span class="icon">🔄</span> Primary Focus: Build Viral Mechanisms</h3>
+
+        <div class="highlight-box">
+          <div class="highlight-title">Viral Loop #1: "Powered by Flynn AI" in SMS</div>
+          <p style="margin-bottom: 10px;">Every SMS confirmation includes subtle branding:</p>
+          <div style="background: white; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.8;">
+            "Hi John! Your quote for driveway sealing is $850.<br>
+            We can start Monday. Reply YES to confirm.<br><br>
+            <span style="color: #666;">—Powered by Flynn AI</span>"
+          </div>
+          <p style="margin-top: 10px; font-size: 13px; color: #666;">
+            <strong>Expected:</strong> 20% of recipients Google "Flynn AI", 5% sign up = viral coefficient 0.05
+          </p>
+        </div>
+
+        <div class="highlight-box">
+          <div class="highlight-title">Viral Loop #2: Referral Program</div>
+          <ul style="list-style: none; padding: 0; line-height: 2;">
+            <li>✓ Refer another tradie → Both get $50 credit</li>
+            <li>✓ Easy sharing: "Text this link to 3 mates"</li>
+            <li>✓ Track with unique referral codes</li>
+            <li>✓ Leaderboard in app (gamification)</li>
+          </ul>
+        </div>
+
+        <div class="highlight-box">
+          <div class="highlight-title">Viral Loop #3: Job Success Milestones</div>
+          <p style="font-size: 14px;">After tradie closes $5,000 in jobs through Flynn:</p>
+          <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 10px;">
+            <strong>🎉 You've made $5K through Flynn!</strong><br>
+            Want to help other tradies win like you?<br>
+            Share Flynn with 3 mates → Get $150 credit
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title"><span class="icon">🛠️</span> Product Tasks</h3>
+          <div class="task-item">
+            <span class="checkbox"></span>
+            <span>Implement "Powered by Flynn AI" in all SMS templates</span>
+          </div>
+          <div class="task-item">
+            <span class="checkbox"></span>
+            <span>Build referral program infrastructure (codes, tracking, rewards)</span>
+          </div>
+          <div class="task-item">
+            <span class="checkbox"></span>
+            <span>Create in-app referral sharing screen</span>
+          </div>
+          <div class="task-item">
+            <span class="checkbox"></span>
+            <span>Add milestone celebrations (push notifications + in-app)</span>
+          </div>
+          <div class="task-item">
+            <span class="checkbox"></span>
+            <span>Set up ReferralCandy or build simple version</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section">
+        <h3 class="section-title"><span class="icon">✍️</span> Content Repurposing + SEO Foundation</h3>
+        <div style="background: linear-gradient(135deg, #fff5eb 0%, #ffe4cc 100%); border: 2px solid var(--brand-orange); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+          <strong style="color: var(--brand-orange);">📹 Repurpose January Videos</strong><br>
+          <span style="font-size: 13px; color: #333;">Turn your 4 long-form videos into 20+ pieces of content: Reels, TikToks, YouTube Shorts, blog posts with embedded videos, LinkedIn carousels, etc.</span>
+        </div>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Video Content:</strong> Create 10 more UGC videos (interviews, testimonials, behind-the-scenes)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Short-form:</strong> Repurpose into 20-30 short clips (15-60 sec) for Reels/TikTok/Shorts</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Blog + Video:</strong> 12 SEO articles, each with embedded video from content library</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Social Proof:</strong> Film 5+ customer testimonials (use for ads + website)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Daily posting:</strong> Instagram, TikTok, LinkedIn (use Fiverr VA for scheduling $100-200/mo)</span>
+        </div>
+
+        <div style="background: var(--surface-50); padding: 15px; border-radius: 8px; margin-top: 15px;">
+          <strong>Distribution Strategy:</strong>
+          <ul style="font-size: 13px; line-height: 1.8; margin-top: 8px;">
+            <li>TikTok/Instagram/YouTube Shorts: Daily short-form content</li>
+            <li>LinkedIn: 3-5 posts/week (mix of video + text insights)</li>
+            <li>Blog: 12 SEO articles with video embeds</li>
+            <li>Reddit: Helpful answers in trade subreddits (not spammy)</li>
+            <li>Facebook groups: Share valuable content in tradie communities</li>
+          </ul>
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+            <strong>Budget:</strong> $800-1,200 (Fiverr editors, VA for scheduling)<br>
+            <strong>Expected Results:</strong> 1,000-2,000 organic views, 20-30 sign-ups
+          </div>
+        </div>
+      </div>
+
+      <div class="section mt-2">
+        <h3 class="section-title"><span class="icon">📊</span> Success Metrics - February</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Target</th>
+              <th>Actual</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>New Paying Customers</td>
+              <td>30-40</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Total Paying Customers</td>
+              <td>70-100</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>UGC Videos Created</td>
+              <td>10+ long-form</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Short-form Clips</td>
+              <td>20-30</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Blog Articles Published</td>
+              <td>12 (with video embeds)</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Organic Traffic</td>
+              <td>1,000-2,000 visits</td>
+              <td></td>
+            </tr>
+            <tr style="background: #d1fae5;">
+              <td><strong>MRR (End of Feb)</strong></td>
+              <td><strong>$7,000-$10,000</strong></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="highlight-box mt-2">
+        <div class="highlight-title">💡 Key Insight</div>
+        <p style="font-size: 14px; line-height: 1.8;">
+          February is about building the <strong>foundation for growth without spending money</strong>.
+          Every viral mechanism you build now will compound for months. Content you publish now
+          will rank and drive traffic for years.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- Continue with remaining months... Due to length, I'll create a condensed version for the remaining months -->
+
+<!-- PAGE 4: MARCH-APRIL 2026 -->
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title font-display">MARCH - APRIL 2026</h1>
+    <p class="page-subtitle">Q1 Close: Beta → Paid | Q2 Start: First Paid Ads</p>
+  </div>
+
+  <div class="grid-2">
+    <!-- MARCH -->
+    <div style="border: 3px solid var(--brand-orange); border-radius: 12px; padding: 20px;">
+      <h2 class="font-display" style="font-size: 28px; color: var(--brand-orange); margin-bottom: 15px;">MARCH 2026</h2>
+      <span class="stat-badge">Q1 Close</span>
+
+      <div class="section">
+        <h3 class="section-title">🎯 Primary Focus: Scale What's Working</h3>
+        <div style="background: linear-gradient(135deg, #fff5eb 0%, #ffe4cc 100%); border: 2px solid var(--brand-orange); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+          <strong style="color: var(--brand-orange);">You Already Have Paying Customers!</strong><br>
+          <span style="font-size: 13px; color: #333;">
+            70-100 paying customers from Jan-Feb = proven product-market fit. Now scale acquisition channels that worked.
+          </span>
+        </div>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Double down:</strong> Which email sequences had best conversion rates?</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Expand outreach:</strong> Reach out to 2,000+ scraped leads (cold email)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Personal calls to high-value prospects (referrals from existing customers)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Expected: 50-70 new paying customers from organic + small paid ads</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">💰 Scale Winning Content (First Real Budget)</h3>
+        <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+          <strong>Budget:</strong> $3,000-5,000<br>
+          <strong>Strategy:</strong> Use best-performing content from Jan-Feb tests<br>
+          <strong>Target:</strong> Australian tradies (Brisbane, Sydney, Melbourne)
+        </div>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Identify winners:</strong> Which video hooks got highest CTR in Jan-Feb tests?</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Meta Ads:</strong> $2,000 - Scale winning video creatives</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>TikTok Ads:</strong> $1,000 - Scale UGC content that went viral organically</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Google Ads:</strong> $1,000 - High-intent keywords ("AI receptionist for plumbers")</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Retargeting:</strong> $500 - Retarget website visitors with testimonial videos</span>
+        </div>
+
+        <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 6px; border-left: 3px solid var(--brand-orange);">
+          <strong>Key Insight:</strong> You already know what content works from 2 months of testing. Now just add budget behind winners.
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 March Targets</h3>
+        <div class="stat-badge success">50-70 new customers</div>
+        <div class="stat-badge primary">Total: 120-170 customers</div>
+        <div class="stat-badge warning">MRR: $12,000-$17,000</div>
+        <div class="stat-badge">CAC: $80-100</div>
+      </div>
+    </div>
+
+    <!-- APRIL -->
+    <div style="border: 3px solid #10b981; border-radius: 12px; padding: 20px;">
+      <h2 class="font-display" style="font-size: 28px; color: #10b981; margin-bottom: 15px;">APRIL 2026</h2>
+      <span class="stat-badge success">Q2 Start</span>
+
+      <div class="section">
+        <h3 class="section-title">🚀 Scale What Works (You Now Have Data!)</h3>
+        <div style="background: #d1fae5; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+          <strong>Budget:</strong> $10,000-15,000/month<br>
+          <strong>Strategy:</strong> 3 months of content + testing = you know exactly what converts
+        </div>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Meta Ads:</strong> $6K - Scale your top 3 performing video hooks</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>TikTok Ads:</strong> $2K - Scale viral UGC content</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Google Search:</strong> $4K - High-intent keywords that converted in March</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>YouTube Ads:</strong> $2K - Test pre-roll with your best testimonial videos</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Retarget trial users who didn't convert (use social proof videos)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Create lookalike audiences from your 100+ paying customers</span>
+        </div>
+
+        <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 6px; border-left: 3px solid #10b981;">
+          <strong>Content Advantage:</strong> Your professionally shot videos from Q1 are now your unfair advantage. Competitors can't match your quality.
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">🛠️ Product Improvements</h3>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Ship WhatsApp integration (most requested feature)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Improve calendar sync reliability</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Add multi-language support (Spanish for US expansion prep)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Fix top 5 bugs from feedback</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">✍️ Content Expansion</h3>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Guest post on trade industry blogs (get backlinks)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Publish 10 more SEO articles (comparison content)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Create YouTube channel: Product demos & tutorials</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 April Targets</h3>
+        <div class="stat-badge success">130 new customers</div>
+        <div class="stat-badge primary">Total: 220 customers</div>
+        <div class="stat-badge warning">MRR: $21,780</div>
+        <div class="stat-badge">CAC: $77</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 5: MAY-JUNE 2026 (Q2 Close) -->
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title font-display">MAY - JUNE 2026</h1>
+    <p class="page-subtitle">Q2 Close: Content Compounds + Referral Activation</p>
+  </div>
+
+  <div class="grid-2">
+    <!-- MAY -->
+    <div style="border: 3px solid #3b82f6; border-radius: 12px; padding: 20px;">
+      <h2 class="font-display" style="font-size: 28px; color: #3b82f6; margin-bottom: 15px;">MAY 2026</h2>
+
+      <div class="section">
+        <h3 class="section-title">📈 SEO Content Acceleration</h3>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Publish 20 more articles (60-day content sprint complete)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Topics: Comparison ("Flynn AI vs [competitor]"), Problem-aware, Buying intent</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Guest posting on small business publications</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Build backlinks: 50+ quality backlinks to Flynn</span>
+        </div>
+
+        <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin-top: 15px;">
+          <strong>Expected SEO Results:</strong><br>
+          <span class="stat-badge primary">2,000 organic visits/month</span>
+          <span class="stat-badge success">40 SEO sign-ups/month</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">💰 Paid Ads Continue</h3>
+        <div style="background: #fef3c7; padding: 15px; border-radius: 8px;">
+          <strong>Budget:</strong> $15,000<br>
+          <strong>Expected:</strong> 180 new customers<br>
+          <strong>CAC:</strong> $83
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 May Targets</h3>
+        <div class="stat-badge success">180 new customers (paid)</div>
+        <div class="stat-badge primary">40 SEO conversions</div>
+        <div class="stat-badge warning">Total: 390 customers</div>
+        <div class="stat-badge">MRR: $38,610</div>
+      </div>
+    </div>
+
+    <!-- JUNE -->
+    <div style="border: 3px solid #f59e0b; border-radius: 12px; padding: 20px;">
+      <h2 class="font-display" style="font-size: 28px; color: #f59e0b; margin-bottom: 15px;">JUNE 2026</h2>
+
+      <div class="section">
+        <h3 class="section-title">🎁 Referral Program Activation</h3>
+        <div class="highlight-box" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);">
+          <div class="highlight-title">Campaign: "Bring 3 Mates, Get 3 Months Free"</div>
+          <p style="font-size: 14px; line-height: 1.8;">
+            Email all 390 customers: "G'day [Name], You're killing it with Flynn—287 calls answered last month!
+            Quick favor: Know 3 other tradies who'd love Flynn?
+            <strong>Refer them → They get first month free, You get 3 months free</strong>"
+          </p>
+        </div>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Send referral campaign email to all customers</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Expected: 15% participate = 58 customers refer</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Average 2 referrals each = 116 referrals</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>40% conversion = 46 new customers from referrals</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">💰 Paid Ads Scale</h3>
+        <div style="background: #fef3c7; padding: 15px; border-radius: 8px;">
+          <strong>Budget:</strong> $20,000<br>
+          <strong>Expected:</strong> 230 new customers<br>
+          <strong>CAC:</strong> $87
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 June Targets (Q2 Close)</h3>
+        <div class="stat-badge success">230 paid customers</div>
+        <div class="stat-badge primary">46 referral customers</div>
+        <div class="stat-badge warning">Total: 650 customers</div>
+        <div class="stat-badge">MRR: $64,350</div>
+      </div>
+
+      <div class="highlight-box mt-2" style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-color: #10b981;">
+        <div class="highlight-title" style="color: #065f46;">🎉 Q2 Achievement Unlocked</div>
+        <p style="font-size: 14px; line-height: 1.8; color: #065f46;">
+          <strong>650 paying customers</strong> | <strong>$64K MRR</strong> | <strong>$772K ARR run-rate</strong><br>
+          Viral loops starting to work! Referrals now contributing 15%+ of growth.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 6: JULY-SEPTEMBER 2026 (Q3) -->
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title font-display">JULY - SEPTEMBER 2026</h1>
+    <p class="page-subtitle">Q3: Payment Features Launch + Scale to 1,500 Customers</p>
+  </div>
+
+  <div style="background: linear-gradient(135deg, #ffe4cc 0%, #ffd4a3 100%); border: 3px solid var(--brand-orange); border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+    <h2 class="font-display" style="font-size: 32px; color: var(--brand-orange); margin-bottom: 15px;">🚀 Q3 Major Milestone: Payment Features</h2>
+    <div class="grid-3">
+      <div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">July-August</h3>
+        <ul style="list-style: none; padding: 0; line-height: 2;">
+          <li>✓ Tap-to-pay on mobile</li>
+          <li>✓ Pay2 link sharing for quotes</li>
+          <li>✓ Stripe link for small payments</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">Beta Testing</h3>
+        <ul style="list-style: none; padding: 0; line-height: 2;">
+          <li>→ Test with 200 high-volume users</li>
+          <li>→ Average $300-500/mo in transaction fees</li>
+          <li>→ New blended ARPU: $150/month</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">Impact</h3>
+        <ul style="list-style: none; padding: 0; line-height: 2;">
+          <li>💰 Revenue per user increases 50%</li>
+          <li>🔒 Higher switching costs (sticky)</li>
+          <li>📈 Competitive moat deepens</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="month-grid">
+    <!-- JULY -->
+    <div class="month-card">
+      <div class="month-header">
+        <div class="month-name">JULY</div>
+        <div class="month-quarter">Q3</div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">🎯 Focus</h3>
+        <p style="font-size: 14px; margin-bottom: 10px;">Ship payment features beta, continue scaling ads</p>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Launch tap-to-pay beta (200 users)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Build Pay2 link sharing</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Stripe integration v2</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">💰 Budget</h3>
+        <div class="stat-badge warning">$25K ad spend</div>
+        <div class="stat-badge primary">280 new customers</div>
+        <div class="stat-badge">CAC: $89</div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 Targets</h3>
+        <div class="stat-badge success">Total: 910 customers</div>
+        <div class="stat-badge primary">MRR: $88,900</div>
+      </div>
+    </div>
+
+    <!-- AUGUST -->
+    <div class="month-card">
+      <div class="month-header">
+        <div class="month-name">AUGUST</div>
+        <div class="month-quarter">Q3</div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">🎯 Focus</h3>
+        <p style="font-size: 14px; margin-bottom: 10px;">Payment features live to all users, consider fundraising</p>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Roll out payments to all 900+ users</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Monitor payment adoption rates</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Fix payment bugs and friction points</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">💰 Budget</h3>
+        <div class="stat-badge warning">$30K ad spend</div>
+        <div class="stat-badge primary">200 new customers</div>
+        <div class="stat-badge">CAC: $150</div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 Targets</h3>
+        <div class="stat-badge success">Total: 1,100 customers</div>
+        <div class="stat-badge primary">MRR: $120K+</div>
+      </div>
+
+      <div class="highlight-box" style="background: #e0f2fe; border-color: #0284c7;">
+        <div class="highlight-title" style="color: #075985;">💡 Fundraising Option</div>
+        <p style="font-size: 13px; color: #075985;">
+          If MRR hits $120K+ ($1.4M ARR), consider raising $2-3M seed round to accelerate growth
+        </p>
+      </div>
+    </div>
+
+    <!-- SEPTEMBER -->
+    <div class="month-card">
+      <div class="month-header">
+        <div class="month-name">SEPTEMBER</div>
+        <div class="month-quarter">Q3</div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">🎯 Focus</h3>
+        <p style="font-size: 14px; margin-bottom: 10px;">Scale ads aggressively, prepare Q4 sprint</p>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Scale to $40K/month ad spend if cash allows</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Launch TikTok ads (test $5K budget)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Partner with trade associations</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">💰 Budget</h3>
+        <div class="stat-badge warning">$40K ad spend</div>
+        <div class="stat-badge primary">350 new customers</div>
+        <div class="stat-badge">CAC: $114</div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 Targets</h3>
+        <div class="stat-badge success">Total: 1,450 customers</div>
+        <div class="stat-badge primary">MRR: $160K+</div>
+      </div>
+
+      <div class="highlight-box" style="background: #d1fae5; border-color: #10b981;">
+        <div class="highlight-title" style="color: #065f46;">🎉 Q3 Achievement</div>
+        <p style="font-size: 13px; color: #065f46;">
+          <strong>1,450 customers | $160K MRR | $1.9M ARR</strong><br>
+          Payment features live, viral growth accelerating
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 7: OCTOBER-DECEMBER 2026 (Q4) -->
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title font-display">OCTOBER - DECEMBER 2026</h1>
+    <p class="page-subtitle">Q4: Push to 3,000 Customers + Tax Features Launch</p>
+  </div>
+
+  <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border: 3px solid #dc2626; border-radius: 16px; padding: 30px; margin-bottom: 30px;">
+    <h2 class="font-display" style="font-size: 32px; color: #dc2626; margin-bottom: 15px;">🎯 Q4 Major Push: Tax Features (Nov/Dec) + Multi-Vertical Expansion</h2>
+    <div class="grid-3">
+      <div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #991b1b;">Tax Features (Nov-Dec)</h3>
+        <ul style="list-style: none; padding: 0; line-height: 2; color: #7f1d1d;">
+          <li>✓ Tax return creation</li>
+          <li>✓ Card payment tracking</li>
+          <li>✓ Expense → quote integration</li>
+          <li>✓ Receipt scanning & categorization</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #991b1b;">Vertical Expansion</h3>
+        <ul style="list-style: none; padding: 0; line-height: 2; color: #7f1d1d;">
+          <li>→ Restaurants/cafes</li>
+          <li>→ Medical/dental practices</li>
+          <li>→ Real estate agents</li>
+          <li>→ Beauty salons</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #991b1b;">Year-End Goal</h3>
+        <div style="font-size: 32px; font-weight: 700; color: #dc2626; margin-top: 10px;">3,000</div>
+        <div style="font-size: 16px; color: #991b1b;">paying customers</div>
+        <div style="font-size: 32px; font-weight: 700; color: #dc2626; margin-top: 10px;">$300K</div>
+        <div style="font-size: 16px; color: #991b1b;">MRR</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="month-grid">
+    <!-- OCTOBER -->
+    <div class="month-card">
+      <div class="month-header">
+        <div class="month-name">OCTOBER</div>
+        <div class="month-quarter">Q4</div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">🚀 Multi-Channel Blitz</h3>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>App Store Optimization:</strong> Launch in iOS App Store</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Partnerships:</strong> Trade association deals (10% member discount)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Influencer Marketing:</strong> 10 tradie influencers on Instagram/TikTok</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Budget:</strong> $50K ad spend across channels</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 Targets</h3>
+        <div class="stat-badge success">550 new customers</div>
+        <div class="stat-badge primary">Total: 2,000 customers</div>
+        <div class="stat-badge warning">MRR: $200K</div>
+      </div>
+    </div>
+
+    <!-- NOVEMBER -->
+    <div class="month-card">
+      <div class="month-header">
+        <div class="month-name">NOVEMBER</div>
+        <div class="month-quarter">Q4</div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">🎯 Vertical Expansion</h3>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Restaurants/Cafes:</strong> "Never miss a reservation" ($15K budget)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Medical/Dental:</strong> "HIPAA-compliant AI receptionist" ($15K)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Real Estate:</strong> "Answer showing requests 24/7" ($10K)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Trades (continue):</strong> $20K</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 Targets</h3>
+        <div class="stat-badge success">550 new customers (multi-vertical)</div>
+        <div class="stat-badge primary">Total: 2,550 customers</div>
+        <div class="stat-badge warning">MRR: $255K</div>
+      </div>
+    </div>
+
+    <!-- DECEMBER -->
+    <div class="month-card" style="border: 3px solid var(--brand-orange);">
+      <div class="month-header">
+        <div class="month-name" style="color: var(--brand-orange);">DECEMBER</div>
+        <div class="month-quarter" style="background: var(--brand-orange); color: white;">Q4 CLOSE</div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">🎉 Year-End Sprint</h3>
+
+        <div class="highlight-box" style="background: linear-gradient(135deg, #fff5eb 0%, #ffe4cc 100%);">
+          <div class="highlight-title">Campaign: "Start 2027 with Flynn - First Month $1"</div>
+          <p style="font-size: 14px;">
+            Retarget ALL trial users who didn't convert. Massive promotion to end year strong.
+            Expected: 1,200 new customers (higher churn expected but volume worth it)
+          </p>
+        </div>
+
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Tax Features Beta Launch:</strong> 100 users test</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Year-end promo:</strong> $100K ad spend (big push)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span><strong>Retargeting:</strong> All trial users from 2026</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">📊 December Targets</h3>
+        <div class="stat-badge success">450+ new customers</div>
+        <div class="stat-badge primary">Total: 3,000 customers</div>
+        <div class="stat-badge warning">MRR: $300K+</div>
+      </div>
+
+      <div class="highlight-box mt-2" style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-color: #10b981;">
+        <div class="highlight-title" style="color: #065f46;">🏆 2026 COMPLETE!</div>
+        <p style="font-size: 16px; font-weight: 700; color: #065f46; line-height: 1.8;">
+          <strong>3,000 paying customers</strong><br>
+          <strong>$300K MRR ($3.6M ARR)</strong><br>
+          <strong>Profitable & scaling</strong><br>
+          <strong>Ready for 2027 explosion</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 8: 2027 VISION + MATES RATES INTEGRATION -->
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title font-display">2027 VISION</h1>
+    <p class="page-subtitle">Mates Rates Integration + Scale to 10,000 Customers</p>
+  </div>
+
+  <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; border-radius: 16px; padding: 40px; margin-bottom: 30px;">
+    <h2 class="font-display" style="font-size: 36px; margin-bottom: 20px;">🚀 The Mates Rates Flywheel</h2>
+    <p style="font-size: 18px; line-height: 1.8; margin-bottom: 20px;">
+      Connect Flynn AI (your AI receptionist SaaS) with Mates Rates (your lead marketplace platform)
+      to create a powerful retention and growth engine.
+    </p>
+
+    <div class="grid-2" style="gap: 30px;">
+      <div>
+        <h3 style="font-size: 24px; margin-bottom: 15px; color: var(--brand-orange);">How It Works</h3>
+        <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; line-height: 2;">
+          <strong>1. Customer posts job on Mates Rates</strong><br>
+          <span style="opacity: 0.8;">"Need a plumber in Brisbane for leaking tap"</span><br><br>
+
+          <strong>2. Lead gets routed to Flynn Pro users</strong><br>
+          <span style="opacity: 0.8;">Only plumbers paying for Flynn Pro tier get priority access</span><br><br>
+
+          <strong>3. Flynn AI automatically responds</strong><br>
+          <span style="opacity: 0.8;">AI receptionist handles initial inquiry, books consultation</span><br><br>
+
+          <strong>4. Tradie closes job, pays 10% referral fee</strong><br>
+          <span style="opacity: 0.8;">Win-win: tradie gets quality leads, you get recurring + commission revenue</span>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="font-size: 24px; margin-bottom: 15px; color: var(--brand-orange);">Why This Is Powerful</h3>
+        <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; line-height: 2;">
+          <strong>✓ Retention Rocket</strong><br>
+          <span style="opacity: 0.8;">Flynn users who get leads have near-zero churn</span><br><br>
+
+          <strong>✓ Dual Revenue Streams</strong><br>
+          <span style="opacity: 0.8;">$149/month Flynn Pro + 10% commission on closed jobs</span><br><br>
+
+          <strong>✓ Network Effects</strong><br>
+          <span style="opacity: 0.8;">More tradies on Flynn = more Mates Rates coverage = more customers = more tradies</span><br><br>
+
+          <strong>✓ Competitive Moat</strong><br>
+          <span style="opacity: 0.8;">No other AI receptionist can offer direct lead generation</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <h2 class="font-display" style="font-size: 28px; margin-bottom: 20px;">2027 Roadmap</h2>
+
+      <div class="timeline">
+        <div class="timeline-item">
+          <strong>Q1 2027:</strong> Build Mates Rates ↔ Flynn API integration
+        </div>
+        <div class="timeline-item">
+          <strong>Q2 2027:</strong> Beta test with 100 Flynn Pro users
+        </div>
+        <div class="timeline-item">
+          <strong>Q3 2027:</strong> Launch "Flynn Pro + Leads" tier ($199/mo + commission)
+        </div>
+        <div class="timeline-item">
+          <strong>Q4 2027:</strong> Scale to 10,000 Flynn users, 1,000+ getting Mates Rates leads
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <h3 class="font-display" style="font-size: 24px; margin-bottom: 15px;">Financial Model</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>2027 Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Flynn Customers</td>
+              <td><strong>10,000</strong></td>
+            </tr>
+            <tr>
+              <td>Flynn Pro (with leads)</td>
+              <td><strong>1,000</strong> (10% of base)</td>
+            </tr>
+            <tr>
+              <td>MRR (Flynn only)</td>
+              <td><strong>$1.2M</strong> ($14.4M ARR)</td>
+            </tr>
+            <tr>
+              <td>Commission Revenue (Mates Rates)</td>
+              <td><strong>$200K/month</strong> (10% of $2M GMV)</td>
+            </tr>
+            <tr style="background: #d1fae5;">
+              <td><strong>Total Monthly Revenue</strong></td>
+              <td><strong>$1.4M</strong></td>
+            </tr>
+            <tr style="background: #d1fae5;">
+              <td><strong>ARR Run-Rate</strong></td>
+              <td><strong>$16.8M</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="font-display" style="font-size: 28px; margin-bottom: 20px;">Pricing Strategy 2027</h2>
+
+      <div style="background: white; border: 2px solid var(--surface-200); border-radius: 12px; padding: 25px; margin-bottom: 20px;">
+        <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 15px;">Flynn Basic - $79/mo</h3>
+        <ul style="font-size: 14px; line-height: 2; color: #666;">
+          <li>AI receptionist</li>
+          <li>Voicemail → job cards</li>
+          <li>150 calls/month</li>
+          <li>Basic integrations</li>
+        </ul>
+      </div>
+
+      <div style="background: #fef3c7; border: 3px solid #f59e0b; border-radius: 12px; padding: 25px; margin-bottom: 20px;">
+        <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 15px; color: #92400e;">Flynn Pro - $149/mo</h3>
+        <ul style="font-size: 14px; line-height: 2; color: #78350f;">
+          <li>Everything in Basic, plus:</li>
+          <li>Payment processing (tap-to-pay, Pay2 links)</li>
+          <li>Tax return creation</li>
+          <li>350 calls/month</li>
+          <li>Advanced analytics</li>
+        </ul>
+      </div>
+
+      <div style="background: linear-gradient(135deg, #ffe4cc 0%, #ffd4a3 100%); border: 3px solid var(--brand-orange); border-radius: 12px; padding: 25px;">
+        <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 15px; color: var(--brand-orange);">Flynn Pro + Leads - $199/mo</h3>
+        <ul style="font-size: 14px; line-height: 2; color: #9a3412;">
+          <li><strong>Everything in Pro, plus:</strong></li>
+          <li>✨ Priority leads from Mates Rates</li>
+          <li>✨ AI responds to leads automatically</li>
+          <li>✨ Pay 10% commission only on closed jobs</li>
+          <li>✨ Lead performance analytics</li>
+        </ul>
+        <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 15px;">
+          <strong>ROI Example:</strong><br>
+          <span style="font-size: 13px; color: #666;">
+            Plumber pays $199/mo + gets 4 jobs/month from Mates Rates averaging $800 each = $3,200 revenue.
+            Pays $320 commission (10%). <strong>Net: $2,881 revenue from $199 investment = 14.5x ROI</strong>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <div class="highlight-box" style="background: linear-gradient(135deg, #fff5eb 0%, #ffe4cc 100%); border: 3px solid var(--brand-orange);">
+      <div class="highlight-title" style="font-size: 24px;">🎯 2027 Mission</div>
+      <p style="font-size: 18px; line-height: 1.8; color: #333;">
+        <strong>From:</strong> "Flynn turns missed calls into booked jobs"<br>
+        <strong>To:</strong> "Flynn is your complete business operating system: AI receptionist + payment processing + tax prep + lead generation"
+      </p>
+      <p style="font-size: 16px; margin-top: 15px; color: #666;">
+        By integrating Mates Rates, you're not just retaining customers—you're creating a platform
+        they literally cannot afford to leave. That's when you unlock 10x growth.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 9: CHANNEL STRATEGY DEEP DIVE -->
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title font-display">CHANNEL STRATEGY DEEP DIVE</h1>
+    <p class="page-subtitle">Email, Organic, Paid Ads, SEO - Detailed Playbooks</p>
+  </div>
+
+  <div class="grid-2">
+    <!-- EMAIL STRATEGY -->
+    <div>
+      <h2 class="font-display" style="font-size: 24px; margin-bottom: 15px; color: var(--brand-orange);">📧 Email Strategy (Instantly.ai)</h2>
+
+      <div style="background: var(--surface-50); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">2025 Benchmarks</h3>
+        <div class="grid-2" style="gap: 15px;">
+          <div>
+            <div class="stat-badge primary">Reply Rate: 5-10%</div>
+            <div class="stat-badge success">Excellent: 10-15%</div>
+            <div class="stat-badge warning">Open Rate: 35-45%</div>
+          </div>
+          <div>
+            <div class="stat-badge">Best Time: Tues-Thurs 9-11am</div>
+            <div class="stat-badge">Sequence: 4-7 emails</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">Sequence Templates by Vertical</h3>
+
+      <!-- TRADES SEQUENCE -->
+      <div class="email-sequence">
+        <div style="font-weight: 700; color: var(--brand-orange); margin-bottom: 10px;">🔧 Trades (Plumbers, Electricians, HVAC)</div>
+        <div class="email-subject">Email 1: "Never miss a $500 job again"</div>
+        <div class="email-content">
+          Hi [Name],<br><br>
+          Quick question: How many calls do you miss when you're on a job site?<br><br>
+          I'm Atticus from Flynn AI. We built an AI receptionist that answers every call, transcribes voicemails, and texts back leads while you're working.<br><br>
+          [Brisbane plumber testimonial]: "Flynn booked me 8 jobs in my first week. Paid for itself 10x over."<br><br>
+          Want to see how it works? Book a 10-min demo: [link]
+        </div>
+      </div>
+
+      <div class="email-sequence">
+        <div class="email-subject">Email 2 (Day 3): Social proof</div>
+        <div class="email-content">
+          Hey [Name],<br><br>
+          Following up on my email about never missing calls. Just wanted to share this:<br><br>
+          [Screenshot of tradie dashboard showing 43 calls answered, 18 jobs booked]<br><br>
+          This is what happens when you stop missing calls. Free trial: [link]
+        </div>
+      </div>
+
+      <div class="email-sequence">
+        <div class="email-subject">Email 3 (Day 7): Urgency</div>
+        <div class="email-content">
+          [Name],<br><br>
+          Last one, I promise. We're limiting our beta to 50 tradies in [City] this month.<br><br>
+          38 spots left. First 3 months: $79/mo instead of $99.<br><br>
+          Grab your spot: [link]
+        </div>
+      </div>
+
+      <!-- RESTAURANTS SEQUENCE -->
+      <div class="email-sequence">
+        <div style="font-weight: 700; color: var(--brand-orange); margin-bottom: 10px;">🍴 Restaurants & Cafes</div>
+        <div class="email-subject">Email 1: "Never miss a reservation during rush hour"</div>
+        <div class="email-content">
+          Hi [Name],<br><br>
+          How many reservations do you miss when your staff are slammed during dinner rush?<br><br>
+          Flynn AI answers calls 24/7, takes reservations, and books them straight into your calendar—even at 2am.<br><br>
+          [Cafe owner]: "We went from missing 15 calls/week to zero. Flynn pays for itself in recovered sales."<br><br>
+          See it in action: [demo link]
+        </div>
+      </div>
+
+      <div class="mt-2">
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">✅ Email Best Practices</h3>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Personalize subject lines (+30.5% response rate)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Subject line length: 36-50 characters (+24.6% response)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Personalize body (+32.7% replies)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Send 4-7 emails per sequence (3x more responses vs 1-3 emails)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>Use Instantly.ai for deliverability & automation</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- META ADS STRATEGY -->
+    <div>
+      <h2 class="font-display" style="font-size: 24px; margin-bottom: 15px; color: var(--brand-orange);">📱 Meta Ads (Facebook/Instagram)</h2>
+
+      <div style="background: var(--surface-50); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">2025 Benchmarks</h3>
+        <div class="grid-2" style="gap: 15px;">
+          <div>
+            <div class="stat-badge warning">CAC: $200-400 initially</div>
+            <div class="stat-badge primary">Target: $100-150 optimized</div>
+          </div>
+          <div>
+            <div class="stat-badge">CPM: +2% YoY (stable)</div>
+            <div class="stat-badge success">Retargeting works!</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">Ad Creative Hooks (Video)</h3>
+
+      <div style="border-left: 4px solid var(--brand-orange); padding-left: 15px; margin-bottom: 15px; background: var(--surface-50); padding: 15px; border-radius: 6px;">
+        <strong style="color: var(--brand-orange);">Hook #1: Problem Agitation</strong><br>
+        <span style="font-size: 13px; color: #666;">
+          [Video: Tradie on roof, phone ringing in truck below. Text overlay: "Missing calls = missing money"]<br>
+          <strong>First 3 seconds:</strong> "Are you losing $500 jobs because you can't answer your phone?"
+        </span>
+      </div>
+
+      <div style="border-left: 4px solid #10b981; padding-left: 15px; margin-bottom: 15px; background: var(--surface-50); padding: 15px; border-radius: 6px;">
+        <strong style="color: #10b981;">Hook #2: Social Proof</strong><br>
+        <span style="font-size: 13px; color: #666;">
+          [Video: Testimonial from real tradie showing dashboard]<br>
+          <strong>First 3 seconds:</strong> "I made $8,000 from calls I would have missed"
+        </span>
+      </div>
+
+      <div style="border-left: 4px solid #3b82f6; padding-left: 15px; margin-bottom: 15px; background: var(--surface-50); padding: 15px; border-radius: 6px;">
+        <strong style="color: #3b82f6;">Hook #3: Transformation</strong><br>
+        <span style="font-size: 13px; color: #666;">
+          [Video: Split screen - before (missed calls) vs after (Flynn dashboard showing bookings)]<br>
+          <strong>First 3 seconds:</strong> "Before Flynn vs After Flynn"
+        </span>
+      </div>
+
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px; margin-top: 20px;">Audience Targeting</h3>
+      <div class="task-item">
+        <span class="checkbox"></span>
+        <span><strong>Location:</strong> Brisbane, Sydney, Melbourne (AU) → Texas, Florida, California (US)</span>
+      </div>
+      <div class="task-item">
+        <span class="checkbox"></span>
+        <span><strong>Interests:</strong> Small business owner, trades, home services, field service software</span>
+      </div>
+      <div class="task-item">
+        <span class="checkbox"></span>
+        <span><strong>Lookalike:</strong> 1% lookalike from beta users (powerful once you have 100+)</span>
+      </div>
+      <div class="task-item">
+        <span class="checkbox"></span>
+        <span><strong>Retargeting:</strong> Website visitors, trial sign-ups who didn't convert</span>
+      </div>
+
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px; margin-top: 20px;">Budget Allocation by Quarter</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Quarter</th>
+            <th>Facebook/IG</th>
+            <th>Google Ads</th>
+            <th>Expected CAC</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Q1</td>
+            <td>$0-5K</td>
+            <td>$0</td>
+            <td>$150-200</td>
+          </tr>
+          <tr>
+            <td>Q2</td>
+            <td>$15-30K</td>
+            <td>$10-15K</td>
+            <td>$120-150</td>
+          </tr>
+          <tr>
+            <td>Q3</td>
+            <td>$40-60K</td>
+            <td>$20-30K</td>
+            <td>$100-120</td>
+          </tr>
+          <tr>
+            <td>Q4</td>
+            <td>$60-100K</td>
+            <td>$30-50K</td>
+            <td>$80-100</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="highlight-box mt-2">
+        <div class="highlight-title">💡 Meta Ads Pro Tips (With Your Content Library)</div>
+        <ul style="font-size: 13px; line-height: 1.8;">
+          <li><strong>Your UGC videos = unfair advantage</strong> - Professional quality beats stock footage</li>
+          <li>Start small ($50-100/day) in Q1 to test hooks, scale winners in Q2-Q3</li>
+          <li>Video ads outperform static images 3:1 for B2B SaaS</li>
+          <li>First 3 seconds of video are CRITICAL (hook immediately with real customer)</li>
+          <li>Test 3-5 variations, kill losers fast, double down on winners</li>
+          <li><strong>Repurpose organic content</strong> - If a video goes viral on TikTok, boost it with ads</li>
+          <li>Use real customer testimonials (you'll have 20+ by April) = instant trust</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 10: SEO + GOOGLE ADS STRATEGY -->
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title font-display">SEO + GOOGLE ADS STRATEGY</h1>
+    <p class="page-subtitle">Organic Search + Paid Search Domination</p>
+  </div>
+
+  <div class="grid-2">
+    <!-- SEO STRATEGY -->
+    <div>
+      <h2 class="font-display" style="font-size: 24px; margin-bottom: 15px; color: var(--brand-orange);">🔍 SEO Strategy</h2>
+
+      <div style="background: var(--surface-50); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">2025 SEO Landscape</h3>
+        <ul style="font-size: 14px; line-height: 2; color: #666;">
+          <li><strong>AI Overviews:</strong> 16% of queries now show AI summaries</li>
+          <li><strong>Answer Engine Optimization (AEO):</strong> Optimize for ChatGPT, Gemini, Perplexity</li>
+          <li><strong>Goal:</strong> Become the trusted source that powers Google's answers</li>
+          <li><strong>CAC via SEO:</strong> As low as $290 (vs $800 paid search)</li>
+        </ul>
+      </div>
+
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">Target Keywords (Priority Order)</h3>
+
+      <div style="margin-bottom: 20px;">
+        <div style="font-weight: 700; color: var(--brand-orange); margin-bottom: 5px;">Tier 1: High Intent, Low Competition</div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"AI receptionist for plumbers" (50 searches/mo, low competition)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"AI receptionist for electricians" (40/mo)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"AI phone answering for small business" (200/mo)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"voicemail to text for business" (150/mo)</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <div style="font-weight: 700; color: #10b981; margin-bottom: 5px;">Tier 2: Medium Intent, Higher Volume</div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"answering service for contractors" (800/mo)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"AI answering service" (1,200/mo)</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"virtual receptionist software" (600/mo)</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <div style="font-weight: 700; color: #3b82f6; margin-bottom: 5px;">Tier 3: Comparison Keywords (High Intent)</div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"Flynn AI vs Ruby Receptionists"</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"best AI receptionist 2026"</span>
+        </div>
+        <div class="task-item">
+          <span class="checkbox"></span>
+          <span>"AI receptionist reviews"</span>
+        </div>
+      </div>
+
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">Content Calendar (Monthly)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Articles</th>
+            <th>Focus</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Jan-Feb</td>
+            <td>12</td>
+            <td>Vertical-specific guides</td>
+          </tr>
+          <tr>
+            <td>Mar-Apr</td>
+            <td>20</td>
+            <td>Comparison + buying intent</td>
+          </tr>
+          <tr>
+            <td>May-Jun</td>
+            <td>20</td>
+            <td>Problem-aware content</td>
+          </tr>
+          <tr>
+            <td>Jul-Dec</td>
+            <td>50</td>
+            <td>Scale + update existing</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="highlight-box mt-2">
+        <div class="highlight-title">📊 Expected SEO Growth</div>
+        <ul style="font-size: 13px; line-height: 1.8;">
+          <li><strong>Month 1-2:</strong> 500 visits, 10 sign-ups</li>
+          <li><strong>Month 3-6:</strong> 2,000 visits, 40 sign-ups/month</li>
+          <li><strong>Month 7-12:</strong> 5,000+ visits, 100+ sign-ups/month</li>
+          <li><strong>ROI:</strong> $290 CAC (lowest channel cost)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- GOOGLE ADS STRATEGY -->
+    <div>
+      <h2 class="font-display" style="font-size: 24px; margin-bottom: 15px; color: var(--brand-orange);">💰 Google Ads Strategy</h2>
+
+      <div style="background: var(--surface-50); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">2025 Google Ads Updates</h3>
+        <ul style="font-size: 14px; line-height: 2; color: #666;">
+          <li><strong>Ads in AI Overviews:</strong> Now showing on desktop + mobile globally</li>
+          <li><strong>Smart Bidding:</strong> +18% unique search queries, +19% conversions</li>
+          <li><strong>Performance Max:</strong> AI-powered campaign type (Google's recommendation)</li>
+        </ul>
+      </div>
+
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">Campaign Structure</h3>
+
+      <div style="background: white; border: 2px solid #3b82f6; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
+        <h4 style="font-size: 16px; font-weight: 700; color: #3b82f6; margin-bottom: 10px;">Campaign 1: Search - High Intent</h4>
+        <div style="font-size: 13px; color: #666; line-height: 1.8;">
+          <strong>Keywords:</strong><br>
+          • "AI receptionist" (exact match)<br>
+          • "AI answering service" (phrase match)<br>
+          • "virtual receptionist software" (broad match modifier)<br>
+          <br>
+          <strong>Budget:</strong> $50-100/day ($1,500-3K/month)<br>
+          <strong>Expected CAC:</strong> $802 (B2B average) → optimize to $400-500
+        </div>
+      </div>
+
+      <div style="background: white; border: 2px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
+        <h4 style="font-size: 16px; font-weight: 700; color: #10b981; margin-bottom: 10px;">Campaign 2: Search - Vertical Specific</h4>
+        <div style="font-size: 13px; color: #666; line-height: 1.8;">
+          <strong>Keywords:</strong><br>
+          • "answering service for plumbers Sydney"<br>
+          • "electrician call answering Brisbane"<br>
+          • "HVAC contractor phone system"<br>
+          <br>
+          <strong>Budget:</strong> $30-50/day ($900-1.5K/month)<br>
+          <strong>Lower competition = Lower CAC</strong>
+        </div>
+      </div>
+
+      <div style="background: white; border: 2px solid #f59e0b; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
+        <h4 style="font-size: 16px; font-weight: 700; color: #f59e0b; margin-bottom: 10px;">Campaign 3: Performance Max</h4>
+        <div style="font-size: 13px; color: #666; line-height: 1.8;">
+          <strong>AI-powered across all Google properties:</strong><br>
+          • Search<br>
+          • Display<br>
+          • YouTube<br>
+          • Gmail<br>
+          <br>
+          <strong>Budget:</strong> $50/day ($1,500/month)<br>
+          <strong>Let Google's AI find best placements</strong>
+        </div>
+      </div>
+
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px;">Ad Copy Templates</h3>
+
+      <div style="background: var(--surface-50); padding: 15px; border-radius: 8px; border-left: 4px solid var(--brand-orange); margin-bottom: 10px;">
+        <strong>Headline 1:</strong> Never Miss Another Job Call<br>
+        <strong>Headline 2:</strong> AI Receptionist for Tradies | Flynn AI<br>
+        <strong>Description:</strong> AI answers every call, transcribes voicemails, books jobs automatically. Try Flynn free for 14 days. No credit card required.
+      </div>
+
+      <div style="background: var(--surface-50); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981; margin-bottom: 10px;">
+        <strong>Headline 1:</strong> $79/Month AI Receptionist<br>
+        <strong>Headline 2:</strong> Cheaper Than Ruby Receptionists<br>
+        <strong>Description:</strong> 1/10th the cost of human answering services. Flynn AI handles calls 24/7 while you work. Brisbane tradies trust Flynn.
+      </div>
+
+      <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 10px; margin-top: 20px;">Budget Ramp (Google Ads Only)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Quarter</th>
+            <th>Daily Budget</th>
+            <th>Monthly Spend</th>
+            <th>Expected Customers</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Q1</td>
+            <td>$0</td>
+            <td>$0</td>
+            <td>0 (focus on organic)</td>
+          </tr>
+          <tr>
+            <td>Q2</td>
+            <td>$50-100</td>
+            <td>$4,000</td>
+            <td>8-10</td>
+          </tr>
+          <tr>
+            <td>Q3</td>
+            <td>$150-200</td>
+            <td>$10,000</td>
+            <td>20-25</td>
+          </tr>
+          <tr>
+            <td>Q4</td>
+            <td>$300-500</td>
+            <td>$25,000</td>
+            <td>50-60</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="highlight-box mt-2">
+        <div class="highlight-title">🎯 Google Ads Success Factors</div>
+        <ul style="font-size: 13px; line-height: 1.8;">
+          <li>Landing page conversion rate must be >20%</li>
+          <li>Use Smart Bidding after 50+ conversions</li>
+          <li>Negative keywords: add "free", "diy", "how to make" (low intent)</li>
+          <li>Retarget with Display ads (cheaper)</li>
+          <li>Monitor Quality Score (aim for 7+)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Print Controls -->
+<div class="print-controls no-print">
+  <button class="btn-print" onclick="window.print()">🖨️ Print Strategy</button>
+</div>
+
+<script>
+  // Add checkable functionality for interactive use
+  document.querySelectorAll('.checkbox').forEach(checkbox => {
+    checkbox.addEventListener('click', function() {
+      this.style.background = this.style.background === 'var(--brand-orange)' ? 'white' : 'var(--brand-orange)';
+      const taskItem = this.closest('.task-item');
+      if (taskItem) {
+        taskItem.classList.toggle('completed');
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
