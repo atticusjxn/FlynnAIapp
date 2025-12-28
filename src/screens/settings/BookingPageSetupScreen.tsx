@@ -13,10 +13,13 @@ import {
   ActivityIndicator,
   Alert,
   Share,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BusinessHours } from '../../types/booking';
 import BookingPageService from '../../services/BookingPageService';
+import BookingTemplateService, { BookingFormTemplate } from '../../services/BookingTemplateService';
 import { supabase } from '../../services/supabase';
 
 const DAYS: (keyof BusinessHours)[] = [
@@ -41,6 +44,8 @@ const BookingPageSetupScreen: React.FC = () => {
   const [slotDuration, setSlotDuration] = useState('60');
   const [bufferTime, setBufferTime] = useState('15');
   const [isActive, setIsActive] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [customFields, setCustomFields] = useState<any[]>([]);
   const [businessHours, setBusinessHours] = useState<BusinessHours>({
     monday: { enabled: true, start: '09:00', end: '17:00' },
     tuesday: { enabled: true, start: '09:00', end: '17:00' },
@@ -50,6 +55,11 @@ const BookingPageSetupScreen: React.FC = () => {
     saturday: { enabled: false, start: '09:00', end: '17:00' },
     sunday: { enabled: false, start: '09:00', end: '17:00' },
   });
+
+  // Template selector
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [templates, setTemplates] = useState<BookingFormTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<BookingFormTemplate | null>(null);
 
   useEffect(() => {
     loadBookingPage();
@@ -84,6 +94,24 @@ const BookingPageSetupScreen: React.FC = () => {
         setBufferTime(bookingPage.buffer_time_minutes.toString());
         setIsActive(bookingPage.is_active);
         setBusinessHours(bookingPage.business_hours);
+
+        // Load selected template if exists
+        if (bookingPage.selected_template_id) {
+          setSelectedTemplateId(bookingPage.selected_template_id);
+          try {
+            const template = await BookingTemplateService.getTemplateById(bookingPage.selected_template_id);
+            if (template) {
+              setSelectedTemplate(template);
+            }
+          } catch (error) {
+            console.error('Failed to load template:', error);
+          }
+        }
+
+        // Load custom fields if exists
+        if (bookingPage.custom_fields) {
+          setCustomFields(bookingPage.custom_fields);
+        }
       }
     } catch (error) {
       console.error('Failed to load booking page:', error);
@@ -123,6 +151,8 @@ const BookingPageSetupScreen: React.FC = () => {
           buffer_time_minutes: parseInt(bufferTime),
           is_active: isActive,
           business_hours: businessHours,
+          selected_template_id: selectedTemplateId,
+          custom_fields: customFields,
         });
         Alert.alert('Success', 'Booking page updated successfully');
       } else {
@@ -135,6 +165,8 @@ const BookingPageSetupScreen: React.FC = () => {
           buffer_time_minutes: parseInt(bufferTime),
           is_active: isActive,
           business_hours: businessHours,
+          selected_template_id: selectedTemplateId,
+          custom_fields: customFields,
         });
         setBookingPageId(bookingPage.id);
         Alert.alert('Success', 'Booking page created successfully');
@@ -223,7 +255,7 @@ const BookingPageSetupScreen: React.FC = () => {
             <View style={styles.field}>
               <Text style={styles.label}>Booking Page URL</Text>
               <View style={styles.slugContainer}>
-                <Text style={styles.slugPrefix}>flynnbooking.com/</Text>
+                <Text style={styles.slugPrefix}>flynnai.app/</Text>
                 <TextInput
                   style={styles.slugInput}
                   value={slug}
@@ -242,6 +274,41 @@ const BookingPageSetupScreen: React.FC = () => {
                 </View>
               )}
             </View>
+          </View>
+
+          {/* Template Selector */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Booking Form Template</Text>
+
+            <TouchableOpacity
+              style={styles.templateButton}
+              onPress={async () => {
+                try {
+                  const fetchedTemplates = await BookingTemplateService.getAllTemplates();
+                  setTemplates(fetchedTemplates);
+                  setShowTemplateSelector(true);
+                } catch (error) {
+                  console.error('Failed to load templates:', error);
+                  Alert.alert('Error', 'Failed to load templates');
+                }
+              }}
+            >
+              <Text style={styles.templateButtonText}>
+                {selectedTemplate ? selectedTemplate.name : 'Choose Template'}
+              </Text>
+              <Ionicons name="chevron-forward" size={20} color="#64748B" />
+            </TouchableOpacity>
+
+            {selectedTemplate && (
+              <View style={styles.selectedTemplateInfo}>
+                <Text style={styles.helperText}>
+                  {selectedTemplate.description}
+                </Text>
+                <Text style={styles.helperText}>
+                  {selectedTemplate.custom_fields.length} custom fields included
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Booking Settings */}
@@ -342,6 +409,51 @@ const BookingPageSetupScreen: React.FC = () => {
           <View style={{ height: 40 }} />
         </View>
       </ScrollView>
+
+      {/* Template Selector Modal */}
+      <Modal
+        visible={showTemplateSelector}
+        animationType="slide"
+        onRequestClose={() => setShowTemplateSelector(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Choose Template</Text>
+            <TouchableOpacity onPress={() => setShowTemplateSelector(false)}>
+              <Ionicons name="close" size={28} color="#1E293B" />
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={templates}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.templateItem}
+                onPress={() => {
+                  setSelectedTemplate(item);
+                  setSelectedTemplateId(item.id);
+                  setCustomFields(item.custom_fields);
+                  setSlotDuration(item.recommended_duration_minutes.toString());
+                  setBufferTime(item.recommended_buffer_minutes.toString());
+                  setShowTemplateSelector(false);
+                }}
+              >
+                <View style={styles.templateIcon}>
+                  <Ionicons name={item.icon as any} size={24} color="#2563EB" />
+                </View>
+                <View style={styles.templateDetails}>
+                  <Text style={styles.templateName}>{item.name}</Text>
+                  <Text style={styles.templateDescription}>{item.description}</Text>
+                  <Text style={styles.templateMeta}>
+                    {item.custom_fields.length} fields • {item.recommended_duration_minutes} min
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -517,6 +629,86 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
     marginTop: 20,
+  },
+  templateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  templateButtonText: {
+    fontSize: 16,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  selectedTemplateInfo: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  templateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  templateIcon: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#DBEAFE',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  templateDetails: {
+    flex: 1,
+  },
+  templateName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  templateDescription: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  templateMeta: {
+    fontSize: 12,
+    color: '#94A3B8',
   },
 });
 

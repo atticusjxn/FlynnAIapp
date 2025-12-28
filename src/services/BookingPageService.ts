@@ -172,8 +172,7 @@ class BookingPageService {
    * Get full booking URL for a booking page
    */
   getBookingUrl(slug: string): string {
-    // TODO: Replace with actual domain from environment variables
-    const domain = process.env.BOOKING_DOMAIN || 'flynnbooking.com';
+    const domain = process.env.BOOKING_DOMAIN || 'flynnai.app';
     return `https://${domain}/${slug}`;
   }
 
