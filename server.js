@@ -42,7 +42,7 @@ const {
   getBusinessContextForOrg,
 } = require('./supabaseMcpClient');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
-const { scrapeWebsite } = require('./services/websiteScraper');
+const { scrapeWebsiteWithGemini } = require('./services/geminiUrlScraper');
 const { generateReceptionistConfig } = require('./services/businessProfileGenerator');
 const { generateSiteFromInstagram } = require('./services/sites/siteGenerationService');
 const { generateSpeech: generateGeminiSpeech, resolveVoiceName: resolveGeminiVoice } = require('./services/geminiTTSService');
@@ -508,8 +508,8 @@ const ttsCacheTtlMs = parseIntegerEnv(process.env.TTS_CACHE_TTL_MS, 15 * 60 * 10
 const ttsCacheMaxEntries = parseIntegerEnv(process.env.TTS_CACHE_MAX_ENTRIES, 256);
 const activePresetVoices =
   ttsProvider === 'gemini' ? geminiPresetVoices :
-  ttsProvider === 'azure' ? azurePresetVoices :
-  elevenLabsPresetVoices;
+    ttsProvider === 'azure' ? azurePresetVoices :
+      elevenLabsPresetVoices;
 const voiceConfig = {
   provider: ttsProvider,
   presetVoices: activePresetVoices,
@@ -635,54 +635,6 @@ const respondWithVoicemail = (req, res, inboundParams) => {
   res.send(response.toString());
 };
 
-const respondWithHybridChoice = (req, res, inboundParams, profile) => {
-  const response = new twilio.twiml.VoiceResponse();
-  const action = `/telephony/inbound-voice?stage=choice&user=${profile.id}`;
-  const gather = response.gather({
-    input: 'speech dtmf',
-    action,
-    method: 'POST',
-    numDigits: 1,
-    timeout: 5,
-    speechTimeout: 'auto',
-  });
-
-  const greeting = (profile.receptionist_greeting || '').trim()
-    || 'Hi, thanks for calling the team.';
-
-  gather.say(greeting);
-  gather.pause({ length: 1 });
-  gather.say('If you would like to leave a voicemail for the team, press 1 or say "leave a message".');
-  gather.say('If you would like our receptionist to help you right now, press 2 or say "talk to the receptionist".');
-
-  response.say('Sorry, I didn\'t catch that. I\'ll transfer you to voicemail.');
-  response.redirect({ method: 'POST' }, '/telephony/inbound-voice');
-
-  res.type('text/xml');
-  res.send(response.toString());
-};
-
-const interpretHybridChoice = (params = {}) => {
-  const digits = (params.Digits || '').trim();
-  if (digits === '1') {
-    return 'voicemail';
-  }
-  if (digits === '2') {
-    return 'ai';
-  }
-
-  const speech = (params.SpeechResult || params.UnstableSpeechResult || '').toString().toLowerCase();
-
-  if (speech.includes('message') || speech.includes('voicemail') || speech.includes('record')) {
-    return 'voicemail';
-  }
-
-  if (speech.includes('book') || speech.includes('schedule') || speech.includes('talk') || speech.includes('yes')) {
-    return 'ai';
-  }
-
-  return 'ai';
-};
 
 const cacheReceptionistSession = ({ callSid, profile, toNumber }) => {
   if (!callSid || !profile) {
@@ -925,6 +877,12 @@ if (stripeClient && stripeWebhookSecret) {
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+// ========================================
+// Booking Page Routes (Public API)
+// ========================================
+const bookingRoutes = require('./routes/bookingRoutes');
+app.use('/api/booking', bookingRoutes);
 
 // ========================================
 // Payments Summary CSV (Mates Rates compatibility)
@@ -1439,8 +1397,8 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
   console.log('[API] Scraping website and generating config:', { url, userId, applyConfig });
 
   try {
-    // Step 1: Scrape the website
-    const scrapedData = await scrapeWebsite(url);
+    // Step 1: Scrape the website using Gemini URL Context
+    const scrapedData = await scrapeWebsiteWithGemini(url);
 
     // Step 2: Generate receptionist configuration
     const config = await generateReceptionistConfig(scrapedData);
@@ -1698,7 +1656,7 @@ const downloadTwilioRecording = async (recordingUrl, recordingSid) => {
         return { response, resolvedUrl: url };
       }
 
-      response.body?.cancel?.().catch(() => {});
+      response.body?.cancel?.().catch(() => { });
 
       console.warn('[Telephony] Twilio recording fetch returned unexpected response.', {
         url,
@@ -2043,12 +2001,11 @@ const handleInboundVoice = async (req, res) => {
 
     // Check each service individually for better debugging
     const hasLLMProvider = Boolean(llmClient);
-    const hasElevenLabs = Boolean(elevenLabsApiKey);
     const hasDeepgram = Boolean(deepgramClient);
+    // Deepgram Voice Agent API handles both STT and TTS, so we only need Deepgram + LLM (Gemini)
     const conversationalPathAvailable = receptionistConfigured
       && receptionistEnabledGlobally
       && hasLLMProvider
-      && hasElevenLabs
       && hasDeepgram;
 
     // Comprehensive logging for debugging routing decisions
@@ -2062,7 +2019,6 @@ const handleInboundVoice = async (req, res) => {
       receptionistEnabledGlobally,
       hasLLM: hasLLMProvider,
       llmProvider: llmClient?.provider || 'unknown',
-      hasElevenLabs,
       hasDeepgram,
       conversationalPathAvailable,
       profileUserId: receptionistProfile?.id,
@@ -2086,7 +2042,6 @@ const handleInboundVoice = async (req, res) => {
           receptionistConfigured,
           receptionistEnabledGlobally,
           hasLLM: hasLLMProvider,
-          hasElevenLabs,
           hasDeepgram,
         },
       });
@@ -2096,7 +2051,6 @@ const handleInboundVoice = async (req, res) => {
           receptionistConfigured,
           receptionistEnabledGlobally,
           hasLLM: hasLLMProvider,
-          hasElevenLabs,
           hasDeepgram,
         },
       });
@@ -2113,25 +2067,6 @@ const handleInboundVoice = async (req, res) => {
       });
       console.log('[Telephony] Receptionist mode is voicemail_only, routing to voicemail.', { callSid });
       return respondWithVoicemail(req, res, inboundParams);
-    }
-
-    if (receptionistMode === 'hybrid_choice' && stage === 'initial') {
-      return respondWithHybridChoice(req, res, inboundParams, receptionistProfile);
-    }
-
-    if (receptionistMode === 'hybrid_choice' && stage === 'choice') {
-      const decision = stageDecision || interpretHybridChoice(inboundParams);
-      if (decision === 'voicemail') {
-        await logCallEvent({
-          orgId,
-          callSid,
-          eventType: 'call_routed_voicemail',
-          direction: 'inbound',
-          payload: { reason: 'hybrid_choice_voicemail' },
-        });
-        return respondWithVoicemail(req, res, inboundParams);
-      }
-      // default to AI receptionist when uncertain
     }
 
     // Check subscription status before allowing AI receptionist
@@ -2385,8 +2320,8 @@ app.post('/voice/preview', authenticateJwt, async (req, res) => {
 
   const providerPriority =
     voiceConfig.provider === 'gemini' ? ['gemini', 'azure', 'elevenlabs'] :
-    voiceConfig.provider === 'azure' ? ['azure', 'gemini', 'elevenlabs'] :
-    ['elevenlabs', 'gemini', 'azure'];
+      voiceConfig.provider === 'azure' ? ['azure', 'gemini', 'elevenlabs'] :
+        ['elevenlabs', 'gemini', 'azure'];
 
   const resolveVoiceForPreview = (provider) => {
     if (provider === 'gemini') {
@@ -2700,7 +2635,7 @@ app.post('/telephony/recording-complete', async (req, res) => {
         recordedAt,
         status: 'failed',
       });
-      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' }).catch(() => {});
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' }).catch(() => { });
       return res.status(500).json({ error: 'Voicemail storage unavailable' });
     }
 
@@ -2715,7 +2650,7 @@ app.post('/telephony/recording-complete', async (req, res) => {
         recordedAt,
         status: 'failed',
       });
-      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' }).catch(() => {});
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' }).catch(() => { });
       return res.status(400).json({ error: 'RecordingUrl is required' });
     }
 
@@ -2747,7 +2682,7 @@ app.post('/telephony/recording-complete', async (req, res) => {
         status: 'failed',
       });
 
-      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' }).catch(() => {});
+      await updateCallTranscriptionStatus({ callSid: CallSid, status: 'failed' }).catch(() => { });
 
       return res.status(500).json({ error: 'Failed to store recording' });
     }
@@ -3379,8 +3314,6 @@ if (require.main === module) {
         httpServer,
         sessionCache: receptionistSessionCache,
         deepgramClient,
-        llmClient,
-        voiceConfig,
         onConversationComplete: handleRealtimeConversationComplete,
         getBusinessContextForOrg,
       });
@@ -3407,10 +3340,13 @@ if (require.main === module) {
   // Cron Job: Process Pending Reminders
   // ============================================================================
 
+  const bookingReminderScheduler = require('./services/bookingReminderScheduler');
+
   // Process reminders every minute
   setInterval(async () => {
     try {
       await reminderScheduler.processPendingReminders();
+      await bookingReminderScheduler.processPendingBookingReminders();
     } catch (error) {
       console.error('[Cron] Reminder processor error:', error);
     }

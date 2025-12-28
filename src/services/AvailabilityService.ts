@@ -1,8 +1,10 @@
 // Availability Service
-// Manages Google Calendar integration and available slot calculation
+// Manages calendar integration and available slot calculation
 
 import { supabase } from './supabase';
 import { BookingPage, BookingSlot, BusinessHours } from '../types/booking';
+import CalendarIntegrationService from './CalendarIntegrationService';
+import AppleCalendarService from './AppleCalendarService';
 
 interface CalendarEvent {
   start: string; // ISO datetime
@@ -43,15 +45,15 @@ class AvailabilityService {
   ): Promise<BookingSlot[]> {
     const slots: BookingSlot[] = [];
 
-    // Get busy times from Google Calendar
-    const busyTimes = await this.getGoogleCalendarBusyTimes(
-      bookingPage.google_calendar_id,
-      startDate,
-      endDate
-    );
+    // Get busy times from both Google and Apple Calendar
+    const [googleBusyTimes, appleBusyTimes, existingBookings] = await Promise.all([
+      this.getGoogleCalendarBusyTimes(bookingPage.org_id, startDate, endDate),
+      this.getAppleCalendarBusyTimes(bookingPage.org_id, startDate, endDate),
+      this.getExistingBookings(bookingPage.id, startDate, endDate),
+    ]);
 
-    // Get existing bookings
-    const existingBookings = await this.getExistingBookings(bookingPage.id, startDate, endDate);
+    // Merge all busy times
+    const allBusyTimes = [...googleBusyTimes, ...appleBusyTimes, ...existingBookings];
 
     // Generate slots for each day
     let currentDate = new Date(startDate);
@@ -61,7 +63,7 @@ class AvailabilityService {
         bookingPage.business_hours,
         bookingPage.slot_duration_minutes,
         bookingPage.buffer_time_minutes,
-        [...busyTimes, ...existingBookings]
+        allBusyTimes
       );
 
       slots.push(...daySlots);
@@ -152,38 +154,44 @@ class AvailabilityService {
    * Get busy times from Google Calendar
    */
   private async getGoogleCalendarBusyTimes(
-    calendarId: string | null,
+    orgId: string,
     startDate: Date,
     endDate: Date
   ): Promise<CalendarEvent[]> {
-    if (!calendarId) {
+    try {
+      const busyTimes = await CalendarIntegrationService.getGoogleCalendarBusyTimes(
+        orgId,
+        startDate,
+        endDate
+      );
+
+      return busyTimes;
+    } catch (error) {
+      console.error('Error fetching Google Calendar busy times:', error);
       return [];
     }
+  }
 
-    // TODO: Implement Google Calendar API integration
-    // This should call Google Calendar freebusy API
-    // For now, return empty array as placeholder
-    console.warn('Google Calendar integration not yet implemented');
-    return [];
+  /**
+   * Get busy times from Apple Calendar
+   */
+  private async getAppleCalendarBusyTimes(
+    orgId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<CalendarEvent[]> {
+    try {
+      const busyTimes = await AppleCalendarService.getAppleCalendarBusyTimes(
+        orgId,
+        startDate,
+        endDate
+      );
 
-    /*
-    // Placeholder implementation structure:
-    const response = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        timeMin: startDate.toISOString(),
-        timeMax: endDate.toISOString(),
-        items: [{ id: calendarId }],
-      }),
-    });
-
-    const data = await response.json();
-    return data.calendars[calendarId].busy || [];
-    */
+      return busyTimes;
+    } catch (error) {
+      console.error('Error fetching Apple Calendar busy times:', error);
+      return [];
+    }
   }
 
   /**
