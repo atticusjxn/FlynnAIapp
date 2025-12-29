@@ -71,7 +71,7 @@ function LandingPage() {
                                 </h1>
 
                                 <p className="text-xl text-gray-600 mb-10 max-w-md font-medium leading-relaxed border-l-4 border-brand-500 pl-6">
-                                    Flynn answers your calls, books your customers, follows up, and keeps your business running while you work. Websites, SEO and payments coming soon.
+                                    Flynn captures every missed call, immediately sending prospects a text with links to book or get a quote. Upgrade to AI voice receptionists for full conversations.
                                 </p>
 
                                 <StoreButtons />
@@ -136,8 +136,8 @@ function LandingPage() {
                     <div className="grid md:grid-cols-3 gap-0 border-l-2 border-black">
                         {[
                             { step: "01", title: "Forward Your Calls", desc: "Set up call forwarding in 30 seconds. Flynn handles the rest." },
-                            { step: "02", title: "Flynn Answers", desc: "No missed calls. No spam. Real conversations handled instantly." },
-                            { step: "03", title: "Book & Grow", desc: "Get job cards, quotes, follow-ups, and bookings — automatically." }
+                            { step: "02", title: "Flynn Responds", desc: "Callers get an immediate text with booking & quote links. Or let our AI receptionist handle the full conversation." },
+                            { step: "03", title: "Book & Grow", desc: "Watch appointments fill your calendar and quotes land in your inbox automatically." }
                         ].map((item, idx) => (
                             <div key={idx} className="group border-r-2 border-b-2 border-black p-10 hover:bg-brand-500 hover:text-white transition-colors duration-300 relative">
                                 <span className="absolute top-6 right-6 font-display font-bold text-6xl opacity-10 group-hover:opacity-20">{item.step}</span>
