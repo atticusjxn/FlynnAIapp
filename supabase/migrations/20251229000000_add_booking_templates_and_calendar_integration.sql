@@ -100,7 +100,7 @@ INSERT INTO booking_form_templates (name, industry, description, icon, custom_fi
 ('Massage Therapy', 'wellness', 'Therapeutic massage services', 'heart', '[
   {"label": "Massage Type", "type": "select", "required": true, "options": ["Swedish", "Deep Tissue", "Sports", "Hot Stone", "Prenatal", "Aromatherapy"]},
   {"label": "Duration", "type": "radio", "required": true, "options": ["30 minutes", "60 minutes", "90 minutes"]},
-  {"label": "Areas of Focus", "type": "textarea", "required": false, "placeholder": "Any specific areas you\'d like us to focus on?"}
+  {"label": "Areas of Focus", "type": "textarea", "required": false, "placeholder": "Any specific areas you would like us to focus on?"}
 ]'::jsonb, 60, 15, 7),
 
 ('Nail Salon', 'beauty', 'Nail care and manicure services', 'sparkles', '[
