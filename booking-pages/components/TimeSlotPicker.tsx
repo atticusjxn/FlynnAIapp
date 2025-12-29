@@ -126,7 +126,6 @@ export default function TimeSlotPicker({
                 style={{
                   backgroundColor: isSelected ? primaryColor : '#FFFFFF',
                   color: isSelected ? '#FFFFFF' : '#1E293B',
-                  ringColor: primaryColor,
                 }}
               >
                 {formatTime(slot.start_time)}
