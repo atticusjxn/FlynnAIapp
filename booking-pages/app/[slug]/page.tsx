@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { supabase, BookingPage } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
+import type { BookingPage } from '@/lib/supabase';
 import BookingPageClient from '@/components/BookingPageClient';
 
 async function getBookingPage(slug: string): Promise<BookingPage | null> {

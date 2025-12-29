@@ -54,6 +54,12 @@ export const DashboardScreen = () => {
     overdueRevenue: number;
   } | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
+  const [bookingStats, setBookingStats] = useState<{
+    activePagesCount: number;
+    bookingsThisWeek: number;
+    bookingsThisMonth: number;
+  } | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
   const styles = createStyles(colors);
 
   // Get real data
@@ -78,7 +84,7 @@ export const DashboardScreen = () => {
 
   const onRefresh = async () => {
     try {
-      await Promise.all([refreshJobs(), loadActivities(), loadRevenueStats()]);
+      await Promise.all([refreshJobs(), loadActivities(), loadRevenueStats(), loadBookingStats()]);
     } catch (error) {
       console.error('[Dashboard] Refresh failed:', error);
     }
@@ -121,6 +127,66 @@ export const DashboardScreen = () => {
     }
   };
 
+  const loadBookingStats = async () => {
+    if (!user?.id) {
+      setBookingStats(null);
+      return;
+    }
+
+    setBookingLoading(true);
+    try {
+      // Get user's org_id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('default_org_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData?.default_org_id) {
+        setBookingStats(null);
+        return;
+      }
+
+      // Get active booking pages count
+      const { count: activePagesCount } = await supabase
+        .from('booking_pages')
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id', userData.default_org_id)
+        .eq('is_active', true);
+
+      // Get bookings this week
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      const { count: bookingsThisWeek } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id', userData.default_org_id)
+        .gte('created_at', oneWeekAgo.toISOString());
+
+      // Get bookings this month
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+
+      const { count: bookingsThisMonth } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('org_id', userData.default_org_id)
+        .gte('created_at', oneMonthAgo.toISOString());
+
+      setBookingStats({
+        activePagesCount: activePagesCount || 0,
+        bookingsThisWeek: bookingsThisWeek || 0,
+        bookingsThisMonth: bookingsThisMonth || 0,
+      });
+    } catch (error) {
+      console.error('[Dashboard] Failed to load booking stats', error);
+      setBookingStats(null);
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
   const loadActivities = async () => {
     if (!user?.id) {
       setActivities([]);
@@ -142,6 +208,7 @@ export const DashboardScreen = () => {
   useEffect(() => {
     void loadActivities();
     void loadRevenueStats();
+    void loadBookingStats();
   }, [user?.id]);
 
   const handleCallClient = (phone: string) => {
@@ -282,6 +349,43 @@ export const DashboardScreen = () => {
       <View style={styles.welcomeSection}>
         <Text style={styles.welcomeText}>Welcome back, {getUserName()} 👋</Text>
       </View>
+
+      {/* Booking Stats Section */}
+      {bookingStats && (bookingStats.activePagesCount > 0 || bookingStats.bookingsThisWeek > 0) && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <FlynnIcon name="calendar-outline" size={20} color={colors.success} />
+            <Text style={styles.sectionTitle}>Booking Pages</Text>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <Text style={styles.viewAllText}>Manage</Text>
+              <FlynnIcon name="chevron-forward" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.statsGrid}>
+            <View style={[styles.statCard, styles.statCardSuccess]}>
+              <FlynnIcon name="link-outline" size={20} color={colors.success} style={{ marginBottom: spacing.xs }} />
+              <Text style={styles.statLabel}>Active Pages</Text>
+              <Text style={[styles.statValue, { color: colors.success }]}>{bookingStats.activePagesCount}</Text>
+              <Text style={styles.statSubtext}>Live booking pages</Text>
+            </View>
+            <View style={styles.statCard}>
+              <FlynnIcon name="calendar-outline" size={20} color={colors.primary} style={{ marginBottom: spacing.xs }} />
+              <Text style={styles.statLabel}>This Week</Text>
+              <Text style={styles.statValue}>{bookingStats.bookingsThisWeek}</Text>
+              <Text style={styles.statSubtext}>New bookings</Text>
+            </View>
+            <View style={styles.statCard}>
+              <FlynnIcon name="trending-up-outline" size={20} color={colors.primary} style={{ marginBottom: spacing.xs }} />
+              <Text style={styles.statLabel}>This Month</Text>
+              <Text style={styles.statValue}>{bookingStats.bookingsThisMonth}</Text>
+              <Text style={styles.statSubtext}>Total bookings</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Revenue Stats Section */}
       {revenueStats && (
@@ -513,6 +617,11 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.primaryLight,
     borderWidth: 1,
     borderColor: colors.primary + '30',
+  },
+  statCardSuccess: {
+    backgroundColor: colors.successLight,
+    borderWidth: 1,
+    borderColor: colors.success + '30',
   },
   statLabel: {
     ...typography.caption,

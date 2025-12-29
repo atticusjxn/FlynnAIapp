@@ -153,7 +153,6 @@ export default function DatePicker({
               style={{
                 backgroundColor: isSelected ? primaryColor : 'transparent',
                 color: isSelected ? '#FFFFFF' : isAvailable ? '#1E293B' : '#94A3B8',
-                ringColor: primaryColor,
               }}
             >
               {format(day, 'd')}
