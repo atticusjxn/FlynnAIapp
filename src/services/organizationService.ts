@@ -17,7 +17,7 @@ interface UserProfileRow {
   receptionist_greeting?: string | null;
   receptionist_questions?: unknown;
   receptionist_voice_profile_id?: string | null;
-  receptionist_mode?: OnboardingData['receptionistMode'] | null;
+  call_handling_mode?: OnboardingData['receptionistMode'] | null;
   receptionist_ack_library?: unknown;
   onboarding_complete?: boolean | null;
 }
@@ -120,7 +120,7 @@ const loadSnapshot = async (): Promise<OrgSnapshot> => {
       receptionist_greeting,
       receptionist_questions,
       receptionist_voice_profile_id,
-      receptionist_mode,
+      call_handling_mode,
       receptionist_ack_library,
       onboarding_complete
     `)
@@ -224,7 +224,7 @@ const deriveOnboardingData = (snapshot: OrgSnapshot): OnboardingData => {
     receptionistGreeting: snapshot.receptionistConfig?.greeting_script || snapshot.userProfile?.receptionist_greeting || null,
     receptionistQuestions: Array.isArray(receptionistQuestions) ? receptionistQuestions : defaultOnboardingData.receptionistQuestions,
     receptionistVoiceProfileId: snapshot.receptionistConfig?.voice_profile_id || snapshot.userProfile?.receptionist_voice_profile_id || null,
-    receptionistMode: snapshot.userProfile?.receptionist_mode || defaultOnboardingData.receptionistMode,
+    receptionistMode: snapshot.userProfile?.call_handling_mode || defaultOnboardingData.receptionistMode,
     receptionistAckLibrary: safeArray(ackLibrary),
     twilioPhoneNumber: snapshot.userProfile?.twilio_phone_number || primaryNumber?.e164_number || null,
     phoneNumber: snapshot.userProfile?.phone_number || primaryNumber?.connected_number || null,
@@ -246,7 +246,7 @@ const persistLegacyUserState = async (userId: string, onboardingData: Onboarding
       receptionist_greeting: onboardingData.receptionistGreeting,
       receptionist_questions: onboardingData.receptionistQuestions ?? [],
       receptionist_voice_profile_id: onboardingData.receptionistVoiceProfileId ?? null,
-      receptionist_mode: onboardingData.receptionistMode ?? 'ai_only',
+      call_handling_mode: onboardingData.receptionistMode ?? 'sms_links',
       receptionist_ack_library: onboardingData.receptionistAckLibrary ?? [],
       onboarding_complete: true,
     })

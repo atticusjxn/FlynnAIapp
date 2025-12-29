@@ -664,7 +664,7 @@ const cacheReceptionistSession = ({ callSid, profile, toNumber }) => {
     businessProfile: profile.receptionist_business_profile || null,
     businessName: profile.business_name || null,
     businessType: profile.business_type || null,
-    mode: profile.receptionist_mode || 'ai_only',
+    mode: profile.call_handling_mode || profile.receptionist_mode || 'sms_links',
     ackHistory: [],
   });
 };
@@ -1986,17 +1986,29 @@ const handleInboundVoice = async (req, res) => {
         fromNumber,
         toNumber,
         stage,
-        receptionistMode: receptionistProfile?.receptionist_mode || null,
+        callHandlingMode: receptionistProfile?.call_handling_mode || receptionistProfile?.receptionist_mode || null,
         conversationalPath: Boolean(receptionistProfile),
       },
     });
 
     const receptionistConfigured = Boolean(receptionistProfile?.receptionist_configured);
 
-    // Explicitly default to 'ai_only' when configured but mode is null/undefined
-    let receptionistMode = receptionistProfile?.receptionist_mode;
-    if (!receptionistMode) {
-      receptionistMode = receptionistConfigured ? 'ai_only' : 'voicemail_only';
+    // Get call_handling_mode (renamed from receptionist_mode)
+    // Priority: call_handling_mode > receptionist_mode (legacy) > default
+    let callHandlingMode = receptionistProfile?.call_handling_mode || receptionistProfile?.receptionist_mode;
+    if (!callHandlingMode) {
+      // Default to sms_links for new accounts, voicemail_only for unconfigured accounts
+      callHandlingMode = receptionistConfigured ? 'sms_links' : 'voicemail_only';
+    }
+
+    // Legacy support: map old receptionist_mode values to new call_handling_mode
+    const legacyModeMap = {
+      'ai_only': 'ai_receptionist',
+      'hybrid_choice': 'ai_receptionist', // For now, treat hybrid as AI until we implement the choice UI
+      'voicemail_only': 'voicemail_only'
+    };
+    if (legacyModeMap[callHandlingMode]) {
+      callHandlingMode = legacyModeMap[callHandlingMode];
     }
 
     // Check each service individually for better debugging
@@ -2009,13 +2021,13 @@ const handleInboundVoice = async (req, res) => {
       && hasDeepgram;
 
     // Comprehensive logging for debugging routing decisions
-    console.log('[Telephony] Receptionist routing decision:', {
+    console.log('[Telephony] Call routing decision:', {
       callSid,
       toNumber,
       fromNumber,
       hasReceptionistProfile: Boolean(receptionistProfile),
       receptionistConfigured,
-      receptionistMode,
+      callHandlingMode,
       receptionistEnabledGlobally,
       hasLLM: hasLLMProvider,
       llmProvider: llmClient?.provider || 'unknown',
@@ -2031,41 +2043,85 @@ const handleInboundVoice = async (req, res) => {
       return respondWithVoicemail(req, res, inboundParams);
     }
 
-    if (!conversationalPathAvailable) {
+    // Route based on call_handling_mode
+    if (callHandlingMode === 'voicemail_only') {
       await logCallEvent({
         orgId,
         callSid,
         eventType: 'call_routed_voicemail',
         direction: 'inbound',
-        payload: {
-          reason: 'conversational_path_unavailable',
-          receptionistConfigured,
-          receptionistEnabledGlobally,
-          hasLLM: hasLLMProvider,
-          hasDeepgram,
-        },
+        payload: { reason: 'voicemail_only_mode', callHandlingMode },
       });
-      console.warn('[Telephony] Conversational path unavailable, routing to voicemail.', {
-        callSid,
-        reason: {
-          receptionistConfigured,
-          receptionistEnabledGlobally,
-          hasLLM: hasLLMProvider,
-          hasDeepgram,
-        },
-      });
+      console.log('[Telephony] Call handling mode is voicemail_only, routing to voicemail.', { callSid });
       return respondWithVoicemail(req, res, inboundParams);
     }
 
-    if (receptionistMode === 'voicemail_only') {
+    if (callHandlingMode === 'sms_links') {
+      // Mode A: SMS Link Follow-Up (IVR with booking/quote links)
+      console.log('[Telephony] Call handling mode is sms_links, routing to IVR.', { callSid });
+
+      // Fetch business profile for link configuration
+      const { data: businessProfile } = await supabaseClient
+        .from('business_profiles')
+        .select('*')
+        .eq('user_id', receptionistProfile.id)
+        .single()
+        .catch(() => ({ data: null }));
+
       await logCallEvent({
         orgId,
         callSid,
-        eventType: 'call_routed_voicemail',
+        eventType: 'call_routed_ivr',
         direction: 'inbound',
-        payload: { reason: 'voicemail_only_mode' },
+        payload: {
+          reason: 'sms_links_mode',
+          callHandlingMode,
+          hasBookingLink: Boolean(businessProfile?.booking_link_enabled && businessProfile?.booking_link_url),
+          hasQuoteLink: Boolean(businessProfile?.quote_link_enabled && businessProfile?.quote_link_url)
+        },
       });
-      console.log('[Telephony] Receptionist mode is voicemail_only, routing to voicemail.', { callSid });
+
+      // Import IVR handler
+      const ivrHandler = require('./telephony/ivrHandler');
+      const twiml = await ivrHandler.generateIVRTwiML(businessProfile, callSid, receptionistProfile.id);
+
+      res.type('text/xml');
+      return res.send(twiml);
+    }
+
+    if (callHandlingMode === 'ai_receptionist') {
+      // Mode B: AI Receptionist (existing behavior)
+      // Check if conversational path is available
+      if (!conversationalPathAvailable) {
+        await logCallEvent({
+          orgId,
+          callSid,
+          eventType: 'call_routed_voicemail',
+          direction: 'inbound',
+          payload: {
+            reason: 'conversational_path_unavailable',
+            receptionistConfigured,
+            receptionistEnabledGlobally,
+            hasLLM: hasLLMProvider,
+            hasDeepgram,
+          },
+        });
+        console.warn('[Telephony] AI receptionist unavailable, routing to voicemail.', {
+          callSid,
+          reason: {
+            receptionistConfigured,
+            receptionistEnabledGlobally,
+            hasLLM: hasLLMProvider,
+            hasDeepgram,
+          },
+        });
+        return respondWithVoicemail(req, res, inboundParams);
+      }
+
+      // Continue to AI receptionist below (existing code)
+    } else {
+      // Unknown mode, fallback to voicemail
+      console.warn('[Telephony] Unknown call handling mode, routing to voicemail.', { callHandlingMode, callSid });
       return respondWithVoicemail(req, res, inboundParams);
     }
 
@@ -2130,7 +2186,7 @@ const handleInboundVoice = async (req, res) => {
         callSid,
         eventType: 'ai_receptionist_engaged',
         direction: 'inbound',
-        payload: { receptionistMode },
+        payload: { callHandlingMode },
       });
     }
 
@@ -2149,6 +2205,60 @@ const handleInboundVoice = async (req, res) => {
 
 app.post('/telephony/inbound-voice', handleInboundVoice);
 app.get('/telephony/inbound-voice', handleInboundVoice);
+
+// IVR endpoints for Mode A (SMS Link Follow-Up)
+app.post('/ivr/handle-dtmf', async (req, res) => {
+  const { Digits, CallSid, From } = req.body || {};
+  const userId = req.query?.userId || null;
+
+  console.log('[IVR] DTMF input received:', { digits: Digits, callSid: CallSid, from: From, userId });
+
+  try {
+    const ivrHandler = require('./telephony/ivrHandler');
+    const { twiml } = await ivrHandler.handleDTMFInput(Digits, CallSid, userId, From);
+
+    res.type('text/xml');
+    res.send(twiml);
+  } catch (error) {
+    console.error('[IVR] Failed to handle DTMF input:', error);
+
+    // Fallback to voicemail on error
+    const response = new twilio.twiml.VoiceResponse();
+    response.say({ voice: 'Polly.Joanna' }, 'We\'re sorry, there was an error. Please leave a message after the tone.');
+    response.record({
+      maxLength: 300,
+      transcribe: true,
+      transcribeCallback: userId ? `/webhook/transcription/${userId}` : undefined
+    });
+
+    res.type('text/xml');
+    res.send(response.toString());
+  }
+});
+
+app.post('/ivr/timeout', async (req, res) => {
+  const { CallSid } = req.body || {};
+  const userId = req.query?.userId || null;
+
+  console.log('[IVR] Timeout occurred:', { callSid: CallSid, userId });
+
+  try {
+    const ivrHandler = require('./telephony/ivrHandler');
+    const twiml = await ivrHandler.handleIVRTimeout(CallSid, userId);
+
+    res.type('text/xml');
+    res.send(twiml);
+  } catch (error) {
+    console.error('[IVR] Failed to handle timeout:', error);
+
+    const response = new twilio.twiml.VoiceResponse();
+    response.say({ voice: 'Polly.Joanna' }, 'Thank you for calling. Goodbye.');
+    response.hangup();
+
+    res.type('text/xml');
+    res.send(response.toString());
+  }
+});
 
 app.post('/telephony/stream-status', async (req, res) => {
   const { CallSid, StreamSid, AccountSid, Status } = req.body || {};
