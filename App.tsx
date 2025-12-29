@@ -12,7 +12,7 @@ import { JobsProvider } from './src/context/JobsContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { JobsScreen } from './src/screens/JobsScreen';
-import { ReceptionistScreen } from './src/screens/ReceptionistScreen';
+import { CallsScreen } from './src/screens/CallsScreen';
 import { ClientsScreen } from './src/screens/ClientsScreen';
 import MoneyScreen from './src/screens/MoneyScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -25,9 +25,13 @@ import { JobFormDemo } from './src/components/ui/JobFormDemo';
 import CallSetupScreen from './src/screens/calls/CallSetupScreen';
 import CallHistoryScreen from './src/screens/calls/CallHistoryScreen';
 import CallSettingsScreen from './src/screens/calls/CallSettingsScreen';
+import { CallAnalyticsScreen } from './src/screens/calls/CallAnalyticsScreen';
 import IntegrationsScreen from './src/screens/settings/IntegrationsScreen';
 import { BusinessProfileScreen } from './src/screens/settings/BusinessProfileScreen';
 import BookingPageSetupScreen from './src/screens/settings/BookingPageSetupScreen';
+import QuoteFormsListScreen from './src/screens/quotes/QuoteFormsListScreen';
+import QuoteFormTemplateSelectorScreen from './src/screens/quotes/QuoteFormTemplateSelectorScreen';
+import QuoteFormAnalyticsScreen from './src/screens/quotes/QuoteFormAnalyticsScreen';
 import {
   useFonts,
   Inter_400Regular,
@@ -54,8 +58,8 @@ function MainTabs() {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Events') {
             iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Receptionist') {
-            iconName = focused ? 'sparkles' : 'sparkles-outline';
+          } else if (route.name === 'Calls') {
+            iconName = focused ? 'call' : 'call-outline';
           } else if (route.name === 'Clients') {
             iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'Money') {
@@ -83,7 +87,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Events" component={JobsScreen} />
-      <Tab.Screen name="Receptionist" component={ReceptionistScreen} />
+      <Tab.Screen name="Calls" component={CallsScreen} />
       <Tab.Screen name="Clients" component={ClientsScreen} />
       <Tab.Screen name="Money" component={MoneyScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
@@ -132,6 +136,14 @@ function RootNavigator() {
         }}
       />
       <Stack.Screen
+        name="CallAnalytics"
+        component={CallAnalyticsScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="Integrations"
         component={IntegrationsScreen}
         options={{
@@ -154,6 +166,33 @@ function RootNavigator() {
         options={{
           presentation: 'modal',
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="QuoteFormsList"
+        component={QuoteFormsListScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: 'Quote Forms',
+        }}
+      />
+      <Stack.Screen
+        name="QuoteFormTemplateSelector"
+        component={QuoteFormTemplateSelectorScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: 'Choose Template',
+        }}
+      />
+      <Stack.Screen
+        name="QuoteFormAnalytics"
+        component={QuoteFormAnalyticsScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: true,
+          title: 'Quote Form Analytics',
         }}
       />
     </Stack.Navigator>

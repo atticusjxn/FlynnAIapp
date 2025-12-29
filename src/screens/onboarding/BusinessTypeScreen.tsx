@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { businessTypes, useOnboarding } from '../../context/OnboardingContext';
+import { colors, typography, spacing, borderRadius } from '../../theme';
 
 const categoryDescriptions: { [key: string]: string } = {
   home_property: 'Plumbing, Electrical, Carpentry, Landscaping, Cleaning, HVAC, Roofing',
@@ -61,10 +62,11 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
+            <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <View style={styles.progressContainer}>
             <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={styles.progressBar} />
             <View style={styles.progressBar} />
             <View style={styles.progressBar} />
             <View style={styles.progressBar} />
@@ -94,7 +96,6 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
                 onPress={() => handleTypeSelect(type.id)}
               >
                 <View style={styles.optionContent}>
-                  <Text style={styles.emoji}>{type.emoji}</Text>
                   <View style={styles.textContainer}>
                     <Text
                       style={[
@@ -112,7 +113,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
                   </View>
                 </View>
                 {selectedType === type.id && (
-                  <FlynnIcon name="checkmark-circle" size={24} color="#3B82F6" />
+                  <FlynnIcon name="checkmark-circle" size={24} color={colors.primary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -160,7 +161,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.gray50,
   },
   keyboardAvoidingContainer: {
     flex: 1,
@@ -168,61 +169,60 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
   },
   backButton: {
-    marginRight: 16,
+    marginRight: spacing.md,
   },
   progressContainer: {
     flex: 1,
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.xs,
   },
   progressBar: {
     flex: 1,
     height: 4,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 2,
+    backgroundColor: colors.gray200,
+    borderRadius: borderRadius.xs,
   },
   progressActive: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.primary,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
   },
   titleContainer: {
-    marginBottom: 32,
+    marginBottom: spacing.xxl,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 8,
+    ...typography.h1,
+    color: colors.gray900,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
+    ...typography.bodyMedium,
+    color: colors.gray600,
     lineHeight: 22,
   },
   optionsContainer: {
-    gap: 12,
+    gap: spacing.sm,
   },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
+    backgroundColor: colors.white,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   selectedOption: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#eff6ff',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   optionContent: {
     flexDirection: 'row',
@@ -231,66 +231,66 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 24,
-    marginRight: 16,
+    marginRight: spacing.md,
   },
   textContainer: {
     flex: 1,
   },
   optionText: {
-    fontSize: 16,
-    color: '#1f2937',
+    ...typography.bodyLarge,
+    color: colors.gray900,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: spacing.xxs,
   },
   selectedOptionText: {
-    color: '#3B82F6',
+    color: colors.primary,
   },
   optionDescription: {
-    fontSize: 13,
-    color: '#6b7280',
+    ...typography.bodySmall,
+    color: colors.gray600,
     lineHeight: 18,
   },
   customInputContainer: {
-    marginTop: 24,
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
+    marginTop: spacing.lg,
+    backgroundColor: colors.white,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
   },
   customInputLabel: {
-    fontSize: 16,
+    ...typography.bodyLarge,
     fontWeight: '500',
-    color: '#1f2937',
-    marginBottom: 12,
+    color: colors.gray900,
+    marginBottom: spacing.sm,
   },
   customInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: colors.gray300,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
     fontSize: 16,
-    color: '#1f2937',
+    color: colors.gray900,
   },
   buttonContainer: {
-    padding: 24,
+    padding: spacing.lg,
   },
   nextButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
   },
   disabledButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.gray200,
   },
   nextButtonText: {
-    color: 'white',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
-    marginRight: 8,
+    marginRight: spacing.xs,
   },
   disabledButtonText: {
-    color: '#9ca3af',
+    color: colors.gray400,
   },
 });
