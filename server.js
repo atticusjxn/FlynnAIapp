@@ -176,6 +176,49 @@ const deleteUserData = async (userId) => {
     throw new Error('Supabase client not configured for account deletion');
   }
 
+  // First, release Twilio phone numbers associated with this user
+  try {
+    const { data: phoneNumbers, error: phoneError } = await supabaseStorageClient
+      .from('phone_numbers')
+      .select('id, twilio_sid, e164_number')
+      .eq('provisioned_by', userId);
+
+    if (!phoneError && phoneNumbers && phoneNumbers.length > 0) {
+      for (const phone of phoneNumbers) {
+        // Mark as released in database first
+        await supabaseStorageClient
+          .from('phone_numbers')
+          .update({
+            status: 'released',
+            released_at: new Date().toISOString(),
+            is_primary: false,
+          })
+          .eq('id', phone.id);
+
+        // Release from Twilio if we have a Twilio SID
+        if (phone.twilio_sid && twilioClient) {
+          try {
+            await twilioClient.incomingPhoneNumbers(phone.twilio_sid).remove();
+            console.log('[AccountDeletion] Released Twilio number', {
+              userId,
+              phoneId: phone.id,
+              number: phone.e164_number
+            });
+          } catch (twilioError) {
+            console.warn('[AccountDeletion] Failed to release Twilio number', {
+              userId,
+              phoneId: phone.id,
+              twilioSid: phone.twilio_sid,
+              error: twilioError
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('[AccountDeletion] Failed to release phone numbers', { userId, error });
+  }
+
   const tablesWithUserId = [
     'notification_tokens',
     'voice_profiles',
