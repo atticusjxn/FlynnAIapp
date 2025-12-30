@@ -141,8 +141,11 @@
             border: 4px solid var(--black);
             padding: 10px 30px;
             background: white;
-            box-shadow: 8px 8px 0px 0px var(--primary);
         }
+
+
+
+
 
         .slide-title {
             font-family: 'Space Grotesk', sans-serif;
@@ -180,25 +183,29 @@
             margin-top: 40px;
             border-left: 10px solid var(--black);
             padding-left: 40px;
+            background: white;
+            /* Ensure readability over elements */
         }
 
         /* Brutalist Device Mockup */
         .device-mockup {
-            flex: 1;
-            margin: 60px 80px -150px;
-            /* Push off bottom */
+            width: 1100px;
+            /* Fixed width for 3D context */
+            height: 2200px;
+            /* Fixed height for 3D context */
             background: white;
             border: 12px solid var(--black);
             border-radius: 60px;
             box-shadow:
-                30px 30px 0px 0px rgba(0, 0, 0, 0.15),
+                30px 30px 0px 0px rgba(0, 0, 0, 0.2),
                 inset 0 0 0 4px rgba(0, 0, 0, 0.1);
             padding: 0;
-            /* Reset padding for full bleed feel inside */
             position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            flex: 1;
+            margin: 60px 80px -150px;
             z-index: 2;
         }
 
@@ -498,162 +505,113 @@
 
                 <div class="slide-header">
                     <div class="step-indicator">01</div>
-                    <div class="slide-title">Don't Miss <br><span class="highlight-inverse">The Call</span></div>
-                    <div class="slide-subtitle">Turn missed calls into booked jobs automatically.</div>
+                    <div class="slide-title">NEVER MISS <br><span class="highlight-inverse">A LEAD</span></div>
+                    <div class="slide-subtitle">Flynn captures every missed call and texts them back instantly.</div>
                 </div>
+
 
                 <div class="device-mockup">
                     <div class="device-notch"></div>
                     <div class="app-content">
                         <div class="app-header">
-                            <div class="app-title">Dashboard</div>
+                            <div class="app-title">Live Feed</div>
                             <div class="icon-box">
                                 <svg class="icon-svg" viewBox="0 0 24 24">
                                     <path
-                                        d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z" />
+                                        d="M4 12V2H2v10c0 1.1.9 2 2 2h10v-2H4zm16 6h-2v-4H8v4H6v2h12v-2zm-2-6h-2v-2h-2v2H8v-2H6v2H4c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-6c0-1.1-.9-2-2-2z" />
                                 </svg>
                             </div>
                         </div>
 
-                        <div class="card">
-                            <div class="card-row">
-                                <div class="text-lg">Recent Activity</div>
-                            </div>
-                            <div style="display:flex; gap: 30px; margin-bottom: 50px; align-items: flex-start;">
-                                <div
-                                    style="background: var(--primary); width: 24px; height: 24px; border: 3px solid black; margin-top: 10px;">
-                                </div>
-                                <div>
-                                    <div class="text-lg" style="font-size: 42px;">New Job Booked</div>
-                                    <div class="text-sm">Plumbing Repair - Sarah</div>
-                                </div>
-                            </div>
-                            <div style="display:flex; gap: 30px; margin-bottom: 20px; align-items: flex-start;">
-                                <div
-                                    style="background: white; width: 24px; height: 24px; border: 3px solid black; margin-top: 10px;">
-                                </div>
-                                <div>
-                                    <div class="text-lg" style="font-size: 42px;">Voicemail Ready</div>
-                                    <div class="text-sm">Quote Request - Mike</div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Workflow Timeline Container -->
+                        <div style="display: flex; flex-direction: column; position: relative; padding: 20px 0;">
 
-                        <div class="card card-primary">
-                            <div class="text-sm" style="color: white; margin-bottom: 15px; opacity: 0.9;">Weekly Revenue
-                            </div>
+                            <!-- Connecting Line -->
                             <div
-                                style="font-family: 'Space Grotesk'; font-size: 120px; font-weight: 700; line-height: 0.9;">
-                                $4,250</div>
-                            <div class="text-sm"
-                                style="color: white; margin-top: 20px; background: rgba(0,0,0,0.2); display: inline-block; padding: 5px 15px;">
-                                +12% vs last week</div>
-                        </div>
-
-                        <div class="nav-bar">
-                            <div class="nav-item active">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                                </svg>
+                                style="position: absolute; left: 52px; top: 60px; bottom: 180px; width: 6px; background: var(--black); z-index: 0;">
                             </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="float-tag" style="bottom: 300px; right: -40px; transform: rotate(-8deg);">
-                    Auto-Pilot
-                </div>
-            </div>
-        </div>
-
-        <!-- Slide 2: AI Receptionist -->
-        <div class="screenshot-wrapper">
-            <div class="screenshot" id="slide2">
-                <div class="grid-bg"></div>
-
-                <div class="slide-header">
-                    <div class="step-indicator">02</div>
-                    <div class="slide-title">AI <br><span class="highlight">Receptionist</span></div>
-                    <div class="slide-subtitle">Smart transcription and lead qualification.</div>
-                </div>
-
-                <div class="device-mockup">
-                    <div class="device-notch"></div>
-                    <div class="app-content">
-                        <div class="app-header">
-                            <div class="app-title">Voicemail</div>
-                        </div>
-
-                        <div class="card">
-                            <div class="card-row">
+                            <!-- Step 1: Missed Call -->
+                            <div class="card" style="margin-bottom: 30px; position: relative; z-index: 1;">
                                 <div style="display:flex; gap: 30px; align-items: center;">
-                                    <div class="icon-box icon-box-dark">
-                                        <svg class="icon-svg" viewBox="0 0 24 24">
-                                            <path d="M8 5v14l11-7z" />
+                                    <div
+                                        style="background: var(--primary); width: 60px; height: 60px; border: 4px solid black; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                        <svg style="width: 32px; height: 32px; fill: white;" viewBox="0 0 24 24">
+                                            <path d="M19.59 7L12 14.59 6.41 9H11V7H3v8h2v-4.59l7 7 9-9z" />
                                         </svg>
                                     </div>
                                     <div>
-                                        <div class="text-lg">Unknown Caller</div>
-                                        <div class="text-sm">0412 345 678</div>
+                                        <div class="text-sm" style="color: var(--gray-600); margin-bottom: 5px;">10:42
+                                            AM -
+                                            Incoming</div>
+                                        <div class="text-lg">Missed Call Detected</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="text-sm" style="margin-bottom: 20px;">Transcript</div>
-
-                        <div class="chat-bubble">
-                            <div class="chat-label">Caller</div>
-                            <div class="text-md" style="font-family: 'Inter'; font-weight: 500; line-height: 1.4;">
-                                "Hi, I'm looking for someone to fix a leaking tap in my kitchen. It's quite urgent as
-                                water is going everywhere."
+                            <!-- Step 2: AI Processing -->
+                            <div class="card"
+                                style="margin-bottom: 30px; position: relative; z-index: 1; margin-left: 20px;">
+                                <div style="display:flex; gap: 30px; align-items: center;">
+                                    <div
+                                        style="background: white; width: 60px; height: 60px; border: 4px solid black; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                        <svg style="width: 32px; height: 32px; fill: black;" viewBox="0 0 24 24">
+                                            <path
+                                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm" style="color: var(--gray-600); margin-bottom: 5px;">
+                                            Processing</div>
+                                        <div class="text-lg">Drafting Response...</div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="chat-bubble ai">
-                            <div class="chat-label" style="color: white;">Flynn AI</div>
-                            <div class="text-md"
-                                style="font-family: 'Inter'; font-weight: 500; line-height: 1.4; color: white;">
-                                I've identified this as an <strong>Urgent Plumbing</strong> job. I've drafted a response
-                                to book it immediately.
+                            <!-- Step 3: SMS Sent -->
+                            <div class="card" style="margin-bottom: 30px; position: relative; z-index: 1;">
+                                <div style="display:flex; gap: 30px; align-items: center;">
+                                    <div
+                                        style="background: var(--black); width: 60px; height: 60px; border: 4px solid black; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                        <svg style="width: 32px; height: 32px; fill: white;" viewBox="0 0 24 24">
+                                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm" style="color: var(--gray-600); margin-bottom: 5px;">10:42
+                                            AM - Sent
+                                        </div>
+                                        <div class="text-lg">Booking Link Sent</div>
+                                    </div>
+                                </div>
+                                <div
+                                    style="background: var(--gray-100); padding: 25px; margin-top: 20px; border-left: 6px solid var(--black); font-size: 24px; font-family: 'Inter'; font-weight: 500; color: var(--black);">
+                                    "Hi! Click here to book: <span
+                                        style="text-decoration: underline; color: var(--primary);">flynn.ai/b/88</span>"
+                                </div>
                             </div>
+
                         </div>
 
-                        <div style="margin-top: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
-                            <div class="badge badge-primary">Urgent</div>
-                            <div class="badge">Plumbing</div>
+
+                        <div class="card card-primary" style="margin-top: 40px;">
+                            <div class="text-sm" style="color: white; margin-bottom: 15px; opacity: 0.9;">
+                                Potential Revenue Captured
+                            </div>
+                            <div
+                                style="font-family: 'Space Grotesk'; font-size: 100px; font-weight: 700; line-height: 0.9;">
+                                $4,250</div>
                         </div>
 
                         <div class="nav-bar">
-                            <div class="nav-item">
+                            <div class="nav-item active">
                                 <svg class="icon-svg" viewBox="0 0 24 24"
                                     style="width: 40px; height: 40px; margin: 11px;">
                                     <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                                 </svg>
                             </div>
-                            <div class="nav-item active">
+                            <!-- Other nav items... -->
+                            <div class="nav-item">
                                 <svg class="icon-svg" viewBox="0 0 24 24"
                                     style="width: 40px; height: 40px; margin: 11px;">
                                     <path
@@ -676,324 +634,449 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="float-tag"
-                    style="top: 500px; right: 60px; transform: rotate(4deg); background: white; color: black; border: 6px solid black; box-shadow: 12px 12px 0px 0px var(--primary);">
-                    Lead Qualified
+
+                    <div class="float-tag" style="bottom: 300px; right: -40px; transform: rotate(-8deg);">
+                        Auto-Text Back
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Slide 3: Instant Job Cards -->
-        <div class="screenshot-wrapper">
-            <div class="screenshot" id="slide3">
-                <div class="grid-bg"></div>
+            <!-- Slide 2: AI Receptionist -->
+            <div class="screenshot-wrapper">
+                <div class="screenshot" id="slide2">
+                    <div class="grid-bg"></div>
 
-                <div class="slide-header">
-                    <div class="step-indicator">03</div>
-                    <div class="slide-title">Instant <br><span class="highlight">Job Cards</span></div>
-                    <div class="slide-subtitle">Ready-to-go job details from every call.</div>
-                </div>
+                    <div class="slide-header">
+                        <div class="step-indicator">02</div>
+                        <div class="slide-title">AI <br><span class="highlight">Receptionist</span></div>
+                        <div class="slide-subtitle">Smart transcription and lead qualification.</div>
+                    </div>
 
-                <div class="device-mockup">
-                    <div class="device-notch"></div>
-                    <div class="app-content">
-                        <div class="app-header">
-                            <div class="app-title">Job Details</div>
-                            <div class="text-lg"
-                                style="color: var(--primary); text-decoration: underline; text-decoration-thickness: 4px;">
-                                EDIT</div>
-                        </div>
 
-                        <div class="card">
-                            <div class="text-sm" style="margin-bottom: 10px;">Client</div>
-                            <div class="text-lg" style="margin-bottom: 40px;">Sarah Jenkins</div>
+                    <div class="device-mockup">
+                        <div class="device-notch"></div>
+                        <div class="app-content">
+                            <div class="app-header">
+                                <div class="app-title">Voicemail</div>
+                            </div>
 
-                            <div class="text-sm" style="margin-bottom: 10px;">Service Type</div>
-                            <div class="text-lg" style="margin-bottom: 40px;">Emergency Plumbing</div>
-
-                            <div class="text-sm" style="margin-bottom: 10px;">Location</div>
-                            <div class="text-lg" style="margin-bottom: 40px;">123 Maple St, Sydney</div>
-
-                            <div style="border-top: 6px solid var(--black); padding-top: 30px; margin-top: 20px;">
+                            <div class="card">
                                 <div class="card-row">
-                                    <div class="text-lg">Status</div>
-                                    <div class="badge badge-success" style="background: var(--black); color: white;">
-                                        Scheduled</div>
+                                    <div style="display:flex; gap: 30px; align-items: center;">
+                                        <div class="icon-box icon-box-dark">
+                                            <svg class="icon-svg" viewBox="0 0 24 24">
+                                                <path d="M8 5v14l11-7z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="text-lg">Unknown Caller</div>
+                                            <div class="text-sm">0412 345 678</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-sm" style="margin-bottom: 20px;">Transcript</div>
+
+                            <div class="chat-bubble">
+                                <div class="chat-label">Caller</div>
+                                <div class="text-md" style="font-family: 'Inter'; font-weight: 500; line-height: 1.4;">
+                                    "Hi, I'm looking for someone to fix a leaking tap in my kitchen. It's quite
+                                    urgent as
+                                    water is going everywhere."
+                                </div>
+                            </div>
+
+                            <div class="chat-bubble ai">
+                                <div class="chat-label" style="color: white;">Flynn AI</div>
+                                <div class="text-md"
+                                    style="font-family: 'Inter'; font-weight: 500; line-height: 1.4; color: white;">
+                                    I've identified this as an <strong>Urgent Plumbing</strong> job. I've drafted a
+                                    response
+                                    to book it immediately.
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
+                                <div class="badge badge-primary">Urgent</div>
+                                <div class="badge">Plumbing</div>
+                            </div>
+
+                            <div class="nav-bar">
+                                <div class="nav-item">
+                                    <svg class="icon-svg" viewBox="0 0 24 24"
+                                        style="width: 40px; height: 40px; margin: 11px;">
+                                        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+                                    </svg>
+                                </div>
+                                <div class="nav-item active">
+                                    <svg class="icon-svg" viewBox="0 0 24 24"
+                                        style="width: 40px; height: 40px; margin: 11px;">
+                                        <path
+                                            d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                                    </svg>
+                                </div>
+                                <!-- Other nav items -->
+                                <div class="nav-item">
+                                    <svg class="icon-svg" viewBox="0 0 24 24"
+                                        style="width: 40px; height: 40px; margin: 11px;">
+                                        <path
+                                            d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
+                                    </svg>
+                                </div>
+                                <div class="nav-item">
+                                    <svg class="icon-svg" viewBox="0 0 24 24"
+                                        style="width: 40px; height: 40px; margin: 11px;">
+                                        <path
+                                            d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                    </svg>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="btn-app">Start Job</div>
 
-                        <div class="nav-bar">
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item active">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Slide 4: Automated Follow-up -->
-        <div class="screenshot-wrapper">
-            <div class="screenshot" id="slide4">
-                <div class="grid-bg"></div>
-
-                <div class="slide-header">
-                    <div class="step-indicator">04</div>
-                    <div class="slide-title">Auto <br><span class="highlight">Follow-up</span></div>
-                    <div class="slide-subtitle">Drafts responses so you don't have to.</div>
-                </div>
-
-                <div class="device-mockup">
-                    <div class="device-notch"></div>
-                    <div class="app-content">
-                        <div class="app-header">
-                            <div class="app-title">Review</div>
-                        </div>
-
-                        <div class="card">
-                            <div class="text-sm" style="margin-bottom: 25px;">Draft SMS</div>
-                            <div
-                                style="background: var(--gray-100); padding: 40px; border: 4px solid black; margin-bottom: 40px; box-shadow: inset 4px 4px 0px 0px rgba(0,0,0,0.1);">
-                                <div class="text-md" style="font-family: 'Inter'; line-height: 1.5;">
-                                    "Hi Sarah, thanks for your call. I can come by today at 2 PM to take a look. Does
-                                    that work? - Flynn"
-                                </div>
-                            </div>
-
-                            <div style="display: flex; gap: 30px;">
-                                <div class="btn-app btn-secondary" style="flex: 1; margin-top: 0;">Edit</div>
-                                <div class="btn-app" style="flex: 1; margin-top: 0;">Send</div>
-                            </div>
-                        </div>
-
-                        <div class="nav-bar">
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item active">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                </svg>
-                            </div>
+                        <div class="float-tag"
+                            style="top: 500px; right: 60px; transform: rotate(4deg); background: white; color: black; border: 6px solid black; box-shadow: 12px 12px 0px 0px var(--primary);">
+                            Lead Qualified
                         </div>
                     </div>
                 </div>
 
-                <div class="float-tag" style="top: 680px; left: 40px; transform: rotate(-4deg);">
-                    Saved 5 mins
-                </div>
-            </div>
-        </div>
+                <!-- Slide 3: Instant Text Follow-up -->
+                <div class="screenshot-wrapper">
+                    <div class="screenshot" id="slide3">
+                        <div class="grid-bg"></div>
 
-        <!-- Slide 5: Your AI Partner (Training) -->
-        <div class="screenshot-wrapper">
-            <div class="screenshot" id="slide5">
-                <div class="grid-bg"></div>
-
-                <div class="slide-header">
-                    <div class="step-indicator">05</div>
-                    <div class="slide-title">Train Your <br><span class="highlight-inverse">AI Partner</span></div>
-                    <div class="slide-subtitle">Flynn learns from your website to answer like you.</div>
-                </div>
-
-                <div class="device-mockup">
-                    <div class="device-notch"></div>
-                    <div class="app-content">
-
-                        <div class="app-header">
-                            <div class="app-title">Knowledge</div>
+                        <div class="slide-header">
+                            <div class="step-indicator">03</div>
+                            <div class="slide-title">INSTANT <br><span class="highlight">FOLLOW-UP</span></div>
+                            <div class="slide-subtitle">Immediate text-back with quote & booking links.</div>
                         </div>
 
-                        <div class="card">
-                            <div class="text-sm" style="margin-bottom: 15px;">Business Website</div>
-                            <div
-                                style="border: 4px solid var(--black); padding: 20px; font-family: 'Space Grotesk'; font-size: 32px; margin-bottom: 30px; display: flex; align-items: center; gap: 20px;">
-                                <svg style="width: 32px; height: 32px; fill: var(--primary);" viewBox="0 0 24 24">
-                                    <path
-                                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-                                </svg>
-                                www.flynnplumbing.com.au
-                            </div>
 
-                            <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 40px;">
-                                <div
-                                    style="width: 30px; height: 30px; border: 4px solid var(--primary); border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;">
+                        <div class="device-mockup">
+                            <div class="device-notch"></div>
+                            <div class="app-content">
+                                <div class="app-header">
+                                    <div class="app-title">Message</div>
                                 </div>
-                                <div class="text-md" style="color: var(--primary); font-weight: 700;">Training complete
-                                </div>
-                            </div>
 
-                            <div style="border-top: 4px solid var(--black); padding-top: 30px;">
-                                <div class="text-sm" style="margin-bottom: 20px;">Generated Greeting</div>
-                                <div
-                                    style="background: var(--gray-100); padding: 20px; border-left: 6px solid var(--primary); margin-bottom: 30px;">
-                                    <div class="text-md"
-                                        style="font-family: 'Inter'; font-size: 28px; line-height: 1.4;">
-                                        "Thanks for calling Flynn Plumbing. I'm Flynn, the AI assistant. How can I help
-                                        you today?"
+                                <div class="card">
+                                    <div class="text-sm" style="margin-bottom: 25px;">Sending to 0412 345 678</div>
+                                    <div
+                                        style="background: var(--gray-100); padding: 40px; border: 4px solid black; margin-bottom: 40px; box-shadow: inset 4px 4px 0px 0px rgba(0,0,0,0.1);">
+                                        <div class="text-md" style="font-family: 'Inter'; line-height: 1.5;">
+                                            "Hi! Thanks for calling Flynn Plumbing. I'm tied up right now, but click
+                                            here
+                                            to book a time:"
+                                        </div>
+                                        <div
+                                            style="margin-top: 20px; color: var(--primary); text-decoration: underline; font-weight: bold; font-family: 'Space Grotesk'; font-size: 32px;">
+                                            flynn.ai/book/job-123
+                                        </div>
+                                    </div>
+
+                                    <div style="display: flex; gap: 30px;">
+                                        <div class="btn-app btn-secondary" style="flex: 1; margin-top: 0;">Edit</div>
+                                        <div class="btn-app" style="flex: 1; margin-top: 0;">Send Now</div>
                                     </div>
                                 </div>
 
-                                <div class="text-sm" style="margin-bottom: 20px;">Follow-up Questions</div>
-                                <div style="display: flex; flex-direction: column; gap: 15px;">
-                                    <div class="badge"
-                                        style="font-size: 24px; padding: 15px 20px; text-align: left; width: 100%; display: flex; align-items: center;">
-                                        <span style="color: var(--primary); margin-right: 15px;">1.</span> Is this an
-                                        emergency?
+                                <div class="nav-bar">
+                                    <div class="nav-item">
+                                        <svg class="icon-svg" viewBox="0 0 24 24"
+                                            style="width: 40px; height: 40px; margin: 11px;">
+                                            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+                                        </svg>
                                     </div>
-                                    <div class="badge"
-                                        style="font-size: 24px; padding: 15px 20px; text-align: left; width: 100%; display: flex; align-items: center;">
-                                        <span style="color: var(--primary); margin-right: 15px;">2.</span> What is your
-                                        address?
+                                    <div class="nav-item">
+                                        <svg class="icon-svg" viewBox="0 0 24 24"
+                                            style="width: 40px; height: 40px; margin: 11px;">
+                                            <path
+                                                d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                                        </svg>
                                     </div>
-                                    <div class="badge"
-                                        style="font-size: 24px; padding: 15px 20px; text-align: left; width: 100%; display: flex; align-items: center;">
-                                        <span style="color: var(--primary); margin-right: 15px;">3.</span> Do you need a
-                                        quote?
+                                    <div class="nav-item active">
+                                        <svg class="icon-svg" viewBox="0 0 24 24"
+                                            style="width: 40px; height: 40px; margin: 11px;">
+                                            <path
+                                                d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
+                                        </svg>
+                                    </div>
+                                    <!-- Other nav items -->
+                                    <div class="nav-item">
+                                        <svg class="icon-svg" viewBox="0 0 24 24"
+                                            style="width: 40px; height: 40px; margin: 11px;">
+                                            <path
+                                                d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                        </svg>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="nav-bar">
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
-                                </svg>
-                            </div>
-                            <div class="nav-item active">
-                                <svg class="icon-svg" viewBox="0 0 24 24"
-                                    style="width: 40px; height: 40px; margin: 11px;">
-                                    <path
-                                        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                </svg>
-                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
 
-    </div>
+                    <!-- Slide 4: Automated Follow-up (Original, renamed to Stop Losing Revenue) -->
+                    <div class="screenshot-wrapper">
+                        <div class="screenshot" id="slide4">
+                            <div class="grid-bg"></div>
 
-    <script>
-        async function downloadAll() {
-            const status = document.getElementById('status');
-            status.innerText = "Generating images... please wait.";
+                            <div class="slide-header">
+                                <div class="step-indicator">04</div>
+                                <div class="slide-title">STOP LOSING <br><span class="highlight">REVENUE</span></div>
+                                <div class="slide-subtitle">Capture every opportunity, 24/7.</div>
+                            </div>
 
-            const zip = new JSZip();
-            const slides = ['slide1', 'slide2', 'slide3', 'slide4', 'slide5'];
 
-            for (let i = 0; i < slides.length; i++) {
-                const id = slides[i];
-                const element = document.getElementById(id);
+                            <div class="device-mockup">
+                                <div class="device-notch"></div>
+                                <div class="app-content">
+                                    <div class="app-header">
+                                        <div class="app-title">Review</div>
+                                    </div>
 
-                status.innerText = `Processing slide ${i + 1}/${slides.length}...`;
+                                    <div class="card">
+                                        <div class="text-sm" style="margin-bottom: 25px;">Draft SMS</div>
+                                        <div
+                                            style="background: var(--gray-100); padding: 40px; border: 4px solid black; margin-bottom: 40px; box-shadow: inset 4px 4px 0px 0px rgba(0,0,0,0.1);">
+                                            <div class="text-md" style="font-family: 'Inter'; line-height: 1.5;">
+                                                "Hi Sarah, thanks for your call. I can come by today at 2 PM to take a
+                                                look.
+                                                Does
+                                                that work? - Flynn"
+                                            </div>
+                                        </div>
 
-                try {
-                    const canvas = await html2canvas(element, {
-                        scale: 1,
-                        useCORS: true,
-                        backgroundColor: null,
-                        logging: false,
-                        windowWidth: 1290,
-                        windowHeight: 2796,
-                        onclone: (clonedDoc) => {
-                            const clonedElement = clonedDoc.getElementById(id);
-                            clonedElement.style.transform = 'none';
-                            clonedElement.style.position = 'relative';
-                        }
-                    });
+                                        <div style="display: flex; gap: 30px;">
+                                            <div class="btn-app btn-secondary" style="flex: 1; margin-top: 0;">Edit
+                                            </div>
+                                            <div class="btn-app" style="flex: 1; margin-top: 0;">Send</div>
+                                        </div>
+                                    </div>
 
-                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-                    zip.file(`flynn-brutalist-v4-${i + 1}.png`, blob);
+                                    <div class="nav-bar">
+                                        <div class="nav-item">
+                                            <svg class="icon-svg" viewBox="0 0 24 24"
+                                                style="width: 40px; height: 40px; margin: 11px;">
+                                                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+                                            </svg>
+                                        </div>
+                                        <div class="nav-item">
+                                            <svg class="icon-svg" viewBox="0 0 24 24"
+                                                style="width: 40px; height: 40px; margin: 11px;">
+                                                <path
+                                                    d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                                            </svg>
+                                        </div>
+                                        <div class="nav-item">
+                                            <svg class="icon-svg" viewBox="0 0 24 24"
+                                                style="width: 40px; height: 40px; margin: 11px;">
+                                                <path
+                                                    d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
+                                            </svg>
+                                        </div>
+                                        <div class="nav-item active">
+                                            <svg class="icon-svg" viewBox="0 0 24 24"
+                                                style="width: 40px; height: 40px; margin: 11px;">
+                                                <path
+                                                    d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                } catch (err) {
-                    console.error("Error generating slide " + id, err);
-                    status.innerText = "Error: " + err.message;
-                }
-            }
+                            <div class="float-tag" style="top: 680px; left: 40px; transform: rotate(-4deg);">
+                                Saved 5 mins
+                            </div>
 
-            status.innerText = "Zipping...";
-            const content = await zip.generateAsync({ type: "blob" });
-            saveAs(content, "flynn-brutalist-screenshots-v4.zip");
-            status.innerText = "Done! Download started.";
-        }
-    </script>
-    <style>
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
 
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-    </style>
+                            <!-- Slide 5: Your AI Partner (Training) -->
+                            <div class="screenshot-wrapper">
+                                <div class="screenshot" id="slide5">
+                                    <div class="grid-bg"></div>
+
+                                    <div class="slide-header">
+                                        <div class="step-indicator">05</div>
+                                        <div class="slide-title">Train Your <br><span class="highlight-inverse">AI
+                                                Partner</span>
+                                        </div>
+                                        <div class="slide-subtitle">Flynn learns from your website to answer like you.
+                                        </div>
+                                    </div>
+
+
+                                    <div class="device-mockup">
+                                        <div class="device-notch"></div>
+                                        <div class="app-content">
+
+                                            <div class="app-header">
+                                                <div class="app-title">Knowledge</div>
+                                            </div>
+
+                                            <div class="card">
+                                                <div class="text-sm" style="margin-bottom: 15px;">Business Website</div>
+                                                <div
+                                                    style="border: 4px solid var(--black); padding: 20px; font-family: 'Space Grotesk'; font-size: 32px; margin-bottom: 30px; display: flex; align-items: center; gap: 20px;">
+                                                    <svg style="width: 32px; height: 32px; fill: var(--primary);"
+                                                        viewBox="0 0 24 24">
+                                                        <path
+                                                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                                                    </svg>
+                                                    www.flynnplumbing.com.au
+                                                </div>
+
+                                                <div
+                                                    style="display: flex; align-items: center; gap: 20px; margin-bottom: 40px;">
+                                                    <div
+                                                        style="width: 30px; height: 30px; border: 4px solid var(--primary); border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;">
+                                                    </div>
+                                                    <div class="text-md"
+                                                        style="color: var(--primary); font-weight: 700;">
+                                                        Training
+                                                        complete
+                                                    </div>
+                                                </div>
+
+                                                <div style="border-top: 4px solid var(--black); padding-top: 30px;">
+                                                    <div class="text-sm" style="margin-bottom: 20px;">Generated Greeting
+                                                    </div>
+                                                    <div
+                                                        style="background: var(--gray-100); padding: 20px; border-left: 6px solid var(--primary); margin-bottom: 30px;">
+                                                        <div class="text-md"
+                                                            style="font-family: 'Inter'; font-size: 28px; line-height: 1.4;">
+                                                            "Thanks for calling Flynn Plumbing. I'm Flynn, the AI
+                                                            assistant.
+                                                            How can
+                                                            I help
+                                                            you today?"
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="text-sm" style="margin-bottom: 20px;">Follow-up
+                                                        Questions
+                                                    </div>
+                                                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                                                        <div class="badge"
+                                                            style="font-size: 24px; padding: 15px 20px; text-align: left; width: 100%; display: flex; align-items: center;">
+                                                            <span
+                                                                style="color: var(--primary); margin-right: 15px;">1.</span>
+                                                            Is
+                                                            this an
+                                                            emergency?
+                                                        </div>
+                                                        <div class="badge"
+                                                            style="font-size: 24px; padding: 15px 20px; text-align: left; width: 100%; display: flex; align-items: center;">
+                                                            <span
+                                                                style="color: var(--primary); margin-right: 15px;">2.</span>
+                                                            What
+                                                            is your
+                                                            address?
+                                                        </div>
+                                                        <div class="badge"
+                                                            style="font-size: 24px; padding: 15px 20px; text-align: left; width: 100%; display: flex; align-items: center;">
+                                                            <span
+                                                                style="color: var(--primary); margin-right: 15px;">3.</span>
+                                                            Do
+                                                            you need a
+                                                            quote?
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="nav-bar">
+                                                <div class="nav-item">
+                                                    <svg class="icon-svg" viewBox="0 0 24 24"
+                                                        style="width: 40px; height: 40px; margin: 11px;">
+                                                        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+                                                    </svg>
+                                                </div>
+                                                <div class="nav-item">
+                                                    <svg class="icon-svg" viewBox="0 0 24 24"
+                                                        style="width: 40px; height: 40px; margin: 11px;">
+                                                        <path
+                                                            d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+                                                    </svg>
+                                                </div>
+                                                <div class="nav-item">
+                                                    <svg class="icon-svg" viewBox="0 0 24 24"
+                                                        style="width: 40px; height: 40px; margin: 11px;">
+                                                        <path
+                                                            d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
+                                                    </svg>
+                                                </div>
+                                                <div class="nav-item active">
+                                                    <svg class="icon-svg" viewBox="0 0 24 24"
+                                                        style="width: 40px; height: 40px; margin: 11px;">
+                                                        <path
+                                                            d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+                                </div>
+
+                                <script>
+                                    async function downloadAll() {
+                                        const status = document.getElementById('status');
+                                        status.innerText = "Generating images... please wait.";
+
+                                        const zip = new JSZip();
+                                        const slides = ['slide1', 'slide2', 'slide3', 'slide4', 'slide5'];
+
+                                        for (let i = 0; i < slides.length; i++) {
+                                            const id = slides[i];
+                                            const element = document.getElementById(id);
+
+                                            status.innerText = `Processing slide ${i + 1}/${slides.length}...`;
+
+                                            try {
+                                                const canvas = await html2canvas(element, {
+                                                    scale: 1,
+                                                    useCORS: true,
+                                                    backgroundColor: null,
+                                                    logging: false,
+                                                    windowWidth: 1290,
+                                                    windowHeight: 2796,
+                                                    onclone: (clonedDoc) => {
+                                                        const clonedElement = clonedDoc.getElementById(id);
+                                                        clonedElement.style.transform = 'none';
+                                                        clonedElement.style.position = 'relative';
+                                                    }
+                                                });
+
+                                                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                                                zip.file(`flynn-brutalist-v4-${i + 1}.png`, blob);
+
+                                            } catch (err) {
+                                                console.error("Error generating slide " + id, err);
+                                                status.innerText = "Error: " + err.message;
+                                            }
+                                        }
+
+                                        status.innerText = "Zipping...";
+                                        const content = await zip.generateAsync({ type: "blob" });
+                                        saveAs(content, "flynn-brutalist-screenshots-v4.zip");
+                                        status.innerText = "Done! Download started.";
+                                    }
+                                </script>
+                                <style>
+                                    @keyframes spin {
+                                        0% {
+                                            transform: rotate(0deg);
+                                        }
+
+                                        100% {
+                                            transform: rotate(360deg);
+                                        }
+                                    }
+                                </style>
 </body>
 
 </html>

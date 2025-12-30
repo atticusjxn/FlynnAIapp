@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import Layout from './components/Layout';
 import LandingPage from './components/LandingPage';
-import Sites from './components/Sites';
+
 import { DemoContainer } from './components/demo/DemoContainer';
 import PricingPage from './pages/Pricing';
 import HowItWorks from './pages/HowItWorks';
@@ -33,7 +33,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<LandingPage />} />
-            <Route path="sites" element={<Sites />} />
+
             <Route path="pricing" element={<PricingPage />} />
             <Route path="how-it-works" element={<HowItWorks />} />
             <Route path="industries" element={<IndustriesList />} />
