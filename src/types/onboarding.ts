@@ -6,7 +6,11 @@ export interface BusinessGoal {
   description: string;
 }
 
+// Legacy receptionist mode type (deprecated, use CallHandlingMode)
 export type ReceptionistMode = 'voicemail_only' | 'ai_only' | 'hybrid_choice';
+
+// New call handling mode type
+export type CallHandlingMode = 'sms_links' | 'ai_receptionist' | 'voicemail_only';
 
 export interface OnboardingData {
   businessType?: string;
@@ -17,7 +21,8 @@ export interface OnboardingData {
   receptionistGreeting?: string | null;
   receptionistQuestions?: string[];
   receptionistVoiceProfileId?: string | null;
-  receptionistMode?: ReceptionistMode;
+  receptionistMode?: ReceptionistMode; // Legacy field
+  callHandlingMode?: CallHandlingMode; // New field
   receptionistAckLibrary?: string[];
   twilioPhoneNumber?: string | null;
   phoneNumber?: string | null;
@@ -33,7 +38,8 @@ export const defaultOnboardingData: OnboardingData = {
   receptionistGreeting: null,
   receptionistQuestions: [],
   receptionistVoiceProfileId: null,
-  receptionistMode: 'ai_only',
+  receptionistMode: 'ai_only', // Legacy default
+  callHandlingMode: 'sms_links', // New default
   receptionistAckLibrary: [],
   twilioPhoneNumber: null,
   phoneNumber: null,

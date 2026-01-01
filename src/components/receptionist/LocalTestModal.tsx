@@ -17,7 +17,7 @@ import { FlynnButton } from '../ui/FlynnButton';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-import apiClient from '../../services/apiClient';
+import { apiClient } from '../../services/apiClient';
 
 interface JobExtraction {
   clientName?: string;
@@ -38,6 +38,7 @@ interface LocalTestModalProps {
   greeting?: string;
   questions?: string[];
   voiceId?: string;
+  ackLibrary?: string[];
 }
 
 type TestState = 'idle' | 'requesting_permission' | 'active' | 'processing' | 'ended' | 'reviewing_job';
@@ -48,6 +49,7 @@ export const LocalTestModal: React.FC<LocalTestModalProps> = ({
   greeting,
   questions,
   voiceId,
+  ackLibrary,
 }) => {
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -112,16 +114,21 @@ export const LocalTestModal: React.FC<LocalTestModalProps> = ({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
-        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+        interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix
         shouldDuckAndroid: true,
-        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+        interruptionModeAndroid: 1, // InterruptionModeAndroid.DoNotMix
         playThroughEarpieceAndroid: false,
       });
 
       return true;
     } catch (err) {
-      console.error('[LocalTest] Permission error:', err);
-      setError('Failed to setup microphone');
+      console.error('[CRITICAL ERROR] [LocalTest] Permission error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to setup microphone';
+      setError(errorMessage);
+      Alert.alert(
+        'Microphone Setup Failed',
+        errorMessage + '\n\nPlease ensure microphone permissions are enabled in Settings.'
+      );
       return false;
     }
   };
@@ -149,7 +156,7 @@ export const LocalTestModal: React.FC<LocalTestModalProps> = ({
     setTestState('active');
 
     // Play greeting
-    const greetingText = greeting || 'Hi! This is Flynn, your AI receptionist. How can I help you today?';
+    const greetingText = greeting || 'Hi, thanks for calling! How can I help you today?';
     addTranscript('assistant', greetingText);
     await speak(greetingText);
 
@@ -162,7 +169,7 @@ export const LocalTestModal: React.FC<LocalTestModalProps> = ({
       ? `Intake questions (ask these naturally, one at a time):\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
       : 'Collect the caller\'s name, contact details, service request, timing, and location.';
 
-    return [
+    const promptSections = [
       'You are Flynn, a friendly AI receptionist for a small business.',
       'Your goal is to gather booking details in a natural, conversational way.',
       '',
@@ -173,9 +180,21 @@ export const LocalTestModal: React.FC<LocalTestModalProps> = ({
       '- Keep responses concise (1-2 sentences max)',
       '- Use casual, friendly language',
       '- After gathering all information, confirm details and thank the caller',
-      '',
-      questionBlock,
-    ].join('\n');
+    ];
+
+    // Add acknowledgement phrases if provided
+    if (ackLibrary && ackLibrary.length > 0) {
+      promptSections.push(
+        '',
+        'Acknowledgement phrases to use:',
+        ...ackLibrary.map((phrase) => `- "${phrase}"`),
+        'Rotate through these phrases when acknowledging caller responses.',
+      );
+    }
+
+    promptSections.push('', questionBlock);
+
+    return promptSections.join('\n');
   };
 
   const startListening = async () => {
@@ -349,23 +368,66 @@ export const LocalTestModal: React.FC<LocalTestModalProps> = ({
   };
 
   const speak = async (text: string): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
       setIsAISpeaking(true);
 
-      Speech.speak(text, {
-        language: 'en-US',
-        pitch: 1.0,
-        rate: 0.9,
-        onDone: () => {
-          setIsAISpeaking(false);
-          resolve();
-        },
-        onError: (err) => {
-          console.error('[LocalTest] Speech error:', err);
-          setIsAISpeaking(false);
-          resolve();
-        },
-      });
+      try {
+        // Use Deepgram TTS for realistic voice preview
+        // Pass voiceId which maps flynn_* IDs to Deepgram Aura voices on server
+        const response = await apiClient.post('/ai/deepgram-tts', {
+          text,
+          voice: voiceId || 'flynn_warm', // Defaults to flynn_warm (Australian female)
+        });
+
+        if (response.data.audioUrl) {
+          // Play the Deepgram audio
+          const { sound } = await Audio.Sound.createAsync(
+            { uri: response.data.audioUrl },
+            { shouldPlay: true }
+          );
+
+          sound.setOnPlaybackStatusUpdate((status) => {
+            if (status.isLoaded && status.didJustFinish) {
+              sound.unloadAsync();
+              setIsAISpeaking(false);
+              resolve();
+            }
+          });
+        } else {
+          // Fallback to Expo Speech if Deepgram fails
+          Speech.speak(text, {
+            language: 'en-US',
+            pitch: 1.0,
+            rate: 0.9,
+            onDone: () => {
+              setIsAISpeaking(false);
+              resolve();
+            },
+            onError: (err) => {
+              console.error('[LocalTest] Speech error:', err);
+              setIsAISpeaking(false);
+              resolve();
+            },
+          });
+        }
+      } catch (error) {
+        console.error('[LocalTest] Deepgram TTS error, falling back to Expo Speech:', error);
+        // Fallback to Expo Speech
+        Speech.speak(text, {
+          language: 'en-US',
+          pitch: 1.0,
+          rate: 0.9,
+          onDone: () => {
+            setIsAISpeaking(false);
+            resolve();
+          },
+          onError: (err) => {
+            console.error('[LocalTest] Speech error:', err);
+            setIsAISpeaking(false);
+            resolve();
+          },
+        });
+      }
     });
   };
 

@@ -92,6 +92,12 @@ class BusinessProfileServiceClass {
         .single();
 
       if (error) {
+        console.error('[BusinessProfile] Supabase upsert error:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
         throw new BusinessProfileError(
           'Failed to save business profile',
           'UPSERT_ERROR',

@@ -1,5 +1,6 @@
 import type { BillingPlanId } from '../types/billing';
 import { isPaidPlanId } from '../types/billing';
+import Constants from 'expo-constants';
 
 const starterPaymentLink = process.env.EXPO_PUBLIC_STRIPE_STARTER_LINK
   || process.env.EXPO_PUBLIC_STRIPE_BASIC_LINK
@@ -8,6 +9,11 @@ const professionalPaymentLink = process.env.EXPO_PUBLIC_STRIPE_PROFESSIONAL_LINK
   || process.env.EXPO_PUBLIC_STRIPE_GROWTH_LINK
   || '';
 const businessPaymentLink = process.env.EXPO_PUBLIC_STRIPE_BUSINESS_LINK || '';
+
+// Get Stripe price IDs from app config (hardcoded for production builds)
+const stripeStarterPriceId = Constants.expoConfig?.extra?.stripeStarterPriceId || 'price_1SbiXfRm2tMRBfxY4wxwUbK8';
+const stripeProfessionalPriceId = Constants.expoConfig?.extra?.stripeProfessionalPriceId || 'price_1SbiXoRm2tMRBfxYrZE2tD4o';
+const stripeBusinessPriceId = Constants.expoConfig?.extra?.stripeBusinessPriceId || 'price_1SbiXwRm2tMRBfxYACw2GkKc';
 
 export interface BillingPlanDefinition {
   id: BillingPlanId;
@@ -43,6 +49,7 @@ export const billingPlans: BillingPlanDefinition[] = [
       '$0.80 per additional call',
     ],
     recommended: true,
+    stripePriceId: stripeStarterPriceId,
     paymentLink: starterPaymentLink || 'https://flynn.ai/pricing#starter',
     additionalCosts: [
       {
@@ -66,6 +73,7 @@ export const billingPlans: BillingPlanDefinition[] = [
       'Advanced analytics',
       '$0.70 per additional call',
     ],
+    stripePriceId: stripeProfessionalPriceId,
     paymentLink: professionalPaymentLink || 'https://flynn.ai/pricing#professional',
     additionalCosts: [
       {
@@ -89,6 +97,7 @@ export const billingPlans: BillingPlanDefinition[] = [
       'Custom integrations',
       '$0.60 per additional call',
     ],
+    stripePriceId: stripeBusinessPriceId,
     paymentLink: businessPaymentLink || 'https://flynn.ai/pricing#business',
     additionalCosts: [
       {

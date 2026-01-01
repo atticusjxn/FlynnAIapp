@@ -29,6 +29,7 @@ import { CallAnalyticsScreen } from './src/screens/calls/CallAnalyticsScreen';
 import IntegrationsScreen from './src/screens/settings/IntegrationsScreen';
 import { BusinessProfileScreen } from './src/screens/settings/BusinessProfileScreen';
 import BookingPageSetupScreen from './src/screens/settings/BookingPageSetupScreen';
+import { BillingScreen } from './src/screens/settings/BillingScreen';
 import QuoteFormsListScreen from './src/screens/quotes/QuoteFormsListScreen';
 import QuoteFormTemplateSelectorScreen from './src/screens/quotes/QuoteFormTemplateSelectorScreen';
 import QuoteFormAnalyticsScreen from './src/screens/quotes/QuoteFormAnalyticsScreen';
@@ -163,6 +164,14 @@ function RootNavigator() {
       <Stack.Screen
         name="BookingPageSetup"
         component={BookingPageSetupScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Billing"
+        component={BillingScreen}
         options={{
           presentation: 'modal',
           headerShown: false,

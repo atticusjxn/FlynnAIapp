@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GettingStartedScreen } from './GettingStartedScreen';
 import { BusinessTypeScreen } from './BusinessTypeScreen';
+import { BusinessProfileSetupScreen } from './BusinessProfileSetupScreen';
 import { BusinessGoalsScreen } from './BusinessGoalsScreen';
 import { ReceptionistSetupScreen } from './ReceptionistSetupScreen';
 import { useOnboarding } from '../../context/OnboardingContext';
@@ -39,12 +40,14 @@ export const OnboardingNavigator: React.FC = () => {
       case 1:
         return <BusinessTypeScreen onNext={handleNext} onBack={handleBack} />;
       case 2:
-        return <BusinessGoalsScreen onNext={handleNext} onBack={handleBack} />;
+        return <BusinessProfileSetupScreen onNext={handleNext} onBack={handleBack} />;
       case 3:
-        return <TwilioProvisioningScreen onNext={handleNext} />;
+        return <BusinessGoalsScreen onNext={handleNext} onBack={handleBack} />;
       case 4:
-        return <CarrierSetupScreen onNext={handleNext} onBack={handleBack} />;
+        return <TwilioProvisioningScreen onNext={handleNext} />;
       case 5:
+        return <CarrierSetupScreen onNext={handleNext} onBack={handleBack} />;
+      case 6:
         return <ReceptionistSetupScreen onComplete={handleCompleteOnboarding} onBack={handleBack} />;
       default:
         return <GettingStartedScreen onStartOnboarding={handleStartOnboarding} />;

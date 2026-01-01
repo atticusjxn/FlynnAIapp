@@ -15,6 +15,7 @@ try {
 }
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
+const fs = require('fs');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
 const attachRealtimeServer = require('./telephony/realtimeServer');
@@ -417,6 +418,22 @@ const handleCheckoutSessionCompleted = async (session) => {
   const orgId = session?.client_reference_id || session?.metadata?.organizationId || null;
   const email = (session?.customer_details?.email || session?.customer_email || '').toLowerCase();
 
+  // Store Stripe customer ID when subscription is created via checkout
+  if (session.customer && orgId) {
+    try {
+      const { error } = await supabaseServiceClient
+        .from('organizations')
+        .update({ stripe_customer_id: session.customer })
+        .eq('id', orgId);
+
+      if (error) {
+        console.error('[Billing] Failed to store Stripe customer ID', { orgId, error });
+      }
+    } catch (error) {
+      console.error('[Billing] Error storing Stripe customer ID', { orgId, error });
+    }
+  }
+
   await applyPlanToOrganizationContext({
     orgId,
     email,
@@ -424,12 +441,189 @@ const handleCheckoutSessionCompleted = async (session) => {
   });
 };
 
+const handleSubscriptionUpdated = async (subscription) => {
+  console.log('[Stripe Webhook] Processing subscription update', { subscriptionId: subscription.id });
+
+  try {
+    const { data: org, error: findError } = await supabaseServiceClient
+      .from('organizations')
+      .select('id, plan')
+      .eq('stripe_customer_id', subscription.customer)
+      .single();
+
+    if (findError || !org) {
+      console.error('[Stripe Webhook] Organization not found for customer', {
+        customerId: subscription.customer,
+        error: findError
+      });
+      return;
+    }
+
+    // Map Stripe price ID to plan tier
+    const priceId = subscription.items.data[0]?.price?.id;
+    const planId = resolvePlanFromPriceId(priceId);
+
+    if (!planId) {
+      console.warn('[Stripe Webhook] Could not resolve plan from price', { priceId });
+      return;
+    }
+
+    // Update organization with subscription data
+    const { error: updateError } = await supabaseServiceClient
+      .from('organizations')
+      .update({
+        stripe_subscription_id: subscription.id,
+        subscription_status: subscription.status,
+        plan: planId,
+        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        cancel_at_period_end: subscription.cancel_at_period_end || false,
+      })
+      .eq('id', org.id);
+
+    if (updateError) {
+      console.error('[Stripe Webhook] Failed to update organization', { orgId: org.id, error: updateError });
+    } else {
+      console.log('[Stripe Webhook] Organization updated successfully', { orgId: org.id, plan: planId });
+    }
+  } catch (error) {
+    console.error('[Stripe Webhook] Error handling subscription update', { error });
+  }
+};
+
+const handleSubscriptionDeleted = async (subscription) => {
+  console.log('[Stripe Webhook] Processing subscription deletion', { subscriptionId: subscription.id });
+
+  try {
+    const { data: org, error: findError } = await supabaseServiceClient
+      .from('organizations')
+      .select('id')
+      .eq('stripe_subscription_id', subscription.id)
+      .single();
+
+    if (findError || !org) {
+      console.error('[Stripe Webhook] Organization not found for subscription', {
+        subscriptionId: subscription.id,
+        error: findError
+      });
+      return;
+    }
+
+    // Downgrade to trial plan
+    const { error: updateError } = await supabaseServiceClient
+      .from('organizations')
+      .update({
+        plan: 'trial',
+        subscription_status: 'canceled',
+        stripe_subscription_id: null,
+        cancel_at_period_end: false,
+      })
+      .eq('id', org.id);
+
+    if (updateError) {
+      console.error('[Stripe Webhook] Failed to downgrade organization', { orgId: org.id, error: updateError });
+    } else {
+      console.log('[Stripe Webhook] Organization downgraded to trial', { orgId: org.id });
+    }
+  } catch (error) {
+    console.error('[Stripe Webhook] Error handling subscription deletion', { error });
+  }
+};
+
+const handleInvoicePaid = async (invoice) => {
+  console.log('[Stripe Webhook] Processing invoice paid', { invoiceId: invoice.id });
+
+  try {
+    const { data: org, error: findError } = await supabaseServiceClient
+      .from('organizations')
+      .select('id')
+      .eq('stripe_customer_id', invoice.customer)
+      .single();
+
+    if (findError || !org) {
+      console.error('[Stripe Webhook] Organization not found for customer', {
+        customerId: invoice.customer,
+        error: findError
+      });
+      return;
+    }
+
+    // Ensure subscription status is active if payment succeeded
+    const { error: updateError } = await supabaseServiceClient
+      .from('organizations')
+      .update({ subscription_status: 'active' })
+      .eq('id', org.id);
+
+    if (updateError) {
+      console.error('[Stripe Webhook] Failed to update subscription status', { orgId: org.id, error: updateError });
+    }
+  } catch (error) {
+    console.error('[Stripe Webhook] Error handling invoice paid', { error });
+  }
+};
+
+const handleInvoicePaymentFailed = async (invoice) => {
+  console.log('[Stripe Webhook] Processing invoice payment failed', { invoiceId: invoice.id });
+
+  try {
+    const { data: org, error: findError } = await supabaseServiceClient
+      .from('organizations')
+      .select('id')
+      .eq('stripe_customer_id', invoice.customer)
+      .single();
+
+    if (findError || !org) {
+      console.error('[Stripe Webhook] Organization not found for customer', {
+        customerId: invoice.customer,
+        error: findError
+      });
+      return;
+    }
+
+    // Mark subscription as past_due
+    const { error: updateError } = await supabaseServiceClient
+      .from('organizations')
+      .update({ subscription_status: 'past_due' })
+      .eq('id', org.id);
+
+    if (updateError) {
+      console.error('[Stripe Webhook] Failed to update subscription status', { orgId: org.id, error: updateError });
+    } else {
+      console.log('[Stripe Webhook] Subscription marked as past_due', { orgId: org.id });
+      // TODO: Send notification email to user about failed payment
+    }
+  } catch (error) {
+    console.error('[Stripe Webhook] Error handling invoice payment failed', { error });
+  }
+};
+
 const handleStripeWebhookEvent = async (event) => {
+  console.log('[Stripe Webhook] Received event:', event.type);
+
   switch (event.type) {
     case 'checkout.session.completed':
       await handleCheckoutSessionCompleted(event.data.object);
       break;
+
+    case 'customer.subscription.created':
+    case 'customer.subscription.updated':
+      await handleSubscriptionUpdated(event.data.object);
+      break;
+
+    case 'customer.subscription.deleted':
+      await handleSubscriptionDeleted(event.data.object);
+      break;
+
+    case 'invoice.paid':
+      await handleInvoicePaid(event.data.object);
+      break;
+
+    case 'invoice.payment_failed':
+      await handleInvoicePaymentFailed(event.data.object);
+      break;
+
     default:
+      console.log('[Stripe Webhook] Unhandled event type:', event.type);
       break;
   }
 };
@@ -1377,6 +1571,66 @@ ${transcript}`;
   }
 });
 
+// Deepgram TTS (for test modal)
+app.post('/ai/deepgram-tts', authenticateJwt, async (req, res) => {
+  try {
+    const { text, voice = 'aura-2-theia-en' } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    // Map flynn voice IDs to Deepgram Aura voices (Australian accents)
+    const deepgramVoiceMap = {
+      flynn_warm: 'aura-2-theia-en',      // Australian female - warm, friendly
+      flynn_expert: 'aura-2-arcas-en',    // Australian male - professional, firm
+      flynn_hype: 'aura-2-asteria-en',    // Australian female - energetic, upbeat
+    };
+
+    // Resolve voice: use mapping if flynn_* ID provided, otherwise use direct voice name
+    const resolvedVoice = deepgramVoiceMap[voice] || voice;
+
+    const { createClient } = require('@deepgram/sdk');
+    const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
+
+    const response = await deepgram.speak.request(
+      { text },
+      {
+        model: resolvedVoice,
+        encoding: 'linear16',
+        sample_rate: 24000,
+      }
+    );
+
+    const stream = await response.getStream();
+    const audioBuffer = await getAudioBuffer(stream);
+    const base64Audio = audioBuffer.toString('base64');
+    const audioUrl = `data:audio/wav;base64,${base64Audio}`;
+
+    res.json({ audioUrl });
+  } catch (error) {
+    console.error('[AI/DeepgramTTS] Error:', error);
+    res.status(500).json({
+      error: 'Failed to generate speech',
+      details: error.message,
+    });
+  }
+});
+
+// Helper function to convert stream to buffer
+async function getAudioBuffer(stream) {
+  const reader = stream.getReader();
+  const chunks = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+
+  return Buffer.concat(chunks);
+}
+
 // ========================================
 // Website Scraping & Business Profile API
 // ========================================
@@ -1589,9 +1843,241 @@ app.get('/api/business-profile/:orgId', async (req, res) => {
   }
 });
 
+// ========================================
+// Billing & Subscription Endpoints
+// ========================================
+
+/**
+ * Create Stripe checkout session for subscription
+ */
+app.post('/api/billing/create-checkout-session', authenticateJwt, async (req, res) => {
+  const { priceId } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (!priceId) {
+    return res.status(400).json({ error: 'Price ID required' });
+  }
+
+  if (!stripeClient) {
+    return res.status(503).json({ error: 'Stripe not configured' });
+  }
+
+  try {
+    console.log('[Billing] Creating checkout session', { userId, priceId });
+
+    // Get user's organization
+    const { data: userData, error: userError } = await supabaseServiceClient
+      .from('users')
+      .select('default_org_id, email')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData?.default_org_id) {
+      console.error('[Billing] User or organization not found', { userId, error: userError });
+      return res.status(404).json({ error: 'User organization not found' });
+    }
+
+    // Check if customer already exists
+    const { data: orgData } = await supabaseServiceClient
+      .from('organizations')
+      .select('stripe_customer_id')
+      .eq('id', userData.default_org_id)
+      .single();
+
+    let customerId = orgData?.stripe_customer_id;
+
+    // Create Stripe customer if doesn't exist
+    if (!customerId) {
+      const customer = await stripeClient.customers.create({
+        email: userData.email,
+        metadata: {
+          user_id: userId,
+          org_id: userData.default_org_id,
+        },
+      });
+      customerId = customer.id;
+
+      // Store customer ID
+      await supabaseServiceClient
+        .from('organizations')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', userData.default_org_id);
+
+      console.log('[Billing] Created Stripe customer', { customerId, orgId: userData.default_org_id });
+    }
+
+    // Create checkout session
+    const session = await stripeClient.checkout.sessions.create({
+      customer: customerId,
+      client_reference_id: userData.default_org_id,
+      mode: 'subscription',
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.API_BASE_URL || 'flynnai://billing'}?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.API_BASE_URL || 'flynnai://billing'}?canceled=true`,
+      metadata: {
+        org_id: userData.default_org_id,
+        user_id: userId,
+      },
+    });
+
+    console.log('[Billing] Checkout session created', { sessionId: session.id });
+
+    res.status(200).json({
+      sessionId: session.id,
+      url: session.url,
+    });
+  } catch (error) {
+    console.error('[Billing] Error creating checkout session', { error });
+    res.status(500).json({
+      error: 'Failed to create checkout session',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Create Stripe Customer Portal session
+ */
+app.post('/api/billing/create-portal-session', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (!stripeClient) {
+    return res.status(503).json({ error: 'Stripe not configured' });
+  }
+
+  try {
+    console.log('[Billing] Creating portal session', { userId });
+
+    // Get user's organization and Stripe customer ID
+    const { data: userData, error: userError } = await supabaseServiceClient
+      .from('users')
+      .select('default_org_id')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData?.default_org_id) {
+      console.error('[Billing] User not found', { userId, error: userError });
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { data: orgData, error: orgError } = await supabaseServiceClient
+      .from('organizations')
+      .select('stripe_customer_id')
+      .eq('id', userData.default_org_id)
+      .single();
+
+    if (orgError || !orgData?.stripe_customer_id) {
+      console.error('[Billing] Stripe customer not found', { orgId: userData.default_org_id, error: orgError });
+      return res.status(404).json({ error: 'No active subscription found' });
+    }
+
+    // Create portal session
+    const session = await stripeClient.billingPortal.sessions.create({
+      customer: orgData.stripe_customer_id,
+      return_url: `${process.env.API_BASE_URL || 'flynnai://billing'}`,
+    });
+
+    console.log('[Billing] Portal session created', { sessionId: session.id });
+
+    res.status(200).json({
+      url: session.url,
+    });
+  } catch (error) {
+    console.error('[Billing] Error creating portal session', { error });
+    res.status(500).json({
+      error: 'Failed to create portal session',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Get subscription status for authenticated user
+ */
+app.get('/api/billing/subscription-status', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    // Get user's organization
+    const { data: userData, error: userError } = await supabaseServiceClient
+      .from('users')
+      .select('default_org_id')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData?.default_org_id) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get organization with subscription details
+    const { data: orgData, error: orgError } = await supabaseServiceClient
+      .from('organizations')
+      .select('plan, subscription_status, current_period_end, cancel_at_period_end, stripe_subscription_id')
+      .eq('id', userData.default_org_id)
+      .single();
+
+    if (orgError || !orgData) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+
+    res.status(200).json({
+      plan: orgData.plan || 'trial',
+      status: orgData.subscription_status || 'inactive',
+      currentPeriodEnd: orgData.current_period_end,
+      cancelAtPeriodEnd: orgData.cancel_at_period_end || false,
+      hasActiveSubscription: !!orgData.stripe_subscription_id,
+    });
+  } catch (error) {
+    console.error('[Billing] Error getting subscription status', { error });
+    res.status(500).json({
+      error: 'Failed to get subscription status',
+      message: error.message,
+    });
+  }
+});
+
 // Health check endpoint for Railway
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Account deletion page for Google Play compliance
+app.get('/account-deletion', (req, res) => {
+  const htmlPath = path.join(__dirname, 'public', 'account-deletion.html');
+  if (fs.existsSync(htmlPath)) {
+    res.sendFile(htmlPath);
+  } else {
+    // Fallback inline HTML if file doesn't exist
+    res.send(`
+      <!DOCTYPE html>
+      <html><head><title>Account Deletion - FlynnAI</title></head>
+      <body style="font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px;">
+        <h1>Delete Your FlynnAI Account</h1>
+        <h2>In-App Deletion</h2>
+        <p>Open the FlynnAI app → Settings → Account Settings → Delete Account</p>
+        <h2>Email Request</h2>
+        <p>Send an email to <a href="mailto:support@flynnai.app">support@flynnai.app</a> with subject "Account Deletion Request"</p>
+        <p>Include your registered email address and we'll process your request within 48 hours.</p>
+      </body></html>
+    `);
+  }
 });
 
 const JOB_STATUS_VALUES = new Set(['new', 'in_progress', 'completed']);
@@ -3454,6 +3940,165 @@ app.get('/api/reminders/stats', authenticateJwt, async (req, res) => {
   } catch (error) {
     console.error('[Reminders] Error fetching stats:', error);
     res.status(500).json({ error: 'Failed to fetch reminder statistics' });
+  }
+});
+
+// ============================================================================
+// Integration OAuth Callbacks
+// ============================================================================
+
+// Google Calendar OAuth Callback
+app.get('/api/integrations/google-calendar/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+
+  if (error) {
+    console.error('[GoogleCalendar] OAuth error:', error);
+    return res.status(400).send(`
+      <html>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <h1>Authorization Failed</h1>
+          <p>Failed to connect Google Calendar: ${error}</p>
+          <p>You can close this window and try again.</p>
+        </body>
+      </html>
+    `);
+  }
+
+  if (!code) {
+    return res.status(400).send(`
+      <html>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <h1>Missing Authorization Code</h1>
+          <p>No authorization code received from Google.</p>
+          <p>You can close this window and try again.</p>
+        </body>
+      </html>
+    `);
+  }
+
+  try {
+    // Exchange authorization code for tokens
+    const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+    const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+    const GOOGLE_REDIRECT_URI = process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI;
+
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
+      throw new Error('Google Calendar OAuth credentials not configured');
+    }
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: GOOGLE_REDIRECT_URI,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json();
+      throw new Error(`Token exchange failed: ${errorData.error_description || errorData.error}`);
+    }
+
+    const tokens = await tokenResponse.json();
+    const { access_token, refresh_token, expires_in } = tokens;
+
+    // Get calendar info
+    const calendarResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary', {
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+      },
+    });
+
+    if (!calendarResponse.ok) {
+      throw new Error('Failed to fetch calendar info');
+    }
+
+    const calendarInfo = await calendarResponse.json();
+
+    // Parse org_id from state parameter
+    const orgId = state;
+    if (!orgId) {
+      throw new Error('Missing organization ID in state parameter');
+    }
+
+    // Calculate expiry timestamp
+    const expiresAt = new Date(Date.now() + expires_in * 1000).toISOString();
+
+    // Save connection to database
+    const { data: connection, error: dbError } = await supabaseStorageClient
+      .from('integration_connections')
+      .upsert({
+        org_id: orgId,
+        provider: 'google_calendar',
+        type: 'calendar',
+        status: 'connected',
+        access_token,
+        refresh_token,
+        token_expires_at: expiresAt,
+        account_id: calendarInfo.id,
+        account_name: calendarInfo.summary,
+        metadata: {
+          id: calendarInfo.id,
+          summary: calendarInfo.summary,
+          timeZone: calendarInfo.timeZone,
+        },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'org_id,provider' })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('[GoogleCalendar] Database error:', dbError);
+      throw new Error('Failed to save calendar connection');
+    }
+
+    console.log('[GoogleCalendar] Connection saved successfully:', {
+      orgId,
+      calendarName: calendarInfo.summary,
+    });
+
+    // Success page
+    res.send(`
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <div style="max-width: 500px; margin: 0 auto;">
+            <div style="width: 64px; height: 64px; margin: 0 auto 24px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <h1 style="color: #1e293b; margin-bottom: 12px;">Calendar Connected!</h1>
+            <p style="color: #64748b; font-size: 16px; line-height: 1.5;">
+              Your Google Calendar "${calendarInfo.summary}" has been connected successfully.
+            </p>
+            <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
+              You can close this window and return to the app.
+            </p>
+          </div>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('[GoogleCalendar] OAuth callback error:', error);
+    res.status(500).send(`
+      <html>
+        <body style="font-family: system-ui; padding: 40px; text-align: center;">
+          <h1>Connection Failed</h1>
+          <p>Failed to connect Google Calendar: ${error.message}</p>
+          <p>You can close this window and try again.</p>
+        </body>
+      </html>
+    `);
   }
 });
 

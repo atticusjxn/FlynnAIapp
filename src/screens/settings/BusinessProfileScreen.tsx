@@ -53,6 +53,12 @@ export const BusinessProfileScreen: React.FC = () => {
   const [aiInstructions, setAiInstructions] = useState('');
   const [autoUpdateFromWebsite, setAutoUpdateFromWebsite] = useState(false);
 
+  // Booking & Quote Link state
+  const [bookingLinkUrl, setBookingLinkUrl] = useState('');
+  const [quoteLinkUrl, setQuoteLinkUrl] = useState('');
+  const [bookingLinkEnabled, setBookingLinkEnabled] = useState(true);
+  const [quoteLinkEnabled, setQuoteLinkEnabled] = useState(true);
+
   // Load existing profile
   useEffect(() => {
     loadProfile();
@@ -76,6 +82,12 @@ export const BusinessProfileScreen: React.FC = () => {
         setPaymentTerms(data.payment_terms || '');
         setAiInstructions(data.ai_instructions || '');
         setAutoUpdateFromWebsite(data.auto_update_from_website || false);
+
+        // Load booking & quote link fields
+        setBookingLinkUrl(data.booking_link_url || '');
+        setQuoteLinkUrl(data.quote_link_url || '');
+        setBookingLinkEnabled(data.booking_link_enabled !== false);
+        setQuoteLinkEnabled(data.quote_link_enabled !== false);
       }
     } catch (error) {
       console.error('[BusinessProfile] Failed to load profile:', error);
@@ -173,6 +185,10 @@ export const BusinessProfileScreen: React.FC = () => {
         payment_terms: paymentTerms.trim() || undefined,
         ai_instructions: aiInstructions.trim() || undefined,
         auto_update_from_website: autoUpdateFromWebsite,
+        booking_link_url: bookingLinkUrl.trim() || undefined,
+        quote_link_url: quoteLinkUrl.trim() || undefined,
+        booking_link_enabled: bookingLinkEnabled,
+        quote_link_enabled: quoteLinkEnabled,
       };
 
       const updated = await BusinessProfileService.upsertProfile(updateData);
@@ -183,6 +199,10 @@ export const BusinessProfileScreen: React.FC = () => {
       ]);
     } catch (error) {
       console.error('[BusinessProfile] Save error:', error);
+      // Log more details if available
+      if (error && typeof error === 'object') {
+        console.error('[BusinessProfile] Error details:', JSON.stringify(error, null, 2));
+      }
       Alert.alert('Error', 'Failed to save business profile. Please try again.');
     } finally {
       setSaving(false);
@@ -298,6 +318,74 @@ export const BusinessProfileScreen: React.FC = () => {
             placeholder="e.g., Greater Sydney area"
             autoCapitalize="words"
           />
+        </View>
+
+        {/* Booking & Quote Links */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Booking & Quote Links</Text>
+          <Text style={styles.sectionDescription}>
+            Configure URLs for booking appointments and quote requests. These links are sent via SMS when callers select options from your IVR menu.
+          </Text>
+
+          {/* Booking Link */}
+          <View style={styles.linkSubsection}>
+            <View style={styles.linkHeader}>
+              <Text style={styles.linkTitle}>Booking Link</Text>
+              <Switch
+                value={bookingLinkEnabled}
+                onValueChange={setBookingLinkEnabled}
+              />
+            </View>
+
+            <FlynnInput
+              label="Booking Page URL"
+              value={bookingLinkUrl}
+              onChangeText={setBookingLinkUrl}
+              placeholder="https://yourbusiness.com/book"
+              keyboardType="url"
+              autoCapitalize="none"
+              editable={bookingLinkEnabled}
+            />
+
+            {bookingLinkEnabled && (
+              <View style={styles.linkHelpBox}>
+                <FlynnIcon name="information-circle" size={16} color={colors.primary} />
+                <Text style={styles.linkHelpText}>
+                  Callers who press 1 on the IVR menu will receive an SMS with this booking link.
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Quote Link */}
+          <View style={styles.linkSubsection}>
+            <View style={styles.linkHeader}>
+              <Text style={styles.linkTitle}>Quote Link</Text>
+              <Switch
+                value={quoteLinkEnabled}
+                onValueChange={setQuoteLinkEnabled}
+              />
+            </View>
+
+            <FlynnInput
+              label="Quote Request URL"
+              value={quoteLinkUrl}
+              onChangeText={setQuoteLinkUrl}
+              placeholder="https://yourbusiness.com/quote"
+              keyboardType="url"
+              autoCapitalize="none"
+              editable={quoteLinkEnabled}
+            />
+
+            {quoteLinkEnabled && (
+              <View style={styles.linkHelpBox}>
+                <FlynnIcon name="information-circle" size={16} color={colors.primary} />
+                <Text style={styles.linkHelpText}>
+                  Callers who press {bookingLinkEnabled ? '2' : '1'} on the IVR menu will receive an SMS with this quote link.
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Pricing & Policies */}
@@ -493,5 +581,35 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   footerSpacer: {
     height: spacing.xxl,
+  },
+  linkSubsection: {
+    marginBottom: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  linkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  linkTitle: {
+    ...typography.h4,
+    color: colors.textPrimary,
+  },
+  linkHelpBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    backgroundColor: colors.primaryLight,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.sm,
+  },
+  linkHelpText: {
+    ...typography.bodySmall,
+    color: colors.textPrimary,
+    flex: 1,
   },
 });

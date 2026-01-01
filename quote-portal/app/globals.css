@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #2563EB;
+}
+
+@layer components {
+  .flynn-card {
+    @apply bg-white rounded-xl shadow-md p-6;
+  }
+
+  .flynn-button-primary {
+    @apply px-6 py-3 rounded-lg font-semibold text-white transition-all;
+    background-color: var(--primary-color);
+  }
+
+  .flynn-button-primary:hover {
+    @apply opacity-90 scale-[0.98];
+  }
+
+  .flynn-button-primary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .flynn-button-secondary {
+    @apply px-6 py-3 rounded-lg font-semibold bg-gray-100 text-gray-700 transition-all border border-gray-300;
+  }
+
+  .flynn-button-secondary:hover {
+    @apply bg-gray-200;
+  }
+
+  .flynn-input {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all;
+  }
+
+  .flynn-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .flynn-label {
+    @apply block text-sm font-semibold text-gray-700 mb-2;
+  }
+
+  .flynn-progress-bar {
+    @apply w-full h-2 bg-gray-200 rounded-full overflow-hidden;
+  }
+
+  .flynn-progress-fill {
+    @apply h-full transition-all duration-300;
+    background-color: var(--primary-color);
+  }
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .flynn-card {
+    @apply rounded-lg p-4;
+  }
+
+  .flynn-button-primary,
+  .flynn-button-secondary {
+    @apply px-4 py-2.5 text-sm;
+  }
+}
