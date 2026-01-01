@@ -20,7 +20,7 @@ export default {
     ],
     name: "FlynnAI",
     slug: "FlynnAI",
-    version: "1.1.6",
+    version: "1.2.0",
     orientation: "portrait",
     icon: "./assets/images/adaptive-icon.png",
     userInterfaceStyle: "light",
@@ -28,8 +28,10 @@ export default {
     updates: {
       enabled: true,
       checkAutomatically: "ON_LOAD",
-      fallbackToCacheTimeout: 0
+      fallbackToCacheTimeout: 0,
+      url: "https://u.expo.dev/799dd441-a3f1-4b18-a45d-bea10b3f9dc8"
     },
+    runtimeVersion: "1.0.0",
     splash: {
       image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
@@ -75,6 +77,10 @@ export default {
       supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2ZmVhZm1tdGZwbHpwbm9jeWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMDE1NDMsImV4cCI6MjA3MTc3NzU0M30.PnSY6rFvczDiDucsyN0nr-luR_Jb6a6O2uAeZxgBiRI",
       releaseChannel: process.env.APP_ENV || "production",
       apiBaseUrl: API_BASE_URL,
+      // Stripe billing price IDs for subscriptions
+      stripeStarterPriceId: process.env.EXPO_PUBLIC_STRIPE_STARTER_PRICE_ID || "price_1SbiXfRm2tMRBfxY4wxwUbK8",
+      stripeProfessionalPriceId: process.env.EXPO_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID || "price_1SbiXoRm2tMRBfxYrZE2tD4o",
+      stripeBusinessPriceId: process.env.EXPO_PUBLIC_STRIPE_BUSINESS_PRICE_ID || "price_1SbiXwRm2tMRBfxYACw2GkKc",
       eas: {
         projectId: "799dd441-a3f1-4b18-a45d-bea10b3f9dc8"
       }

@@ -11,9 +11,12 @@ import { IndustriesList, IndustryDetail } from './pages/Industries';
 import { BlogList, BlogPost } from './pages/Blog';
 import Contact from './pages/Contact';
 import Trial from './pages/Trial';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Setup from './pages/Setup';
+import DashboardLayout from './components/DashboardLayout';
 
-// Placeholder components for new pages
-const Features = () => <div className="p-20 text-center text-3xl font-display">Features (Coming Soon)</div>;
+import Features from './components/Features';
 
 // Component to handle external scripts like Analytics
 const Analytics = () => {
@@ -44,6 +47,13 @@ function App() {
             <Route path="trial" element={<Trial />} />
             <Route path="features" element={<Features />} />
           </Route>
+
+          <Route path="/login" element={<Login />} />
+
+          <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/setup" element={<DashboardLayout><Setup /></DashboardLayout>} />
+          <Route path="/dashboard/*" element={<DashboardLayout><Dashboard /></DashboardLayout>} /> {/* Fallback for other dashboard items */}
+
           {/* Demo runs outside the main layout if needed, or inside. Keeping outside as it might have its own chrome */}
           <Route path="/demo" element={<DemoContainer />} />
         </Routes>

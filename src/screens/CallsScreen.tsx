@@ -1024,6 +1024,7 @@ export const CallsScreen: React.FC = () => {
         greeting={greeting}
         questions={followUpQuestions}
         voiceId={selectedVoice}
+        ackLibrary={ackLibrary}
       />
     </View>
   );
@@ -1139,12 +1140,14 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.white,
     borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.gray300,
   },
   analyticsButtonText: {
     ...typography.bodyMedium,
-    color: colors.primary,
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   testCallCard: {

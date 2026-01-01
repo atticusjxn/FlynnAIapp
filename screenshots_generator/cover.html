@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlynnAI Android Feature Graphic</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            /* Brutalist Theme */
+            --primary: #ff4500;
+            --black: #000000;
+            --white: #ffffff;
+            --gray-100: #f3f4f6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .canvas {
+            width: 1024px;
+            height: 500px;
+            background: white;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            /* Just for visibility in browser */
+        }
+
+        /* Grid Background Pattern */
+        .grid-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 0;
+        }
+
+        /* Content Layout */
+        .layout {
+            display: flex;
+            height: 100%;
+            position: relative;
+            z-index: 2;
+        }
+
+        .left-panel {
+            flex: 1;
+            padding: 60px 20px 60px 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .right-panel {
+            flex: 1.2;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Typography */
+        .brand-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 80px;
+            font-weight: 800;
+            line-height: 0.9;
+            color: var(--black);
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            margin-bottom: 20px;
+        }
+
+        .highlight {
+            color: var(--primary);
+        }
+
+        .tagline {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--black);
+            background: var(--white);
+            border: 3px solid var(--black);
+            padding: 10px 20px;
+            box-shadow: 6px 6px 0px 0px var(--black);
+            display: inline-block;
+            align-self: flex-start;
+            text-transform: uppercase;
+        }
+
+        /* Visual Elements */
+        .card {
+            background: white;
+            border: 4px solid var(--black);
+            padding: 24px;
+            box-shadow: 12px 12px 0px 0px var(--black);
+            position: absolute;
+            width: 320px;
+            transform-origin: center;
+        }
+
+        .card-missed {
+            top: 80px;
+            right: 280px;
+            transform: rotate(-5deg);
+            z-index: 1;
+        }
+
+        .card-sms {
+            top: 180px;
+            right: 60px;
+            transform: rotate(3deg);
+            z-index: 2;
+            background: var(--black);
+            color: white;
+            border-color: white;
+            box-shadow: 12px 12px 0px 0px var(--primary);
+        }
+
+        /* Card Internals */
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .icon-box {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--black);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+        }
+
+        .card-sms .icon-box {
+            border-color: transparent;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .card-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 20px;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .card-content {
+            font-size: 16px;
+            line-height: 1.4;
+            opacity: 0.9;
+        }
+
+        .card-sms .card-title {
+            color: white;
+        }
+
+        /* Decorative */
+        .deco-cross {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            z-index: 1;
+        }
+
+        .deco-cross::before,
+        .deco-cross::after {
+            content: '';
+            position: absolute;
+            background: var(--black);
+        }
+
+        .deco-cross::before {
+            width: 100%;
+            height: 3px;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+        }
+
+        .deco-cross::after {
+            width: 3px;
+            height: 100%;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="canvas" id="capture-target">
+        <div class="grid-bg"></div>
+
+        <!-- Decorations -->
+        <div class="deco-cross" style="top: 30px; left: 30px;"></div>
+        <div class="deco-cross" style="top: 30px; right: 30px;"></div>
+        <div class="deco-cross" style="bottom: 30px; left: 30px;"></div>
+        <div class="deco-cross" style="bottom: 30px; right: 30px;"></div>
+
+        <div class="layout">
+            <div class="left-panel">
+                <div class="brand-name" style="font-size: 60px;">
+                    NEVER MISS<br>
+                    <span class="highlight">ANOTHER LEAD</span>
+                </div>
+                <div class="tagline">
+                    AI Receptionist + Booking links
+                </div>
+            </div>
+
+            <div class="right-panel">
+
+                <!-- Card 1: Missed Call -->
+                <div class="card card-missed">
+                    <div class="card-header">
+                        <div class="icon-box" style="background: var(--primary); border-color: var(--black);">
+                            <svg style="width: 24px; height: 24px; fill: white;" viewBox="0 0 24 24">
+                                <path d="M19.59 7L12 14.59 6.41 9H11V7H3v8h2v-4.59l7 7 9-9z" />
+                            </svg>
+                        </div>
+                        <div class="card-title">Missed Call<br>Detected</div>
+                    </div>
+                    <div class="card-content">
+                        <strong>Unknown Caller</strong><br>
+                        "I need a plumber ASAP..."
+                    </div>
+                </div>
+
+                <!-- Card 2: SMS Reply -->
+                <div class="card card-sms">
+                    <div class="card-header">
+                        <div class="icon-box">
+                            <svg style="width: 24px; height: 24px; fill: white;" viewBox="0 0 24 24">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                            </svg>
+                        </div>
+                        <div class="card-title" style="color: white;">Instant<br>Text Back</div>
+                    </div>
+                    <div class="card-content" style="color: rgba(255,255,255,0.9);">
+                        "Hi! I'm tied up, but you can book me online here:" <br>
+                        <span
+                            style="color: var(--primary); text-decoration: underline; font-weight: bold;">flynn.ai/book</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

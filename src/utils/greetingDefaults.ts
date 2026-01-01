@@ -1,6 +1,6 @@
 import { User } from '@supabase/supabase-js';
 
-const EVENT_FOCUSED_FALLBACK = "Hi, you've reached Flynn — how can we help with your event today?";
+const EVENT_FOCUSED_FALLBACK = "Hi, thanks for calling — how can we help you today?";
 
 const pickString = (value: unknown): string => {
   return typeof value === 'string' ? value.trim() : '';
@@ -40,15 +40,15 @@ export const buildDefaultGreeting = (
   const firstName = extractFirstName(metadata);
 
   if (firstName && businessName) {
-    return `Hi, you've reached ${firstName} at ${businessName} — how can we help with your event today?`;
+    return `Hi, you've reached ${firstName} at ${businessName} — how can we help you today?`;
   }
 
   if (businessName) {
-    return `Hi, you've reached ${businessName} — how can we help with your event today?`;
+    return `Hi, you've reached ${businessName} — how can we help you today?`;
   }
 
   if (firstName) {
-    return `Hi, you've reached ${firstName} — how can we help with your event today?`;
+    return `Hi, you've reached ${firstName} — how can we help you today?`;
   }
 
   return fallback;

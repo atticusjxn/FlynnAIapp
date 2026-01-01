@@ -1,29 +1,48 @@
 # Flynn AI Design System & Project Context
 
 ## About Flynn AI
-**"Flynn turns missed calls into booked jobs."**
+**"Flynn is your Inbound Revenue OS — never miss a lead, always follow up."**
 
-Flynn AI is a mobile voicemail receptionist for busy service providers (tradespeople, beauty/service professionals, small business owners) that captures missed calls and voicemails, transcribes and processes them with AI, and automates follow-up workflows to convert leads into scheduled jobs.
+Flynn AI is a comprehensive inbound lead management platform for busy service providers (tradespeople, beauty/service professionals, small business owners) that captures every missed call and converts it into revenue through automated SMS booking and quote links, with optional AI voice assistance for premium users.
 
 ### Core Value Proposition:
-Flynn receives forwarded voicemails, transcribes and classifies them, drafts responses, and syncs the resulting work into calendars and financial systems. The app helps service businesses never miss a lead by turning voicemail into actionable job cards with automated follow-up.
+Flynn captures inbound calls when you're busy and immediately sends prospects a text with links to book appointments or request quotes — no voicemail needed. The default experience is instant, frictionless lead capture via SMS links. Businesses can upgrade to AI voice receptionists for conversational interactions, but the core product works without any AI configuration.
 
 ### Core Features:
 
-#### Voicemail Processing (Primary Focus)
-- **Voicemail intake**: Call forwarding (conditional or dedicated Flynn number) routes voicemails to Flynn via Twilio
-- **Custom greetings**: Upload existing greeting, record new one, or choose flynn-themed persona (male/female, accents) via TTS
-- **AI transcription**: Automatic transcription via Whisper/Deepgram with confidence scoring
-- **Smart classification**: AI extracts client name, phone, service type, urgency, and key details
-- **Job card creation**: Draft job cards pre-filled with transcript summary and contact info
-- **Automated follow-up**: AI-drafted SMS/email responses with manual approval workflow
+#### Call Handling — Three Flexible Modes
 
-#### Supporting Features (Preserved from Original)
-- **Screenshot upload**: Users upload screenshots of text conversations → AI extracts job details → creates job cards/calendar events
-- **iOS Shortcuts integration**: Control Center shortcut for instant screenshot processing → AI extraction → job creation
-- **Job confirmations**: Automatically send SMS confirmations to clients
-- **Calendar integration**: Google Calendar, Outlook, Apple Calendar sync
-- **Accounting integration**: MYOB, QuickBooks, Xero integration for invoicing and expense tracking (roadmap)
+Flynn supports three call handling modes that users can switch between:
+
+**Mode A: SMS Link Follow-Up (Default)**
+- Caller hears a brief greeting and automated menu
+- Press 1 → Receive SMS with booking link
+- Press 2 → Receive SMS with quote request form
+- Press 3 → Leave voicemail (optional fallback)
+- SMS sent immediately during the call
+- No AI configuration required — works out of the box
+- **This is the core product:** Simple, reliable, conversion-focused
+
+**Mode B: AI Receptionist (Optional Premium)**
+- Full conversational AI using Deepgram Voice Agent
+- Ask questions, gather job details, schedule appointments
+- AI-drafted follow-up SMS/email with manual approval
+- Requires voice profile selection and conversation script setup
+- Higher complexity but richer interaction
+
+**Mode C: Voicemail Capture Only**
+- Basic voicemail recording and transcription
+- No IVR menu, no AI conversation
+- Transcripts processed for job card creation
+- Simple fallback for users who want minimal automation
+
+#### Supporting Features
+- **Booking Pages**: Shareable links with calendar integration (Google, Apple, Outlook)
+- **Quote Intake Forms**: Collect job details, photos, and contact info via SMS link
+- **Screenshot Upload**: Upload screenshots of text conversations → AI extracts job details → creates job cards
+- **iOS Shortcuts Integration**: Control Center shortcut for instant screenshot processing
+- **Job Confirmations**: Automatically send SMS confirmations to clients
+- **Accounting Integration**: MYOB, QuickBooks, Xero integration for invoicing (roadmap)
 
 ### Target Users:
 - Tradespeople, beauty/service professionals, and small business owners who can't answer every call but rely on inbound leads
@@ -31,30 +50,37 @@ Flynn receives forwarded voicemails, transcribes and classifies them, drafts res
 - Businesses already experimenting with AI tools but lacking a coherent voicemail workflow
 
 ### App Navigation (Current):
-5 tabs: Dashboard (home), Jobs, Calendar, Clients, Settings
+5 tabs: Dashboard (home), Events (Jobs), Calls (formerly Receptionist), Clients, Money (billing/accounting)
 
 ### Product Roadmap:
 
-#### Phase 1: Voicemail MVP (Current)
-- Voicemail forwarding setup UX with carrier-specific instructions
-- Backend pipeline: recording → transcription → job draft
-- Job review UI with manual approval gates
-- Basic flynn persona greetings
+#### Phase 1: SMS Link Follow-Up MVP (Current)
+- IVR menu with booking/quote link options
+- Immediate SMS delivery during call
+- Call forwarding setup UX with carrier-specific instructions
+- Booking page with calendar integration
+- Quote intake form with photo upload
+- Basic call analytics (DTMF selections, SMS sent, conversions)
 
-#### Phase 2: Automated Follow-Up (Next)
-- Template manager for SMS/email responses
-- Approval queue and analytics on response times
-- Enhanced persona library (multiple voices, accents)
+#### Phase 2: Enhanced Call Handling (Next)
+- IVR template library (industry-specific, tone variants)
+- Website scraping to auto-suggest IVR scripts
+- Customizable IVR script editor
+- Link click tracking and conversion metrics
+- A/B testing for IVR messaging
 
-#### Phase 3: Financial Integrations (Soon)
-- Invoice generation from completed job cards
-- Receipt scanning + wallet pass storage
-- MYOB/QuickBooks/Xero sync completion
+#### Phase 3: AI Receptionist Premium (Later)
+- Conversational AI with custom voice profiles
+- AI-drafted follow-up messages with approval workflow
+- Advanced lead qualification and routing
+- Multi-language support
 
-#### Phase 4: Premium Features (Later)
-- Live-call assisted receptionist as premium add-on
-- Advanced analytics and conversion tracking
-- Multi-user/team collaboration features
+#### Phase 4: Team & Enterprise Features (Future)
+- Multi-user collaboration
+- Team call routing and assignment
+- Advanced analytics dashboard
+- CRM integrations (Salesforce, HubSpot)
+- White-label options for agencies
 
 ## 🎨 Design System Overview
 
@@ -854,138 +880,217 @@ Add to `.env` file and ensure proper babel configuration for `react-native-doten
 - **Poor extraction**: Use screenshots with clear, readable text
 - **Network issues**: Check internet connection for AI processing
 
-## 📞 Voicemail Receptionist (Primary Feature)
+## 📞 Call Handling System (Primary Feature)
 
 ### Overview
-Flynn's core feature is its AI-powered voicemail receptionist that captures missed calls, transcribes them, extracts job details, and automates follow-up workflows. This is the primary value proposition: **"Flynn turns missed calls into booked jobs."**
+Flynn's core feature is its flexible call handling system that captures every missed call and converts it into revenue. The primary value proposition: **"Flynn is your Inbound Revenue OS — never miss a lead, always follow up."**
 
-### How It Works:
+**Default Mode (SMS Link Follow-Up)**: When callers can't reach you, Flynn answers with an IVR menu and sends them booking or quote links via SMS — instant, frictionless lead capture with zero AI configuration required.
 
-#### 1. Voicemail Intake
-- **Conditional call forwarding**: Users configure carrier-specific forwarding codes to route unanswered calls to Flynn's Twilio number
-- **Dedicated Flynn number**: Alternative option for users who can't configure forwarding
-- **Voicemail capture**: Twilio receives voicemail, stores recording, and triggers webhook to Flynn backend
+**Optional Premium Mode (AI Receptionist)**: Businesses can upgrade to conversational AI that asks questions, gathers details, and drafts personalized follow-ups.
 
-#### 2. Greeting System
-Users can customize their voicemail greeting:
-- **Upload existing greeting**: Use their current voicemail audio file
-- **Record new greeting**: Record directly in the app
-- **Flynn persona voices**: Choose from AI-generated greetings with different accents and genders
-  - Male/female options
-  - Various accent options (Australian, American, British, etc.)
-  - Generated via TTS and cached in Supabase Storage for fast playback
-  - Reinforces friendly, approachable brand personality
+### How Each Mode Works:
 
-#### 3. Processing Pipeline
-When a voicemail is received:
-1. **Recording captured**: Twilio posts recording metadata to Flynn webhook
-2. **Audio stored**: Recording saved securely to Supabase Storage with retention policy
-3. **Transcription**: Audio transcribed via Whisper or Deepgram
-4. **AI classification**: Transcript analyzed to extract:
-   - Client name and phone number
-   - Service type and urgency level
-   - Preferred date/time
-   - Location details
-   - Key requirements
-   - Confidence scores for manual review
-5. **Job card draft**: Pre-filled job card created with extracted data
-6. **Response draft**: AI generates suggested SMS/email reply based on context
+#### Mode A: SMS Link Follow-Up (Default)
 
-#### 4. Approval Workflow
-- **Review screen**: User sees transcript, extracted data, and drafted response
-- **Edit capabilities**: Full editing of job details and response message
-- **Approval options**:
-  - "Approve & Send" - Creates job and sends response
-  - "Edit Draft" - Modify before sending
-  - "Skip" - Save as job without sending response
-- **Audit trail**: Track who approved what and when
+**Call Flow:**
+1. **Incoming Call**: Twilio receives forwarded call, Flynn answers immediately
+2. **IVR Greeting**: Caller hears customizable greeting + menu options:
+   - "Press 1 to receive a booking link"
+   - "Press 2 to receive a quote form link"
+   - "Press 3 to leave a voicemail"
+3. **DTMF Input**: Caller presses digit during call
+4. **Immediate SMS**: Flynn sends SMS within 2 seconds with requested link
+5. **Confirmation**: Caller hears "Thanks — we've just texted you a booking link" and call ends
 
-#### 5. Follow-Up Automation
-- **Template system**: Customizable SMS/email templates per service type
-- **Manual approval gates**: Human-in-the-loop ensures quality control
-- **Opt-in management**: Respect contact preferences and consent
-- **Analytics**: Track response times, conversion rates, and follow-up SLAs
+**IVR Script Customization:**
+- **Template Library**: Choose from 8+ pre-built templates (professional, casual, trades-specific, etc.)
+- **Custom Scripts**: Fully editable with placeholders: `{business_name}`, `{booking_option}`, `{quote_option}`
+- **Website Scraping**: Auto-suggest IVR script based on scraped website tone and industry
+- **Industry Variants**: Trades, beauty, events, home services, creative, emergency
+
+**SMS Content:**
+- Booking SMS: "Hi, this is {Business}. Book your appointment: {link}"
+- Quote SMS: "Hi, this is {Business}. Share project details/photos here: {link}"
+- Sent from business phone number (not Flynn number) to avoid confusion
+- Includes "Reply STOP" compliance language
+
+**Link Destinations:**
+- **Booking Link**: Auto-generated booking page (`flynnbooking.com/{business-slug}`) with calendar integration
+- **Quote Link**: Auto-generated quote intake form with photo upload, job details, contact info
+
+**Edge Cases:**
+- **Blocked Caller ID**: Play fallback message with short URL, don't attempt SMS
+- **Invalid DTMF**: Replay menu once, then end call politely
+- **Misconfigured Links**: Force fallback to voicemail, show in-app warning
+
+#### Mode B: AI Receptionist (Optional Premium)
+
+**Call Flow:**
+1. **Incoming Call**: Twilio connects caller to Deepgram Voice Agent WebSocket
+2. **AI Greeting**: Custom greeting script read by selected voice profile
+3. **Conversation**: AI asks follow-up questions (configurable per business type)
+4. **Entity Extraction**: AI extracts client name, phone, service type, date/time, location
+5. **Job Card Draft**: Pre-filled job card created with transcript
+6. **Follow-up SMS Draft**: AI-generated response message awaits manual approval
+7. **Approval Workflow**: User reviews transcript, edits job details, approves/sends SMS
+
+**Voice Profiles:**
+- **Preset Voices**: flynn_warm (Avery), flynn_expert (Sloane), flynn_hype (Maya)
+- **Custom Voice Cloning**: Upload 45-60 second audio sample → ElevenLabs voice clone
+- **Acknowledgement Library**: Rotates through "Got it!", "Perfect, thanks!", etc. during conversation
+
+**Conversation Configuration:**
+- **Greeting Script**: Customizable opening message
+- **Follow-up Questions**: Configurable per business type (general, trades, events, beauty)
+- **AI Instructions**: Custom prompt modifications for business context
+- **Business Context**: Uses business profile (services, hours, pricing, FAQs) for informed responses
+
+**Transcription & Processing:**
+- **Real-time STT**: Deepgram Voice Agent handles speech-to-text during call
+- **LLM Processing**: Gemini (or OpenAI) processes conversation and extracts job details
+- **Confidence Scoring**: AI provides confidence scores for manual review
+- **Recording Storage**: Audio stored in Supabase with retention policies
+
+#### Mode C: Voicemail Capture Only
+
+**Call Flow:**
+1. **Incoming Call**: Twilio answers call
+2. **Voicemail Greeting**: Standard greeting ("Please leave a message after the tone")
+3. **Recording**: Caller leaves voicemail (up to 5 minutes)
+4. **Transcription**: Audio transcribed via Deepgram/Whisper
+5. **Job Card Draft**: Transcript analyzed for job details (best-effort extraction)
+
+**Use Cases:**
+- Businesses who want minimal automation
+- Fallback when IVR or AI is misconfigured
+- Users who prefer manual voicemail review
 
 ### Technical Architecture:
 
 #### Backend Components:
-- **Twilio Integration**: Voice/SMS APIs for call routing and messaging
-- **Supabase Storage**: Secure audio recording storage with retention policies
-- **Transcription Service**: Whisper (OpenAI) or Deepgram for speech-to-text
-- **OpenAI Processing**: GPT models for entity extraction and response drafting
-- **Webhook Handler**: Processes Twilio callbacks for recording completion
+- **Twilio Integration**: Voice/SMS APIs for call routing, IVR, and messaging
+- **IVR Handler** (`telephony/ivrHandler.js`): Generates TwiML for Mode A, handles DTMF input
+- **SMS Link Sender** (`telephony/smsLinkSender.js`): Sends booking/quote links immediately during calls
+- **Deepgram Voice Agent**: Real-time STT + LLM + TTS for Mode B (AI receptionist)
+- **Supabase Database**: Users, business profiles, call events, IVR templates
+- **Supabase Storage**: Audio recordings, voice profiles, greeting files
+- **OpenAI/Gemini**: Entity extraction, job classification, response drafting
 
 #### Key Services:
 ```
+telephony/
+├── ivrHandler.js              # Mode A: IVR TwiML generation + DTMF routing
+├── smsLinkSender.js           # Mode A: Immediate SMS sending during call
+├── deepgramVoiceAgent.js      # Mode B: AI receptionist WebSocket handler
+└── realtimeServer.js          # WebSocket server for AI calls
+
 src/
-├── services/
-│   ├── TwilioService.ts          # Call routing, SMS sending
-│   ├── VoicemailProcessor.ts     # Transcription orchestration
-│   ├── TranscriptionService.ts   # Whisper/Deepgram integration
-│   ├── JobExtractor.ts           # AI-powered entity extraction
-│   ├── ResponseGenerator.ts      # AI-drafted replies
-│   └── GreetingManager.ts        # TTS and greeting storage
 ├── screens/
-│   ├── voicemail/
-│   │   ├── VoicemailListScreen.tsx      # Pending voicemails
-│   │   ├── VoicemailDetailScreen.tsx    # Transcript + review
-│   │   ├── ApprovalScreen.tsx           # Response approval UI
-│   │   └── ForwardingSetupScreen.tsx    # Carrier setup wizard
+│   ├── CallsScreen.tsx                  # Mode selector UI (formerly ReceptionistScreen)
+│   ├── calls/
+│   │   ├── IVRScriptEditor.tsx         # Mode A: IVR script customization
+│   │   ├── CallAnalyticsScreen.tsx     # Call metrics and diagnostics
+│   │   └── CallSetupScreen.tsx         # Call forwarding setup wizard
+│   ├── onboarding/
+│   │   └── CallsSetupScreen.tsx        # Onboarding flow (formerly ReceptionistSetupScreen)
 │   └── settings/
-│       └── GreetingSetupScreen.tsx      # Persona/greeting config
-└── components/
-    ├── VoicemailCard.tsx         # Voicemail list item
-    ├── TranscriptView.tsx        # Formatted transcript display
-    ├── ConfidenceIndicator.tsx   # AI confidence badges
-    └── ApprovalActions.tsx       # Approve/Edit/Skip buttons
+│       ├── BusinessProfileScreen.tsx    # Business context + link configuration
+│       └── GreetingSetupScreen.tsx      # Mode B: Voice profile + greeting config
+├── services/
+│   ├── CallHandlingService.ts           # Mode management (formerly ReceptionistService)
+│   ├── BusinessProfileService.ts        # Business context for all modes
+│   ├── TwilioService.ts                # Phone provisioning
+│   ├── BookingService.ts               # Booking page management
+│   └── voicemail/
+│       ├── pipeline.ts                  # Mode C: Voicemail processing
+│       └── SupabaseVoicemailRepository.ts
+└── types/
+    ├── onboarding.ts                    # CallHandlingMode type
+    └── businessProfile.ts               # BusinessProfile with IVR fields
 ```
 
 #### Database Schema:
-- **voicemails**: Recording metadata, transcripts, status, confidence scores
-- **greetings**: Persona selections, custom uploads, TTS cache
-- **approval_logs**: Audit trail of user approvals and edits
-- **response_templates**: Customizable SMS/email templates per service type
+- **users**: `call_handling_mode` ('sms_links' | 'ai_receptionist' | 'voicemail_only')
+- **business_profiles**: `booking_link_url`, `quote_link_url`, `ivr_custom_script`, `ivr_greeting_template`
+- **ivr_templates**: Pre-built IVR script templates (professional, casual, trades, etc.)
+- **call_events**: Comprehensive event log (DTMF presses, SMS sent, outcomes, analytics)
+- **calls**: Call records with status, duration, transcription
+- **voicemails**: Recording metadata, transcripts, confidence scores (Mode C)
+- **voice_profiles**: Custom voice clones for Mode B
+- **booking_pages**: Booking page configuration and calendar integration
 
 ### Setup Process:
 
-#### Onboarding Wizard:
-1. **Choose intake method**: Conditional forwarding vs. dedicated number
-2. **Carrier selection**: Show carrier-specific forwarding codes
-3. **Setup instructions**: Step-by-step visual guide for call forwarding
-4. **Verification**: Test call to confirm forwarding works
-5. **Greeting setup**: Choose or record greeting
-6. **Template customization**: Set up default response templates
+#### Onboarding Wizard (New Flow):
+1. **Website Scraping**: Enter business website URL → scrape services, tone, industry
+2. **Call Handling Mode**: Default to Mode A (SMS Links), option to skip to Mode B or C
+3. **Mode A Configuration** (Default):
+   - Auto-generate booking page slug (`flynnbooking.com/business-slug`)
+   - Auto-generate quote intake form URL
+   - Auto-suggest IVR script based on website scraping
+   - Enable/disable booking link, quote link
+   - Preview IVR call flow
+4. **Call Forwarding Setup**: Carrier-specific forwarding codes + step-by-step guide
+5. **Verification**: Test call to confirm IVR + SMS sending works
+6. **Optional Mode B Setup**: Voice profile selection, greeting script, follow-up questions (skippable)
 
 #### Forwarding Codes (Examples):
 - **Busy/No Answer**: `*004*[flynn_number]#` (varies by carrier)
 - **Carrier-specific guides**: Verizon, AT&T, T-Mobile, Telstra, Optus, etc.
 
 ### Privacy & Compliance:
-- **Recording consent**: Greeting includes disclosure message per regional requirements
+- **Recording consent**: IVR greeting includes disclosure message per regional requirements
 - **Data retention**: Configurable retention windows (30/60/90 days)
 - **Secure storage**: Encrypted audio files in Supabase
-- **Audit logs**: Track all access to voicemail data
+- **Audit logs**: Track all call events (DTMF, SMS, outcomes)
 - **GDPR/privacy compliance**: Export and deletion capabilities
+- **SMS opt-out**: All SMS include "Reply STOP to opt out" language
 
-### Success Metrics:
-- **Capture rate**: % of missed calls captured within 30 days
-- **Processing time**: Median time from voicemail to job approval
-- **Conversion rate**: Voicemails → scheduled jobs
-- **Response time**: Time to send follow-up response
-- **User satisfaction**: Quality of transcription and extraction
+### Success Metrics (Mode-Specific):
+
+**Mode A (SMS Links):**
+- **Call capture rate**: % of missed calls answered by Flynn
+- **DTMF engagement**: % of callers who press a digit
+- **Booking requests**: Count of "Press 1" selections
+- **Quote requests**: Count of "Press 2" selections
+- **SMS delivery rate**: % of SMS sent successfully
+- **Link click-through rate**: % of SMS recipients who clicked link
+- **Booking conversion**: SMS → completed bookings
+- **Quote conversion**: SMS → submitted quote forms
+
+**Mode B (AI Receptionist):**
+- **Conversation completion**: % of calls where AI gathered all required info
+- **Entity extraction accuracy**: % of correctly extracted names, phones, dates
+- **Follow-up approval rate**: % of drafted messages sent by user
+- **Response time**: Median time from call to follow-up sent
+
+**Mode C (Voicemail):**
+- **Transcription accuracy**: Word error rate
+- **Job card creation rate**: % of voicemails converted to jobs
 
 ### UI/UX Priorities:
-- **Clear voicemail cards**: Show caller, summary, urgency, confidence scores
-- **Easy transcript review**: Readable formatting with entity highlighting
-- **Fast approval flow**: Minimize taps to approve and send
-- **Confidence indicators**: Visual cues for low-confidence extractions
-- **Playback controls**: Easy audio playback with transcript sync
-- **Edit-friendly**: Quick edits to job details and response text
 
-### Roadmap Integration:
-- **MVP (Current)**: Basic voicemail capture, transcription, job creation, manual approval
-- **Next**: Automated follow-up templates, persona library expansion
-- **Future**: Live-call receptionist as premium upsell once operational hurdles resolved
+**Calls Screen (Mode Selector):**
+- **3-card layout**: SMS Links (default), AI Receptionist (premium), Voicemail Only
+- **Mode-specific configuration**: Show relevant settings based on selected mode
+- **Test functionality**: In-app test call simulator for each mode
+- **Status indicators**: Green = configured, Yellow = misconfigured, Gray = not configured
+
+**Mode A UI:**
+- **IVR script editor**: Live preview, template library, placeholder autocomplete
+- **Link configuration**: Toggle booking/quote, preview SMS content
+- **Analytics dashboard**: DTMF breakdown, SMS delivery, link clicks, conversions
+
+**Mode B UI:**
+- **Voice profile selector**: Preview voice samples before selection
+- **Greeting editor**: Record or upload greeting, test playback
+- **Question builder**: Add/edit/reorder follow-up questions
+- **Approval queue**: Review transcripts, approve/edit drafted responses
+
+**Mode C UI:**
+- **Voicemail list**: Show transcripts, confidence scores, caller info
+- **Playback controls**: Audio player with transcript sync
 
 ## 🚫 Development Rules
 

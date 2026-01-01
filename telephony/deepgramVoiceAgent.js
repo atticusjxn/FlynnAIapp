@@ -116,6 +116,10 @@ const buildSystemPrompt = (greeting, businessContext, businessType = 'service bu
     ? formatBusinessContext(businessContext)
     : 'No specific business details provided.';
 
+  // Extract acknowledgement phrases from business context
+  const ackLibrary = businessContext?.receptionist_ack_library || [];
+  const hasAckPhrases = Array.isArray(ackLibrary) && ackLibrary.length > 0;
+
   const baseInstructions = [
     'ROLE:',
     'You are a friendly, efficient AI receptionist for a busy service business.',
@@ -140,7 +144,7 @@ const buildSystemPrompt = (greeting, businessContext, businessType = 'service bu
     );
   }
 
-  return [
+  const promptSections = [
     ...baseInstructions,
     '',
     'CONVERSATION FLOW:',
@@ -162,6 +166,21 @@ const buildSystemPrompt = (greeting, businessContext, businessType = 'service bu
     '- PHONE NUMBER FORMATTING: When reading back phone numbers, add spacing for clarity',
     '  Example: Say "0497 779 071" NOT "0497779071"',
     '  Example: Say "zero four nine seven, seven seven nine, zero seven one"',
+  ];
+
+  // Add acknowledgement phrases if provided
+  if (hasAckPhrases) {
+    promptSections.push(
+      '',
+      'ACKNOWLEDGEMENT PHRASES:',
+      '- When acknowledging the caller\'s responses, use these specific phrases:',
+      ...ackLibrary.map((phrase) => `  - "${phrase}"`),
+      '- Rotate through these phrases naturally during the conversation',
+      '- Use them when the caller provides information (name, phone, service details, etc.)',
+    );
+  }
+
+  promptSections.push(
     '',
     'INFORMATION TO CAPTURE:',
     '- Caller name (first name is fine)',
@@ -186,7 +205,9 @@ const buildSystemPrompt = (greeting, businessContext, businessType = 'service bu
     businessType,
     businessFacts,
     greeting || '',
-  ].filter(Boolean).join('\n\n');
+  );
+
+  return promptSections.filter(Boolean).join('\n\n');
 };
 
 /**

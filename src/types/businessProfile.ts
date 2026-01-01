@@ -36,6 +36,7 @@ export interface FAQ {
 export interface BusinessProfile {
   id: string;
   org_id: string;
+  user_id?: string; // Add user_id for reference
 
   // Basic info
   business_name?: string;
@@ -74,6 +75,14 @@ export interface BusinessProfile {
   // AI Instructions
   ai_instructions?: string;
   greeting_template?: string;
+
+  // Call handling (Mode A - SMS Links)
+  booking_link_url?: string;
+  quote_link_url?: string;
+  booking_link_enabled?: boolean;
+  quote_link_enabled?: boolean;
+  ivr_greeting_template?: string; // IVR template ID
+  ivr_custom_script?: string; // Custom IVR script
 
   // Website scraping
   website_scraped_at?: string;
@@ -155,6 +164,9 @@ export interface BusinessProfileInput {
   ai_instructions?: string;
   greeting_template?: string;
 
+  // Website scraping
+  website_scraped_at?: string;
+  website_scrape_data?: Record<string, unknown>;
   auto_update_from_website?: boolean;
 }
 

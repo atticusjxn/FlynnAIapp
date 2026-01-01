@@ -1,26 +1,22 @@
 const { URL } = require('url');
 const WebSocket = require('ws');
-const createRealtimeHandler = require('./realtimeHandler');
+const createVoiceAgentHandler = require('./deepgramVoiceAgent');
 
 /**
  * Attach a Twilio media stream WebSocket endpoint to the HTTP server.
+ * Uses Deepgram Voice Agent API for unified STT + LLM + TTS orchestration.
  *
  * @param {object} options
  * @param {import('http').Server} options.httpServer
  * @param {Map<string, object>} options.sessionCache
  * @param {import('@deepgram/sdk').Deepgram | null} options.deepgramClient
- * @param {{ chat: { completions: { create: Function } }, provider: string } | null} options.llmClient
- * @param {object} options.voiceConfig
- * @param {string | null} options.voiceConfig.apiKey
- * @param {string | null} options.voiceConfig.modelId
- * @param {Record<string, string | undefined>} options.voiceConfig.presetVoices
+ * @param {Function} options.onConversationComplete - Callback when conversation ends
+ * @param {Function} options.getBusinessContextForOrg - Fetch business context by user ID
  */
 const attachRealtimeServer = ({
   httpServer,
   sessionCache,
   deepgramClient,
-  llmClient,
-  voiceConfig,
   onConversationComplete,
   getBusinessContextForOrg,
 }) => {
@@ -39,7 +35,7 @@ const attachRealtimeServer = ({
         searchParams: Object.fromEntries(requestUrl.searchParams),
       });
 
-      if (requestUrl.pathname !== '/realtime/twilio') {
+      if (requestUrl.pathname !== '/realtime/twilio' && requestUrl.pathname !== '/realtime/test') {
         console.warn('[Realtime] WebSocket upgrade rejected - wrong path:', requestUrl.pathname);
         socket.destroy();
         return;
@@ -69,15 +65,13 @@ const attachRealtimeServer = ({
 
       const session = callSid ? sessionCache.get(callSid) : null;
 
-      const handler = createRealtimeHandler({
+      const handler = createVoiceAgentHandler({
         ws,
         callSid,
         userId,
         sessionCache,
         session,
         deepgramClient,
-        llmClient,
-        voiceConfig,
         onConversationComplete,
         getBusinessContextForOrg,
       });

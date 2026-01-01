@@ -187,6 +187,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if ('url' in result) {
           console.log('[AuthContext] Callback URL:', result.url);
         }
+
+        // Manually refresh session to ensure immediate state update
+        console.log('[AuthContext] Manually refreshing session after OAuth');
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.getSession();
+        if (refreshError) {
+          console.error('[AuthContext] Error refreshing session:', refreshError);
+        } else if (refreshedSession) {
+          console.log('[AuthContext] Session refreshed successfully');
+          await updateSessionState(refreshedSession);
+        }
       } else if (result.type === 'cancel') {
         const errorMsg = 'Google sign-in was cancelled by user';
         console.log('[AuthContext]', errorMsg);

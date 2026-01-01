@@ -43,6 +43,8 @@ const Navbar: React.FC = () => {
                 <Link to="/pricing" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Pricing</Link>
                 <Link to="/how-it-works" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">How it Works</Link>
 
+                <Link to="/login" className="text-black hover:text-brand-500 transition-colors text-sm font-medium font-display tracking-wide uppercase">Login</Link>
+
                 <button onClick={() => navigate('/trial')} className="bg-black text-white px-6 py-3 text-sm font-bold font-display uppercase hover:bg-brand-500 transition-all shadow-[4px_4px_0px_0px_rgba(100,100,100,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">
                   Get Started
                 </button>
@@ -75,6 +77,7 @@ const Navbar: React.FC = () => {
               <Link to="/features" className="text-black block text-3xl font-display font-bold hover:text-brand-500" onClick={() => setMobileMenuOpen(false)}>Features</Link>
               <Link to="/how-it-works" className="text-black block text-3xl font-display font-bold hover:text-brand-500" onClick={() => setMobileMenuOpen(false)}>How it Works</Link>
               <Link to="/pricing" className="text-black block text-3xl font-display font-bold hover:text-brand-500" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
+              <Link to="/login" className="text-black block text-3xl font-display font-bold hover:text-brand-500" onClick={() => setMobileMenuOpen(false)}>Login</Link>
 
               <button onClick={() => { navigate('/trial'); setMobileMenuOpen(false); }} className="w-full text-center mt-8 bg-brand-500 text-white px-5 py-4 font-bold text-xl font-display uppercase">
                 Get Started

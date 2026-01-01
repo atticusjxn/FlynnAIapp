@@ -9,11 +9,17 @@ import {
   Linking,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { JobberService } from '../../services/integrations/JobberService';
+import { CalendarService } from '../../services/integrations/CalendarService';
 import { OrganizationService } from '../../services/organizationService';
 import type { IntegrationConnection } from '../../types/integrations';
+
+// Enable dismissing web browser on iOS
+WebBrowser.maybeCompleteAuthSession();
 
 interface IntegrationCardProps {
   provider: 'jobber' | 'fergus' | 'servicetitan' | 'google_calendar' | 'calendly';
@@ -172,10 +178,14 @@ export default function IntegrationsScreen() {
       const jobberConnection = await JobberService.getConnection();
       setConnections((prev) => ({ ...prev, jobber: jobberConnection }));
 
+      // Load Google Calendar connection
+      const calendarConnection = await CalendarService.getConnection();
+      setConnections((prev) => ({ ...prev, google_calendar: calendarConnection }));
+
       // TODO: Load other connections when implemented
       // const fergusConnection = await FergusService.getConnection();
       // const serviceTitanConnection = await ServiceTitanService.getConnection();
-      // etc.
+      // const calendlyConnection = await CalendlyService.getConnection();
     } catch (error) {
       console.error('Error loading connections:', error);
     } finally {
@@ -210,37 +220,63 @@ export default function IntegrationsScreen() {
         case 'jobber':
           authUrl = JobberService.getAuthorizationUrl(orgId);
           break;
+        case 'google_calendar':
+          authUrl = CalendarService.getAuthorizationUrl(orgId);
+          break;
         // TODO: Add other providers
         // case 'fergus':
         //   authUrl = FergusService.getAuthorizationUrl(orgId);
+        //   break;
+        // case 'calendly':
+        //   authUrl = CalendlyService.getAuthorizationUrl(orgId);
         //   break;
         default:
           Alert.alert('Coming Soon', `${provider} integration is not yet available.`);
           return;
       }
 
-      const canOpen = await Linking.canOpenURL(authUrl);
-      if (canOpen) {
-        await Linking.openURL(authUrl);
-
-        // Show instructions
-        Alert.alert(
-          'Authorize Connection',
-          'You will be redirected to authorize Flynn AI. After authorization, return to the app and refresh this page.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Reload connections after a delay (user needs to authorize first)
-                setTimeout(() => {
-                  loadConnections();
-                }, 2000);
-              },
-            },
-          ]
+      // For Google Calendar, use WebBrowser for mobile-friendly OAuth
+      if (provider === 'google_calendar') {
+        const result = await WebBrowser.openAuthSessionAsync(
+          authUrl,
+          'https://flynnai-telephony.fly.dev/api/integrations/google-calendar/callback'
         );
+
+        if (result.type === 'success') {
+          // Wait a moment for the server to save the connection
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Reload connections to show updated status
+          await loadConnections();
+          Alert.alert('Success', 'Google Calendar connected successfully!');
+        } else if (result.type === 'cancel') {
+          console.log('[GoogleCalendar] User cancelled authorization');
+        }
       } else {
-        Alert.alert('Error', 'Unable to open authorization URL.');
+        // For other providers, use old method
+        const canOpen = await Linking.canOpenURL(authUrl);
+        if (canOpen) {
+          await Linking.openURL(authUrl);
+
+          // Show instructions
+          Alert.alert(
+            'Authorize Connection',
+            'You will be redirected to authorize Flynn AI. After authorization, return to the app and refresh this page.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  // Reload connections after a delay (user needs to authorize first)
+                  setTimeout(() => {
+                    loadConnections();
+                  }, 2000);
+                },
+              },
+            ]
+          );
+        } else {
+          Alert.alert('Error', 'Unable to open authorization URL.');
+        }
       }
     } catch (error) {
       console.error(`Error connecting to ${provider}:`, error);
@@ -266,6 +302,9 @@ export default function IntegrationsScreen() {
               switch (provider) {
                 case 'jobber':
                   await JobberService.disconnect();
+                  break;
+                case 'google_calendar':
+                  await CalendarService.disconnect();
                   break;
                 // TODO: Add other providers
                 default:
@@ -366,14 +405,13 @@ export default function IntegrationsScreen() {
         <IntegrationCard
           provider="google_calendar"
           name="Google Calendar"
-          description="Sync appointments to your Google Calendar"
+          description="Sync appointments and check availability"
           icon="logo-google"
           iconColor="#4285f4"
           connection={connections.google_calendar}
           onConnect={() => handleConnect('google_calendar')}
           onDisconnect={() => handleDisconnect('google_calendar', 'Google Calendar')}
           loading={loading.google_calendar}
-          comingSoon
         />
 
         <IntegrationCard

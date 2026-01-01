@@ -5,7 +5,11 @@
  */
 
 import type { BillingPlanId } from '../types/billing';
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase';
+import * as WebBrowser from 'expo-web-browser';
+import { Alert } from 'react-native';
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://flynnai-telephony.fly.dev';
 
 export interface SubscriptionStatus {
   hasPaidPlan: boolean;
@@ -144,8 +148,123 @@ function getBillingPeriodStart(): Date {
   return new Date(now.getFullYear(), now.getMonth(), 1); // First day of current month
 }
 
+/**
+ * Create a Stripe checkout session and open it in browser
+ */
+export async function createCheckoutSession(priceId: string): Promise<void> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/billing/create-checkout-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ priceId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create checkout session');
+    }
+
+    const { url } = await response.json();
+
+    // Open Stripe Checkout in browser
+    const result = await WebBrowser.openBrowserAsync(url, {
+      presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+    });
+
+    if (result.type === 'cancel') {
+      console.log('[BillingService] User canceled checkout');
+    }
+  } catch (error) {
+    console.error('[BillingService] Error creating checkout session:', error);
+    Alert.alert('Error', 'Failed to open checkout. Please try again.');
+    throw error;
+  }
+}
+
+/**
+ * Open Stripe Customer Portal for managing subscription
+ */
+export async function openCustomerPortal(): Promise<void> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/billing/create-portal-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create portal session');
+    }
+
+    const { url } = await response.json();
+
+    // Open Stripe Customer Portal in browser
+    await WebBrowser.openBrowserAsync(url, {
+      presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+    });
+  } catch (error) {
+    console.error('[BillingService] Error opening customer portal:', error);
+    Alert.alert('Error', 'Failed to open billing portal. Please try again.');
+    throw error;
+  }
+}
+
+/**
+ * Get subscription status from backend API
+ */
+export async function getSubscriptionFromAPI(): Promise<{
+  plan: BillingPlanId;
+  status: string;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  hasActiveSubscription: boolean;
+} | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return null;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/billing/subscription-status`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('[BillingService] Failed to fetch subscription status');
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[BillingService] Error fetching subscription from API:', error);
+    return null;
+  }
+}
+
 export const BillingService = {
   getSubscriptionStatus,
   canSetupReceptionist,
   canMakeTestCall,
+  createCheckoutSession,
+  openCustomerPortal,
+  getSubscriptionFromAPI,
 };
