@@ -33,6 +33,7 @@ import { BillingScreen } from './src/screens/settings/BillingScreen';
 import QuoteFormsListScreen from './src/screens/quotes/QuoteFormsListScreen';
 import QuoteFormTemplateSelectorScreen from './src/screens/quotes/QuoteFormTemplateSelectorScreen';
 import QuoteFormAnalyticsScreen from './src/screens/quotes/QuoteFormAnalyticsScreen';
+import TermsOfServiceScreen from './src/screens/settings/TermsOfServiceScreen';
 import {
   useFonts,
   Inter_400Regular,
@@ -203,6 +204,14 @@ function RootNavigator() {
           presentation: 'modal',
           headerShown: true,
           title: 'Quote Form Analytics',
+        }}
+      />
+      <Stack.Screen
+        name="TermsOfService"
+        component={TermsOfServiceScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

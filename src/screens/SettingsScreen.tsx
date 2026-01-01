@@ -481,6 +481,7 @@ export const SettingsScreen: React.FC = () => {
           <View style={styles.settingsGroup}>
             {renderSettingRow('information-circle-outline', 'Help center', 'Guides and FAQs', undefined, () => Alert.alert('Help', 'Visit flynn.ai/help for more information.'), false)}
             {renderSettingRow('chatbubbles-outline', 'Contact support', 'support@flynnai.com', undefined, () => Alert.alert('Support', 'Email support@flynnai.com with any issues.'), false)}
+            {renderSettingRow('document-text-outline', 'Terms of Service', 'View our terms and conditions', undefined, () => navigation.navigate('TermsOfService'), false)}
             {renderSettingRow('document-text-outline', 'Data export', 'Download your data as CSV or PDF', undefined, handleDataExport, true)}
           </View>
         ))}
