@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "c946cd19-4dba-4f45-83e6-bbfd7b3d648d"
+      }
+    },
+    "android": {
+      "package": "com.atticusjxn123.flynnai"
+    }
+  }
+}

@@ -14,6 +14,7 @@ import Trial from './pages/Trial';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Setup from './pages/Setup';
+import Terms from './pages/Terms';
 import DashboardLayout from './components/DashboardLayout';
 
 import Features from './components/Features';
@@ -46,6 +47,7 @@ function App() {
             <Route path="contact" element={<Contact />} />
             <Route path="trial" element={<Trial />} />
             <Route path="features" element={<Features />} />
+            <Route path="terms" element={<Terms />} />
           </Route>
 
           <Route path="/login" element={<Login />} />
