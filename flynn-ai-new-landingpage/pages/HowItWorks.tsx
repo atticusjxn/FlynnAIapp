@@ -2,6 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Download, Link as LinkIcon, Settings, CheckCircle } from 'lucide-react';
 import StoreButtons from '../components/StoreButtons';
+import ChatInterfaceAnimation from '../components/ChatInterfaceAnimation';
 
 const HowItWorks: React.FC = () => {
     return (
@@ -109,13 +110,16 @@ const HowItWorks: React.FC = () => {
                             </div>
                         </div>
                         <div className="relative">
-                            {/* Placeholder for Screenshot */}
-                            <div className="aspect-[9/16] bg-gray-100 border-4 border-black rounded-[3rem] shadow-[20px_20px_0px_0px_#000000] overflow-hidden relative">
-                                <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-                                    <p className="font-display font-bold text-gray-400 text-xl">App Interface Screenshot</p>
+                            {/* Chat Interface Animation */}
+                            <div className="aspect-[9/16] bg-gray-50 border-4 border-black rounded-[3rem] shadow-[20px_20px_0px_0px_#000000] overflow-hidden relative">
+                                <div className="absolute top-0 w-full h-full pb-12 pt-8 overflow-hidden">
+                                    <ChatInterfaceAnimation />
                                 </div>
-                                <div className="absolute top-0 w-full h-8 bg-black/10 backdrop-blur-md z-10"></div>
-                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-1/3 h-1 bg-black rounded-full"></div>
+
+                                {/* Phone UI Elements */}
+                                <div className="absolute top-0 w-full h-24 bg-gradient-to-b from-gray-50/90 to-transparent z-10 backdrop-blur-[2px] pointer-events-none"></div>
+                                <div className="absolute top-6 left-1/2 -translate-x-1/2 w-32 h-7 bg-black rounded-full z-20"></div>
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-1/3 h-1.5 bg-black/80 rounded-full z-20"></div>
                             </div>
                         </div>
                     </div>
