@@ -141,7 +141,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     ...typography.bodyMedium,
     color: colors.textPrimary,
-    includeFontPadding: false,
+    includeFontPadding: true,
+    textAlignVertical: 'center',
   },
 
   inputWithLeftIcon: {
