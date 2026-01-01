@@ -182,20 +182,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('[AuthContext] OAuth browser result:', JSON.stringify(result, null, 2));
 
       if (result.type === 'success') {
-        // The session will be set automatically by the onAuthStateChange listener
         console.log('[AuthContext] Google OAuth successful');
-        if ('url' in result) {
+        if ('url' in result && result.url) {
           console.log('[AuthContext] Callback URL:', result.url);
-        }
+          const callbackUrl = new URL(result.url);
+          const code = callbackUrl.searchParams.get('code');
+          let nextSession: Session | null = null;
 
-        // Manually refresh session to ensure immediate state update
-        console.log('[AuthContext] Manually refreshing session after OAuth');
-        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.getSession();
-        if (refreshError) {
-          console.error('[AuthContext] Error refreshing session:', refreshError);
-        } else if (refreshedSession) {
-          console.log('[AuthContext] Session refreshed successfully');
-          await updateSessionState(refreshedSession);
+          if (code) {
+            const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeError) {
+              console.error('[AuthContext] Error exchanging code for session:', exchangeError);
+              throw exchangeError;
+            }
+            nextSession = exchangeData.session ?? null;
+          } else {
+            const hashParams = new URLSearchParams(callbackUrl.hash.replace(/^#/, ''));
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+            if (accessToken && refreshToken) {
+              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+              if (sessionError) {
+                console.error('[AuthContext] Error setting session from callback:', sessionError);
+                throw sessionError;
+              }
+              nextSession = sessionData.session ?? null;
+            }
+          }
+
+          if (nextSession) {
+            await updateSessionState(nextSession);
+          } else {
+            console.warn('[AuthContext] No session information found in OAuth callback URL');
+          }
+        } else {
+          console.warn('[AuthContext] OAuth result missing callback URL');
         }
       } else if (result.type === 'cancel') {
         const errorMsg = 'Google sign-in was cancelled by user';

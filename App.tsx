@@ -42,6 +42,7 @@ import {
   SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold
 } from '@expo-google-fonts/space-grotesk';
+import AnimatedSplashScreen from './src/components/AnimatedSplashScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -258,13 +259,21 @@ export default function App() {
 
   console.log('[App] Root component rendering - React 19 compatible');
 
-  if (!fontsLoaded) {
+  const [isSplashComplete, setIsSplashComplete] = React.useState(false);
+
+  // While fonts are not loaded OR splash animation is not complete, show the Splash Screen
+  // We render the AnimatedSplashScreen component which handles the animation.
+  // Once it calls onAnimationFinish, we set isSplashComplete to true.
+
+  if (!fontsLoaded || !isSplashComplete) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#ff4500" />
-      </View>
+      <AnimatedSplashScreen
+        isAppReady={fontsLoaded}
+        onAnimationFinish={() => setIsSplashComplete(true)}
+      />
     );
   }
+
 
   return (
     <ErrorBoundary>
