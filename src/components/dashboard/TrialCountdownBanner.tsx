@@ -59,10 +59,10 @@ export const TrialCountdownBanner: React.FC = () => {
       return 'Your trial has expired';
     }
     if (trialStatus.daysRemaining === 0) {
-      return 'Your trial ends today!';
+      return 'Trial ends today - billing starts tomorrow';
     }
     if (trialStatus.daysRemaining === 1) {
-      return 'Your trial ends tomorrow!';
+      return 'Trial ends tomorrow - billing starts in 2 days';
     }
     return `${trialStatus.daysRemaining} days left in your free trial`;
   };
@@ -78,12 +78,14 @@ export const TrialCountdownBanner: React.FC = () => {
       <View style={styles.content}>
         <Text style={styles.message}>{getBannerMessage()}</Text>
         <Text style={styles.subtitle}>
-          Subscribe now to keep using AI features
+          {trialStatus.hasExpired
+            ? 'Subscribe to continue using AI features'
+            : 'Cancel anytime during trial - no charge'}
         </Text>
       </View>
 
       <View style={styles.actionContainer}>
-        <Text style={styles.actionText}>Upgrade</Text>
+        <Text style={styles.actionText}>{trialStatus.hasExpired ? 'Subscribe' : 'Manage'}</Text>
         <FlynnIcon name="arrow-forward" size={18} color={colors.white} />
       </View>
     </TouchableOpacity>

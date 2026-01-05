@@ -18,13 +18,13 @@ const getTrialExpiryEmailHTML = (daysRemaining) => {
     : 'Your trial has ended';
 
   const message = daysRemaining === 5
-    ? 'Don\'t lose access to your AI receptionist! Subscribe now to continue capturing every lead and converting calls into booked jobs.'
+    ? 'Your card will be charged in 5 days. Cancel anytime before then with no charge - or let it continue and keep capturing leads automatically!'
     : daysRemaining === 1
-    ? 'This is your last day! Subscribe today to keep your AI receptionist active and never miss another lead.'
-    : 'Your trial has expired. Subscribe now to reactivate your AI receptionist and start capturing leads again.';
+    ? 'Your card will be charged tomorrow! Cancel now if you don\'t want to continue, or sit back and let Flynn keep converting calls into jobs.'
+    : 'Your trial has ended and billing has begun. Manage your subscription anytime in the app settings.';
 
-  const buttonText = 'Subscribe Now';
-  const buttonLink = 'https://flynn.ai/pricing';
+  const buttonText = daysRemaining > 0 ? 'Manage Subscription' : 'View Billing';
+  const buttonLink = 'flynnai://settings/billing';
 
   return `
 <!DOCTYPE html>

@@ -302,7 +302,11 @@ const updateOrganizationPlanById = async (orgId, planId) => {
   try {
     const { data, error } = await supabaseStorageClient
       .from('organizations')
-      .update({ plan: planId, status: 'active' })
+      .update({
+        plan: planId,
+        billing_plan_id: planId, // Also update billing_plan_id for BillingService
+        status: 'active'
+      })
       .eq('id', orgId)
       .select('id')
       .maybeSingle();
@@ -426,19 +430,36 @@ const handleCheckoutSessionCompleted = async (session) => {
   const orgId = session?.client_reference_id || session?.metadata?.organizationId || null;
   const email = (session?.customer_details?.email || session?.customer_email || '').toLowerCase();
 
-  // Store Stripe customer ID when subscription is created via checkout
+  // Store Stripe customer ID and subscription details when created via checkout
   if (session.customer && orgId) {
     try {
+      // Get the subscription ID from the session
+      const subscriptionId = session.subscription;
+
+      const updateData = {
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: subscriptionId,
+        subscription_status: 'trialing', // New subscriptions start with 14-day trial
+        billing_plan_id: planId,
+      };
+
       const { error } = await supabaseServiceClient
         .from('organizations')
-        .update({ stripe_customer_id: session.customer })
+        .update(updateData)
         .eq('id', orgId);
 
       if (error) {
-        console.error('[Billing] Failed to store Stripe customer ID', { orgId, error });
+        console.error('[Billing] Failed to store Stripe subscription details', { orgId, error });
+      } else {
+        console.log('[Billing] Stored subscription details with trial status', {
+          orgId,
+          subscriptionId,
+          status: 'trialing',
+          planId
+        });
       }
     } catch (error) {
-      console.error('[Billing] Error storing Stripe customer ID', { orgId, error });
+      console.error('[Billing] Error storing Stripe subscription details', { orgId, error });
     }
   }
 
@@ -483,6 +504,7 @@ const handleSubscriptionUpdated = async (subscription) => {
         stripe_subscription_id: subscription.id,
         subscription_status: subscription.status,
         plan: planId,
+        billing_plan_id: planId, // Sync billing_plan_id for BillingService
         current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
         current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
         cancel_at_period_end: subscription.cancel_at_period_end || false,
@@ -1918,7 +1940,7 @@ app.post('/api/billing/create-checkout-session', authenticateJwt, async (req, re
       console.log('[Billing] Created Stripe customer', { customerId, orgId: userData.default_org_id });
     }
 
-    // Create checkout session
+    // Create checkout session with 14-day trial
     const session = await stripeClient.checkout.sessions.create({
       customer: customerId,
       client_reference_id: userData.default_org_id,
@@ -1929,11 +1951,26 @@ app.post('/api/billing/create-checkout-session', authenticateJwt, async (req, re
           quantity: 1,
         },
       ],
+      subscription_data: {
+        trial_period_days: 14,
+        trial_settings: {
+          end_behavior: {
+            missing_payment_method: 'cancel', // Cancel subscription if no payment method after trial
+          },
+        },
+        metadata: {
+          org_id: userData.default_org_id,
+          user_id: userId,
+          trial_start: new Date().toISOString(),
+        },
+      },
+      payment_method_collection: 'always', // Require payment method upfront
       success_url: `${process.env.API_BASE_URL || 'flynnai://billing'}?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.API_BASE_URL || 'flynnai://billing'}?canceled=true`,
       metadata: {
         org_id: userData.default_org_id,
         user_id: userId,
+        has_trial: 'true',
       },
     });
 
