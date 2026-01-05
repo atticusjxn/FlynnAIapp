@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { businessGoals, useOnboarding } from '../../context/OnboardingContext';
+import { colors, typography, spacing, borderRadius } from '../../theme';
 
 interface BusinessGoalsScreenProps {
   onNext: () => void;
@@ -40,11 +41,13 @@ export const BusinessGoalsScreen: React.FC<BusinessGoalsScreenProps> = ({ onNext
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
+          <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, styles.progressActive]} />
           <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={styles.progressBar} />
           <View style={styles.progressBar} />
           <View style={styles.progressBar} />
         </View>
@@ -71,21 +74,14 @@ export const BusinessGoalsScreen: React.FC<BusinessGoalsScreenProps> = ({ onNext
                 onPress={() => toggleGoal(goal.id)}
               >
                 <View style={styles.optionContent}>
-                  <View style={styles.optionHeader}>
-                    <Text
-                      style={[
-                        styles.optionTitle,
-                        isSelected && styles.selectedOptionTitle,
-                      ]}
-                    >
-                      {goal.label}
-                    </Text>
-                    <View style={[styles.checkbox, isSelected && styles.selectedCheckbox]}>
-                      {isSelected && (
-                        <FlynnIcon name="checkmark" size={16} color="white" />
-                      )}
-                    </View>
-                  </View>
+                  <Text
+                    style={[
+                      styles.optionTitle,
+                      isSelected && styles.selectedOptionTitle,
+                    ]}
+                  >
+                    {goal.label}
+                  </Text>
                   <Text
                     style={[
                       styles.optionDescription,
@@ -95,16 +91,21 @@ export const BusinessGoalsScreen: React.FC<BusinessGoalsScreenProps> = ({ onNext
                     {goal.description}
                   </Text>
                 </View>
+                {isSelected && (
+                  <FlynnIcon name="checkmark-circle" size={24} color={colors.primary} />
+                )}
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <View style={styles.selectedCountContainer}>
-          <Text style={styles.selectedCountText}>
-            {selectedGoals.length} goal{selectedGoals.length !== 1 ? 's' : ''} selected
-          </Text>
-        </View>
+        {selectedGoals.length > 0 && (
+          <View style={styles.selectedCountContainer}>
+            <Text style={styles.selectedCountText}>
+              {selectedGoals.length} goal{selectedGoals.length !== 1 ? 's' : ''} selected
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.buttonContainer}>
@@ -116,18 +117,12 @@ export const BusinessGoalsScreen: React.FC<BusinessGoalsScreenProps> = ({ onNext
           <Text style={[styles.nextButtonText, !canProceed && styles.disabledButtonText]}>
             Continue
           </Text>
-          <FlynnIcon 
-            name="arrow-forward" 
-            size={20} 
-            color={canProceed ? "white" : "#9ca3af"} 
+          <FlynnIcon
+            name="arrow-forward"
+            size={20}
+            color={canProceed ? colors.white : colors.gray400}
           />
         </TouchableOpacity>
-        
-        {!canProceed && (
-          <Text style={styles.helperText}>
-            Please select at least one goal to continue
-          </Text>
-        )}
       </View>
     </SafeAreaView>
   );
@@ -136,142 +131,120 @@ export const BusinessGoalsScreen: React.FC<BusinessGoalsScreenProps> = ({ onNext
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.gray50,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
   },
   backButton: {
-    marginRight: 16,
+    marginRight: spacing.md,
   },
   progressContainer: {
     flex: 1,
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.xs,
   },
   progressBar: {
     flex: 1,
     height: 4,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 2,
+    backgroundColor: colors.gray200,
+    borderRadius: borderRadius.xs,
   },
   progressActive: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.primary,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
   },
   titleContainer: {
-    marginBottom: 32,
+    marginBottom: spacing.xxl,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 8,
+    ...typography.h1,
+    color: colors.gray900,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
+    ...typography.bodyMedium,
+    color: colors.gray600,
     lineHeight: 22,
   },
   optionsContainer: {
-    gap: 16,
+    gap: spacing.sm,
   },
   option: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.white,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   selectedOption: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#eff6ff',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   optionContent: {
     flex: 1,
-  },
-  optionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    marginRight: spacing.sm,
   },
   optionTitle: {
-    fontSize: 16,
+    ...typography.bodyLarge,
+    color: colors.gray900,
     fontWeight: '600',
-    color: '#1f2937',
-    flex: 1,
+    marginBottom: spacing.xxs,
   },
   selectedOptionTitle: {
-    color: '#3B82F6',
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectedCheckbox: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
+    color: colors.primary,
   },
   optionDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    lineHeight: 20,
+    ...typography.bodySmall,
+    color: colors.gray600,
+    lineHeight: 18,
   },
   selectedOptionDescription: {
-    color: '#1e40af',
+    color: colors.primaryDark,
   },
   selectedCountContainer: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.primaryLight,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
   },
   selectedCountText: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
+    ...typography.bodyMedium,
+    color: colors.primary,
+    fontWeight: '600',
   },
   buttonContainer: {
-    padding: 24,
+    padding: spacing.lg,
   },
   nextButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
   },
   disabledButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.gray200,
   },
   nextButtonText: {
-    color: 'white',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
-    marginRight: 8,
+    marginRight: spacing.xs,
   },
   disabledButtonText: {
-    color: '#9ca3af',
-  },
-  helperText: {
-    fontSize: 14,
-    color: '#ef4444',
-    textAlign: 'center',
-    marginTop: 12,
+    color: colors.gray400,
   },
 });

@@ -382,6 +382,8 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
           <View style={[styles.progressBar, styles.progressActive]} />
           <View style={[styles.progressBar, styles.progressActive]} />
           <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={[styles.progressBar, styles.progressActive]} />
           <View style={styles.progressBar} />
         </View>
       </View>
@@ -433,6 +435,8 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
             keyboardType="phone-pad"
             autoCorrect={false}
             placeholderTextColor="#9ca3af"
+            returnKeyType="done"
+            blurOnSubmit={true}
           />
           <Text style={styles.inputHelper}>
             Flynn uses this to recommend the right forwarding instructions.

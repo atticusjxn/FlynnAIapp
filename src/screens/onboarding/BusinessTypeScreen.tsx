@@ -70,6 +70,7 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
             <View style={styles.progressBar} />
             <View style={styles.progressBar} />
             <View style={styles.progressBar} />
+            <View style={styles.progressBar} />
           </View>
         </View>
 
