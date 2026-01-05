@@ -259,19 +259,146 @@ Generate intake questions for this business's AI receptionist.`;
 };
 
 /**
- * Generate complete AI receptionist configuration from website
+ * Generate complete AI receptionist configuration from website (OPTIMIZED - Single API call)
  */
-const generateReceptionistConfig = async (scrapedData) => {
-  console.log('[BusinessProfileGenerator] Generating complete receptionist config');
+const generateReceptionistConfigOptimized = async (scrapedData) => {
+  console.log('[BusinessProfileGenerator] Generating complete receptionist config (optimized single call)');
+
+  const systemPrompt = `You are a business analysis expert. Extract business information and generate AI receptionist configuration from website data.
+
+IMPORTANT: Many modern websites use client-side rendering, so the main content may be minimal.
+In these cases, PRIORITIZE the metadata (title, description, keywords) and structured data to extract information.
+
+Analyze the provided website data and generate a COMPLETE configuration in one response.
+
+Return ONLY valid JSON with this exact structure:
+{
+  "businessProfile": {
+    "public_name": "Business Name",
+    "legal_name": "Legal Name (or same as public_name)",
+    "headline": "One sentence describing the business",
+    "description": "2-3 sentences about the business",
+    "services": ["Service 1", "Service 2", ...],
+    "brand_voice": {
+      "tone": "professional|casual|friendly|technical",
+      "formality": "formal|neutral|informal",
+      "personality": "warm|efficient|authoritative|approachable",
+      "characteristics": ["characteristic1", "characteristic2"]
+    },
+    "target_audience": "Who they serve",
+    "value_propositions": ["Value prop 1", "Value prop 2", ...]
+  },
+  "greetingScript": "2-3 sentence natural phone greeting that welcomes caller, states business name, offers help, matches brand voice",
+  "intakeQuestions": ["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?", "Question 6?"]
+}
+
+GREETING REQUIREMENTS:
+- 2-3 sentences maximum
+- Natural and conversational (for phone delivery)
+- States business name clearly
+- Offers to help
+- Matches the business's brand voice
+- Sounds like a real human receptionist
+
+QUESTION REQUIREMENTS:
+- 4-6 essential questions for customer intake
+- Conversational and natural (for phone conversation)
+- Gather critical info: name, contact, service needed, location, timeline, urgency
+- Match business services and brand voice
+- Logical order (basics first, then specifics)`;
+
+  const userPrompt = `Website URL: ${scrapedData.url}
+
+METADATA (High Priority):
+Title: ${scrapedData.metadata?.title || 'N/A'}
+Description: ${scrapedData.metadata?.description || 'N/A'}
+Keywords: ${scrapedData.metadata?.keywords || 'N/A'}
+Site Name: ${scrapedData.metadata?.siteName || 'N/A'}
+
+STRUCTURED DATA:
+${scrapedData.structuredData ? JSON.stringify(scrapedData.structuredData, null, 2) : 'None'}
+
+SERVICES FOUND:
+${scrapedData.services?.join(', ') || 'None'}
+
+CONTACT INFO:
+${JSON.stringify(scrapedData.contact, null, 2)}
+
+BUSINESS HOURS:
+${scrapedData.businessHours || 'Not specified'}
+
+PAGE CONTENT (may be minimal if JS-rendered):
+${scrapedData.content?.slice(0, 2000) || 'Minimal content - relying on metadata'}
+
+Generate the complete business profile, greeting script, and intake questions in a single JSON response.`;
 
   try {
-    // Step 1: Generate business profile
+    const startTime = Date.now();
+
+    const completion = await llmClient.chat.completions.create({
+      model: PROFILE_GENERATION_MODEL,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.5,
+    });
+
+    const content = completion?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('LLM returned empty response');
+    }
+
+    const config = JSON.parse(content);
+
+    // Validate required fields
+    if (!config.businessProfile || !config.greetingScript || !config.intakeQuestions) {
+      throw new Error('LLM returned incomplete configuration');
+    }
+
+    // Normalize intake questions if needed
+    if (typeof config.intakeQuestions === 'object' && !Array.isArray(config.intakeQuestions)) {
+      config.intakeQuestions = Object.values(config.intakeQuestions);
+    }
+
+    config.generatedAt = new Date().toISOString();
+
+    const duration = Date.now() - startTime;
+
+    console.log('[BusinessProfileGenerator] Successfully generated complete config (optimized):', {
+      businessName: config.businessProfile.public_name,
+      greetingLength: config.greetingScript.length,
+      questionsCount: config.intakeQuestions?.length || 0,
+      duration: `${duration}ms`,
+      optimizationSavings: 'Reduced from ~3 API calls to 1',
+    });
+
+    return config;
+  } catch (error) {
+    console.error('[BusinessProfileGenerator] Failed to generate config (optimized):', {
+      error: error.message,
+    });
+    throw new Error(`Failed to generate receptionist config: ${error.message}`);
+  }
+};
+
+/**
+ * Generate complete AI receptionist configuration from website
+ * Uses optimized single-call version by default, falls back to sequential if needed
+ */
+const generateReceptionistConfig = async (scrapedData) => {
+  // Try optimized version first
+  try {
+    return await generateReceptionistConfigOptimized(scrapedData);
+  } catch (error) {
+    console.warn('[BusinessProfileGenerator] Optimized generation failed, falling back to sequential:', error.message);
+
+    // Fallback to sequential generation
+    console.log('[BusinessProfileGenerator] Generating complete receptionist config (fallback)');
+
     const businessProfile = await generateBusinessProfile(scrapedData);
-
-    // Step 2: Generate greeting script
     const greetingScript = await generateGreetingScript(businessProfile, scrapedData);
-
-    // Step 3: Generate intake questions
     const intakeQuestions = await generateIntakeQuestions(businessProfile, scrapedData);
 
     const config = {
@@ -281,18 +408,13 @@ const generateReceptionistConfig = async (scrapedData) => {
       generatedAt: new Date().toISOString(),
     };
 
-    console.log('[BusinessProfileGenerator] Successfully generated complete config:', {
+    console.log('[BusinessProfileGenerator] Successfully generated complete config (fallback):', {
       businessName: businessProfile.public_name,
       greetingLength: greetingScript.length,
       questionsCount: intakeQuestions.length,
     });
 
     return config;
-  } catch (error) {
-    console.error('[BusinessProfileGenerator] Failed to generate receptionist config:', {
-      error: error.message,
-    });
-    throw error;
   }
 };
 
@@ -301,4 +423,5 @@ module.exports = {
   generateGreetingScript,
   generateIntakeQuestions,
   generateReceptionistConfig,
+  generateReceptionistConfigOptimized,
 };
