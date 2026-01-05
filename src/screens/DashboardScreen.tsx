@@ -20,6 +20,7 @@ import { Job } from '../components/jobs/JobCard';
 import { ActivityHistoryModal } from '../components/dashboard/ActivityHistoryModal';
 import { ActivityDetailsModal } from '../components/dashboard/ActivityDetailsModal';
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
+import { TrialCountdownBanner } from '../components/dashboard/TrialCountdownBanner';
 import { useJobs } from '../context/JobsContext';
 import { FloatingActionButton } from '../components/common/FloatingActionButton';
 import { generateSmsConfirmation, createSmsUrl } from '../utils/smsTemplate';
@@ -349,6 +350,9 @@ export const DashboardScreen = () => {
       <View style={styles.welcomeSection}>
         <Text style={styles.welcomeText}>Welcome back, {getUserName()} 👋</Text>
       </View>
+
+      {/* Trial Countdown Banner */}
+      <TrialCountdownBanner />
 
       {/* Booking Stats Section */}
       {bookingStats && (bookingStats.activePagesCount > 0 || bookingStats.bookingsThisWeek > 0) && (

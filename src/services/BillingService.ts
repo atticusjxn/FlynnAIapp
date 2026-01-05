@@ -23,11 +23,11 @@ export interface SubscriptionStatus {
   subscriptionStatus?: 'active' | 'past_due' | 'canceled' | 'incomplete' | 'trialing';
 }
 
-const PLAN_CALL_LIMITS: Record<BillingPlanId, number> = {
+const PLAN_MINUTE_LIMITS: Record<BillingPlanId, number> = {
   trial: 0, // Free tier: no calls to real numbers
-  starter: 50,
-  growth: 150,
-  enterprise: 350,
+  starter: 200, // 200 minutes (~100 calls at 2 min average)
+  growth: 500, // 500 minutes (~250 calls)
+  enterprise: 1000, // 1000 minutes (~500 calls)
 };
 
 /**
@@ -74,7 +74,7 @@ export async function getSubscriptionStatus(userId: string): Promise<Subscriptio
 
     const planId = (org?.billing_plan_id as BillingPlanId) || 'trial';
     const isPaid = planId !== 'trial';
-    const callLimit = PLAN_CALL_LIMITS[planId] || 0;
+    const minuteLimit = PLAN_MINUTE_LIMITS[planId] || 0;
 
     // Count AI receptionist calls this billing period
     const billingPeriodStart = getBillingPeriodStart();
@@ -90,14 +90,14 @@ export async function getSubscriptionStatus(userId: string): Promise<Subscriptio
     }
 
     const totalCallsUsed = callsUsed || 0;
-    const callsRemaining = Math.max(0, callLimit - totalCallsUsed);
+    const callsRemaining = Math.max(0, minuteLimit - totalCallsUsed);
     const canMakeCalls = isPaid && (org?.subscription_status === 'active' || org?.subscription_status === 'trialing');
 
     return {
       hasPaidPlan: isPaid,
       planId,
       callsUsed: totalCallsUsed,
-      callsAllotted: callLimit,
+      callsAllotted: minuteLimit,
       callsRemaining,
       canMakeCalls,
       stripeSubscriptionId: org?.stripe_subscription_id,

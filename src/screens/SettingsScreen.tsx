@@ -356,8 +356,8 @@ export const SettingsScreen: React.FC = () => {
 
             {renderSettingRow(
               'card-outline',
-              'Billing & Subscription',
-              'Manage your plan and payment',
+              'Billing & Plans',
+              'View plans, manage subscription & payment',
               undefined,
               () => navigation.navigate('Billing'),
               false,

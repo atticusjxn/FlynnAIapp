@@ -48,6 +48,8 @@ const { generateReceptionistConfig } = require('./services/businessProfileGenera
 const { generateSiteFromInstagram } = require('./services/sites/siteGenerationService');
 const { generateSpeech: generateGeminiSpeech, resolveVoiceName: resolveGeminiVoice } = require('./services/geminiTTSService');
 const reminderScheduler = require('./services/reminderScheduler');
+const { getTrialExpiryEmailHTML } = require('./services/emails/trialExpiryTemplate');
+const { Resend } = require('resend');
 
 dotenv.config();
 
@@ -86,6 +88,8 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const stripeBasicPriceId = process.env.STRIPE_BASIC_PRICE_ID;
 const stripeGrowthPriceId = process.env.STRIPE_GROWTH_PRICE_ID;
+const resendApiKey = process.env.RESEND_API_KEY;
+const fromEmail = process.env.FROM_EMAIL || 'notifications@flynnai.app';
 const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   || process.env.SUPABASE_KEY
@@ -259,6 +263,10 @@ const deleteUserData = async (userId) => {
 
 const stripeClient = stripeSecretKey
   ? new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' })
+  : null;
+
+const resendClient = resendApiKey
+  ? new Resend(resendApiKey)
   : null;
 
 const planPriceMapping = {};
@@ -3503,6 +3511,41 @@ app.post('/me/notifications/token', authenticateJwt, async (req, res) => {
   } catch (error) {
     console.error('[Notifications] Failed to upsert notification token.', { userId, error });
     return res.status(500).json({ error: 'Failed to register device token' });
+  }
+});
+
+app.post('/api/notifications/trial-expiry', async (req, res) => {
+  const { userId, email, daysRemaining } = req.body || {};
+
+  if (!userId || !email || typeof daysRemaining !== 'number') {
+    return res.status(400).json({ error: 'userId, email, and daysRemaining are required' });
+  }
+
+  if (!resendClient) {
+    console.error('[TrialExpiry] Resend client not configured');
+    return res.status(500).json({ error: 'Email service not configured' });
+  }
+
+  try {
+    const htmlContent = getTrialExpiryEmailHTML(daysRemaining);
+    const subject = daysRemaining === 5
+      ? 'Your Flynn AI trial ends in 5 days'
+      : daysRemaining === 1
+      ? 'Your Flynn AI trial ends tomorrow!'
+      : 'Your Flynn AI trial has ended';
+
+    await resendClient.emails.send({
+      from: fromEmail,
+      to: email,
+      subject,
+      html: htmlContent,
+    });
+
+    console.log(`[TrialExpiry] Email sent to ${email} (${daysRemaining} days remaining)`);
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[TrialExpiry] Failed to send email:', error);
+    return res.status(500).json({ error: 'Failed to send trial expiry email' });
   }
 });
 
