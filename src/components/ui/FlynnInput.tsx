@@ -136,12 +136,12 @@ const styles = StyleSheet.create({
 
   input: {
     flex: 1,
-    paddingTop: spacing.xs + 2,
-    paddingBottom: spacing.xs + 2,
+    paddingVertical: 0,
     paddingHorizontal: spacing.md,
     ...typography.bodyMedium,
+    lineHeight: 24,
     color: colors.textPrimary,
-    includeFontPadding: true,
+    includeFontPadding: false,
     textAlignVertical: 'center',
   },
 
