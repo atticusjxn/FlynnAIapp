@@ -373,26 +373,28 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={styles.progressBar} />
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
+          </TouchableOpacity>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={styles.progressBar} />
+          </View>
         </View>
-      </View>
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.titleContainer}>
           <View style={styles.iconContainer}>
             <FlynnIcon name="call" size={32} color="#3B82F6" />
@@ -644,7 +646,8 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 };
 
@@ -652,6 +655,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  safeArea: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -779,11 +785,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 10,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     fontSize: 16,
+    lineHeight: 24,
     color: '#1f2937',
     marginTop: 12,
     marginBottom: 8,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   inputHelper: {
     fontSize: 14,
