@@ -5,6 +5,7 @@ import { AuthTokenStorage } from '../services/authTokenStorage';
 import { registerDevicePushToken } from '../services/pushRegistration';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
+import Constants from 'expo-constants';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -141,12 +142,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('[AuthContext] Starting Google OAuth flow');
 
       // Generate proper redirect URI for mobile app
+      // For Expo Go development, use useProxy to avoid redirect URL issues
+      // For standalone builds, use custom scheme
       const redirectTo = makeRedirectUri({
-        scheme: 'flynnai',
-        path: 'auth/callback'
+        scheme: Constants.appOwnership === 'expo' ? undefined : 'flynnai',
+        path: 'auth/callback',
+        useProxy: Constants.appOwnership === 'expo', // Use proxy for Expo Go
       });
 
       console.log('[AuthContext] Generated redirect URI:', redirectTo);
+      console.log('[AuthContext] App ownership:', Constants.appOwnership);
 
       // Start the OAuth flow - Supabase handles the callback URL
       const { data, error } = await supabase.auth.signInWithOAuth({

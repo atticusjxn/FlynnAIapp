@@ -160,6 +160,8 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
           <View style={[styles.progressBar, styles.progressActive]} />
           <View style={[styles.progressBar, styles.progressActive]} />
           <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={[styles.progressBar, styles.progressActive]} />
         </View>
       </View>
 

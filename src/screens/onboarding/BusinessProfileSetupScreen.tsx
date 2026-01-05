@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnInput } from '../../components/ui/FlynnInput';
@@ -123,20 +125,30 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={styles.progressBar} />
-          <View style={styles.progressBar} />
-          <View style={styles.progressBar} />
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={[styles.progressBar, styles.progressActive]} />
+            <View style={styles.progressBar} />
+            <View style={styles.progressBar} />
+            <View style={styles.progressBar} />
+            <View style={styles.progressBar} />
+          </View>
         </View>
-      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.titleContainer}>
           <View style={styles.iconContainer}>
             <FlynnIcon name="business" size={32} color={colors.primary} />
@@ -220,24 +232,25 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
             </Text>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
 
-      <View style={styles.buttonRow}>
-        <FlynnButton
-          title="Skip for now"
-          onPress={handleSkip}
-          variant="secondary"
-          disabled={scraping}
-          style={styles.skipButton}
-        />
-        <FlynnButton
-          title="Continue"
-          onPress={handleNext}
-          variant="primary"
-          disabled={!canProceed || scraping}
-          style={styles.nextButton}
-        />
-      </View>
+        <View style={styles.buttonRow}>
+          <FlynnButton
+            title="Skip for now"
+            onPress={handleSkip}
+            variant="secondary"
+            disabled={scraping}
+            style={styles.skipButton}
+          />
+          <FlynnButton
+            title="Continue"
+            onPress={handleNext}
+            variant="primary"
+            disabled={!canProceed || scraping}
+            style={styles.nextButton}
+          />
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -246,6 +259,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

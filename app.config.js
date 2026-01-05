@@ -20,7 +20,7 @@ export default {
     ],
     name: "FlynnAI",
     slug: "FlynnAI",
-    version: "1.2.0",
+    version: "1.3.0",
     orientation: "portrait",
     icon: "./assets/images/adaptive-icon.png",
     userInterfaceStyle: "light",
@@ -41,7 +41,7 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.flynnai.app",
       deploymentTarget: "13.4",
-      buildNumber: "55",
+      buildNumber: "56",
       icon: "./assets/images/adaptive-icon.png",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
@@ -52,7 +52,7 @@ export default {
       }
     },
     android: {
-      versionCode: 55,
+      versionCode: 56,
       permissions: [
         "RECORD_AUDIO",
         "READ_PHONE_STATE",
