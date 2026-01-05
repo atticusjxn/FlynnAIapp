@@ -10,19 +10,18 @@ import { TwilioProvisioningScreen } from './TwilioProvisioningScreen';
 import { CarrierSetupScreen } from './CarrierSetupScreen';
 
 export const OnboardingNavigator: React.FC = () => {
-  const { completeOnboarding } = useOnboarding();
-  const [currentStep, setCurrentStep] = useState(0);
+  const { completeOnboarding, currentOnboardingStep, setCurrentOnboardingStep } = useOnboarding();
 
   const handleStartOnboarding = () => {
-    setCurrentStep(1);
+    setCurrentOnboardingStep(1);
   };
 
   const handleNext = () => {
-    setCurrentStep(prev => prev + 1);
+    setCurrentOnboardingStep(prev => prev + 1);
   };
 
   const handleBack = () => {
-    setCurrentStep(prev => prev - 1);
+    setCurrentOnboardingStep(prev => prev - 1);
   };
 
   const handleCompleteOnboarding = async () => {
@@ -34,7 +33,7 @@ export const OnboardingNavigator: React.FC = () => {
   };
 
   const renderStep = () => {
-    switch (currentStep) {
+    switch (currentOnboardingStep) {
       case 0:
         return <GettingStartedScreen onStartOnboarding={handleStartOnboarding} />;
       case 1:

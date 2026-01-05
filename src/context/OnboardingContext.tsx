@@ -12,6 +12,8 @@ interface OnboardingContextType {
   loading: boolean;
   organizationId: string | null;
   refreshOnboarding: () => Promise<void>;
+  currentOnboardingStep: number;
+  setCurrentOnboardingStep: (step: number) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -63,6 +65,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [onboardingData, setOnboardingData] = useState<OnboardingData>(defaultOnboardingData);
   const [loading, setLoading] = useState(true);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [currentOnboardingStep, setCurrentOnboardingStep] = useState(0);
 
   const checkOnboardingStatus = useCallback(async (options: { silent?: boolean } = {}) => {
     if (!user) {
@@ -122,6 +125,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsOnboardingComplete(false);
     setOnboardingData(defaultOnboardingData);
     setOrganizationId(null);
+    setCurrentOnboardingStep(0);
   };
 
   return (
@@ -135,6 +139,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         loading,
         organizationId,
         refreshOnboarding,
+        currentOnboardingStep,
+        setCurrentOnboardingStep,
       }}
     >
       {children}
