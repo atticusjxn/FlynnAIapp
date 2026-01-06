@@ -74,6 +74,7 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
+        trial_period_days: 14,
         payment_settings: {
           payment_method_types: ['card'],
           save_default_payment_method: 'on_subscription',
