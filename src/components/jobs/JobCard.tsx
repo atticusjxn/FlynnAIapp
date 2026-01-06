@@ -35,7 +35,8 @@ export interface Job {
 
 interface JobCardProps {
   job: Job;
-  onPress: (job: Job) => void;
+  onPress?: (job: Job) => void;
+  previewMode?: boolean; // When true, card is view-only for demonstration
 }
 
 const getStatusColor = (status: Job['status'], colors: any) => {
@@ -113,7 +114,7 @@ const formatTime = (timeString: string) => {
   }
 };
 
-export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
+export const JobCard: React.FC<JobCardProps> = ({ job, onPress, previewMode = false }) => {
   const { colors } = useTheme();
   const styles = createStyles(colors);
   const statusColors = getStatusColor(job.status, colors);
@@ -177,9 +178,10 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
 
   return (
     <TouchableOpacity
-      style={styles.card}
-      onPress={() => onPress(job)}
-      activeOpacity={0.7}
+      style={[styles.card, previewMode && styles.previewCard]}
+      onPress={previewMode ? undefined : () => onPress?.(job)}
+      activeOpacity={previewMode ? 1 : 0.7}
+      disabled={previewMode}
     >
       <View style={styles.header}>
         <View style={styles.clientInfo}>
@@ -273,6 +275,13 @@ const createStyles = (colors: any) => StyleSheet.create({
     ...shadows.sm,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+
+  previewCard: {
+    opacity: 0.9,
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    borderStyle: 'dashed',
   },
   
   header: {

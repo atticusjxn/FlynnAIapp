@@ -1,6 +1,7 @@
 const { URL } = require('url');
 const WebSocket = require('ws');
 const createVoiceAgentHandler = require('./deepgramVoiceAgent');
+const createNativeTestHandler = require('./nativeTestHandler');
 
 /**
  * Attach a Twilio media stream WebSocket endpoint to the HTTP server.
@@ -35,7 +36,7 @@ const attachRealtimeServer = ({
         searchParams: Object.fromEntries(requestUrl.searchParams),
       });
 
-      if (requestUrl.pathname !== '/realtime/twilio' && requestUrl.pathname !== '/realtime/test') {
+      if (requestUrl.pathname !== '/realtime/twilio' && requestUrl.pathname !== '/realtime/test' && requestUrl.pathname !== '/realtime/native-test') {
         console.warn('[Realtime] WebSocket upgrade rejected - wrong path:', requestUrl.pathname);
         socket.destroy();
         return;
@@ -58,6 +59,39 @@ const attachRealtimeServer = ({
       const params = parsedUrl instanceof URL
         ? parsedUrl.searchParams
         : new URL(request.url, `http://${request.headers.host}`).searchParams;
+
+      const pathname = parsedUrl instanceof URL
+        ? parsedUrl.pathname
+        : new URL(request.url, `http://${request.headers.host}`).pathname;
+
+      // Handle native test connections separately
+      if (pathname === '/realtime/native-test') {
+        console.log('[Realtime] Native test connection detected');
+
+        const userId = params.get('userId');
+        const greeting = params.get('greeting');
+        const voiceId = params.get('voiceId') || 'flynn_warm';
+        const mode = params.get('mode') || 'ai_only';
+
+        console.log('[Realtime] Native test parameters:', { userId, voiceId, mode });
+
+        const handler = createNativeTestHandler({
+          ws,
+          userId,
+          testConfig: {
+            greeting: greeting ? decodeURIComponent(greeting) : null,
+            voiceId,
+            mode,
+          },
+          getBusinessContextForOrg,
+          deepgramClient,
+        });
+
+        handler.attach();
+        return;
+      }
+
+      // Handle Twilio connections (original logic)
       const callSid = params.get('callSid');
       const userId = params.get('userId');
 

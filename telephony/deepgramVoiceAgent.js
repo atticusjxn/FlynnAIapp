@@ -782,3 +782,11 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
  * Factory function to create Voice Agent handler
  */
 module.exports = (options) => new DeepgramVoiceAgentHandler(options);
+
+// Export helper functions for reuse in native test handler
+module.exports.buildSystemPrompt = buildSystemPrompt;
+module.exports.getFunctionSchema = function() {
+  // Create a temporary instance to access the method
+  const tempHandler = new DeepgramVoiceAgentHandler({});
+  return tempHandler.getFunctionSchema();
+};
