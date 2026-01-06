@@ -25,6 +25,7 @@ import {
   CarrierDetectionConfidence,
 } from '../../services/CarrierDetectionService';
 import { sanitizeDigits, normalizeNumberForDetection } from '../../utils/phone';
+import { useTheme } from '../../context/ThemeContext';
 
 interface CarrierSetupScreenProps {
   onNext: () => void;
@@ -59,6 +60,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
   onNext,
   onBack,
 }) => {
+  const { colors } = useTheme();
   const { updateOnboardingData, onboardingData } = useOnboarding();
   const [phoneNumber, setPhoneNumber] = useState(onboardingData.phoneNumber || '');
   const [selectedCarrierId, setSelectedCarrierId] = useState(
@@ -372,12 +374,14 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
     },
   ];
 
+  const styles = createStyles(colors);
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
+            <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <View style={styles.progressContainer}>
             <View style={[styles.progressBar, styles.progressActive]} />
@@ -397,7 +401,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
         >
         <View style={styles.titleContainer}>
           <View style={styles.iconContainer}>
-            <FlynnIcon name="call" size={32} color="#3B82F6" />
+            <FlynnIcon name="call" size={32} color={colors.primary} />
           </View>
           <Text style={styles.title}>Forward missed calls to Flynn</Text>
           <Text style={styles.subtitle}>
@@ -408,7 +412,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
         <View style={styles.infoCard}>
           <View style={styles.infoCardHeader}>
             <View style={styles.infoCardIcon}>
-              <FlynnIcon name="shield-checkmark" size={20} color="#2563eb" />
+              <FlynnIcon name="shield-checkmark" size={20} color={colors.primary} />
             </View>
             <Text style={styles.infoCardTitle}>Your Flynn voicemail number</Text>
           </View>
@@ -455,7 +459,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
           {carrierDetectionState.status === 'loading' && (
             <View style={[styles.detectionBanner, styles.detectionBannerNeutral]}>
-              <ActivityIndicator size="small" color="#2563eb" />
+              <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.detectionText}>Checking who provides this line…</Text>
             </View>
           )}
@@ -529,7 +533,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
               style={styles.showMoreButton}
               onPress={() => setShowAllCarriers(true)}
             >
-              <FlynnIcon name="add-circle-outline" size={18} color="#2563eb" />
+              <FlynnIcon name="add-circle-outline" size={18} color={colors.primary} />
               <Text style={styles.showMoreText}>Show more carriers</Text>
             </TouchableOpacity>
           )}
@@ -537,7 +541,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
         <View style={styles.stepsCard}>
           <View style={styles.stepsHeader}>
-            <FlynnIcon name="trail-sign-outline" size={20} color="#2563eb" />
+            <FlynnIcon name="trail-sign-outline" size={20} color={colors.primary} />
             <Text style={styles.sectionLabel}>Forwarding checklist</Text>
           </View>
 
@@ -548,7 +552,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
               </View>
               <View style={styles.stepContent}>
                 <View style={styles.stepTitleRow}>
-                  <FlynnIcon name={step.icon} size={18} color="#2563eb" />
+                  <FlynnIcon name={step.icon} size={18} color={colors.primary} />
                   <Text style={styles.stepTitle}>{step.title}</Text>
                 </View>
                 <Text style={styles.stepDescription}>{step.description}</Text>
@@ -560,7 +564,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
         {selectedCarrier && (
           <View style={styles.codesCard}>
             <View style={styles.codesHeader}>
-              <FlynnIcon name="keypad-outline" size={20} color="#2563eb" />
+              <FlynnIcon name="keypad-outline" size={20} color={colors.primary} />
               <Text style={styles.sectionLabel}>
                 Dial codes for {selectedCarrier.name}
               </Text>
@@ -604,7 +608,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
 
             {selectedCarrier.notes && (
               <View style={styles.notesContainer}>
-                <FlynnIcon name="sparkles-outline" size={16} color="#2563eb" />
+                <FlynnIcon name="sparkles-outline" size={16} color={colors.primary} />
                 <Text style={styles.notesText}>{selectedCarrier.notes}</Text>
               </View>
             )}
@@ -615,7 +619,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
                 onPress={() => Linking.openURL(selectedCarrier.supportUrl!)}
               >
                 <Text style={styles.supportLinkText}>View official carrier help</Text>
-                <FlynnIcon name="open-outline" size={16} color="#2563eb" />
+                <FlynnIcon name="open-outline" size={16} color={colors.primary} />
               </TouchableOpacity>
             )}
           </View>
@@ -651,7 +655,7 @@ export const CarrierSetupScreen: React.FC<CarrierSetupScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -681,7 +685,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   progressActive: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.primary,
   },
   content: {
     flex: 1,
@@ -698,7 +702,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -737,7 +741,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#dbeafe',
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -818,7 +822,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   detectionBannerNeutral: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: colors.primaryLight,
   },
   detectionBannerSuccess: {
     backgroundColor: '#dcfce7',
@@ -863,9 +867,9 @@ const styles = StyleSheet.create({
     minWidth: '45%',
   },
   carrierChipSelected: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: colors.primaryLight,
     borderWidth: 1,
-    borderColor: '#2563eb',
+    borderColor: colors.primary,
   },
   carrierName: {
     fontSize: 15,
@@ -886,7 +890,7 @@ const styles = StyleSheet.create({
   showMoreText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#2563eb',
+    color: colors.primary,
   },
   stepsCard: {
     backgroundColor: 'white',
@@ -909,7 +913,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#dbeafe',
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -917,7 +921,7 @@ const styles = StyleSheet.create({
   stepBadgeText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#2563eb',
+    color: colors.primary,
   },
   stepContent: {
     flex: 1,
@@ -982,7 +986,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 999,
@@ -1019,7 +1023,7 @@ const styles = StyleSheet.create({
   supportLinkText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2563eb',
+    color: colors.primary,
   },
   buttonContainer: {
     padding: 24,
@@ -1035,7 +1039,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   primaryButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

@@ -5,6 +5,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
+import { StripeProvider } from '@stripe/stripe-react-native';
+import Constants from 'expo-constants';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { OnboardingProvider, useOnboarding } from './src/context/OnboardingContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -30,6 +32,7 @@ import IntegrationsScreen from './src/screens/settings/IntegrationsScreen';
 import { BusinessProfileScreen } from './src/screens/settings/BusinessProfileScreen';
 import BookingPageSetupScreen from './src/screens/settings/BookingPageSetupScreen';
 import { BillingScreen } from './src/screens/settings/BillingScreen';
+import { SubscriptionScreen } from './src/screens/settings/SubscriptionScreen';
 import QuoteFormsListScreen from './src/screens/quotes/QuoteFormsListScreen';
 import QuoteFormTemplateSelectorScreen from './src/screens/quotes/QuoteFormTemplateSelectorScreen';
 import QuoteFormAnalyticsScreen from './src/screens/quotes/QuoteFormAnalyticsScreen';
@@ -180,6 +183,14 @@ function RootNavigator() {
         }}
       />
       <Stack.Screen
+        name="Subscription"
+        component={SubscriptionScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="QuoteFormsList"
         component={QuoteFormsListScreen}
         options={{
@@ -284,18 +295,26 @@ export default function App() {
   }
 
 
+  const stripePublishableKey = Constants.expoConfig?.extra?.stripePublishableKey || '';
+
   return (
     <ErrorBoundary>
       <AppInitLogger>
-        <ThemeProvider>
-          <AuthProvider>
-            <OnboardingProvider>
-              <JobsProvider>
-                <AppNavigator />
-              </JobsProvider>
-            </OnboardingProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <StripeProvider
+          publishableKey={stripePublishableKey}
+          merchantIdentifier="merchant.com.flynnai.app"
+          urlScheme="flynnai"
+        >
+          <ThemeProvider>
+            <AuthProvider>
+              <OnboardingProvider>
+                <JobsProvider>
+                  <AppNavigator />
+                </JobsProvider>
+              </OnboardingProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </StripeProvider>
       </AppInitLogger>
     </ErrorBoundary>
   );

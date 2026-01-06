@@ -17,6 +17,7 @@ import { spacing, typography, borderRadius } from '../../theme';
 import CallHandlingService from '../../services/CallHandlingService';
 import { useAuth } from '../../context/AuthContext';
 import { buildDefaultGreeting } from '../../utils/greetingDefaults';
+import { useTheme } from '../../context/ThemeContext';
 
 interface ReceptionistSetupScreenProps {
   onComplete: () => void;
@@ -41,6 +42,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
   onComplete,
   onBack,
 }) => {
+  const { colors } = useTheme();
   const { user } = useAuth();
   const { onboardingData, updateOnboardingData } = useOnboarding();
   const [selectedVoice, setSelectedVoice] = useState<string>(
@@ -149,11 +151,13 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
     }
   };
 
+  const styles = createStyles(colors);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <FlynnIcon name="arrow-back" size={24} color="#3B82F6" />
+          <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, styles.progressActive]} />
@@ -168,7 +172,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.titleContainer}>
           <View style={styles.iconContainer}>
-            <FlynnIcon name="sparkles" size={32} color="#3B82F6" />
+            <FlynnIcon name="sparkles" size={32} color={colors.primary} />
           </View>
           <Text style={styles.title}>Tune your AI receptionist</Text>
           <Text style={styles.subtitle}>
@@ -207,7 +211,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
 
           {canRecordOwnVoice && (
             <View style={styles.customVoiceNotice}>
-              <FlynnIcon name="mic" size={20} color="#3B82F6" />
+              <FlynnIcon name="mic" size={20} color={colors.primary} />
               <Text style={styles.customVoiceText}>
                 We will guide you through a quick recording after onboarding so Flynn can mimic your tone perfectly.
               </Text>
@@ -255,7 +259,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
           <View style={styles.questionList}>
             {questions.map(question => (
               <View key={question} style={styles.questionItem}>
-                <FlynnIcon name="chatbubble-ellipses-outline" size={18} color="#3B82F6" />
+                <FlynnIcon name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
                 <Text style={styles.questionText}>{question}</Text>
                 <TouchableOpacity onPress={() => handleRemoveQuestion(question)}>
                   <FlynnIcon name="close" size={18} color="#94a3b8" />
@@ -304,7 +308,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -331,7 +335,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
   },
   progressActive: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.primary,
   },
   content: {
     flex: 1,
@@ -345,7 +349,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
@@ -393,8 +397,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   voiceOptionSelected: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#eff6ff',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   voiceIconContainer: {
     marginRight: spacing.md,
@@ -414,14 +418,14 @@ const styles = StyleSheet.create({
   },
   voiceBadge: {
     ...typography.caption,
-    color: '#3B82F6',
+    color: colors.primary,
     fontWeight: '600',
   },
   customVoiceNotice: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: colors.primaryLight,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginTop: spacing.sm,

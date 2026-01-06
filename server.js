@@ -176,6 +176,9 @@ const supabaseStorageClient = supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, supabaseClientOptions)
   : null;
 
+// Alias for webhook handlers and other services that expect supabaseServiceClient
+const supabaseServiceClient = supabaseStorageClient;
+
 const deleteUserData = async (userId) => {
   if (!supabaseStorageClient) {
     throw new Error('Supabase client not configured for account deletion');
@@ -474,48 +477,76 @@ const handleSubscriptionUpdated = async (subscription) => {
   console.log('[Stripe Webhook] Processing subscription update', { subscriptionId: subscription.id });
 
   try {
+    // Try to find organization first
     const { data: org, error: findError } = await supabaseServiceClient
       .from('organizations')
       .select('id, plan')
       .eq('stripe_customer_id', subscription.customer)
       .single();
 
-    if (findError || !org) {
-      console.error('[Stripe Webhook] Organization not found for customer', {
-        customerId: subscription.customer,
-        error: findError
-      });
+    if (org && !findError) {
+      // Map Stripe price ID to plan tier
+      const priceId = subscription.items.data[0]?.price?.id;
+      const planId = resolvePlanFromPriceId(priceId);
+
+      if (!planId) {
+        console.warn('[Stripe Webhook] Could not resolve plan from price', { priceId });
+        return;
+      }
+
+      // Update organization with subscription data
+      const { error: updateError } = await supabaseServiceClient
+        .from('organizations')
+        .update({
+          stripe_subscription_id: subscription.id,
+          subscription_status: subscription.status,
+          plan: planId,
+          billing_plan_id: planId, // Sync billing_plan_id for BillingService
+          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          cancel_at_period_end: subscription.cancel_at_period_end || false,
+        })
+        .eq('id', org.id);
+
+      if (updateError) {
+        console.error('[Stripe Webhook] Failed to update organization', { orgId: org.id, error: updateError });
+      } else {
+        console.log('[Stripe Webhook] Organization updated successfully', { orgId: org.id, plan: planId });
+      }
       return;
     }
 
-    // Map Stripe price ID to plan tier
-    const priceId = subscription.items.data[0]?.price?.id;
-    const planId = resolvePlanFromPriceId(priceId);
+    // If not an organization, try to find user
+    const { data: user, error: userFindError } = await supabaseServiceClient
+      .from('users')
+      .select('id')
+      .eq('stripe_customer_id', subscription.customer)
+      .single();
 
-    if (!planId) {
-      console.warn('[Stripe Webhook] Could not resolve plan from price', { priceId });
+    if (user && !userFindError) {
+      // Update user with subscription data
+      const { error: userUpdateError } = await supabaseServiceClient
+        .from('users')
+        .update({
+          stripe_subscription_id: subscription.id,
+          subscription_status: subscription.status,
+          trial_end_date: subscription.trial_end
+            ? new Date(subscription.trial_end * 1000).toISOString()
+            : null,
+        })
+        .eq('id', user.id);
+
+      if (userUpdateError) {
+        console.error('[Stripe Webhook] Failed to update user', { userId: user.id, error: userUpdateError });
+      } else {
+        console.log('[Stripe Webhook] User subscription updated successfully', { userId: user.id, status: subscription.status });
+      }
       return;
     }
 
-    // Update organization with subscription data
-    const { error: updateError } = await supabaseServiceClient
-      .from('organizations')
-      .update({
-        stripe_subscription_id: subscription.id,
-        subscription_status: subscription.status,
-        plan: planId,
-        billing_plan_id: planId, // Sync billing_plan_id for BillingService
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-        cancel_at_period_end: subscription.cancel_at_period_end || false,
-      })
-      .eq('id', org.id);
-
-    if (updateError) {
-      console.error('[Stripe Webhook] Failed to update organization', { orgId: org.id, error: updateError });
-    } else {
-      console.log('[Stripe Webhook] Organization updated successfully', { orgId: org.id, plan: planId });
-    }
+    console.error('[Stripe Webhook] No organization or user found for customer', {
+      customerId: subscription.customer
+    });
   } catch (error) {
     console.error('[Stripe Webhook] Error handling subscription update', { error });
   }
@@ -525,36 +556,61 @@ const handleSubscriptionDeleted = async (subscription) => {
   console.log('[Stripe Webhook] Processing subscription deletion', { subscriptionId: subscription.id });
 
   try {
+    // Try to find organization first
     const { data: org, error: findError } = await supabaseServiceClient
       .from('organizations')
       .select('id')
       .eq('stripe_subscription_id', subscription.id)
       .single();
 
-    if (findError || !org) {
-      console.error('[Stripe Webhook] Organization not found for subscription', {
-        subscriptionId: subscription.id,
-        error: findError
-      });
+    if (org && !findError) {
+      // Downgrade to trial plan
+      const { error: updateError } = await supabaseServiceClient
+        .from('organizations')
+        .update({
+          plan: 'trial',
+          subscription_status: 'canceled',
+          stripe_subscription_id: null,
+          cancel_at_period_end: false,
+        })
+        .eq('id', org.id);
+
+      if (updateError) {
+        console.error('[Stripe Webhook] Failed to downgrade organization', { orgId: org.id, error: updateError });
+      } else {
+        console.log('[Stripe Webhook] Organization downgraded to trial', { orgId: org.id });
+      }
       return;
     }
 
-    // Downgrade to trial plan
-    const { error: updateError } = await supabaseServiceClient
-      .from('organizations')
-      .update({
-        plan: 'trial',
-        subscription_status: 'canceled',
-        stripe_subscription_id: null,
-        cancel_at_period_end: false,
-      })
-      .eq('id', org.id);
+    // If not an organization, try to find user
+    const { data: user, error: userFindError } = await supabaseServiceClient
+      .from('users')
+      .select('id')
+      .eq('stripe_subscription_id', subscription.id)
+      .single();
 
-    if (updateError) {
-      console.error('[Stripe Webhook] Failed to downgrade organization', { orgId: org.id, error: updateError });
-    } else {
-      console.log('[Stripe Webhook] Organization downgraded to trial', { orgId: org.id });
+    if (user && !userFindError) {
+      // Mark user subscription as canceled
+      const { error: userUpdateError } = await supabaseServiceClient
+        .from('users')
+        .update({
+          subscription_status: 'canceled',
+          stripe_subscription_id: null,
+        })
+        .eq('id', user.id);
+
+      if (userUpdateError) {
+        console.error('[Stripe Webhook] Failed to cancel user subscription', { userId: user.id, error: userUpdateError });
+      } else {
+        console.log('[Stripe Webhook] User subscription canceled', { userId: user.id });
+      }
+      return;
     }
+
+    console.error('[Stripe Webhook] No organization or user found for subscription', {
+      subscriptionId: subscription.id
+    });
   } catch (error) {
     console.error('[Stripe Webhook] Error handling subscription deletion', { error });
   }
@@ -596,32 +652,53 @@ const handleInvoicePaymentFailed = async (invoice) => {
   console.log('[Stripe Webhook] Processing invoice payment failed', { invoiceId: invoice.id });
 
   try {
+    // Try to find organization first
     const { data: org, error: findError } = await supabaseServiceClient
       .from('organizations')
       .select('id')
       .eq('stripe_customer_id', invoice.customer)
       .single();
 
-    if (findError || !org) {
-      console.error('[Stripe Webhook] Organization not found for customer', {
-        customerId: invoice.customer,
-        error: findError
-      });
+    if (org && !findError) {
+      // Update organization to past_due status
+      const { error: updateError } = await supabaseServiceClient
+        .from('organizations')
+        .update({ subscription_status: 'past_due' })
+        .eq('id', org.id);
+
+      if (updateError) {
+        console.error('[Stripe Webhook] Failed to update organization status', { orgId: org.id, error: updateError });
+      } else {
+        console.log('[Stripe Webhook] Organization marked as past_due', { orgId: org.id });
+      }
       return;
     }
 
-    // Mark subscription as past_due
-    const { error: updateError } = await supabaseServiceClient
-      .from('organizations')
-      .update({ subscription_status: 'past_due' })
-      .eq('id', org.id);
+    // If not an organization, try to find user
+    const { data: user, error: userFindError } = await supabaseServiceClient
+      .from('users')
+      .select('id')
+      .eq('stripe_customer_id', invoice.customer)
+      .single();
 
-    if (updateError) {
-      console.error('[Stripe Webhook] Failed to update subscription status', { orgId: org.id, error: updateError });
-    } else {
-      console.log('[Stripe Webhook] Subscription marked as past_due', { orgId: org.id });
-      // TODO: Send notification email to user about failed payment
+    if (user && !userFindError) {
+      // Update user to past_due status
+      const { error: userUpdateError } = await supabaseServiceClient
+        .from('users')
+        .update({ subscription_status: 'past_due' })
+        .eq('id', user.id);
+
+      if (userUpdateError) {
+        console.error('[Stripe Webhook] Failed to update user status', { userId: user.id, error: userUpdateError });
+      } else {
+        console.log('[Stripe Webhook] User marked as past_due', { userId: user.id });
+      }
+      return;
     }
+
+    console.error('[Stripe Webhook] No organization or user found for customer', {
+      customerId: invoice.customer
+    });
   } catch (error) {
     console.error('[Stripe Webhook] Error handling invoice payment failed', { error });
   }
@@ -3815,6 +3892,15 @@ attachSecureApiRoutes(app, {
   authenticateJwt,
   getLLMClient,
   twilio,
+});
+
+// ============================================================================
+// Stripe Subscription Management Routes
+// ============================================================================
+const attachStripeSubscriptionRoutes = require('./routes/stripeRoutes');
+attachStripeSubscriptionRoutes(app, {
+  authenticateJwt,
+  supabaseAdmin: supabaseStorageClient,
 });
 
 // ============================================================================

@@ -11,9 +11,9 @@ const professionalPaymentLink = process.env.EXPO_PUBLIC_STRIPE_PROFESSIONAL_LINK
 const businessPaymentLink = process.env.EXPO_PUBLIC_STRIPE_BUSINESS_LINK || '';
 
 // Get Stripe price IDs from app config (hardcoded for production builds)
-const stripeStarterPriceId = Constants.expoConfig?.extra?.stripeStarterPriceId || 'price_1SbiXfRm2tMRBfxY4wxwUbK8';
-const stripeProfessionalPriceId = Constants.expoConfig?.extra?.stripeProfessionalPriceId || 'price_1SbiXoRm2tMRBfxYrZE2tD4o';
-const stripeBusinessPriceId = Constants.expoConfig?.extra?.stripeBusinessPriceId || 'price_1SbiXwRm2tMRBfxYACw2GkKc';
+const stripeStarterPriceId = Constants.expoConfig?.extra?.stripeStarterPriceId || 'price_1SmE0YRqssM6oZ4qP1IJYnZm';
+const stripeProfessionalPriceId = Constants.expoConfig?.extra?.stripeProfessionalPriceId || 'price_1SmE4bRqssM6oZ4qylvjE2MX';
+const stripeBusinessPriceId = Constants.expoConfig?.extra?.stripeBusinessPriceId || 'price_1SmE51RqssM6oZ4qtKIxwUgf';
 
 export interface BillingPlanDefinition {
   id: BillingPlanId;

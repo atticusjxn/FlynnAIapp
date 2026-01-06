@@ -18,6 +18,7 @@ import Terms from './pages/Terms';
 import DashboardLayout from './components/DashboardLayout';
 
 import Features from './components/Features';
+import InstagramAd from './components/InstagramAd';
 
 // Component to handle external scripts like Analytics
 const Analytics = () => {
@@ -51,6 +52,7 @@ function App() {
           </Route>
 
           <Route path="/login" element={<Login />} />
+          <Route path="/instagram-ad" element={<InstagramAd />} />
 
           <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
           <Route path="/dashboard/setup" element={<DashboardLayout><Setup /></DashboardLayout>} />

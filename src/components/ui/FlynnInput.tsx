@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     borderColor: colors.black,
     borderRadius: borderRadius.md,
     backgroundColor: colors.white,
-    minHeight: 52,
+    height: 52,
     ...shadows.xs,
     overflow: 'visible',
   },
@@ -136,10 +136,11 @@ const styles = StyleSheet.create({
 
   input: {
     flex: 1,
+    height: '100%',
     paddingVertical: 0,
     paddingHorizontal: spacing.md,
-    ...typography.bodyMedium,
-    lineHeight: 24,
+    fontFamily: typography.bodyMedium.fontFamily,
+    fontSize: typography.bodyMedium.fontSize,
     color: colors.textPrimary,
     includeFontPadding: false,
     textAlignVertical: 'center',
