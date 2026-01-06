@@ -27,6 +27,18 @@ export interface OnboardingData {
   twilioPhoneNumber?: string | null;
   phoneNumber?: string | null;
   billingPlan?: BillingPlanId;
+  // AI Test fields
+  aiTestCompleted?: boolean;
+  testJobExtracted?: {
+    caller_name?: string;
+    phone_number?: string;
+    service_type?: string;
+    preferred_date?: string;
+    preferred_time?: string;
+    location?: string;
+    urgency?: 'urgent' | 'normal' | 'flexible';
+    notes?: string;
+  };
 }
 
 export const defaultOnboardingData: OnboardingData = {

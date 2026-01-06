@@ -4,6 +4,7 @@ import { BusinessTypeScreen } from './BusinessTypeScreen';
 import { BusinessProfileSetupScreen } from './BusinessProfileSetupScreen';
 import { BusinessGoalsScreen } from './BusinessGoalsScreen';
 import { ReceptionistSetupScreen } from './ReceptionistSetupScreen';
+import AIReceptionistTestScreen from './AIReceptionistTestScreen';
 import { useOnboarding } from '../../context/OnboardingContext';
 
 import { TwilioProvisioningScreen } from './TwilioProvisioningScreen';
@@ -47,7 +48,10 @@ export const OnboardingNavigator: React.FC = () => {
       case 5:
         return <CarrierSetupScreen onNext={handleNext} onBack={handleBack} />;
       case 6:
-        return <ReceptionistSetupScreen onComplete={handleCompleteOnboarding} onBack={handleBack} />;
+        return <ReceptionistSetupScreen onComplete={handleNext} onBack={handleBack} />;
+      case 7:
+        // AI Receptionist Test Screen - step 6.5 in the plan
+        return <AIReceptionistTestScreen navigation={{ navigate: handleCompleteOnboarding }} />;
       default:
         return <GettingStartedScreen onStartOnboarding={handleStartOnboarding} />;
     }
