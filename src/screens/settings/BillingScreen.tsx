@@ -197,7 +197,19 @@ export const BillingScreen: React.FC<BillingScreenProps> = ({ navigation }) => {
 
         <Text style={styles.planName}>{plan.name}</Text>
         <Text style={styles.planHeadline}>{plan.headline}</Text>
+
+        {!isCurrent && plan.id !== 'trial' && (
+          <View style={styles.trialBanner}>
+            <Text style={styles.trialBannerText}>🎉 14-day free trial included</Text>
+          </View>
+        )}
+
         <Text style={styles.planPrice}>{plan.priceText}</Text>
+        {!isCurrent && plan.id !== 'trial' && (
+          <Text style={styles.trialDetails}>
+            Enter your card now. You'll be charged after your 14-day trial ends. Cancel anytime.
+          </Text>
+        )}
         <Text style={styles.planAllowance}>{plan.callAllowanceLabel}</Text>
 
         <View style={styles.highlightsContainer}>
@@ -461,10 +473,29 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
+  trialBanner: {
+    backgroundColor: colors.successLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  trialBannerText: {
+    ...typography.bodySmall,
+    color: colors.success,
+    fontWeight: '600',
+  },
   planPrice: {
     ...typography.h2,
     color: colors.primary,
     marginBottom: spacing.xxs,
+  },
+  trialDetails: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+    fontStyle: 'italic',
   },
   planAllowance: {
     ...typography.bodyMedium,

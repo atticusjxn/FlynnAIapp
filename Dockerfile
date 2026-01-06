@@ -14,6 +14,7 @@ COPY llmClient.js ./
 COPY server.js ./
 COPY secureApiRoutes.js ./
 COPY supabaseMcpClient.js ./
+COPY routes/ ./routes/
 COPY telephony/ ./telephony/
 COPY middleware/ ./middleware/
 COPY notifications/ ./notifications/

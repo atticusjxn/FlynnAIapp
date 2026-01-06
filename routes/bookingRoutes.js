@@ -5,8 +5,20 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const { sendCustomerConfirmation, sendBusinessNotification } = require('../services/emailService');
 const { sendConfirmationSMS } = require('../services/smsReminderService');
-const CalendarIntegrationService = require('../src/services/CalendarIntegrationService');
-const AppleCalendarService = require('../src/services/AppleCalendarService');
+
+// Calendar services are optional (may not be available in backend-only deployment)
+let CalendarIntegrationService = null;
+let AppleCalendarService = null;
+try {
+  CalendarIntegrationService = require('../src/services/CalendarIntegrationService');
+} catch (e) {
+  console.log('[BookingRoutes] CalendarIntegrationService not available - calendar sync disabled');
+}
+try {
+  AppleCalendarService = require('../src/services/AppleCalendarService');
+} catch (e) {
+  console.log('[BookingRoutes] AppleCalendarService not available - Apple Calendar sync disabled');
+}
 
 const router = express.Router();
 
@@ -294,6 +306,11 @@ async function checkSlotAvailability(bookingPageId, startTime, endTime) {
  * Helper: Create calendar events in Google and Apple Calendar
  */
 async function createCalendarEvents(orgId, booking, businessName) {
+  // Skip if no calendar services are available
+  if (!CalendarIntegrationService && !AppleCalendarService) {
+    return;
+  }
+
   const eventDetails = {
     summary: `${businessName} - ${booking.customer_name}`,
     description: `Appointment with ${booking.customer_name}\nPhone: ${booking.customer_phone}${booking.customer_email ? `\nEmail: ${booking.customer_email}` : ''}${booking.notes ? `\n\nNotes: ${booking.notes}` : ''}`,
@@ -303,11 +320,21 @@ async function createCalendarEvents(orgId, booking, businessName) {
     attendeeName: booking.customer_name,
   };
 
+  // Build promises array only for available services
+  const promises = [];
+  if (CalendarIntegrationService?.createGoogleCalendarEvent) {
+    promises.push(CalendarIntegrationService.createGoogleCalendarEvent(orgId, eventDetails));
+  } else {
+    promises.push(Promise.resolve(null));
+  }
+  if (AppleCalendarService?.createAppleCalendarEvent) {
+    promises.push(AppleCalendarService.createAppleCalendarEvent(orgId, eventDetails));
+  } else {
+    promises.push(Promise.resolve(null));
+  }
+
   // Try to create events in both calendars (non-blocking)
-  const [googleEventId, appleEventId] = await Promise.allSettled([
-    CalendarIntegrationService.createGoogleCalendarEvent(orgId, eventDetails),
-    AppleCalendarService.createAppleCalendarEvent(orgId, eventDetails),
-  ]);
+  const [googleEventId, appleEventId] = await Promise.allSettled(promises);
 
   // Update booking with event IDs
   const updates = {};

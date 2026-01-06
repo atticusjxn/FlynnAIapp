@@ -17,11 +17,11 @@ export const OnboardingNavigator: React.FC = () => {
   };
 
   const handleNext = () => {
-    setCurrentOnboardingStep(prev => prev + 1);
+    setCurrentOnboardingStep(currentOnboardingStep + 1);
   };
 
   const handleBack = () => {
-    setCurrentOnboardingStep(prev => prev - 1);
+    setCurrentOnboardingStep(currentOnboardingStep - 1);
   };
 
   const handleCompleteOnboarding = async () => {
@@ -43,7 +43,7 @@ export const OnboardingNavigator: React.FC = () => {
       case 3:
         return <BusinessGoalsScreen onNext={handleNext} onBack={handleBack} />;
       case 4:
-        return <TwilioProvisioningScreen onNext={handleNext} />;
+        return <TwilioProvisioningScreen onNext={handleNext} onBack={handleBack} />;
       case 5:
         return <CarrierSetupScreen onNext={handleNext} onBack={handleBack} />;
       case 6:

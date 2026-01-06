@@ -6,12 +6,14 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { TwilioService } from '../../services/TwilioService';
 import { useAuth } from '../../context/AuthContext';
-import { typography, spacing } from '../../theme';
+import { colors, typography, spacing, borderRadius } from '../../theme';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { FlynnInput } from '../../components/ui/FlynnInput';
 import { BillingPaywallModal } from '../../components/billing/BillingPaywallModal';
@@ -24,10 +26,12 @@ import { normalizeNumberForDetection, carrierIdToIsoCountry, inferIsoCountryFrom
 
 interface TwilioProvisioningScreenProps {
   onNext: () => void;
+  onBack: () => void;
 }
 
 export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> = ({
   onNext,
+  onBack,
 }) => {
   const { user } = useAuth();
   const { updateOnboardingData, onboardingData, refreshOnboarding, organizationId } = useOnboarding();
@@ -150,27 +154,27 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
     };
   }, [normalizedForDetection]);
 
-  useEffect(() => {
-    if (carrierDetectionState.status !== 'success' || !carrierDetectionState.carrierId || !detectionSignature) {
-      return;
-    }
-
-    if (detectionSignature === lastPersistedDetection.current) {
-      return;
-    }
-
-    const normalized = normalizedForDetection || phoneNumber;
-
-    TwilioService.persistCarrierDetection(normalized, {
-      carrierId: carrierDetectionState.carrierId,
-      confidence: carrierDetectionState.confidence || 'low',
-      source: carrierDetectionState.source || 'heuristic',
-      rawCarrierName: carrierDetectionState.rawCarrierName ?? undefined,
-      e164Number: carrierDetectionState.e164Number ?? undefined,
-    }).finally(() => {
-      lastPersistedDetection.current = detectionSignature;
-    });
-  }, [carrierDetectionState, normalizedForDetection, phoneNumber, detectionSignature]);
+  // NOTE: Disabled automatic persistence of carrier detection to avoid triggering
+  // auth state refresh (USER_UPDATED) which causes the screen to remount and lose input.
+  // Carrier info is already passed to provisionPhoneNumber() when the user clicks Provision.
+  // useEffect(() => {
+  //   if (carrierDetectionState.status !== 'success' || !carrierDetectionState.carrierId || !detectionSignature) {
+  //     return;
+  //   }
+  //   if (detectionSignature === lastPersistedDetection.current) {
+  //     return;
+  //   }
+  //   const normalized = normalizedForDetection || phoneNumber;
+  //   TwilioService.persistCarrierDetection(normalized, {
+  //     carrierId: carrierDetectionState.carrierId,
+  //     confidence: carrierDetectionState.confidence || 'low',
+  //     source: carrierDetectionState.source || 'heuristic',
+  //     rawCarrierName: carrierDetectionState.rawCarrierName ?? undefined,
+  //     e164Number: carrierDetectionState.e164Number ?? undefined,
+  //   }).finally(() => {
+  //     lastPersistedDetection.current = detectionSignature;
+  //   });
+  // }, [carrierDetectionState, normalizedForDetection, phoneNumber, detectionSignature]);
 
   const handleProvisionNumber = async () => {
     if (!hasPaidPlan) {
@@ -209,12 +213,8 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
             ? carrierDetectionState.e164Number || phoneNumber
             : phoneNumber,
         });
-        Alert.alert(
-          'Number Provisioned!',
-          `Your new Flynn business number is: ${result.phoneNumber}. You can manage this from Settings.`, [
-            { text: 'Continue', onPress: onNext }
-          ]
-        );
+        // Success state is shown inline in the UI (lines 338-344)
+        // User can tap "Continue" button to proceed to next screen
       } else {
         setError('Failed to provision a Twilio number.');
       }
@@ -252,30 +252,56 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <FlynnIcon name="call-outline" size={64} color="#3B82F6" style={styles.icon} />
-        <Text style={styles.title}>Your Flynn Business Number</Text>
-        <Text style={styles.subtitle}>
-          Let Flynn handle your voicemails and turn them into job cards. Tell us the mobile number you answer today and we'll provision a matching country code automatically.
-        </Text>
+      {/* Header with back button and progress bar */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <View style={styles.progressContainer}>
+          <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={[styles.progressBar, styles.progressActive]} />
+          <View style={styles.progressBar} />
+          <View style={styles.progressBar} />
+        </View>
+      </View>
 
-        <FlynnInput
-          label="Your existing business mobile"
-          placeholder="e.g. +61 4xx xxx xxx"
-          keyboardType="phone-pad"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-          autoComplete="tel"
-          required
-          helperText={
-            carrierDetectionState.status === 'success'
-              ? `Detected ${carrierDetectionState.rawCarrierName ?? carrierDetectionState.carrierId} (${carrierDetectionState.confidence ?? 'low'} confidence). We'll match a ${countryLabel} number.`
-              : carrierDetectionState.status === 'loading'
-                ? 'Checking your carrier so we can match the right forwarding codes...'
-                : undefined
-          }
-          errorText={carrierDetectionState.status === 'error' ? carrierDetectionState.message : undefined}
-        />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.titleContainer}>
+          <View style={styles.iconContainer}>
+            <FlynnIcon name="call" size={32} color={colors.primary} />
+          </View>
+          <Text style={styles.title}>Your Flynn Business Number</Text>
+          <Text style={styles.subtitle}>
+            Let Flynn handle your voicemails and turn them into job cards. Tell us the mobile number you answer today and we'll provision a matching country code automatically.
+          </Text>
+        </View>
+
+        <View style={styles.card}>
+          <FlynnInput
+            label="Your existing business mobile"
+            placeholder="e.g. +61 4xx xxx xxx"
+            keyboardType="phone-pad"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            autoComplete="tel"
+            required
+            helperText={
+              carrierDetectionState.status === 'success'
+                ? `Detected ${carrierDetectionState.rawCarrierName ?? carrierDetectionState.carrierId} (${carrierDetectionState.confidence ?? 'low'} confidence). We'll match a ${countryLabel} number.`
+                : carrierDetectionState.status === 'loading'
+                  ? 'Checking your carrier so we can match the right forwarding codes...'
+                  : undefined
+            }
+            errorText={carrierDetectionState.status === 'error' ? carrierDetectionState.message : undefined}
+          />
+        </View>
 
         {!hasPaidPlan && (
           <View style={styles.paywallCard}>
@@ -302,31 +328,37 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
 
         {isProvisioning ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#3B82F6" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Provisioning your number...</Text>
           </View>
         ) : provisionedNumber ? (
           <View style={styles.successContainer}>
-            <FlynnIcon name="checkmark-circle-outline" size={48} color="#10b981" />
+            <FlynnIcon name="checkmark-circle-outline" size={48} color={colors.success} />
             <Text style={styles.successText}>Number Provisioned!</Text>
             <Text style={styles.provisionedNumber}>{provisionedNumber}</Text>
             <FlynnButton title="Continue" onPress={onNext} variant="primary" style={styles.button} />
           </View>
         ) : (
-          <View style={styles.errorContainer}>
+          <View style={styles.buttonContainer}>
             {error && <Text style={styles.errorText}>{error}</Text>}
             <FlynnButton
               title={hasPaidPlan ? 'Provision my Flynn number' : 'Subscribe to continue'}
               onPress={handleProvisionNumber}
               variant="primary"
-              style={styles.button}
+              fullWidth
               disabled={carrierDetectionState.status === 'loading'}
             />
-            <FlynnButton title="Skip for now" onPress={onNext} variant="secondary" style={styles.button} />
+            <FlynnButton
+              title="Skip for now"
+              onPress={onNext}
+              variant="secondary"
+              fullWidth
+              style={styles.skipButton}
+            />
           </View>
         )}
+      </ScrollView>
 
-      </View>
       <BillingPaywallModal
         visible={paywallVisible}
         onClose={() => setPaywallVisible(false)}
@@ -340,87 +372,135 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
-    justifyContent: 'center',
+    backgroundColor: colors.gray50,
+  },
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  backButton: {
+    marginRight: spacing.md,
+  },
+  progressContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  progressBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: colors.gray200,
+    borderRadius: borderRadius.xs,
+  },
+  progressActive: {
+    backgroundColor: colors.primary,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
-    padding: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  icon: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.black,
   },
   title: {
     ...typography.h2,
-    color: '#0f172a',
-    marginBottom: spacing.md,
+    color: colors.gray900,
+    marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
     ...typography.bodyLarge,
-    color: '#475569',
-    marginBottom: spacing.xl,
+    color: colors.gray600,
+    marginBottom: spacing.md,
     textAlign: 'center',
+    lineHeight: 24,
+  },
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 2,
+    borderColor: colors.black,
   },
   loadingContainer: {
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: spacing.xl,
   },
   loadingText: {
     ...typography.bodyMedium,
     marginTop: spacing.md,
-    color: '#475569',
+    color: colors.gray600,
   },
   successContainer: {
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: spacing.xl,
+    backgroundColor: colors.white,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.black,
   },
   successText: {
     ...typography.h3,
-    color: '#10b981',
+    color: colors.success,
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
   provisionedNumber: {
     ...typography.h4,
-    color: '#0f172a',
+    color: colors.gray900,
     marginBottom: spacing.xl,
   },
-  errorContainer: {
-    alignItems: 'center',
-    padding: spacing.lg,
-    width: '100%',
+  buttonContainer: {
+    marginTop: spacing.md,
   },
   errorText: {
     ...typography.bodyMedium,
-    color: '#dc2626',
+    color: colors.error,
     marginBottom: spacing.md,
     textAlign: 'center',
   },
   button: {
     marginTop: spacing.md,
-    width: 200,
+  },
+  skipButton: {
+    marginTop: spacing.sm,
   },
   paywallCard: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    backgroundColor: '#eff6ff',
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
     padding: spacing.lg,
-    borderRadius: 16,
+    borderRadius: borderRadius.lg,
     marginBottom: spacing.lg,
   },
   paywallTitle: {
     ...typography.h4,
-    color: '#1d4ed8',
+    color: colors.primary,
     marginBottom: spacing.xs,
     textAlign: 'center',
   },
   paywallDescription: {
     ...typography.bodyMedium,
-    color: '#1e293b',
+    color: colors.gray700,
     marginBottom: spacing.md,
     textAlign: 'center',
   },
