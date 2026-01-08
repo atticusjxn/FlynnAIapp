@@ -149,6 +149,7 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
           stripe_subscription_id: subscription.id,
           subscription_status: subscription.status,
           trial_end_date: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+          has_started_trial: true, // Mark trial as started for setup progress tracking
         })
         .eq('id', userId);
 

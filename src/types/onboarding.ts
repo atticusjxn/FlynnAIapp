@@ -15,7 +15,16 @@ export type CallHandlingMode = 'sms_links' | 'ai_receptionist' | 'voicemail_only
 export interface OnboardingData {
   businessType?: string;
   goals?: string[];
+  // Business profile fields
+  websiteUrl?: string;
+  businessName?: string;
+  phone?: string; // Note: distinct from phoneNumber (which is for call forwarding)
+  email?: string;
+  // Phone setup fields
   phoneSetupComplete: boolean;
+  phoneNumber?: string | null; // Business phone number for call forwarding
+  twilioPhoneNumber?: string | null; // Provisioned Flynn number
+  // Receptionist configuration fields
   receptionistConfigured: boolean;
   receptionistVoice?: string | null;
   receptionistGreeting?: string | null;
@@ -24,8 +33,7 @@ export interface OnboardingData {
   receptionistMode?: ReceptionistMode; // Legacy field
   callHandlingMode?: CallHandlingMode; // New field
   receptionistAckLibrary?: string[];
-  twilioPhoneNumber?: string | null;
-  phoneNumber?: string | null;
+  // Billing fields
   billingPlan?: BillingPlanId;
   trialStarted?: boolean; // Tracks if free trial signup was completed during onboarding
   // AI Test fields

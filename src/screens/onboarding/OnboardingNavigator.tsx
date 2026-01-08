@@ -4,10 +4,12 @@ import { BusinessTypeScreen } from './BusinessTypeScreen';
 import { BusinessProfileSetupScreen } from './BusinessProfileSetupScreen';
 import { BusinessGoalsScreen } from './BusinessGoalsScreen';
 import { ReceptionistSetupScreen } from './ReceptionistSetupScreen';
-import AIReceptionistTestScreen from './AIReceptionistTestScreen';
-import { FreeTrialSignupScreen } from './FreeTrialSignupScreen';
-import { PhoneProvisioningScreen } from './PhoneProvisioningScreen';
 import { useOnboarding } from '../../context/OnboardingContext';
+
+// Removed from onboarding flow - moved to post-signup dashboard experience:
+// - AIReceptionistTestScreen (moved to FirstTimeExperienceModal)
+// - FreeTrialSignupScreen (moved to dashboard after demo)
+// - PhoneProvisioningScreen (moved to CompleteSetupScreen after payment)
 
 // Deprecated screens - kept for reference but no longer in flow
 // import { TwilioProvisioningScreen } from './TwilioProvisioningScreen';
@@ -39,25 +41,21 @@ export const OnboardingNavigator: React.FC = () => {
   const renderStep = () => {
     switch (currentOnboardingStep) {
       case 0:
+        // Step 0: Getting Started
         return <GettingStartedScreen onStartOnboarding={handleStartOnboarding} />;
       case 1:
+        // Step 1: Business Type Selection
         return <BusinessTypeScreen onNext={handleNext} onBack={handleBack} />;
       case 2:
+        // Step 2: Business Profile Setup
         return <BusinessProfileSetupScreen onNext={handleNext} onBack={handleBack} />;
       case 3:
+        // Step 3: Business Goals
         return <BusinessGoalsScreen onNext={handleNext} onBack={handleBack} />;
       case 4:
-        // Step 4: Tune AI Receptionist
-        return <ReceptionistSetupScreen onComplete={handleNext} onBack={handleBack} />;
-      case 5:
-        // Step 5: Test AI Receptionist (moved earlier, before trial signup)
-        return <AIReceptionistTestScreen onNext={handleNext} onBack={handleBack} navigation={{ navigate: handleNext }} />;
-      case 6:
-        // Step 6: Sign Up for Free Trial (new)
-        return <FreeTrialSignupScreen onNext={handleNext} onBack={handleBack} />;
-      case 7:
-        // Step 7: Provision Phone Number (unified, replaces TwilioProvisioningScreen and CarrierSetupScreen)
-        return <PhoneProvisioningScreen onNext={handleCompleteOnboarding} onBack={handleBack} />;
+        // Step 4: Basic AI Receptionist Setup (simplified)
+        // This is the last step - completes onboarding and navigates to dashboard
+        return <ReceptionistSetupScreen onComplete={handleCompleteOnboarding} onBack={handleBack} />;
       default:
         return <GettingStartedScreen onStartOnboarding={handleStartOnboarding} />;
     }

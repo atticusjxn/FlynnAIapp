@@ -79,6 +79,7 @@ class NativeVoiceAgentService extends EventEmitter {
   private extractedEntities: ExtractedEntities = {};
   private recordingInterval: NodeJS.Timeout | null = null;
   private audioChunks: string[] = [];
+  private audioBytesSent: number = 0; // Track how many bytes we've already sent
 
   /**
    * Start a new test conversation
@@ -239,6 +240,9 @@ class NativeVoiceAgentService extends EventEmitter {
     try {
       console.log('[NativeVoiceAgent] Starting audio recording...');
 
+      // Reset audio bytes sent counter
+      this.audioBytesSent = 0;
+
       const { recording } = await Audio.Recording.createAsync(RECORDING_OPTIONS);
       this.recording = recording;
 
@@ -275,7 +279,7 @@ class NativeVoiceAgentService extends EventEmitter {
   }
 
   /**
-   * Send audio chunk to backend
+   * Send audio chunk to backend (only sends NEW data since last send)
    */
   private async sendAudioChunk(): Promise<void> {
     if (!this.recording) return;
@@ -285,26 +289,31 @@ class NativeVoiceAgentService extends EventEmitter {
       const status = await this.recording.getStatusAsync();
 
       if (status.isRecording) {
-        // Read the recording URI and convert to base64
+        // Read the recording URI
         const uri = this.recording.getURI();
         if (uri) {
-          // Note: In a production app, we'd read the file incrementally
-          // For now, we'll send the full recording periodically
+          // Fetch the entire file and read as ArrayBuffer
           const response = await fetch(uri);
-          const blob = await response.blob();
-          const reader = new FileReader();
+          const arrayBuffer = await response.arrayBuffer();
 
-          reader.onloadend = () => {
-            const base64Audio = (reader.result as string).split(',')[1];
+          // Only send the NEW bytes (skip bytes we've already sent)
+          if (arrayBuffer.byteLength > this.audioBytesSent) {
+            const newBytes = arrayBuffer.slice(this.audioBytesSent);
+
+            // Convert only the new chunk to base64
+            const uint8Array = new Uint8Array(newBytes);
+            const base64Audio = this.arrayBufferToBase64(uint8Array);
+
             if (base64Audio && base64Audio.length > 0) {
               this.sendWebSocketMessage({
                 type: 'audio',
                 audio: base64Audio,
               });
-            }
-          };
 
-          reader.readAsDataURL(blob);
+              // Update bytes sent counter
+              this.audioBytesSent = arrayBuffer.byteLength;
+            }
+          }
         }
       }
     } catch (error) {
@@ -431,6 +440,18 @@ class NativeVoiceAgentService extends EventEmitter {
     if (this.state !== 'ended') {
       this.setState('disconnected');
     }
+  }
+
+  /**
+   * Helper: Convert Uint8Array to base64
+   */
+  private arrayBufferToBase64(uint8Array: Uint8Array): string {
+    let binary = '';
+    const len = uint8Array.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    return btoa(binary);
   }
 
   /**

@@ -14,6 +14,7 @@ import {
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { FlynnInput } from '../../components/ui/FlynnInput';
+import { OnboardingHeader } from '../../components/onboarding/OnboardingHeader';
 import { BillingPaywallModal } from '../../components/billing/BillingPaywallModal';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { useAuth } from '../../context/AuthContext';
@@ -128,7 +129,7 @@ export const PhoneProvisioningScreen: React.FC<PhoneProvisioningScreenProps> = (
         if (!cancelled) {
           const message =
             lookupError instanceof Error && lookupError.message === 'LOOKUP_DISABLED'
-              ? 'Automatic detection requires Twilio Lookup credentials. We'll provision a number anyway.'
+              ? "Automatic detection requires Twilio Lookup credentials. We'll provision a number anyway."
               : 'We could not detect your carrier automatically.';
 
           setCarrierDetectionState({
@@ -297,20 +298,7 @@ export const PhoneProvisioningScreen: React.FC<PhoneProvisioningScreenProps> = (
   return (
     <SafeAreaView style={styles.container}>
       {/* Header with back button and progress bar */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <FlynnIcon name="arrow-back" size={24} color={themeColors.primary} />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-        </View>
-      </View>
+      <OnboardingHeader currentStep={7} totalSteps={7} onBack={onBack} />
 
       <ScrollView
         style={styles.scrollView}

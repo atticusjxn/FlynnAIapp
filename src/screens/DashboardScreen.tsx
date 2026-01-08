@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { FlynnIcon, FlynnIconName } from '../components/ui/FlynnIcon';
@@ -21,6 +22,7 @@ import { ActivityHistoryModal } from '../components/dashboard/ActivityHistoryMod
 import { ActivityDetailsModal } from '../components/dashboard/ActivityDetailsModal';
 import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { TrialCountdownBanner } from '../components/dashboard/TrialCountdownBanner';
+import { FirstTimeExperienceModal } from '../components/dashboard/FirstTimeExperienceModal';
 import { useJobs } from '../context/JobsContext';
 import { FloatingActionButton } from '../components/common/FloatingActionButton';
 import { generateSmsConfirmation, createSmsUrl } from '../utils/smsTemplate';
@@ -61,6 +63,17 @@ export const DashboardScreen = () => {
     bookingsThisMonth: number;
   } | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
+
+  // Setup progress tracking
+  const [setupProgress, setSetupProgress] = useState<{
+    hasCompletedOnboarding: boolean;
+    hasSeenDemo: boolean;
+    hasStartedTrial: boolean;
+    hasProvisionedPhone: boolean;
+  } | null>(null);
+  const [showFirstTimeModal, setShowFirstTimeModal] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(true);
+
   const styles = createStyles(colors);
 
   // Get real data
@@ -206,14 +219,69 @@ export const DashboardScreen = () => {
     }
   };
 
+  const loadSetupProgress = async () => {
+    if (!user?.id) {
+      setSetupProgress(null);
+      setSetupLoading(false);
+      return;
+    }
+
+    setSetupLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('has_completed_onboarding, has_seen_demo, has_started_trial, has_provisioned_phone')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      const progress = {
+        hasCompletedOnboarding: data?.has_completed_onboarding || false,
+        hasSeenDemo: data?.has_seen_demo || false,
+        hasStartedTrial: data?.has_started_trial || false,
+        hasProvisionedPhone: data?.has_provisioned_phone || false,
+      };
+
+      setSetupProgress(progress);
+
+      // Auto-show first-time modal if user completed onboarding but hasn't seen demo
+      if (progress.hasCompletedOnboarding && !progress.hasSeenDemo) {
+        setShowFirstTimeModal(true);
+      }
+    } catch (error) {
+      console.error('[Dashboard] Failed to load setup progress', error);
+      setSetupProgress(null);
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
   useEffect(() => {
     void loadActivities();
     void loadRevenueStats();
     void loadBookingStats();
+    void loadSetupProgress();
   }, [user?.id]);
 
   const handleCallClient = (phone: string) => {
     void openPhoneDialer(phone, 'dashboard');
+  };
+
+  const handleCloseFirstTimeModal = () => {
+    setShowFirstTimeModal(false);
+    // Reload setup progress to get updated state
+    void loadSetupProgress();
+  };
+
+  const handleStartTrial = () => {
+    // Navigate to subscription/billing screen for trial signup
+    navigation.navigate('Subscription' as never);
+  };
+
+  const handleCompleteSetup = () => {
+    // Navigate to phone provisioning screen
+    navigation.navigate('CompleteSetup' as never);
   };
 
   const handleViewJobDetails = (job: Job) => {
@@ -353,6 +421,43 @@ export const DashboardScreen = () => {
 
       {/* Trial Countdown Banner */}
       <TrialCountdownBanner />
+
+      {/* Setup Progress Banners */}
+      {setupProgress && !setupProgress.hasSeenDemo && setupProgress.hasCompletedOnboarding && (
+        <TouchableOpacity
+          style={[styles.setupBanner, styles.setupBannerPrimary]}
+          onPress={() => setShowFirstTimeModal(true)}
+        >
+          <View style={styles.setupBannerIcon}>
+            <FlynnIcon name="sparkles" size={24} color={colors.white} />
+          </View>
+          <View style={styles.setupBannerContent}>
+            <Text style={styles.setupBannerTitle}>Experience Your AI Receptionist</Text>
+            <Text style={styles.setupBannerSubtitle}>
+              Test your AI and see how it captures leads in under 60 seconds
+            </Text>
+          </View>
+          <FlynnIcon name="chevron-forward" size={24} color={colors.white} />
+        </TouchableOpacity>
+      )}
+
+      {setupProgress && setupProgress.hasSeenDemo && setupProgress.hasStartedTrial && !setupProgress.hasProvisionedPhone && (
+        <TouchableOpacity
+          style={[styles.setupBanner, styles.setupBannerWarning]}
+          onPress={handleCompleteSetup}
+        >
+          <View style={styles.setupBannerIcon}>
+            <FlynnIcon name="call" size={24} color={colors.white} />
+          </View>
+          <View style={styles.setupBannerContent}>
+            <Text style={styles.setupBannerTitle}>Final Step: Connect Your Phone</Text>
+            <Text style={styles.setupBannerSubtitle}>
+              Set up call forwarding to start capturing real leads
+            </Text>
+          </View>
+          <FlynnIcon name="chevron-forward" size={24} color={colors.white} />
+        </TouchableOpacity>
+      )}
 
       {/* Booking Stats Section */}
       {bookingStats && (bookingStats.activePagesCount > 0 || bookingStats.bookingsThisWeek > 0) && (
@@ -573,6 +678,13 @@ export const DashboardScreen = () => {
         onDeleteJob={handleDeleteJob}
         onUpdateJob={handleUpdateJob}
       />
+
+      {/* First Time Experience Modal */}
+      <FirstTimeExperienceModal
+        visible={showFirstTimeModal}
+        onClose={handleCloseFirstTimeModal}
+        onStartTrial={handleStartTrial}
+      />
     </>
   );
 };
@@ -591,6 +703,43 @@ const createStyles = (colors: any) => StyleSheet.create({
   welcomeText: {
     ...typography.h2,
     color: colors.textPrimary,
+  },
+  setupBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    ...shadows.md,
+  },
+  setupBannerPrimary: {
+    backgroundColor: colors.primary,
+  },
+  setupBannerWarning: {
+    backgroundColor: colors.warning,
+  },
+  setupBannerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  setupBannerContent: {
+    flex: 1,
+  },
+  setupBannerTitle: {
+    ...typography.h4,
+    color: colors.white,
+    marginBottom: spacing.xxs,
+  },
+  setupBannerSubtitle: {
+    ...typography.bodySmall,
+    color: colors.white,
+    opacity: 0.9,
   },
   section: {
     paddingHorizontal: spacing.lg,

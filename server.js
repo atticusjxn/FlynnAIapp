@@ -460,6 +460,22 @@ const handleCheckoutSessionCompleted = async (session) => {
           status: 'trialing',
           planId
         });
+
+        // Also update the user's has_started_trial flag for setup progress tracking
+        try {
+          const { error: userUpdateError } = await supabaseServiceClient
+            .from('users')
+            .update({ has_started_trial: true })
+            .eq('default_org_id', orgId);
+
+          if (userUpdateError) {
+            console.error('[Billing] Failed to update user has_started_trial flag', { orgId, error: userUpdateError });
+          } else {
+            console.log('[Billing] Updated user has_started_trial flag', { orgId });
+          }
+        } catch (userError) {
+          console.error('[Billing] Error updating user has_started_trial flag', { orgId, error: userError });
+        }
       }
     } catch (error) {
       console.error('[Billing] Error storing Stripe subscription details', { orgId, error });

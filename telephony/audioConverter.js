@@ -126,17 +126,17 @@ function resample16kTo8k(input16kHz) {
   const outputSampleCount = Math.floor(inputSampleCount / 2);
   const output8kHz = Buffer.alloc(outputSampleCount * 2);
 
-  for (let i = 0; i < inputSampleCount; i += 2) {
-    // Read source sample (2 bytes per sample)
-    const sourceOffset = i * 2;
-    if (sourceOffset + 2 > input16kHz.length) {
-      break;
-    }
-    const sample = input16kHz.readInt16LE(sourceOffset);
-    
-    // Write to output (every other sample)
-    const outputOffset = Math.floor(i / 2) * 2;
-    if (outputOffset + 2 <= output8kHz.length) {
+  // Loop through output samples (not input samples) to prevent buffer overflow
+  // when inputSampleCount is odd
+  for (let outIdx = 0; outIdx < outputSampleCount; outIdx++) {
+    // Read every other input sample: 0, 2, 4, 6...
+    const inIdx = outIdx * 2;
+    const sourceOffset = inIdx * 2; // byte offset in input buffer
+    const outputOffset = outIdx * 2; // byte offset in output buffer
+
+    // Bounds check (should never fail with correct loop bounds, but defensive)
+    if (sourceOffset + 2 <= input16kHz.length) {
+      const sample = input16kHz.readInt16LE(sourceOffset);
       output8kHz.writeInt16LE(sample, outputOffset);
     }
   }

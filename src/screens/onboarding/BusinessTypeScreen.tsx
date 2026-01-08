@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
+import { OnboardingHeader } from '../../components/onboarding/OnboardingHeader';
 import { businessTypes, useOnboarding } from '../../context/OnboardingContext';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
@@ -55,24 +56,12 @@ export const BusinessTypeScreen: React.FC<BusinessTypeScreenProps> = ({ onNext, 
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <OnboardingHeader currentStep={1} totalSteps={4} onBack={onBack} />
+      <KeyboardAvoidingView
         style={styles.keyboardAvoidingContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, styles.progressActive]} />
-            <View style={styles.progressBar} />
-            <View style={styles.progressBar} />
-            <View style={styles.progressBar} />
-            <View style={styles.progressBar} />
-            <View style={styles.progressBar} />
-          </View>
-        </View>
 
         <ScrollView 
           style={styles.content} 

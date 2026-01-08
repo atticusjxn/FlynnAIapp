@@ -12,6 +12,7 @@ import {
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnInput } from '../../components/ui/FlynnInput';
 import { FlynnButton } from '../../components/ui/FlynnButton';
+import { OnboardingHeader } from '../../components/onboarding/OnboardingHeader';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { spacing, typography, borderRadius } from '../../theme';
 import CallHandlingService from '../../services/CallHandlingService';
@@ -25,10 +26,8 @@ interface ReceptionistSetupScreenProps {
 }
 
 const voiceOptions = [
-  { id: 'flynn_warm', label: 'Avery — Warm & Friendly', description: 'Balanced tone ideal for inbound service calls.' },
-  { id: 'flynn_expert', label: 'Sloane — Expert Concierge', description: 'Calm, confident delivery for premium services.' },
-  { id: 'flynn_hype', label: 'Maya — High Energy', description: 'Upbeat tone that keeps callers engaged.' },
-  { id: 'custom_voice', label: 'Record Your Own', description: 'Clone your voice so it sounds like you answering.' },
+  { id: 'male', label: 'Male Voice', description: 'Professional and clear tone for business calls.' },
+  { id: 'female', label: 'Female Voice', description: 'Warm and friendly tone for service calls.' },
 ];
 
 const starterQuestions = [
@@ -45,8 +44,18 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
   const { colors } = useTheme();
   const { user } = useAuth();
   const { onboardingData, updateOnboardingData } = useOnboarding();
+
+  // Map old voice IDs to new simplified ones
+  const mapVoiceId = (oldVoiceId: string | null): string => {
+    if (!oldVoiceId) return 'female';
+    // Map old persona names to gender-based voices
+    if (['flynn_warm', 'flynn_hype', 'custom_voice'].includes(oldVoiceId)) return 'female';
+    if (['flynn_expert'].includes(oldVoiceId)) return 'male';
+    return oldVoiceId; // Already 'male' or 'female'
+  };
+
   const [selectedVoice, setSelectedVoice] = useState<string>(
-    onboardingData.receptionistVoice || voiceOptions[0].id
+    mapVoiceId(onboardingData.receptionistVoice)
   );
   const defaultGreeting = useMemo(() => buildDefaultGreeting(user), [user]);
   const [greeting, setGreeting] = useState(
@@ -74,9 +83,6 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
       setGreeting(defaultGreeting);
     }
   }, [defaultGreeting, onboardingData.receptionistGreeting]);
-
-
-  const canRecordOwnVoice = useMemo(() => selectedVoice === 'custom_voice', [selectedVoice]);
 
   const handleAddQuestion = () => {
     const trimmed = customQuestion.trim();
@@ -155,19 +161,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-        </View>
-      </View>
+      <OnboardingHeader currentStep={4} totalSteps={4} onBack={onBack} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.titleContainer}>
@@ -202,21 +196,9 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
                   <Text style={styles.voiceTitle}>{option.label}</Text>
                   <Text style={styles.voiceDescription}>{option.description}</Text>
                 </View>
-                {option.id === 'flynn_warm' && (
-                  <Text style={styles.voiceBadge}>Popular</Text>
-                )}
               </TouchableOpacity>
             );
           })}
-
-          {canRecordOwnVoice && (
-            <View style={styles.customVoiceNotice}>
-              <FlynnIcon name="mic" size={20} color={colors.primary} />
-              <Text style={styles.customVoiceText}>
-                We will guide you through a quick recording after onboarding so Flynn can mimic your tone perfectly.
-              </Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.card}>

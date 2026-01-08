@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
+import { OnboardingHeader } from '../../components/onboarding/OnboardingHeader';
 import { businessGoals, useOnboarding } from '../../context/OnboardingContext';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
@@ -39,19 +40,7 @@ export const BusinessGoalsScreen: React.FC<BusinessGoalsScreenProps> = ({ onNext
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={[styles.progressBar, styles.progressActive]} />
-          <View style={styles.progressBar} />
-          <View style={styles.progressBar} />
-          <View style={styles.progressBar} />
-        </View>
-      </View>
+      <OnboardingHeader currentStep={3} totalSteps={4} onBack={onBack} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.titleContainer}>

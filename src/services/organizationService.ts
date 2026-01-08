@@ -249,6 +249,7 @@ const persistLegacyUserState = async (userId: string, onboardingData: Onboarding
       call_handling_mode: onboardingData.receptionistMode ?? 'sms_links',
       receptionist_ack_library: onboardingData.receptionistAckLibrary ?? [],
       onboarding_complete: true,
+      has_completed_onboarding: true, // New setup progress tracking
     })
     .eq('id', userId);
 

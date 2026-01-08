@@ -14,6 +14,7 @@ import {
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnInput } from '../../components/ui/FlynnInput';
 import { FlynnButton } from '../../components/ui/FlynnButton';
+import { OnboardingHeader } from '../../components/onboarding/OnboardingHeader';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { spacing, typography, borderRadius, colors } from '../../theme';
 import { WebsiteScraperService } from '../../services/WebsiteScraperService';
@@ -125,24 +126,12 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
 
   return (
     <SafeAreaView style={styles.container}>
+      <OnboardingHeader currentStep={2} totalSteps={4} onBack={onBack} />
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <FlynnIcon name="arrow-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, styles.progressActive]} />
-            <View style={[styles.progressBar, styles.progressActive]} />
-            <View style={styles.progressBar} />
-            <View style={styles.progressBar} />
-            <View style={styles.progressBar} />
-            <View style={styles.progressBar} />
-          </View>
-        </View>
 
         <ScrollView
           style={styles.content}

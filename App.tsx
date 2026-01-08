@@ -37,6 +37,7 @@ import QuoteFormsListScreen from './src/screens/quotes/QuoteFormsListScreen';
 import QuoteFormTemplateSelectorScreen from './src/screens/quotes/QuoteFormTemplateSelectorScreen';
 import QuoteFormAnalyticsScreen from './src/screens/quotes/QuoteFormAnalyticsScreen';
 import TermsOfServiceScreen from './src/screens/settings/TermsOfServiceScreen';
+import { CompleteSetupScreen } from './src/screens/CompleteSetupScreen';
 import {
   useFonts,
   Inter_400Regular,
@@ -220,6 +221,14 @@ function RootNavigator() {
       <Stack.Screen
         name="TermsOfService"
         component={TermsOfServiceScreen}
+        options={{
+          presentation: 'modal',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="CompleteSetup"
+        component={CompleteSetupScreen}
         options={{
           presentation: 'modal',
           headerShown: false,
