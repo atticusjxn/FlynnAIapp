@@ -14,10 +14,12 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import NativeVoiceAgentService, {
   ConversationState,
   ConversationMessage,
@@ -25,11 +27,21 @@ import NativeVoiceAgentService, {
   ExtractedEntities,
 } from '../../services/NativeVoiceAgentService';
 import EqualizerAnimation from '../../components/ui/EqualizerAnimation';
-import JobCard from '../../components/jobs/JobCard';
+import { JobCard } from '../../components/jobs/JobCard';
 
-const AIReceptionistTestScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const { onboardingData, updateOnboardingData } = useOnboarding();
+interface AIReceptionistTestScreenProps {
+  navigation?: any;
+  onBack?: () => void;
+  onNext?: () => void;
+}
+
+const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ navigation, onBack, onNext }) => {
+  const { onboardingData, updateOnboardingData, organizationId } = useOnboarding();
   const { user } = useAuth();
+  const { colors } = useTheme();
+
+  // Get the primary color for consistent theming
+  const primaryColor = colors.primary || '#F97316'; // Flynn orange
 
   // State
   const [conversationState, setConversationState] = useState<ConversationState>('disconnected');
@@ -98,8 +110,10 @@ const AIReceptionistTestScreen: React.FC<{ navigation: any }> = ({ navigation })
    * Start the test conversation
    */
   const handleStartTest = async () => {
-    if (!user?.default_org_id) {
-      Alert.alert('Error', 'User ID not found');
+    // Use organization ID from context, then user ID as fallback
+    const effectiveOrgId = organizationId || user?.id;
+    if (!effectiveOrgId) {
+      Alert.alert('Error', 'Please complete account setup first');
       return;
     }
 
@@ -111,7 +125,7 @@ const AIReceptionistTestScreen: React.FC<{ navigation: any }> = ({ navigation })
       setConversationResult(null);
 
       await NativeVoiceAgentService.startConversation(
-        user.default_org_id,
+        effectiveOrgId,
         greeting,
         voiceId,
         mode
@@ -137,10 +151,11 @@ const AIReceptionistTestScreen: React.FC<{ navigation: any }> = ({ navigation })
    * Continue to trial signup or complete onboarding
    */
   const handleContinue = () => {
-    // For now, this completes onboarding. Later you can add a trial signup screen
-    // by creating step 8 in OnboardingNavigator
-    if (typeof navigation?.navigate === 'function') {
-      navigation.navigate(); // Calls handleNext which moves to next step or completes onboarding
+    // Move to next step (trial signup)
+    if (onNext) {
+      onNext();
+    } else if (typeof navigation?.navigate === 'function') {
+      navigation.navigate(); // Fallback for legacy usage
     }
   };
 
@@ -229,7 +244,8 @@ const AIReceptionistTestScreen: React.FC<{ navigation: any }> = ({ navigation })
       location: conversationResult.entities.location || 'Not specified',
       status: 'pending' as const,
       businessType: onboardingData.businessType || 'service',
-      source: 'ai_receptionist' as const,
+      source: 'call' as const,
+      createdAt: new Date().toISOString(),
     };
 
     return (
@@ -296,11 +312,33 @@ const AIReceptionistTestScreen: React.FC<{ navigation: any }> = ({ navigation })
 
   // Render conversation UI
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      {/* Header with back button and progress bar */}
+      <View style={styles.progressHeader}>
+        {onBack && (
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={primaryColor} />
+          </TouchableOpacity>
+        )}
+        <View style={styles.progressContainer}>
+          {[...Array(7)].map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.progressBar,
+                { backgroundColor: primaryColor }, // All active for step 7
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Ionicons name="call" size={48} color="#2563EB" />
+          <View style={[styles.iconContainer, { backgroundColor: `${primaryColor}20` }]}>
+            <Ionicons name="call" size={32} color={primaryColor} />
+          </View>
           <Text style={styles.title}>Test Your AI Receptionist</Text>
           <Text style={styles.subtitle}>
             Have a real conversation with Flynn to see how it handles your calls
@@ -375,7 +413,7 @@ const AIReceptionistTestScreen: React.FC<{ navigation: any }> = ({ navigation })
       <View style={styles.footer}>
         {canStart && (
           <TouchableOpacity
-            style={[styles.button, styles.primaryButton, styles.fullWidthButton]}
+            style={[styles.button, styles.primaryButton, { backgroundColor: primaryColor }, styles.fullWidthButton]}
             onPress={handleStartTest}
           >
             <Ionicons name="mic" size={20} color="#FFFFFF" />
@@ -393,7 +431,7 @@ const AIReceptionistTestScreen: React.FC<{ navigation: any }> = ({ navigation })
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -401,6 +439,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    marginBottom: 12,
+  },
+  backButton: {
+    padding: 4,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  progressBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
   scrollView: {
     flex: 1,

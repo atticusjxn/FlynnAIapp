@@ -138,10 +138,32 @@ function createNativeTestHandler({
           case 'audio':
             // Client sends Linear16 PCM audio (base64 encoded)
             if (message.audio && this.agentConnection) {
-              const audioBuffer = Buffer.from(message.audio, 'base64');
-              // Convert from Linear16 16kHz to μ-law 8kHz for Deepgram
-              const mulawBuffer = convertNativeToDeepgram(audioBuffer);
-              this.sendAudioToAgent(mulawBuffer);
+              try {
+                // Validate audio data exists and is not empty
+                if (!message.audio || typeof message.audio !== 'string') {
+                  console.warn('[NativeTest] Invalid audio data format');
+                  break;
+                }
+                
+                const audioBuffer = Buffer.from(message.audio, 'base64');
+                
+                // Validate buffer is valid and has sufficient data
+                if (!audioBuffer || audioBuffer.length < 2) {
+                  console.warn('[NativeTest] Audio buffer too small:', audioBuffer?.length || 0);
+                  break;
+                }
+                
+                // Convert from Linear16 16kHz to μ-law 8kHz for Deepgram
+                const mulawBuffer = convertNativeToDeepgram(audioBuffer);
+                
+                // Only send if conversion produced valid output
+                if (mulawBuffer && mulawBuffer.length > 0) {
+                  this.sendAudioToAgent(mulawBuffer);
+                }
+              } catch (error) {
+                console.error('[NativeTest] Error processing audio:', error);
+                // Don't send error to client for audio processing issues (non-critical)
+              }
             }
             break;
 

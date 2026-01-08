@@ -27,6 +27,7 @@ export interface OnboardingData {
   twilioPhoneNumber?: string | null;
   phoneNumber?: string | null;
   billingPlan?: BillingPlanId;
+  trialStarted?: boolean; // Tracks if free trial signup was completed during onboarding
   // AI Test fields
   aiTestCompleted?: boolean;
   testJobExtracted?: {
