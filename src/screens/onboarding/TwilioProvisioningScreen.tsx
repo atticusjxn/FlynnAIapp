@@ -307,8 +307,8 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
           <View style={styles.paywallCard}>
             <Text style={styles.paywallTitle}>Subscribe to unlock provisioning</Text>
             <Text style={styles.paywallDescription}>
-              Concierge Basic ($49/mo) includes a dedicated Flynn number and summaries for up to 100
-              missed calls. Upgrade to Growth for 500 events each month.
+              Base Plan ($79/mo) includes a dedicated Flynn number and summaries for up to 100
+              missed calls. Upgrade to Max for 500 events each month.
             </Text>
             <FlynnButton
               title="View concierge plans"
@@ -364,6 +364,11 @@ export const TwilioProvisioningScreen: React.FC<TwilioProvisioningScreenProps> =
         onClose={() => setPaywallVisible(false)}
         customerEmail={user?.email ?? undefined}
         organizationId={organizationId}
+        onSubscriptionCreated={async () => {
+          console.log('[TwilioProvisioningScreen] Subscription created, refreshing onboarding data');
+          await refreshOnboarding();
+          setPaywallVisible(false);
+        }}
       />
     </SafeAreaView>
   );

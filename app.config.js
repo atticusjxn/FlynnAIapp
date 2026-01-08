@@ -85,11 +85,11 @@ export default {
       releaseChannel: process.env.APP_ENV || "production",
       apiBaseUrl: API_BASE_URL,
       // Stripe billing price IDs for subscriptions
-      stripeStarterPriceId: process.env.EXPO_PUBLIC_STRIPE_STARTER_PRICE_ID || "price_1SmE0YRqssM6oZ4qP1IJYnZm",
-      stripeProfessionalPriceId: process.env.EXPO_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID || "price_1SmE4bRqssM6oZ4qylvjE2MX",
-      stripeBusinessPriceId: process.env.EXPO_PUBLIC_STRIPE_BUSINESS_PRICE_ID || "price_1SmE51RqssM6oZ4qtKIxwUgf",
+      stripeStarterPriceId: process.env.EXPO_PUBLIC_STRIPE_STARTER_PRICE_ID || "price_1SbiXoRm2tMRBfxYrZE2tD4o",
+      stripeProfessionalPriceId: process.env.EXPO_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID || "price_1SbiXwRm2tMRBfxYACw2GkKc",
+      stripeBusinessPriceId: process.env.EXPO_PUBLIC_STRIPE_BUSINESS_PRICE_ID || "price_1SbiXwRm2tMRBfxYACw2GkKc",
       // Stripe publishable key for React Native SDK
-      stripePublishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || "pk_test_51QJtbORqssM6oZ4qC3kcaTx6BzB3Woo6hkm2xKWzq6dJoYH7qXYKysMz5YFPaBS1WMRirGj2NiULuvI05ddTHlq5001Z1ZamMW",
+      stripePublishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || "pk_live_51RysY5Rm2tMRBfxYo498DaNCzP8hxGfHAAVaW2VIV47tM8S85BrhqTDUkJMsUsCjQeAG9OfM8t6euxBvs0UOb62V00KIP7iSRW",
       eas: {
         projectId: "799dd441-a3f1-4b18-a45d-bea10b3f9dc8"
       }

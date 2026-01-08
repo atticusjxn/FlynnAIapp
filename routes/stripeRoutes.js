@@ -15,6 +15,19 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
   const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
   const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
+  // Price ID to plan mapping - matches server.js planPriceMapping
+  const stripeStarterPriceId = process.env.STRIPE_STARTER_PRICE_ID || process.env.STRIPE_BASIC_PRICE_ID || 'price_1SbiXoRm2tMRBfxYrZE2tD4o';
+  const stripeProfessionalPriceId = process.env.STRIPE_PROFESSIONAL_PRICE_ID || process.env.STRIPE_GROWTH_PRICE_ID || 'price_1SbiXwRm2tMRBfxYACw2GkKc';
+  const stripeBusinessPriceId = process.env.STRIPE_BUSINESS_PRICE_ID || 'price_1SbiXwRm2tMRBfxYACw2GkKc';
+
+  const resolvePlanFromPriceId = (priceId) => {
+    if (!priceId) return 'starter';
+    if (priceId === stripeStarterPriceId) return 'starter';
+    if (priceId === stripeProfessionalPriceId) return 'growth';
+    if (priceId === stripeBusinessPriceId) return 'enterprise';
+    return 'starter'; // Default fallback
+  };
+
   /**
    * POST /api/stripe/create-subscription
    * Create a new subscription with 14-day trial
@@ -45,7 +58,7 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
       // Check if customer already exists
       const { data: existingUser } = await supabaseAdmin
         .from('users')
-        .select('stripe_customer_id')
+        .select('stripe_customer_id, default_org_id')
         .eq('id', userId)
         .single();
 
@@ -84,14 +97,52 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
       });
 
       // Get client_secret from payment intent or setup intent
-      const clientSecret = subscription.latest_invoice?.payment_intent?.client_secret ||
-        subscription.pending_setup_intent?.client_secret;
+      // For trial subscriptions, we get a SetupIntent, not a PaymentIntent
+      const paymentIntentSecret = subscription.latest_invoice?.payment_intent?.client_secret;
+      
+      // Handle SetupIntent - it might be expanded or just an ID string
+      let setupIntentSecret = null;
+      if (subscription.pending_setup_intent) {
+        try {
+          if (typeof subscription.pending_setup_intent === 'string') {
+            // If it's just an ID, retrieve the SetupIntent separately
+            console.log(`[StripeRoutes] Retrieving SetupIntent: ${subscription.pending_setup_intent}`);
+            const setupIntent = await stripe.setupIntents.retrieve(subscription.pending_setup_intent);
+            setupIntentSecret = setupIntent.client_secret;
+            console.log(`[StripeRoutes] SetupIntent retrieved successfully`);
+          } else {
+            // If it's already expanded, use it directly
+            setupIntentSecret = subscription.pending_setup_intent.client_secret;
+            console.log(`[StripeRoutes] SetupIntent already expanded`);
+          }
+        } catch (setupIntentError) {
+          console.error('[StripeRoutes] Error retrieving SetupIntent:', setupIntentError);
+          // If SetupIntent retrieval fails, try to get it from the subscription again
+          // Sometimes we need to retrieve the subscription with expanded setup_intent
+          try {
+            const expandedSubscription = await stripe.subscriptions.retrieve(subscription.id, {
+              expand: ['pending_setup_intent'],
+            });
+            if (expandedSubscription.pending_setup_intent?.client_secret) {
+              setupIntentSecret = expandedSubscription.pending_setup_intent.client_secret;
+              console.log(`[StripeRoutes] SetupIntent retrieved from expanded subscription`);
+            }
+          } catch (retryError) {
+            console.error('[StripeRoutes] Failed to retrieve SetupIntent from expanded subscription:', retryError);
+          }
+        }
+      }
+      
+      const clientSecret = paymentIntentSecret || setupIntentSecret;
+      const isSetupIntent = !paymentIntentSecret && !!setupIntentSecret;
 
       if (!clientSecret) {
         throw new Error('Failed to get client secret from subscription');
       }
+      
+      console.log(`[StripeRoutes] Client secret retrieved: isSetupIntent=${isSetupIntent}, hasSecret=${!!clientSecret}`);
 
-      // Save subscription ID to database
+      // Save subscription ID to users table
       await supabaseAdmin
         .from('users')
         .update({
@@ -101,11 +152,37 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
         })
         .eq('id', userId);
 
-      console.log(`[StripeRoutes] Subscription created: ${subscription.id}, status: ${subscription.status}`);
+      // CRITICAL: Also update the user's organization plan immediately
+      // This ensures TwilioService.provisionPhoneNumber works without waiting for webhooks
+      const orgId = existingUser?.default_org_id;
+      if (orgId) {
+        const planId = resolvePlanFromPriceId(priceId);
+        const { error: orgUpdateError } = await supabaseAdmin
+          .from('organizations')
+          .update({
+            plan: planId,
+            billing_plan_id: planId,
+            stripe_customer_id: customerId,
+            stripe_subscription_id: subscription.id,
+            subscription_status: subscription.status,
+          })
+          .eq('id', orgId);
+
+        if (orgUpdateError) {
+          console.error(`[StripeRoutes] Failed to update organization plan: ${orgUpdateError.message}`);
+        } else {
+          console.log(`[StripeRoutes] Updated organization ${orgId} plan to: ${planId}`);
+        }
+      } else {
+        console.warn(`[StripeRoutes] No organization found for user ${userId}, plan sync skipped`);
+      }
+
+      console.log(`[StripeRoutes] Subscription created: ${subscription.id}, status: ${subscription.status}, isSetupIntent: ${isSetupIntent}`);
 
       res.status(200).json({
         subscriptionId: subscription.id,
         clientSecret,
+        isSetupIntent, // Tell the client which type of secret this is
         customerId,
         status: subscription.status,
         trialEnd: subscription.trial_end,
@@ -119,6 +196,7 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
       });
     }
   });
+
 
   /**
    * GET /api/stripe/subscription/:userId

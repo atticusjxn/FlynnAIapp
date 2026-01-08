@@ -8,14 +8,17 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import Constants from 'expo-constants';
+import * as WebBrowser from 'expo-web-browser';
 import { FlynnButton } from '../ui/FlynnButton';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { billingPlans, BillingPlanDefinition } from '../../data/billingPlans';
 import { spacing, typography, borderRadius, shadows } from '../../theme';
+import { supabase } from '../../services/supabase';
 
 interface BillingPaywallModalProps {
   visible: boolean;
@@ -40,8 +43,29 @@ export const BillingPaywallModal: React.FC<BillingPaywallModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const styles = createStyles(colors);
 
+  const openPaymentLink = async (url: string) => {
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await WebBrowser.openBrowserAsync(url, {
+          presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        });
+      } else {
+        Alert.alert('Error', 'Unable to open payment link. Please check your internet connection.');
+      }
+    } catch (error) {
+      console.error('[BillingPaywall] Error opening payment link:', error);
+      Alert.alert('Error', 'Failed to open payment link. Please try again or email support@flynn.ai.');
+    }
+  };
+
   const handlePlanSelection = async (plan: BillingPlanDefinition) => {
+    // If no stripePriceId, fall back to payment link if available
     if (!plan.stripePriceId) {
+      if (plan.paymentLink && plan.paymentLink.startsWith('http')) {
+        await openPaymentLink(plan.paymentLink);
+        return;
+      }
       Alert.alert(
         'Checkout coming soon',
         'We are finalising this plan in Stripe. Please email support@flynn.ai so we can activate it manually for you.'
@@ -65,12 +89,18 @@ export const BillingPaywallModal: React.FC<BillingPaywallModalProps> = ({
     try {
       console.log('[BillingPaywall] Creating subscription for plan:', plan.id);
 
+      // Get the access token from the session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication session found. Please log in again.');
+      }
+
       // Step 1: Create subscription on backend
       const response = await fetch(`${API_BASE_URL}/api/stripe/create-subscription`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.accessToken}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           priceId: plan.stripePriceId,
@@ -81,29 +111,48 @@ export const BillingPaywallModal: React.FC<BillingPaywallModalProps> = ({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        // Fall back to payment link if available
+        if (plan.paymentLink && plan.paymentLink.startsWith('http')) {
+          console.log('[BillingPaywall] Falling back to payment link due to subscription creation error');
+          await openPaymentLink(plan.paymentLink);
+          return;
+        }
         throw new Error(errorData.message || 'Failed to create subscription');
       }
 
-      const { clientSecret, subscriptionId, trialEnd } = await response.json();
+      const { clientSecret, subscriptionId, trialEnd, isSetupIntent } = await response.json();
 
       if (!clientSecret) {
         throw new Error('No client secret returned from server');
       }
 
-      console.log('[BillingPaywall] Subscription created:', subscriptionId);
+      console.log('[BillingPaywall] Subscription created:', subscriptionId, 'isSetupIntent:', isSetupIntent);
 
       // Step 2: Initialize Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: clientSecret,
+      // For trial subscriptions, we use setupIntentClientSecret (to save card for later)
+      // For immediate payments, we use paymentIntentClientSecret
+      const baseParams = {
         merchantDisplayName: 'Flynn AI',
         returnURL: 'flynnai://stripe-redirect',
         defaultBillingDetails: {
           email,
         },
-      });
+      };
+
+      const { error: initError } = await initPaymentSheet(
+        isSetupIntent
+          ? { ...baseParams, setupIntentClientSecret: clientSecret }
+          : { ...baseParams, paymentIntentClientSecret: clientSecret }
+      );
 
       if (initError) {
         console.error('[BillingPaywall] Payment Sheet init error:', initError);
+        // Fall back to payment link if available
+        if (plan.paymentLink && plan.paymentLink.startsWith('http')) {
+          console.log('[BillingPaywall] Falling back to payment link due to init error');
+          await openPaymentLink(plan.paymentLink);
+          return;
+        }
         throw new Error(initError.message || 'Failed to initialize payment');
       }
 
@@ -144,6 +193,12 @@ export const BillingPaywallModal: React.FC<BillingPaywallModalProps> = ({
 
     } catch (error: any) {
       console.error('[BillingPaywall] Error:', error);
+      // Fall back to payment link if available
+      if (plan.paymentLink && plan.paymentLink.startsWith('http')) {
+        console.log('[BillingPaywall] Falling back to payment link due to error');
+        await openPaymentLink(plan.paymentLink);
+        return;
+      }
       Alert.alert(
         'Subscription failed',
         error.message || 'Unable to create subscription. Please try again or email support@flynn.ai.'

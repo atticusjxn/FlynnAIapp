@@ -16,13 +16,13 @@ import { useOnboarding } from '../../context/OnboardingContext';
 import { useAuth } from '../../context/AuthContext';
 import { BillingPaywallModal } from '../../components/billing/BillingPaywallModal';
 import { isPaidPlan } from '../../data/billingPlans';
-import { 
-  colors, 
-  spacing, 
-  typography, 
-  borderRadius, 
+import {
+  colors,
+  spacing,
+  typography,
+  borderRadius,
   shadows,
-  layout 
+  layout
 } from '../../theme';
 import { TwilioService } from '../../services/TwilioService';
 import { TwilioServiceError } from '../../types/calls.types';
@@ -50,7 +50,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
   const hasPaidPlan = isPaidPlan(onboardingData.billingPlan);
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [isRefreshingPlan, setIsRefreshingPlan] = useState(false);
-  
+
   const [setupState, setSetupState] = useState<ForwardingSetupState>({
     isLoading: false,
     twilioNumber: null,
@@ -66,9 +66,9 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
   const checkCurrentSetup = async () => {
     try {
       setSetupState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+
       const twilioStatus = await TwilioService.getUserTwilioStatus();
-      
+
       setSetupState(prev => ({
         ...prev,
         twilioNumber: twilioStatus.twilioPhoneNumber || twilioStatus.phoneNumber,
@@ -95,9 +95,9 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
 
     try {
       setSetupState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+
       const result = await TwilioService.provisionPhoneNumber();
-      
+
       setSetupState(prev => ({
         ...prev,
         twilioNumber: result.phoneNumber,
@@ -108,11 +108,11 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
       Alert.alert(
         'Number Provisioned!',
         `Your dedicated Flynn AI number is ${result.phoneNumber}. Now let's set up call forwarding.`,
-        [{ text: 'Continue', onPress: () => {} }]
+        [{ text: 'Continue', onPress: () => { } }]
       );
     } catch (error: any) {
       console.error('Error provisioning number:', error);
-      
+
       let errorMessage = 'Failed to provision phone number. Please try again.';
       if (error instanceof TwilioServiceError) {
         switch (error.code) {
@@ -126,7 +126,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
             errorMessage = error.message;
         }
       }
-      
+
       setSetupState(prev => ({
         ...prev,
         error: errorMessage,
@@ -155,17 +155,17 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
 
     try {
       setSetupState(prev => ({ ...prev, isLoading: true }));
-      
+
       // Clean the phone number for dialing (remove +1 prefix)
       const cleanNumber = setupState.twilioNumber.replace('+1', '');
       const forwardingCode = `*72${cleanNumber}`;
-      
+
       // Track setup attempt
       await TwilioService.trackForwardingAttempt(setupState.twilioNumber);
-      
+
       // Immediately initiate the call with the forwarding code
       const telUrl = `tel:${forwardingCode}`;
-      
+
       // Check if we can open the URL
       const canOpenURL = await Linking.canOpenURL(telUrl);
       if (!canOpenURL) {
@@ -173,17 +173,17 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         showManualInstructions();
         return;
       }
-      
+
       // Open the phone dialer with the forwarding code pre-filled
       await Linking.openURL(telUrl);
-      
+
       setSetupState(prev => ({ ...prev, isLoading: false }));
-      
+
       // After a brief delay, show the completion instructions
       setTimeout(() => {
         showPostCallInstructions();
       }, 1500);
-      
+
     } catch (error: any) {
       setSetupState(prev => ({ ...prev, isLoading: false }));
       // If automatic dialing fails, show manual instructions
@@ -206,15 +206,17 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
   const showManualInstructions = () => {
     const cleanNumber = setupState.twilioNumber?.replace('+1', '') || '';
     const forwardingCode = `*72${cleanNumber}`;
-    
+
     Alert.alert(
       'Manual Setup Required',
       `Your device doesn't support automatic dialing. Please manually dial:\n\n${forwardingCode}\n\nThen press the call button to activate forwarding.`,
       [
-        { text: 'Copy Code', onPress: () => {
-          // Note: Copy to clipboard functionality would need to be added
-          Alert.alert('Code Copied', `${forwardingCode} has been copied to your clipboard.`);
-        }},
+        {
+          text: 'Copy Code', onPress: () => {
+            // Note: Copy to clipboard functionality would need to be added
+            Alert.alert('Code Copied', `${forwardingCode} has been copied to your clipboard.`);
+          }
+        },
         { text: 'I\'ve Setup', onPress: () => updateForwardingStatus(true) }
       ]
     );
@@ -235,7 +237,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
 
   const handleTestCall = () => {
     if (!setupState.twilioNumber) return;
-    
+
     Alert.alert(
       'Test Call',
       `Call your Flynn AI number to test the setup:\n\n${setupState.twilioNumber}\n\nSpeak about a job request and Flynn AI will automatically create a job card for you.`,
@@ -252,8 +254,8 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
       'This will disable call forwarding and Flynn AI will no longer process your business calls automatically. You can re-enable it anytime.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Disable', 
+        {
+          text: 'Disable',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -263,7 +265,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
                 isForwardingActive: false,
                 setupStep: 'forward'
               }));
-              
+
               // Show disable forwarding code
               Alert.alert(
                 'Forwarding Disabled',
@@ -294,7 +296,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         <View style={styles.paywallCard}>
           <Text style={styles.paywallTitle}>Subscribe to unlock provisioning</Text>
           <Text style={styles.paywallCopy}>
-            Concierge Basic ($49/mo) includes a dedicated number and up to 100 missed-call summaries. Growth lifts the allowance to 500 events each month.
+            Base Plan ($79/mo) includes a dedicated number and up to 100 missed-call summaries. Max lifts the allowance to 500 events each month.
           </Text>
           <FlynnButton
             title="View concierge plans"
@@ -333,14 +335,14 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
       <Text style={styles.stepDescription}>
         Flynn AI will open your phone dialer with the forwarding code pre-filled. Simply tap the call button to activate automatic call processing.
       </Text>
-      
+
       {setupState.twilioNumber && (
         <View style={styles.numberDisplay}>
           <Text style={styles.numberLabel}>Your Flynn AI Number:</Text>
           <Text style={styles.numberText}>{setupState.twilioNumber}</Text>
         </View>
       )}
-      
+
       <FlynnButton
         title="Call to Setup Forwarding"
         onPress={handleSetupForwarding}
@@ -363,7 +365,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
       <Text style={styles.stepDescription}>
         Make a test call to verify everything is working correctly. Flynn AI will automatically process the call and create job cards.
       </Text>
-      
+
       <FlynnButton
         title="Make Test Call"
         onPress={handleTestCall}
@@ -386,7 +388,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         <Text style={styles.stepDescription}>
           Call forwarding is active. All your business calls will now be processed by Flynn AI to automatically extract job details and create calendar events.
         </Text>
-        
+
         {setupState.twilioNumber && (
           <View style={styles.numberDisplay}>
             <Text style={styles.numberLabel}>Your Flynn AI Number:</Text>
@@ -424,7 +426,7 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -446,26 +448,26 @@ export const CallSetupScreen: React.FC<CallSetupScreenProps> = ({ navigation }) 
         <View style={styles.progressIndicator}>
           {(['provision', 'forward', 'test', 'complete'] as const).map((step, index) => (
             <View key={step} style={styles.progressStep}>
-              <View 
+              <View
                 style={[
                   styles.progressDot,
                   {
-                    backgroundColor: 
+                    backgroundColor:
                       setupState.setupStep === step ? colors.primary :
-                      (['provision', 'forward', 'test', 'complete'] as const).indexOf(setupState.setupStep) > index ? colors.success :
-                      colors.gray300
+                        (['provision', 'forward', 'test', 'complete'] as const).indexOf(setupState.setupStep) > index ? colors.success :
+                          colors.gray300
                   }
-                ]} 
+                ]}
               />
               {index < 3 && (
-                <View 
+                <View
                   style={[
                     styles.progressLine,
                     {
-                      backgroundColor: 
+                      backgroundColor:
                         (['provision', 'forward', 'test', 'complete'] as const).indexOf(setupState.setupStep) > index ? colors.success : colors.gray300
                     }
-                  ]} 
+                  ]}
                 />
               )}
             </View>
