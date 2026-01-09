@@ -37,6 +37,12 @@ export interface PhoneNumberProvisionOptions {
   countryCode?: string;
   phoneNumberHint?: string | null;
   carrierIdHint?: string | null;
+  // Address fields for regulatory compliance (required for some countries like AU)
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
 }
 
 class TwilioServiceClass {
@@ -111,7 +117,7 @@ class TwilioServiceClass {
 
       // Search for available phone numbers
       const availableNumbers = await this.searchAvailableNumbers(countryCode);
-      
+
       let numbersToConsider = availableNumbers;
 
       if (!numbersToConsider || numbersToConsider.length === 0) {
@@ -129,7 +135,11 @@ class TwilioServiceClass {
 
       // Purchase the first available number
       const selectedNumber = numbersToConsider[0];
-      const purchaseResult = await this.purchasePhoneNumber(selectedNumber.phone_number, user.id);
+      const purchaseResult = await this.purchasePhoneNumber(
+        selectedNumber.phone_number,
+        user.id,
+        options
+      );
 
       const onboardingSnapshot = await OrganizationService.fetchOnboardingData();
 
@@ -220,7 +230,11 @@ class TwilioServiceClass {
   /**
    * Purchase a specific phone number using backend proxy
    */
-  private async purchasePhoneNumber(phoneNumber: string, userId: string): Promise<PhoneNumberProvisionResult> {
+  private async purchasePhoneNumber(
+    phoneNumber: string,
+    userId: string,
+    options: PhoneNumberProvisionOptions = {}
+  ): Promise<PhoneNumberProvisionResult> {
     try {
       // Get auth token from Supabase
       const { data: { session } } = await supabase.auth.getSession();
@@ -239,6 +253,12 @@ class TwilioServiceClass {
           body: JSON.stringify({
             phoneNumber,
             userId,
+            // Include address fields for regulatory compliance
+            address: options.address,
+            city: options.city,
+            state: options.state,
+            postalCode: options.postalCode,
+            country: options.country,
           }),
         }
       );

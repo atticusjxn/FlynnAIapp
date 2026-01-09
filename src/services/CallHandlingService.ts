@@ -77,9 +77,16 @@ export const ReceptionistService = {
     const configured = preferences.configured ?? true;
     const questions = configured ? normalizeQuestions(preferences.questions) : [];
     const ackLibrary = configured ? normalizeAckPhrases(preferences.ackLibrary) : [];
-    const mode: ReceptionistMode = configured
+
+    // Map legacy ReceptionistMode to new CallHandlingMode
+    const legacyMode: ReceptionistMode = configured
       ? (preferences.mode ?? 'ai_only')
       : 'voicemail_only';
+
+    const callHandlingMode: CallHandlingMode =
+      legacyMode === 'ai_only' ? 'ai_receptionist' :
+      legacyMode === 'hybrid_choice' ? 'ai_receptionist' :
+      'voicemail_only';
 
     const updates = {
       receptionist_voice: configured ? preferences.voiceId : null,
@@ -87,7 +94,7 @@ export const ReceptionistService = {
       receptionist_questions: questions,
       receptionist_voice_profile_id: configured ? preferences.voiceProfileId ?? null : null,
       receptionist_ack_library: ackLibrary,
-      call_handling_mode: mode,
+      call_handling_mode: callHandlingMode,
       receptionist_configured: configured,
       updated_at: new Date().toISOString(),
     };

@@ -216,8 +216,8 @@ export const SettingsScreen: React.FC = () => {
       Alert.alert('Error', 'User not authenticated.');
       return;
     }
-    // Navigate to the TwilioProvisioningScreen instead of directly provisioning here
-    navigation.navigate('OnboardingNavigator', { screen: 'TwilioProvisioning' });
+    // Navigate to the CompleteSetupScreen for phone provisioning
+    navigation.navigate('CompleteSetup');
   };
 
   const initials = getInitials(profile?.businessName, profile?.email);

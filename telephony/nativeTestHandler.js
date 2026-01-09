@@ -422,7 +422,7 @@ function createNativeTestHandler({
       try {
         // Close agent connection
         if (this.agentConnection) {
-          this.agentConnection.requestClose();
+          this.agentConnection.finish();
         }
 
         // Prepare final response with conversation data
@@ -481,7 +481,7 @@ function createNativeTestHandler({
       // Close agent connection
       if (this.agentConnection) {
         try {
-          this.agentConnection.requestClose();
+          this.agentConnection.finish();
         } catch (error) {
           console.error('[NativeTest] Error closing agent connection:', error);
         }

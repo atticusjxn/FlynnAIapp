@@ -224,12 +224,47 @@ const deriveOnboardingData = (snapshot: OrgSnapshot): OnboardingData => {
     receptionistGreeting: snapshot.receptionistConfig?.greeting_script || snapshot.userProfile?.receptionist_greeting || null,
     receptionistQuestions: Array.isArray(receptionistQuestions) ? receptionistQuestions : defaultOnboardingData.receptionistQuestions,
     receptionistVoiceProfileId: snapshot.receptionistConfig?.voice_profile_id || snapshot.userProfile?.receptionist_voice_profile_id || null,
-    receptionistMode: snapshot.userProfile?.call_handling_mode || defaultOnboardingData.receptionistMode,
+    receptionistMode: mapCallHandlingModeToReceptionistMode(snapshot.userProfile?.call_handling_mode) || defaultOnboardingData.receptionistMode,
     receptionistAckLibrary: safeArray(ackLibrary),
     twilioPhoneNumber: snapshot.userProfile?.twilio_phone_number || primaryNumber?.e164_number || null,
     phoneNumber: snapshot.userProfile?.phone_number || primaryNumber?.connected_number || null,
     billingPlan: snapshot.organizationPlan || 'trial',
   };
+};
+
+// Helper function to map legacy ReceptionistMode to new CallHandlingMode
+const mapReceptionistModeToCallHandlingMode = (legacyMode: string | null | undefined) => {
+  if (!legacyMode) return 'sms_links';
+  
+  // Map legacy ReceptionistMode to new CallHandlingMode
+  switch (legacyMode) {
+    case 'ai_only':
+    case 'hybrid_choice':
+      return 'ai_receptionist';
+    case 'voicemail_only':
+      return 'voicemail_only';
+    default:
+      // For any unexpected values, default to sms_links
+      return 'sms_links';
+  }
+};
+
+// Helper function to map new CallHandlingMode back to legacy ReceptionistMode
+// Since multiple legacy modes can map to 'ai_receptionist', we default to 'ai_only'
+const mapCallHandlingModeToReceptionistMode = (callHandlingMode: string | null | undefined) => {
+  if (!callHandlingMode) return null;
+  
+  switch (callHandlingMode) {
+    case 'ai_receptionist':
+      return 'ai_only'; // Default to ai_only since both ai_only and hybrid_choice mapped to ai_receptionist
+    case 'sms_links':
+      return 'ai_only'; // Default to ai_only for backward compatibility
+    case 'voicemail_only':
+      return 'voicemail_only';
+    default:
+      // For any unexpected values, default to null/ai_only
+      return 'ai_only';
+  }
 };
 
 const persistLegacyUserState = async (userId: string, onboardingData: OnboardingData) => {
@@ -246,7 +281,7 @@ const persistLegacyUserState = async (userId: string, onboardingData: Onboarding
       receptionist_greeting: onboardingData.receptionistGreeting,
       receptionist_questions: onboardingData.receptionistQuestions ?? [],
       receptionist_voice_profile_id: onboardingData.receptionistVoiceProfileId ?? null,
-      call_handling_mode: onboardingData.receptionistMode ?? 'sms_links',
+      call_handling_mode: mapReceptionistModeToCallHandlingMode(onboardingData.receptionistMode),
       receptionist_ack_library: onboardingData.receptionistAckLibrary ?? [],
       onboarding_complete: true,
       has_completed_onboarding: true, // New setup progress tracking

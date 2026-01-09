@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  Platform,
 } from 'react-native';
+import { Audio } from 'expo-av';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnInput } from '../../components/ui/FlynnInput';
 import { FlynnButton } from '../../components/ui/FlynnButton';
@@ -16,9 +18,11 @@ import { OnboardingHeader } from '../../components/onboarding/OnboardingHeader';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { spacing, typography, borderRadius } from '../../theme';
 import CallHandlingService from '../../services/CallHandlingService';
+import { OrganizationService } from '../../services/organizationService';
 import { useAuth } from '../../context/AuthContext';
 import { buildDefaultGreeting } from '../../utils/greetingDefaults';
 import { useTheme } from '../../context/ThemeContext';
+import { supabase } from '../../services/supabase';
 
 interface ReceptionistSetupScreenProps {
   onComplete: () => void;
@@ -69,6 +73,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
   );
   const [offerChoice, setOfferChoice] = useState(onboardingData.receptionistMode === 'hybrid_choice');
   const [isSaving, setIsSaving] = useState(false);
+  const [isPlayingSpeech, setIsPlayingSpeech] = useState(false);
 
   useEffect(() => {
     if (onboardingData.receptionistQuestions && onboardingData.receptionistQuestions.length > 0) {
@@ -97,13 +102,90 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
     setQuestions(prev => prev.filter(q => q !== question));
   };
 
-  const handlePreviewCall = () => {
-    Alert.alert(
-      'Preview call',
-      `${voiceOptions.find(v => v.id === selectedVoice)?.label || 'Selected voice'} will say:\n\n"${greeting}"` +
-        (questions.length ? `\n\nFollow up with:\n• ${questions.join('\n• ')}` : ''),
-      [{ text: 'Sounds good!' }]
-    );
+  const handlePreviewCall = async () => {
+    try {
+      if (!greeting.trim()) {
+        Alert.alert('No Greeting', 'Please enter a greeting message first.');
+        return;
+      }
+
+      console.log('[ReceptionistSetup] Generating Deepgram TTS preview...', { greeting, voice: selectedVoice });
+
+      setIsPlayingSpeech(true);
+
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      // Map voice selection to Deepgram Aura-2 Australian voice models
+      // Both Hyperion (male) and Theia (female) are confirmed Australian accents
+      const deepgramVoice = selectedVoice === 'male'
+        ? 'aura-2-hyperion-en'  // Australian male voice (Caring, Warm, Empathetic)
+        : 'aura-2-theia-en'; // Australian female voice (Expressive, Polite, Sincere)
+
+      // Call backend to generate speech
+      const response = await fetch('https://flynnai-telephony.fly.dev/api/deepgram/generate-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          text: greeting,
+          voice: deepgramVoice,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate speech');
+      }
+
+      const { audio, contentType } = await response.json();
+
+      // Convert base64 to playable URI
+      const audioUri = `data:${contentType};base64,${audio}`;
+
+      // Set up audio mode for playback
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        allowsRecordingIOS: false,
+        staysActiveInBackground: false,
+      });
+
+      // Create and play the sound
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUri },
+        { shouldPlay: true, volume: 1.0 },
+        (status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            console.log('[ReceptionistSetup] Audio playback completed');
+            setIsPlayingSpeech(false);
+            sound.unloadAsync();
+          }
+        }
+      );
+
+      console.log('[ReceptionistSetup] Playing Deepgram TTS audio');
+
+      // Set up cleanup
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          setIsPlayingSpeech(false);
+        }
+      });
+
+    } catch (error) {
+      console.error('[ReceptionistSetup] Failed to play Deepgram TTS preview', error);
+      setIsPlayingSpeech(false);
+      Alert.alert(
+        'Preview Unavailable',
+        error.message || 'Failed to generate audio preview. Please check your connection and try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const persistPreferences = async (configured: boolean) => {
@@ -115,23 +197,34 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
 
       const ackLibrary = onboardingData.receptionistAckLibrary ?? [];
 
-      await CallHandlingService.savePreferences({
-        voiceId: configured ? selectedVoice : null,
-        greeting: configured ? greeting : null,
-        questions: configured ? questions : [],
-        voiceProfileId: onboardingData.receptionistVoiceProfileId ?? null,
-        configured,
-        mode,
-        ackLibrary,
-      });
-      updateOnboardingData({
+      // Update onboarding context first
+      const updatedData = {
+        ...onboardingData,
         receptionistConfigured: configured,
         receptionistVoice: configured ? selectedVoice : null,
         receptionistGreeting: configured ? greeting : null,
         receptionistQuestions: configured ? questions : [],
         receptionistMode: mode,
         receptionistAckLibrary: configured ? ackLibrary : [],
-      });
+      };
+
+      updateOnboardingData(updatedData);
+
+      // Save to both legacy (users table) and new (organization tables)
+      await Promise.all([
+        CallHandlingService.savePreferences({
+          voiceId: configured ? selectedVoice : null,
+          greeting: configured ? greeting : null,
+          questions: configured ? questions : [],
+          voiceProfileId: onboardingData.receptionistVoiceProfileId ?? null,
+          configured,
+          mode,
+          ackLibrary,
+        }),
+        OrganizationService.saveOnboardingData(updatedData),
+      ]);
+
+      console.log('[ReceptionistSetup] Saved preferences successfully', { greeting, voice: selectedVoice });
     } catch (error) {
       console.error('[ReceptionistSetupScreen] Failed to save receptionist settings', error);
       Alert.alert('Save failed', error instanceof Error ? error.message : 'Unable to save receptionist settings. Please try again.');
@@ -170,7 +263,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
           </View>
           <Text style={styles.title}>Tune your AI receptionist</Text>
           <Text style={styles.subtitle}>
-            Choose a voice, set the greeting script, and decide what your flynn concierge should ask every caller.
+            Choose a voice, set the greeting script, and decide what your AI receptionist should ask every caller.
           </Text>
         </View>
 
@@ -187,7 +280,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
               >
                 <View style={styles.voiceIconContainer}>
                   <FlynnIcon
-                    name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                    name="mic"
                     size={22}
                     color={isSelected ? '#3B82F6' : '#94a3b8'}
                   />
@@ -196,13 +289,29 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
                   <Text style={styles.voiceTitle}>{option.label}</Text>
                   <Text style={styles.voiceDescription}>{option.description}</Text>
                 </View>
+                <View style={styles.voiceCheckContainer}>
+                  <FlynnIcon
+                    name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={24}
+                    color={isSelected ? '#3B82F6' : '#cbd5e1'}
+                  />
+                </View>
               </TouchableOpacity>
             );
           })}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>2. Greeting script</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>2. Greeting script</Text>
+            <TouchableOpacity
+              onPress={() => setGreeting(defaultGreeting)}
+              style={styles.resetButton}
+            >
+              <FlynnIcon name="refresh" size={16} color="#64748B" />
+              <Text style={styles.resetButtonText}>Reset</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.sectionHint}>
             This is the first thing callers hear. Keep it warm and let them know they are speaking with your digital assistant.
           </Text>
@@ -211,7 +320,7 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
             numberOfLines={3}
             value={greeting}
             onChangeText={setGreeting}
-            placeholder="Hi, you have reached..."
+            placeholder="Hey, thanks for reaching..."
             containerStyle={styles.greetingInput}
           />
         </View>
@@ -266,25 +375,30 @@ export const ReceptionistSetupScreen: React.FC<ReceptionistSetupScreenProps> = (
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Preview</Text>
-          <Text style={styles.sectionHint}>See how your flynn concierge responds to callers.</Text>
+          <Text style={styles.sectionHint}>See how your AI receptionist responds to callers.</Text>
           <View style={styles.previewContainer}>
             <View style={styles.previewAvatar}>
-              <FlynnIcon name="paw" size={28} color="#f97316" />
-              <Text style={styles.previewAvatarLabel}>Flynn</Text>
+              <FlynnIcon name="mic-circle" size={28} color="#f97316" />
+              <Text style={styles.previewAvatarLabel}>AI Voice</Text>
             </View>
             <View style={styles.previewBubble}>
               <Text style={styles.previewBubbleText} numberOfLines={3}>
-                “{greeting}”
+                "{greeting}"
               </Text>
             </View>
           </View>
-          <FlynnButton title="Play test message" onPress={handlePreviewCall} variant="primary" />
+          <FlynnButton
+            title={isPlayingSpeech ? "🔊 Playing..." : "Play test message"}
+            onPress={handlePreviewCall}
+            variant="primary"
+            disabled={isPlayingSpeech}
+          />
         </View>
       </ScrollView>
 
       <View style={styles.buttonRow}>
-        <FlynnButton title="Skip for now" onPress={handleSkip} variant="secondary" disabled={isSaving} />
-        <FlynnButton title={isSaving ? 'Saving…' : 'Finish onboarding'} onPress={handleComplete} variant="primary" disabled={isSaving} />
+        <FlynnButton title="Skip for now" onPress={handleSkip} variant="secondary" disabled={isSaving} style={styles.skipButton} />
+        <FlynnButton title={isSaving ? 'Saving…' : 'Finish'} onPress={handleComplete} variant="primary" disabled={isSaving} style={styles.finishButton} />
       </View>
     </SafeAreaView>
   );
@@ -358,10 +472,29 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   sectionTitle: {
     ...typography.h3,
     color: '#0f172a',
-    marginBottom: spacing.sm,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    backgroundColor: '#f1f5f9',
+  },
+  resetButtonText: {
+    ...typography.caption,
+    color: '#64748B',
+    fontWeight: '500',
   },
   sectionHint: {
     ...typography.bodySmall,
@@ -387,6 +520,9 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   voiceContent: {
     flex: 1,
+  },
+  voiceCheckContainer: {
+    marginLeft: spacing.sm,
   },
   voiceTitle: {
     ...typography.bodyLarge,
@@ -494,7 +630,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.sm,
+    width: '100%',
+  },
+  skipButton: {
+    flex: 1,
+  },
+  finishButton: {
+    flex: 1,
   },
 });
 

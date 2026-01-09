@@ -71,6 +71,11 @@ export const PhoneProvisioningScreen: React.FC<PhoneProvisioningScreenProps> = (
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [isRefreshingPlan, setIsRefreshingPlan] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(onboardingData.phoneNumber ?? '');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState('AU'); // Default to Australia
   const [carrierDetectionState, setCarrierDetectionState] = useState<{
     status: 'idle' | 'loading' | 'success' | 'none' | 'error';
     carrierId?: string;
@@ -207,6 +212,26 @@ export const PhoneProvisioningScreen: React.FC<PhoneProvisioningScreenProps> = (
       return;
     }
 
+    // Validate address fields for AU numbers
+    if (country === 'AU' || phoneNumber.startsWith('+61') || phoneNumber.startsWith('04')) {
+      if (!address.trim()) {
+        setError('Street address is required for Australian phone numbers.');
+        return;
+      }
+      if (!city.trim()) {
+        setError('City is required for Australian phone numbers.');
+        return;
+      }
+      if (!state.trim()) {
+        setError('State is required for Australian phone numbers.');
+        return;
+      }
+      if (!postalCode.trim()) {
+        setError('Postcode is required for Australian phone numbers.');
+        return;
+      }
+    }
+
     setIsProvisioning(true);
     setError(null);
     try {
@@ -220,7 +245,13 @@ export const PhoneProvisioningScreen: React.FC<PhoneProvisioningScreenProps> = (
               : undefined,
         countryCode: carrierDetectionState.status === 'success' && carrierDetectionState.carrierId
           ? undefined // Will be inferred from carrier
-          : undefined,
+          : country,
+        // Pass address for regulatory compliance
+        address: address.trim() || undefined,
+        city: city.trim() || undefined,
+        state: state.trim() || undefined,
+        postalCode: postalCode.trim() || undefined,
+        country: country || undefined,
       });
       if (result && result.phoneNumber) {
         setProvisionedNumber(result.phoneNumber);
@@ -334,6 +365,52 @@ export const PhoneProvisioningScreen: React.FC<PhoneProvisioningScreenProps> = (
             }
             errorText={carrierDetectionState.status === 'error' ? carrierDetectionState.message : undefined}
           />
+
+          {(country === 'AU' || phoneNumber.startsWith('+61') || phoneNumber.startsWith('04')) && (
+            <>
+              <Text style={styles.addressSectionTitle}>Business Address</Text>
+              <Text style={styles.addressHint}>
+                Required for Australian phone numbers due to regulatory requirements.
+              </Text>
+
+              <FlynnInput
+                label="Street address"
+                placeholder="e.g. 123 Main Street"
+                value={address}
+                onChangeText={setAddress}
+                autoComplete="street-address"
+                required
+              />
+
+              <FlynnInput
+                label="City/Suburb"
+                placeholder="e.g. Sydney"
+                value={city}
+                onChangeText={setCity}
+                autoComplete="address-level2"
+                required
+              />
+
+              <FlynnInput
+                label="State"
+                placeholder="e.g. NSW"
+                value={state}
+                onChangeText={setState}
+                autoComplete="address-level1"
+                required
+              />
+
+              <FlynnInput
+                label="Postcode"
+                placeholder="e.g. 2000"
+                keyboardType="number-pad"
+                value={postalCode}
+                onChangeText={setPostalCode}
+                autoComplete="postal-code"
+                required
+              />
+            </>
+          )}
         </View>
 
         {!hasPaidPlan && (
@@ -643,6 +720,17 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     marginTop: spacing.sm,
+  },
+  addressSectionTitle: {
+    ...typography.h4,
+    color: colors.gray900,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xs,
+  },
+  addressHint: {
+    ...typography.bodySmall,
+    color: colors.gray600,
+    marginBottom: spacing.md,
   },
 });
 

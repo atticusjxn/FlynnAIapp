@@ -29,7 +29,7 @@ import type { CallHandlingMode } from '../types/onboarding';
 
 const BASE_VOICE_OPTIONS = [
   { id: 'flynn_warm', label: 'Avery — Warm & Friendly' },
-  { id: 'flynn_expert', label: 'Sloane — Expert Concierge' },
+  { id: 'flynn_expert', label: 'Sloane — Professional & Expert' },
   { id: 'flynn_hype', label: 'Maya — High Energy' },
 ];
 

@@ -2191,6 +2191,232 @@ app.get('/api/billing/subscription-status', authenticateJwt, async (req, res) =>
   }
 });
 
+// Twilio Phone Number Provisioning Endpoints
+
+/**
+ * Search for available Twilio phone numbers
+ * POST /api/twilio/search-numbers
+ */
+app.post('/api/twilio/search-numbers', authenticateJwt, async (req, res) => {
+  const { countryCode = 'US', limit = 5, voiceEnabled = true } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (!twilioMessagingClient) {
+    return res.status(503).json({ error: 'Twilio not configured' });
+  }
+
+  try {
+    console.log('[Twilio] Searching for available numbers', { userId, countryCode, limit });
+
+    // Search for available phone numbers
+    const availableNumbers = await twilioMessagingClient
+      .availablePhoneNumbers(countryCode)
+      .local
+      .list({
+        voiceEnabled,
+        limit: parseInt(limit, 10),
+      });
+
+    const formattedNumbers = availableNumbers.map(num => ({
+      phone_number: num.phoneNumber,
+      friendly_name: num.friendlyName,
+      locality: num.locality,
+      region: num.region,
+      postal_code: num.postalCode,
+      iso_country: num.isoCountry,
+      capabilities: num.capabilities,
+    }));
+
+    console.log('[Twilio] Found available numbers', { count: formattedNumbers.length });
+
+    res.status(200).json({
+      availableNumbers: formattedNumbers,
+      countryCode,
+    });
+  } catch (error) {
+    console.error('[Twilio] Failed to search numbers', error);
+    res.status(500).json({
+      error: 'Failed to search for available phone numbers',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * Purchase a Twilio phone number with address registration
+ * POST /api/twilio/purchase-number
+ */
+app.post('/api/twilio/purchase-number', authenticateJwt, async (req, res) => {
+  const { phoneNumber, userId, address, city, state, postalCode, country } = req.body;
+  const authenticatedUserId = req.user?.id;
+
+  if (!authenticatedUserId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  // Ensure the authenticated user matches the userId in the request
+  if (authenticatedUserId !== userId) {
+    return res.status(403).json({ error: 'Unauthorized: User ID mismatch' });
+  }
+
+  if (!phoneNumber) {
+    return res.status(400).json({ error: 'Phone number is required' });
+  }
+
+  if (!twilioMessagingClient) {
+    return res.status(503).json({ error: 'Twilio not configured' });
+  }
+
+  try {
+    console.log('[Twilio] Starting phone number purchase', { userId, phoneNumber, hasAddress: !!address });
+
+    let addressSid = null;
+
+    // Create Twilio Address if address fields provided (required for AU and other countries)
+    if (address && city && state && postalCode && country) {
+      console.log('[Twilio] Creating address for regulatory compliance', { country, city, state });
+
+      // Get user's business name for the address
+      const { data: userData, error: userError } = await supabaseServiceClient
+        .from('users')
+        .select('business_name, email')
+        .eq('id', userId)
+        .single();
+
+      if (userError) {
+        console.error('[Twilio] Failed to fetch user data', userError);
+        throw new Error('Failed to fetch user information');
+      }
+
+      const customerName = userData?.business_name || userData?.email || 'Flynn AI Customer';
+
+      // Create address with Twilio
+      const twilioAddress = await twilioMessagingClient.addresses.create({
+        customerName,
+        street: address,
+        city,
+        region: state,
+        postalCode,
+        isoCountry: country,
+      });
+
+      addressSid = twilioAddress.sid;
+      console.log('[Twilio] Address created successfully', { addressSid });
+    }
+
+    // Purchase the phone number
+    const voiceUrl = `${process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev'}/telephony/inbound-voice`;
+    const statusCallbackUrl = `${process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev'}/telephony/stream-status`;
+
+    const purchaseParams = {
+      phoneNumber,
+      voiceUrl,
+      voiceMethod: 'POST',
+      statusCallback: statusCallbackUrl,
+      statusCallbackMethod: 'POST',
+    };
+
+    // Add address SID if we created one
+    if (addressSid) {
+      purchaseParams.addressSid = addressSid;
+    }
+
+    console.log('[Twilio] Purchasing phone number', { phoneNumber, addressSid });
+
+    const incomingNumber = await twilioMessagingClient.incomingPhoneNumbers.create(purchaseParams);
+
+    console.log('[Twilio] Phone number purchased successfully', {
+      phoneNumberSid: incomingNumber.sid,
+      phoneNumber: incomingNumber.phoneNumber,
+    });
+
+    // Update user record with the new Twilio number
+    await supabaseServiceClient
+      .from('users')
+      .update({
+        twilio_phone_number: incomingNumber.phoneNumber,
+        twilio_number_sid: incomingNumber.sid,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    res.status(200).json({
+      phoneNumber: incomingNumber.phoneNumber,
+      phoneNumberSid: incomingNumber.sid,
+      addressSid,
+      cost: 1.00, // Approximate cost, actual cost varies
+    });
+  } catch (error) {
+    console.error('[CRITICAL ERROR] Error purchasing phone number:', error);
+    res.status(500).json({
+      error: 'Failed to purchase phone number',
+      message: error.message,
+    });
+  }
+});
+
+// ===========================
+// Deepgram TTS API Endpoint
+// ===========================
+app.post('/api/deepgram/generate-speech', authenticateJwt, async (req, res) => {
+  try {
+    const { text, voice = 'aura-2-theia-en' } = req.body;
+
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      return res.status(400).json({ error: 'Text is required and must be a non-empty string' });
+    }
+
+    const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
+    if (!deepgramApiKey) {
+      console.error('[Deepgram TTS] DEEPGRAM_API_KEY not configured');
+      return res.status(500).json({ error: 'Deepgram API key not configured' });
+    }
+
+    // Call Deepgram TTS API
+    const deepgramResponse = await fetch(
+      `https://api.deepgram.com/v1/speak?model=${voice}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${deepgramApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      }
+    );
+
+    if (!deepgramResponse.ok) {
+      const errorText = await deepgramResponse.text();
+      console.error('[Deepgram TTS] API error:', deepgramResponse.status, errorText);
+      return res.status(deepgramResponse.status).json({
+        error: 'Deepgram TTS failed',
+        message: errorText,
+      });
+    }
+
+    // Get audio buffer
+    const audioBuffer = await deepgramResponse.arrayBuffer();
+    const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+
+    console.log('[Deepgram TTS] Generated speech successfully');
+    res.status(200).json({
+      audio: audioBase64,
+      contentType: 'audio/mpeg',
+      voice,
+    });
+  } catch (error) {
+    console.error('[Deepgram TTS] Error generating speech:', error);
+    res.status(500).json({
+      error: 'Failed to generate speech',
+      message: error.message,
+    });
+  }
+});
+
 // Health check endpoint for Railway
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });

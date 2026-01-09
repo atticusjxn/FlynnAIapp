@@ -212,7 +212,7 @@ export const BillingPaywallModal: React.FC<BillingPaywallModalProps> = ({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
-          <Text style={styles.badge}>Flynn concierge</Text>
+          <Text style={styles.badge}>AI Receptionist</Text>
           <Text style={styles.title}>Start your 14-day free trial</Text>
           <Text style={styles.subtitle}>
             Enter your card details to start your free trial. You won't be charged for 14 days, and you can cancel anytime during the trial.

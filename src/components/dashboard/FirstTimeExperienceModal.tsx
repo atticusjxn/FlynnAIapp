@@ -15,7 +15,7 @@ import NativeVoiceAgentService, { ConversationResult } from '../../services/Nati
 import { useAuth } from '../../context/AuthContext';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
-import { supabase } from '../../config/supabase';
+import { supabase } from '../../services/supabase';
 
 interface FirstTimeExperienceModalProps {
   visible: boolean;
@@ -52,11 +52,26 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
 
   // Initialize greeting with personalized default
   useEffect(() => {
-    if (visible && onboardingData.businessName) {
-      const defaultGreeting = `Hi! You've reached ${onboardingData.businessName}. I'm your AI receptionist. How can I help you today?`;
-      setGreeting(onboardingData.receptionistGreeting || defaultGreeting);
+    if (!visible) return;
+
+    // Use business name from onboarding data or user metadata
+    const businessName = onboardingData.businessName || user?.user_metadata?.business_name || 'us';
+    const defaultGreeting = `Hey, thanks for reaching ${businessName}. How can we help you today?`;
+
+    // Set greeting from onboarding data or default
+    const savedGreeting = onboardingData.receptionistGreeting;
+    console.log('[FirstTimeExperience] Loading greeting:', { savedGreeting, defaultGreeting, hasOnboardingGreeting: !!savedGreeting });
+    setGreeting(savedGreeting || defaultGreeting);
+
+    // Skip greeting step if already configured during onboarding
+    if (savedGreeting && onboardingData.receptionistVoice) {
+      console.log('[FirstTimeExperience] Skipping greeting step - already configured');
+      setCurrentStep('test');
+    } else {
+      console.log('[FirstTimeExperience] Showing greeting step');
+      setCurrentStep('greeting');
     }
-  }, [visible, onboardingData]);
+  }, [visible, onboardingData, user]);
 
   // Listen to voice agent events
   useEffect(() => {
@@ -175,47 +190,55 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
     onStartTrial();
   };
 
-  const renderGreetingStep = () => (
-    <View style={styles.stepContainer}>
-      <View style={styles.iconContainer}>
-        <FlynnIcon name="chatbubble-ellipses" size={48} color={colors.primary} />
-      </View>
+  const renderGreetingStep = () => {
+    const hasExistingGreeting = Boolean(onboardingData.receptionistGreeting);
 
-      <Text style={styles.stepTitle}>Customize Your Greeting</Text>
-      <Text style={styles.stepSubtitle}>
-        This is what callers will hear when they reach your AI receptionist. Make it yours!
-      </Text>
-
-      <View style={styles.greetingPreview}>
-        <View style={styles.voiceLabel}>
-          <FlynnIcon name="mic" size={20} color={colors.textSecondary} />
-          <Text style={styles.voiceLabelText}>
-            {onboardingData.receptionistVoice === 'male' ? 'Male Voice' : 'Female Voice'}
-          </Text>
+    return (
+      <View style={styles.stepContainer}>
+        <View style={styles.iconContainer}>
+          <FlynnIcon name="chatbubble-ellipses" size={48} color={colors.primary} />
         </View>
 
-        <FlynnInput
-          multiline
-          numberOfLines={4}
-          value={greeting}
-          onChangeText={setGreeting}
-          placeholder="Hi! You've reached..."
-          containerStyle={styles.greetingInput}
-        />
-      </View>
+        <Text style={styles.stepTitle}>
+          {hasExistingGreeting ? 'Confirm Your Greeting' : 'Customize Your Greeting'}
+        </Text>
+        <Text style={styles.stepSubtitle}>
+          {hasExistingGreeting
+            ? 'This is what callers will hear. You can edit it or keep it as is.'
+            : 'This is what callers will hear when they reach your AI receptionist. Make it yours!'}
+        </Text>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
-          <Text style={styles.skipText}>Skip Demo</Text>
-        </TouchableOpacity>
-        <FlynnButton
-          title="Test It Now →"
-          onPress={handleStartTest}
-          disabled={!greeting.trim()}
-        />
+        <View style={styles.greetingPreview}>
+          <View style={styles.voiceLabel}>
+            <FlynnIcon name="mic" size={20} color={colors.textSecondary} />
+            <Text style={styles.voiceLabelText}>
+              {onboardingData.receptionistVoice === 'male' ? 'Male Voice' : 'Female Voice'}
+            </Text>
+          </View>
+
+          <FlynnInput
+            multiline
+            numberOfLines={4}
+            value={greeting}
+            onChangeText={setGreeting}
+            placeholder="Hey, thanks for reaching..."
+            containerStyle={styles.greetingInput}
+          />
+        </View>
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
+            <Text style={styles.skipText}>Skip Demo</Text>
+          </TouchableOpacity>
+          <FlynnButton
+            title={hasExistingGreeting ? 'Test It Now →' : 'Continue →'}
+            onPress={handleStartTest}
+            disabled={!greeting.trim()}
+          />
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderTestStep = () => (
     <View style={styles.stepContainer}>

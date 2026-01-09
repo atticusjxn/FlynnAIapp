@@ -3,7 +3,7 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { PhoneProvisioningScreen } from './onboarding/PhoneProvisioningScreen';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../config/supabase';
+import { supabase } from '../services/supabase';
 
 /**
  * CompleteSetupScreen
