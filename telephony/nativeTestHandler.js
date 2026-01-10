@@ -225,8 +225,8 @@ function createNativeTestHandler({
               sample_rate: 8000,
             },
             output: {
-              encoding: 'mulaw',
-              sample_rate: 8000,
+              encoding: 'linear16',
+              sample_rate: 16000,
               container: 'none',
             },
           },
@@ -251,14 +251,14 @@ function createNativeTestHandler({
               prompt: this.systemPrompt,
               functions: getFunctionSchema(),
             },
-            speak: {
-              provider: {
-                type: 'deepgram',
-                model: this.testConfig.voiceId === 'flynn_warm'
-                  ? 'aura-2-theia-en'
-                  : 'aura-2-theia-en', // For now, all voices use same model
-              },
+          speak: {
+            provider: {
+              type: 'deepgram',
+              model: this.testConfig.voiceId === 'flynn_expert' || this.testConfig.voiceId === 'male'
+                ? 'aura-2-arcas-en' // Australian male
+                : 'aura-2-theia-en', // Australian female (default)
             },
+          },
             greeting: this.greeting,
           },
         });
@@ -301,15 +301,18 @@ function createNativeTestHandler({
       // Audio output from agent
       this.agentConnection.on('Audio', (data) => {
         if (data.audio) {
-          // Convert μ-law 8kHz to Linear16 16kHz for React Native
-          const mulawBuffer = Buffer.from(data.audio, 'base64');
-          const linear16Buffer = convertDeepgramToNative(mulawBuffer);
-
-          // Send to client
-          this.sendToClient({
-            type: 'audio',
-            audio: linear16Buffer.toString('base64'),
-          });
+          try {
+            // Data is already Linear16 16kHz from Deepgram (as configured)
+            // Just convert to base64 and send to client
+            const audioBuffer = Buffer.from(data.audio);
+            
+            this.sendToClient({
+              type: 'audio',
+              audio: audioBuffer.toString('base64'),
+            });
+          } catch (err) {
+            console.error('[NativeTest] Error forwarding audio:', err);
+          }
         }
       });
 
@@ -407,7 +410,7 @@ function createNativeTestHandler({
 
       try {
         // Send raw μ-law buffer to agent
-        this.agentConnection.sendAudio(audioBuffer);
+        this.agentConnection.send(audioBuffer);
       } catch (error) {
         console.error('[NativeTest] Failed to send audio to agent:', error);
       }
@@ -481,7 +484,9 @@ function createNativeTestHandler({
       // Close agent connection
       if (this.agentConnection) {
         try {
-          this.agentConnection.finish();
+          if (typeof this.agentConnection.finish === 'function') {
+            this.agentConnection.finish();
+          }
         } catch (error) {
           console.error('[NativeTest] Error closing agent connection:', error);
         }

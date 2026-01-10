@@ -13,6 +13,7 @@ interface EqualizerAnimationProps {
   barCount?: number; // Number of bars to display
   barColor?: string; // Color of the bars
   height?: number; // Total height of the equalizer
+  audioLevel?: number; // Real-time audio level (0-1)
 }
 
 const EqualizerAnimation: React.FC<EqualizerAnimationProps> = ({
@@ -20,54 +21,43 @@ const EqualizerAnimation: React.FC<EqualizerAnimationProps> = ({
   barCount = 5,
   barColor = '#2563EB', // Flynn brand primary blue
   height = 60,
+  audioLevel = 0,
 }) => {
   // Create animated values for each bar
   const barAnimations = useRef(
     Array.from({ length: barCount }, () => new Animated.Value(0.2))
   ).current;
+  
+  // Random multipliers for each bar to create variety in height
+  const multipliers = useRef(
+    Array.from({ length: barCount }, () => 0.4 + Math.random() * 0.6)
+  ).current;
 
   useEffect(() => {
     if (isActive) {
-      // Start animations for all bars
-      const animations = barAnimations.map((anim, index) => {
-        return Animated.loop(
-          Animated.sequence([
-            Animated.timing(anim, {
-              toValue: Math.random() * 0.6 + 0.4, // Random height between 0.4 and 1.0
-              duration: 150 + Math.random() * 200, // Random duration for variety
-              useNativeDriver: false,
-            }),
-            Animated.timing(anim, {
-              toValue: Math.random() * 0.4 + 0.2, // Random low height
-              duration: 150 + Math.random() * 200,
-              useNativeDriver: false,
-            }),
-          ])
-        );
-      });
+      // Drive animations based on audioLevel if provided, otherwise fallback to random
+      barAnimations.forEach((anim, index) => {
+        const targetValue = audioLevel > 0 
+          ? Math.max(0.1, audioLevel * multipliers[index])
+          : 0.1 + Math.random() * 0.2;
 
-      // Start all animations with slight delays for wave effect
-      animations.forEach((animation, index) => {
-        setTimeout(() => {
-          animation.start();
-        }, index * 50);
+        Animated.timing(anim, {
+          toValue: targetValue,
+          duration: 80, // Fast response for real-time feel
+          useNativeDriver: false,
+        }).start();
       });
-
-      // Cleanup function to stop animations
-      return () => {
-        animations.forEach(animation => animation.stop());
-      };
     } else {
       // Reset all bars to minimum height when inactive
       barAnimations.forEach(anim => {
         Animated.timing(anim, {
-          toValue: 0.2,
-          duration: 200,
+          toValue: 0.1,
+          duration: 300,
           useNativeDriver: false,
         }).start();
       });
     }
-  }, [isActive, barAnimations]);
+  }, [isActive, audioLevel, barAnimations, multipliers]);
 
   return (
     <View style={styles.container}>

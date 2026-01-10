@@ -50,6 +50,7 @@ const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ nav
   const [showJobCard, setShowJobCard] = useState(false);
   const [conversationResult, setConversationResult] = useState<ConversationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [audioLevel, setAudioLevel] = useState(0);
 
   // Extract config from onboarding data
   const greeting = onboardingData.receptionistGreeting || 'Hi! How can I help you today?';
@@ -61,6 +62,9 @@ const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ nav
     const handleStateChange = (state: ConversationState) => {
       console.log('[AIReceptionistTest] State changed:', state);
       setConversationState(state);
+      if (state !== 'agent_speaking' && state !== 'user_speaking') {
+        setAudioLevel(0);
+      }
     };
 
     const handleTranscript = (message: ConversationMessage) => {
@@ -73,10 +77,15 @@ const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ nav
       setEntities(updatedEntities);
     };
 
+    const handleAudioLevel = (level: number) => {
+      setAudioLevel(level);
+    };
+
     const handleConversationEnded = (result: ConversationResult) => {
       console.log('[AIReceptionistTest] Conversation ended:', result);
       setConversationResult(result);
       setShowJobCard(true);
+      setAudioLevel(0);
 
       // Save result to onboarding data
       updateOnboardingData({
@@ -88,6 +97,7 @@ const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ nav
     const handleError = (err: Error) => {
       console.error('[AIReceptionistTest] Error:', err);
       setError(err.message);
+      setAudioLevel(0);
       Alert.alert('Error', err.message);
     };
 
@@ -95,6 +105,7 @@ const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ nav
     NativeVoiceAgentService.on('transcript', handleTranscript);
     NativeVoiceAgentService.on('entities_updated', handleEntitiesUpdated);
     NativeVoiceAgentService.on('conversation_ended', handleConversationEnded);
+    NativeVoiceAgentService.on('audio_level', handleAudioLevel);
     NativeVoiceAgentService.on('error', handleError);
 
     return () => {
@@ -102,6 +113,7 @@ const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ nav
       NativeVoiceAgentService.off('transcript', handleTranscript);
       NativeVoiceAgentService.off('entities_updated', handleEntitiesUpdated);
       NativeVoiceAgentService.off('conversation_ended', handleConversationEnded);
+      NativeVoiceAgentService.off('audio_level', handleAudioLevel);
       NativeVoiceAgentService.off('error', handleError);
     };
   }, [updateOnboardingData]);
@@ -354,9 +366,14 @@ const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ nav
         </View>
 
         {/* Equalizer Animation */}
-        {conversationState === 'agent_speaking' && (
+        {(conversationState === 'agent_speaking' || conversationState === 'user_speaking') && (
           <View style={styles.equalizerContainer}>
-            <EqualizerAnimation isActive={true} barCount={7} height={80} />
+            <EqualizerAnimation 
+              isActive={true} 
+              barCount={15} 
+              height={80} 
+              audioLevel={audioLevel}
+            />
           </View>
         )}
 

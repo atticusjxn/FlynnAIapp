@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { supabase } from '../../services/supabase';
+import EqualizerAnimation from '../ui/EqualizerAnimation';
 
 interface FirstTimeExperienceModalProps {
   visible: boolean;
@@ -49,6 +50,8 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
   const [mockJobCard, setMockJobCard] = useState<MockJobCard | null>(null);
   const [conversationDuration, setConversationDuration] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Initialize greeting with personalized default
   useEffect(() => {
@@ -67,6 +70,10 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
     if (savedGreeting && onboardingData.receptionistVoice) {
       console.log('[FirstTimeExperience] Skipping greeting step - already configured');
       setCurrentStep('test');
+      // Auto-start the test if we have all needed info
+      if (user?.id) {
+        startTestSession(savedGreeting, onboardingData.receptionistVoice);
+      }
     } else {
       console.log('[FirstTimeExperience] Showing greeting step');
       setCurrentStep('greeting');
@@ -77,24 +84,34 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
   useEffect(() => {
     const handleStateChange = (state: string) => {
       setConversationState(state);
+      if (state !== 'agent_speaking' && state !== 'user_speaking') {
+        setAudioLevel(0);
+      }
     };
 
     const handleTranscript = (message: any) => {
       setTranscript(prev => [...prev, { role: message.role, content: message.content }]);
     };
 
+    const handleAudioLevel = (level: number) => {
+      setAudioLevel(level);
+    };
+
     const handleConversationEnded = (result: ConversationResult) => {
       setConversationState('ended');
+      setAudioLevel(0);
       generateMockJobCard(result);
     };
 
     NativeVoiceAgentService.on('state_changed', handleStateChange);
     NativeVoiceAgentService.on('transcript', handleTranscript);
+    NativeVoiceAgentService.on('audio_level', handleAudioLevel);
     NativeVoiceAgentService.on('conversation_ended', handleConversationEnded);
 
     return () => {
       NativeVoiceAgentService.off('state_changed', handleStateChange);
       NativeVoiceAgentService.off('transcript', handleTranscript);
+      NativeVoiceAgentService.off('audio_level', handleAudioLevel);
       NativeVoiceAgentService.off('conversation_ended', handleConversationEnded);
     };
   }, []);
@@ -116,31 +133,36 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
     setConversationDuration(45);
   };
 
-  const handleStartTest = async () => {
+  const startTestSession = async (greetingText: string, voiceId: string) => {
     if (!user?.id) return;
 
     try {
-      setCurrentStep('test');
+      console.log('[FirstTimeExperience] Starting test session...', { greeting: greetingText, voice: voiceId });
       setTranscript([]);
-
-      // Save customized greeting
-      if (greeting) {
+      
+      // Save customized greeting if it differs from saved
+      if (greetingText && greetingText !== onboardingData.receptionistGreeting) {
         await supabase
           .from('users')
-          .update({ demo_greeting_customized: greeting })
+          .update({ demo_greeting_customized: greetingText })
           .eq('id', user.id);
       }
 
       // Start AI conversation with user's customized settings
       await NativeVoiceAgentService.startConversation(
         user.id,
-        greeting,
-        onboardingData.receptionistVoice || 'female',
+        greetingText,
+        voiceId || 'female',
         'ai_only'
       );
     } catch (error) {
       console.error('[FirstTimeExperience] Failed to start test:', error);
     }
+  };
+
+  const handleStartTest = async () => {
+    setCurrentStep('test');
+    await startTestSession(greeting, onboardingData.receptionistVoice || 'female');
   };
 
   const handleEndTest = async () => {
@@ -255,7 +277,24 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
         This is YOUR AI - customized with your business name and voice preference
       </Text>
 
-      <ScrollView style={styles.transcriptContainer} showsVerticalScrollIndicator={false}>
+      {/* Reactive Equalizer Animation */}
+      {(conversationState === 'agent_speaking' || conversationState === 'user_speaking' || conversationState === 'ready') && (
+        <View style={styles.equalizerContainer}>
+          <EqualizerAnimation 
+            isActive={true} 
+            barCount={15} 
+            height={60} 
+            audioLevel={audioLevel}
+          />
+        </View>
+      )}
+
+      <ScrollView 
+        style={styles.transcriptContainer} 
+        showsVerticalScrollIndicator={false}
+        ref={scrollViewRef}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+      >
         {transcript.map((message, index) => (
           <View
             key={index}
