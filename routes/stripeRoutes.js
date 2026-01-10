@@ -84,12 +84,13 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
       }
 
       // Create subscription with 14-day trial
+      // Support both card and Apple Pay payment methods
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
         trial_period_days: 14,
         payment_settings: {
-          payment_method_types: ['card'],
+          payment_method_types: ['card', 'us_bank_account'], // Apple Pay uses 'card' type
           save_default_payment_method: 'on_subscription',
         },
         payment_behavior: 'default_incomplete',

@@ -38,6 +38,7 @@ import QuoteFormTemplateSelectorScreen from './src/screens/quotes/QuoteFormTempl
 import QuoteFormAnalyticsScreen from './src/screens/quotes/QuoteFormAnalyticsScreen';
 import TermsOfServiceScreen from './src/screens/settings/TermsOfServiceScreen';
 import { CompleteSetupScreen } from './src/screens/CompleteSetupScreen';
+import { StripeRedirectScreen } from './src/screens/StripeRedirectScreen';
 import {
   useFonts,
   Inter_400Regular,
@@ -234,9 +235,38 @@ function RootNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="StripeRedirect"
+        component={StripeRedirectScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 }
+
+// Deep linking configuration for handling Stripe payment redirects
+const linking = {
+  prefixes: ['flynnai://'],
+  config: {
+    screens: {
+      MainTabs: {
+        screens: {
+          Dashboard: 'dashboard',
+          Events: 'events',
+          Calls: 'calls',
+          Clients: 'clients',
+          Money: 'money',
+          Settings: 'settings',
+        },
+      },
+      StripeRedirect: 'stripe-redirect',
+      CallSetup: 'call-setup',
+      CompleteSetup: 'complete-setup',
+    },
+  },
+};
 
 function AppNavigator() {
   const { user, loading } = useAuth();
@@ -259,6 +289,7 @@ function AppNavigator() {
   return (
     <NavigationContainer
       ref={navigationRef}
+      linking={linking}
       onReady={navigationLogger.onReady}
       onStateChange={navigationLogger.onStateChange}
     >

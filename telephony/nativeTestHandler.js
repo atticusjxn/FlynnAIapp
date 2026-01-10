@@ -40,6 +40,7 @@ function createNativeTestHandler({
     extractedEntities: {},
     closed: false,
     keepAliveInterval: null,
+    audioBufferQueue: Buffer.alloc(0), // Buffer for accumulating audio chunks
 
     /**
      * Initialize and attach event listeners
@@ -154,6 +155,7 @@ function createNativeTestHandler({
                 }
                 
                 // Convert from Linear16 16kHz to μ-law 8kHz for Deepgram
+                // Deepgram prefers 8kHz mulaw for telephony-like input to match its model training
                 const mulawBuffer = convertNativeToDeepgram(audioBuffer);
                 
                 // Only send if conversion produced valid output
@@ -293,6 +295,24 @@ function createNativeTestHandler({
     },
 
     /**
+     * Flush accumulated audio buffer to client
+     */
+    flushAudioBuffer() {
+      if (this.audioBufferQueue.length > 0) {
+        try {
+          console.log('[NativeTest] Flushing audio buffer:', this.audioBufferQueue.length, 'bytes');
+          this.sendToClient({
+            type: 'audio',
+            audio: this.audioBufferQueue.toString('base64'),
+          });
+          this.audioBufferQueue = Buffer.alloc(0);
+        } catch (err) {
+          console.error('[NativeTest] Error flushing audio buffer:', err);
+        }
+      }
+    },
+
+    /**
      * Set up Deepgram Voice Agent event listeners
      */
     setupAgentEventListeners() {
@@ -300,19 +320,20 @@ function createNativeTestHandler({
 
       // Audio output from agent
       this.agentConnection.on('Audio', (data) => {
-        if (data.audio) {
-          try {
-            // Data is already Linear16 16kHz from Deepgram (as configured)
-            // Just convert to base64 and send to client
-            const audioBuffer = Buffer.from(data.audio);
-            
-            this.sendToClient({
-              type: 'audio',
-              audio: audioBuffer.toString('base64'),
-            });
-          } catch (err) {
-            console.error('[NativeTest] Error forwarding audio:', err);
-          }
+        let chunk = null;
+
+        if (Buffer.isBuffer(data)) {
+          chunk = data;
+        } else if (data && data.audio) {
+          chunk = Buffer.from(data.audio);
+        }
+
+        if (chunk && chunk.length > 0) {
+          // Append to buffer
+          this.audioBufferQueue = Buffer.concat([this.audioBufferQueue, chunk]);
+
+          // We wait for AgentAudioDone to flush the entire buffer as one file
+          // This prevents "choppy" audio on the client side
         }
       });
 
@@ -356,6 +377,13 @@ function createNativeTestHandler({
 
       this.agentConnection.on('AgentStoppedSpeaking', () => {
         this.sendToClient({ type: 'agent_stopped_speaking' });
+      });
+
+      // Agent audio done - crucial for flushing remaining audio
+      this.agentConnection.on('AgentAudioDone', () => {
+        console.log('[NativeTest] Agent audio done, flushing remaining buffer');
+        this.flushAudioBuffer();
+        this.sendToClient({ type: 'agent_audio_done' });
       });
 
       // Function calls (entity extraction)
@@ -425,7 +453,9 @@ function createNativeTestHandler({
       try {
         // Close agent connection
         if (this.agentConnection) {
-          this.agentConnection.finish();
+          if (typeof this.agentConnection.finish === 'function') {
+            this.agentConnection.finish();
+          }
         }
 
         // Prepare final response with conversation data

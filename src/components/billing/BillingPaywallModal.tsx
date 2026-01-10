@@ -137,6 +137,13 @@ export const BillingPaywallModal: React.FC<BillingPaywallModalProps> = ({
         defaultBillingDetails: {
           email,
         },
+        applePay: {
+          merchantCountryCode: 'US',
+        },
+        googlePay: {
+          merchantCountryCode: 'US',
+          testEnv: __DEV__,
+        },
       };
 
       const { error: initError } = await initPaymentSheet(
@@ -173,23 +180,13 @@ export const BillingPaywallModal: React.FC<BillingPaywallModalProps> = ({
       // Step 4: Success!
       console.log('[BillingPaywall] Payment successful!');
 
-      const trialMessage = trialEnd
-        ? `Your 14-day free trial starts now. You won't be charged until ${new Date(trialEnd * 1000).toLocaleDateString()}.`
-        : 'Your subscription is now active!';
+      // Don't show alert - let the deep link redirect handle navigation
+      // The returnURL will trigger StripeRedirectScreen which will verify and navigate
+      console.log('[BillingPaywall] Payment sheet completed, waiting for redirect...');
 
-      Alert.alert(
-        'Subscription active!',
-        trialMessage,
-        [
-          {
-            text: 'Continue',
-            onPress: () => {
-              onSubscriptionCreated?.();
-              onClose();
-            },
-          },
-        ]
-      );
+      // Call callback to update UI state
+      onSubscriptionCreated?.();
+      onClose();
 
     } catch (error: any) {
       console.error('[BillingPaywall] Error:', error);

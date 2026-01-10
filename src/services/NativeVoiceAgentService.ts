@@ -83,6 +83,10 @@ class NativeVoiceAgentService extends EventEmitter {
   private recordingInterval: NodeJS.Timeout | null = null;
   private audioChunks: string[] = [];
   private audioBytesSent: number = 0; // Track how many bytes we've already sent
+  
+  // Audio Playback Queue
+  private audioPlaybackQueue: string[] = [];
+  private isPlayingAudio: boolean = false;
 
   /**
    * Start a new test conversation
@@ -170,8 +174,12 @@ class NativeVoiceAgentService extends EventEmitter {
           break;
 
         case 'audio':
-          // Play AI response audio
-          this.playAudio(message.audio);
+          // Add to playback queue instead of playing immediately
+          this.queueAudio(message.audio);
+          break;
+          
+        case 'agent_audio_done':
+          // Optional: handle end of turn signal if needed
           break;
 
         case 'agent_started_speaking':
@@ -347,49 +355,94 @@ class NativeVoiceAgentService extends EventEmitter {
   }
 
   /**
+   * Queue audio chunk for playback
+   */
+  private queueAudio(base64Audio: string): void {
+    this.audioPlaybackQueue.push(base64Audio);
+    this.processAudioQueue();
+  }
+
+  /**
+   * Process the next item in the audio queue
+   */
+  private async processAudioQueue(): Promise<void> {
+    if (this.isPlayingAudio || this.audioPlaybackQueue.length === 0) {
+      return;
+    }
+
+    this.isPlayingAudio = true;
+    const nextChunk = this.audioPlaybackQueue.shift();
+
+    if (nextChunk) {
+      try {
+        await this.playAudio(nextChunk);
+      } catch (error) {
+        console.error('[NativeVoiceAgent] Error playing audio chunk:', error);
+        this.isPlayingAudio = false;
+        this.processAudioQueue(); // Try next chunk
+      }
+    } else {
+      this.isPlayingAudio = false;
+    }
+  }
+
+  /**
    * Play audio received from agent
    */
   private async playAudio(base64Audio: string): Promise<void> {
-    try {
-      // Unload previous sound if exists
-      if (this.sound) {
-        await this.sound.unloadAsync();
-      }
-
-      // DECODE: Server sends RAW PCM (Linear16, 16kHz, Mono)
-      // We must add a WAV header so Expo AV can play it.
-      const pcmData = this.base64ToUint8Array(base64Audio);
-      const wavHeader = this.createWavHeader(pcmData.length, 16000, 1, 16);
-      
-      // Combine header + PCM data
-      const wavData = new Uint8Array(wavHeader.length + pcmData.length);
-      wavData.set(wavHeader);
-      wavData.set(pcmData, wavHeader.length);
-      
-      // Encode back to base64 for Audio.Sound
-      const wavBase64 = this.arrayBufferToBase64(wavData);
-      const audioUri = `data:audio/wav;base64,${wavBase64}`;
-
-      // Load and play sound
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audioUri },
-        { shouldPlay: true },
-        (status) => {
-          if (status.isLoaded && status.didJustFinish) {
-            this.emit('audio_finished');
-          }
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Unload previous sound if exists (though usually we wait for it to finish)
+        if (this.sound) {
+          try {
+            await this.sound.unloadAsync();
+          } catch (e) { /* ignore unload error */ }
         }
-      );
 
-      this.sound = sound;
-      
-      // Emit fake audio levels for animation while AI speaks
-      // (Since we don't have real-time metering for playback easily)
-      this.simulateAgentSpeakingLevels(pcmData.length);
-      
-    } catch (error) {
-      console.error('[NativeVoiceAgent] Error playing audio:', error);
-    }
+        // DECODE: Server sends RAW PCM (Linear16, 16kHz, Mono)
+        // We must add a WAV header so Expo AV can play it.
+        const pcmData = this.base64ToUint8Array(base64Audio);
+        const wavHeader = this.createWavHeader(pcmData.length, 16000, 1, 16);
+        
+        // Combine header + PCM data
+        const wavData = new Uint8Array(wavHeader.length + pcmData.length);
+        wavData.set(wavHeader);
+        wavData.set(pcmData, wavHeader.length);
+        
+        // Encode back to base64 for Audio.Sound
+        const wavBase64 = this.arrayBufferToBase64(wavData);
+        const audioUri = `data:audio/wav;base64,${wavBase64}`;
+
+        // Load and play sound
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: audioUri },
+          { shouldPlay: true },
+          (status) => {
+            if (status.isLoaded && status.didJustFinish) {
+              // Sound finished playing
+              this.emit('audio_finished');
+              this.isPlayingAudio = false;
+              // Clean up current sound
+              sound.unloadAsync().catch(() => {});
+              this.sound = null;
+              // Trigger next chunk
+              resolve();
+              this.processAudioQueue();
+            }
+          }
+        );
+
+        this.sound = sound;
+        
+        // Emit fake audio levels for animation while AI speaks
+        this.simulateAgentSpeakingLevels(pcmData.length);
+        
+      } catch (error) {
+        console.error('[NativeVoiceAgent] Error playing audio:', error);
+        this.isPlayingAudio = false;
+        reject(error);
+      }
+    });
   }
   
   private speakingInterval: NodeJS.Timeout | null = null;
@@ -468,6 +521,10 @@ class NativeVoiceAgentService extends EventEmitter {
    */
   private async cleanup(): Promise<void> {
     console.log('[NativeVoiceAgent] Cleaning up...');
+    
+    // Reset queue
+    this.audioPlaybackQueue = [];
+    this.isPlayingAudio = false;
     
     if (this.speakingInterval) {
         clearInterval(this.speakingInterval);

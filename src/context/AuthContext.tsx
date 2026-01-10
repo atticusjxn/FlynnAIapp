@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import { AppState, AppStateStatus } from 'react-native';
 import { supabase } from '../services/supabase';
 import { AuthTokenStorage } from '../services/authTokenStorage';
 import { registerDevicePushToken } from '../services/pushRegistration';
@@ -28,6 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const appState = useRef(AppState.currentState);
 
   const updateSessionState = (nextSession: Session | null) => {
     setSession(nextSession);
@@ -38,25 +40,125 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const restoreSessionFromStorage = async () => {
+    try {
+      console.log('[AuthContext] Attempting to restore session from storage');
+      const storedSession = await AuthTokenStorage.getSession();
+
+      if (storedSession) {
+        console.log('[AuthContext] Found stored session, restoring');
+        // Verify the session is still valid with Supabase
+        const { data: { session: validSession }, error } = await supabase.auth.setSession({
+          access_token: storedSession.access_token,
+          refresh_token: storedSession.refresh_token,
+        });
+
+        if (error) {
+          console.error('[AuthContext] Stored session invalid:', error);
+          await AuthTokenStorage.clear();
+          return null;
+        }
+
+        console.log('[AuthContext] Session restored successfully');
+        return validSession;
+      } else {
+        console.log('[AuthContext] No stored session found');
+        return null;
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error restoring session:', error);
+      return null;
+    }
+  };
+
+  // Handle app state changes (foreground/background)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
+      console.log('[AuthContext] AppState changed:', appState.current, '->', nextAppState);
+
+      // When app comes to foreground from background
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        console.log('[AuthContext] App came to foreground, checking session');
+
+        // If we don't have a session but should have one (e.g., after payment sheet)
+        // Try to restore from storage
+        if (!session) {
+          console.log('[AuthContext] No active session, attempting restore');
+          const restoredSession = await restoreSessionFromStorage();
+          if (restoredSession) {
+            await updateSessionState(restoredSession);
+          }
+        } else {
+          console.log('[AuthContext] Session exists, no restore needed');
+        }
+      }
+
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [session]);
+
   useEffect(() => {
     console.log('[AuthContext] Initializing auth state');
 
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        console.log('[AuthContext] Initial session:', session ? 'exists' : 'null');
-        void updateSessionState(session ?? null);
-        setLoading(false);
+      .then(({ data: { session: supabaseSession } }) => {
+        console.log('[AuthContext] Initial session from Supabase:', supabaseSession ? 'exists' : 'null');
+
+        // If no session from Supabase, try to restore from storage
+        if (!supabaseSession) {
+          console.log('[AuthContext] No Supabase session, checking storage');
+          restoreSessionFromStorage()
+            .then((restoredSession) => {
+              if (restoredSession) {
+                void updateSessionState(restoredSession);
+              } else {
+                void updateSessionState(null);
+              }
+              setLoading(false);
+            })
+            .catch((error) => {
+              console.error('[AuthContext] Error restoring from storage:', error);
+              void updateSessionState(null);
+              setLoading(false);
+            });
+        } else {
+          void updateSessionState(supabaseSession);
+          setLoading(false);
+        }
       })
       .catch((error) => {
         console.error('[AuthContext] Error getting session:', error);
-        AuthTokenStorage.clear().catch((storageError) => {
-          console.error('[AuthContext] Failed clearing session storage:', storageError);
-        });
-        setLoading(false);
+        // Try to restore from storage before giving up
+        restoreSessionFromStorage()
+          .then((restoredSession) => {
+            if (restoredSession) {
+              void updateSessionState(restoredSession);
+            } else {
+              void updateSessionState(null);
+            }
+            setLoading(false);
+          })
+          .catch((storageError) => {
+            console.error('[AuthContext] Failed restoring from storage:', storageError);
+            void updateSessionState(null);
+            setLoading(false);
+          });
       });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('[AuthContext] Auth state changed:', _event);
+
+      // Don't clear session on SIGNED_OUT if we're in the middle of a payment flow
+      // (session might temporarily look signed out during deep link navigation)
+      if (_event === 'SIGNED_OUT' && appState.current !== 'active') {
+        console.log('[AuthContext] Ignoring SIGNED_OUT while app in background');
+        return;
+      }
+
       void updateSessionState(session ?? null);
       setLoading(false);
     });
