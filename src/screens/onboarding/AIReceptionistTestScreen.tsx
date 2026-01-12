@@ -566,6 +566,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 24,
     paddingVertical: 24,
+    height: 128, // Fixed height (80px equalizer + 48px padding) to prevent content jumping
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

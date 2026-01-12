@@ -623,6 +623,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
+  equalizerContainer: {
+    width: '100%',
+    height: 80, // Fixed height to prevent content jumping
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+
   transcriptContainer: {
     width: '100%',
     maxHeight: 400,
