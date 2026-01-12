@@ -84,9 +84,7 @@ class NativeVoiceAgentService extends EventEmitter {
   private recordingInterval: NodeJS.Timeout | null = null;
   private audioChunks: string[] = [];
   private audioBytesSent: number = 0; // Track how many bytes we've already sent
-  private shouldSendAudio: boolean = true; // Control whether to send audio chunks
   private conversationStartTime: number = 0; // Track conversation start for duration calculation
-  private isFirstGreeting: boolean = true; // Don't record during AI's initial greeting
 
   // Audio Playback Queue
   private audioPlaybackQueue: string[] = [];
@@ -110,9 +108,7 @@ class NativeVoiceAgentService extends EventEmitter {
       this.audioPlaybackQueue = [];
       this.isPlayingAudio = false;
       this.audioBytesSent = 0;
-      this.shouldSendAudio = true;
       this.conversationStartTime = 0;
-      this.isFirstGreeting = true;
 
       this.setState('connecting');
 
@@ -122,17 +118,18 @@ class NativeVoiceAgentService extends EventEmitter {
         throw new Error('Audio permission not granted');
       }
 
-      // Configure audio mode for recording and playback
-      // DoNotMix will stop background audio (music, etc.) and take full control
+      // Configure audio mode to simulate a real phone call
+      // Route audio to EARPIECE (not loudspeaker) to prevent feedback loop
+      // This way the microphone can't hear the AI's voice playing from the earpiece
       try {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
           staysActiveInBackground: false,
-          shouldDuckAndroid: false,
-          playThroughEarpieceAndroid: false, // Use loudspeaker, not earpiece
+          shouldDuckAndroid: true, // Duck other audio during call
+          playThroughEarpieceAndroid: true, // Use earpiece like a real phone call
           interruptionModeIOS: InterruptionModeIOS.DoNotMix, // Stop background audio
-          // iOS automatically enables echo cancellation when recording + playback
+          // iOS automatically uses earpiece for calls, preventing feedback
         });
       } catch (audioModeError) {
         console.warn('[NativeVoiceAgent] Initial audio mode setup failed, retrying...', audioModeError);
@@ -143,8 +140,8 @@ class NativeVoiceAgentService extends EventEmitter {
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
           staysActiveInBackground: false,
-          shouldDuckAndroid: false,
-          playThroughEarpieceAndroid: false,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: true,
           interruptionModeIOS: InterruptionModeIOS.DoNotMix,
         });
       }
@@ -204,45 +201,29 @@ class NativeVoiceAgentService extends EventEmitter {
           this.emit('agent_ready');
           // Track conversation start time for duration calculation
           this.conversationStartTime = Date.now();
-          // Don't start recording yet - wait for AI to finish its initial greeting
-          // Recording will start on first 'agent_stopped_speaking' event
-          console.log('[NativeVoiceAgent] Agent ready - waiting for initial greeting to complete');
+          // With earpiece audio routing, we can start recording immediately
+          // The microphone won't pick up the AI's voice from the earpiece
+          console.log('[NativeVoiceAgent] Agent ready - starting recording (earpiece prevents feedback)');
+          this.startRecording();
           break;
 
         case 'audio':
-          // Add to playback queue instead of playing immediately
+          // Add to playback queue and play through earpiece
           this.queueAudio(message.audio);
-          // Failsafe: Ensure recording is paused when we receive audio, 
-          // in case 'agent_started_speaking' event was missed or delayed.
-          this.pauseRecording();
           break;
-          
+
         case 'agent_audio_done':
-          // Failsafe: Ensure recording resumes when agent audio finishes,
-          // in case 'agent_stopped_speaking' event was missed.
-          this.resumeRecording();
           this.emit('agent_stopped_speaking');
           break;
 
         case 'agent_started_speaking':
           this.setState('agent_speaking');
           this.emit('agent_started_speaking');
-          // Pause recording while agent speaks
-          this.pauseRecording();
           break;
 
         case 'agent_stopped_speaking':
           this.setState('ready');
           this.emit('agent_stopped_speaking');
-          // If this is the first greeting, start recording for the first time
-          if (this.isFirstGreeting) {
-            console.log('[NativeVoiceAgent] Initial greeting complete - starting user recording');
-            this.isFirstGreeting = false;
-            this.startRecording();
-          } else {
-            // For subsequent interactions, resume recording
-            this.resumeRecording();
-          }
           break;
 
         case 'user_started_speaking':
@@ -334,52 +315,10 @@ class NativeVoiceAgentService extends EventEmitter {
   }
 
   /**
-   * Pause recording (when agent is speaking)
-   * Stops recording to prevent microphone from capturing agent's voice
-   */
-  private async pauseRecording(): Promise<void> {
-    console.log('[NativeVoiceAgent] Pausing audio capture (agent speaking)...');
-    this.shouldSendAudio = false;
-
-    // Stop the recording interval
-    if (this.recordingInterval) {
-      clearInterval(this.recordingInterval);
-      this.recordingInterval = null;
-    }
-
-    // Stop and unload the recording to turn off the microphone
-    if (this.recording) {
-      try {
-        await this.recording.stopAndUnloadAsync();
-        this.recording = null;
-      } catch (error) {
-        console.warn('[NativeVoiceAgent] Error stopping recording during pause:', error);
-      }
-    }
-  }
-
-  /**
-   * Resume recording (when agent stops speaking)
-   * Starts a fresh recording session for user speech
-   */
-  private async resumeRecording(): Promise<void> {
-    console.log('[NativeVoiceAgent] Resuming audio capture (agent done)...');
-
-    // Small delay to ensure previous recording is fully cleaned up
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Only start if we don't already have a recording
-    if (!this.recording) {
-      this.shouldSendAudio = true;
-      await this.startRecording();
-    }
-  }
-
-  /**
    * Send audio chunk to backend (only sends NEW data since last send)
    */
   private async sendAudioChunk(): Promise<void> {
-    if (!this.recording || !this.shouldSendAudio) return;
+    if (!this.recording) return;
 
     try {
       // Get recording status to access latest audio data and metering

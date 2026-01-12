@@ -279,7 +279,7 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
 
       <Text style={styles.stepTitle}>Talk to Your AI Receptionist</Text>
       <Text style={styles.stepSubtitle}>
-        This is YOUR AI - customized with your business name and voice preference
+        Hold your phone to your ear like a normal call. Your AI is listening and will respond naturally.
       </Text>
 
       {/* Reactive Equalizer Animation - Always rendered to reserve space */}
