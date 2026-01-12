@@ -118,13 +118,15 @@ class NativeVoiceAgentService extends EventEmitter {
       }
 
       // Configure audio mode for recording and playback
-      // Use earpiece to prevent feedback loop
+      // Use loudspeaker with echo cancellation for proper voice chat experience
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: true, // Use earpiece to avoid feedback
+        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false, // Use loudspeaker, not earpiece
+        // These settings enable echo cancellation on both platforms
       });
 
       // Build WebSocket URL with parameters
@@ -297,20 +299,44 @@ class NativeVoiceAgentService extends EventEmitter {
 
   /**
    * Pause recording (when agent is speaking)
-   * Keeps recording active but stops sending audio chunks to avoid feedback loop
+   * Stops recording to prevent microphone from capturing agent's voice
    */
-  private pauseRecording(): void {
+  private async pauseRecording(): Promise<void> {
     console.log('[NativeVoiceAgent] Pausing audio capture (agent speaking)...');
     this.shouldSendAudio = false;
+
+    // Stop the recording interval
+    if (this.recordingInterval) {
+      clearInterval(this.recordingInterval);
+      this.recordingInterval = null;
+    }
+
+    // Stop and unload the recording to turn off the microphone
+    if (this.recording) {
+      try {
+        await this.recording.stopAndUnloadAsync();
+        this.recording = null;
+      } catch (error) {
+        console.warn('[NativeVoiceAgent] Error stopping recording during pause:', error);
+      }
+    }
   }
 
   /**
    * Resume recording (when agent stops speaking)
-   * Re-enable sending audio chunks for user speech
+   * Starts a fresh recording session for user speech
    */
-  private resumeRecording(): void {
+  private async resumeRecording(): Promise<void> {
     console.log('[NativeVoiceAgent] Resuming audio capture (agent done)...');
-    this.shouldSendAudio = true;
+
+    // Small delay to ensure previous recording is fully cleaned up
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Only start if we don't already have a recording
+    if (!this.recording) {
+      this.shouldSendAudio = true;
+      await this.startRecording();
+    }
   }
 
   /**
