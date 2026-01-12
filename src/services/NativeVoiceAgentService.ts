@@ -8,7 +8,7 @@
 import { Audio } from 'expo-av';
 import { EventEmitter } from 'events';
 import { Buffer } from 'buffer';
-import apiClient from './apiClient';
+import { apiClient } from './apiClient';
 
 // Configuration
 const WEBSOCKET_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'https://flynnai-telephony.fly.dev').replace('http', 'ws');
@@ -83,6 +83,7 @@ class NativeVoiceAgentService extends EventEmitter {
   private recordingInterval: NodeJS.Timeout | null = null;
   private audioChunks: string[] = [];
   private audioBytesSent: number = 0; // Track how many bytes we've already sent
+  private shouldSendAudio: boolean = true; // Control whether to send audio chunks
   
   // Audio Playback Queue
   private audioPlaybackQueue: string[] = [];
@@ -99,6 +100,15 @@ class NativeVoiceAgentService extends EventEmitter {
   ): Promise<void> {
     try {
       console.log('[NativeVoiceAgent] Starting conversation...');
+      
+      // Reset conversation state
+      this.conversationHistory = [];
+      this.extractedEntities = {};
+      this.audioPlaybackQueue = [];
+      this.isPlayingAudio = false;
+      this.audioBytesSent = 0;
+      this.shouldSendAudio = true;
+
       this.setState('connecting');
 
       // Request audio permissions
@@ -108,12 +118,13 @@ class NativeVoiceAgentService extends EventEmitter {
       }
 
       // Configure audio mode for recording and playback
+      // Use earpiece to prevent feedback loop
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
         shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+        playThroughEarpieceAndroid: true, // Use earpiece to avoid feedback
       });
 
       // Build WebSocket URL with parameters
@@ -176,10 +187,16 @@ class NativeVoiceAgentService extends EventEmitter {
         case 'audio':
           // Add to playback queue instead of playing immediately
           this.queueAudio(message.audio);
+          // Failsafe: Ensure recording is paused when we receive audio, 
+          // in case 'agent_started_speaking' event was missed or delayed.
+          this.pauseRecording();
           break;
           
         case 'agent_audio_done':
-          // Optional: handle end of turn signal if needed
+          // Failsafe: Ensure recording resumes when agent audio finishes,
+          // in case 'agent_stopped_speaking' event was missed.
+          this.resumeRecording();
+          this.emit('agent_stopped_speaking');
           break;
 
         case 'agent_started_speaking':
@@ -254,6 +271,16 @@ class NativeVoiceAgentService extends EventEmitter {
       // Reset audio bytes sent counter
       this.audioBytesSent = 0;
 
+      // Make sure any existing recording is properly disposed of
+      if (this.recording) {
+        try {
+          await this.recording.stopAndUnloadAsync();
+        } catch (unloadError) {
+          console.warn('[NativeVoiceAgent] Error unloading existing recording:', unloadError);
+        }
+        this.recording = null;
+      }
+
       const { recording } = await Audio.Recording.createAsync(RECORDING_OPTIONS);
       this.recording = recording;
 
@@ -270,30 +297,27 @@ class NativeVoiceAgentService extends EventEmitter {
 
   /**
    * Pause recording (when agent is speaking)
+   * Keeps recording active but stops sending audio chunks to avoid feedback loop
    */
-  private async pauseRecording(): Promise<void> {
-    if (this.recordingInterval) {
-      clearInterval(this.recordingInterval);
-      this.recordingInterval = null;
-    }
+  private pauseRecording(): void {
+    console.log('[NativeVoiceAgent] Pausing audio capture (agent speaking)...');
+    this.shouldSendAudio = false;
   }
 
   /**
    * Resume recording (when agent stops speaking)
+   * Re-enable sending audio chunks for user speech
    */
-  private async resumeRecording(): Promise<void> {
-    if (!this.recordingInterval && this.recording) {
-      this.recordingInterval = setInterval(() => {
-        this.sendAudioChunk();
-      }, 100);
-    }
+  private resumeRecording(): void {
+    console.log('[NativeVoiceAgent] Resuming audio capture (agent done)...');
+    this.shouldSendAudio = true;
   }
 
   /**
    * Send audio chunk to backend (only sends NEW data since last send)
    */
   private async sendAudioChunk(): Promise<void> {
-    if (!this.recording) return;
+    if (!this.recording || !this.shouldSendAudio) return;
 
     try {
       // Get recording status to access latest audio data and metering
@@ -310,41 +334,44 @@ class NativeVoiceAgentService extends EventEmitter {
           this.emit('audio_level', level);
         }
 
-        // Read the recording URI
-        const uri = this.recording.getURI();
-        if (uri) {
-          // Fetch the entire file and read as ArrayBuffer
-          const response = await fetch(uri);
-          const arrayBuffer = await response.arrayBuffer();
+        // Only send audio chunks when we should (not when agent is speaking)
+        if (this.shouldSendAudio) {
+          // Read the recording URI
+          const uri = this.recording.getURI();
+          if (uri) {
+            // Fetch the entire file and read as ArrayBuffer
+            const response = await fetch(uri);
+            const arrayBuffer = await response.arrayBuffer();
 
-          // Only send the NEW bytes (skip bytes we've already sent)
-          if (arrayBuffer.byteLength > this.audioBytesSent) {
-            let newBytes = arrayBuffer.slice(this.audioBytesSent);
+            // Only send the NEW bytes (skip bytes we've already sent)
+            if (arrayBuffer.byteLength > this.audioBytesSent) {
+              let newBytes = arrayBuffer.slice(this.audioBytesSent);
 
-            // SPECIAL HANDLING FOR WAV/PCM (iOS):
-            // The first chunk includes the WAV header (44 bytes).
-            // We must strip it because the server expects RAW PCM samples.
-            if (this.audioBytesSent === 0 && newBytes.byteLength > 44) {
-               // Only strip if it looks like a WAV (starts with RIFF)
-               const view = new DataView(newBytes);
-               if (view.getUint32(0, false) === 0x52494646) { // 'RIFF' in big-endian
-                 console.log('[NativeVoiceAgent] Stripping WAV header from first chunk');
-                 newBytes = newBytes.slice(44);
-               }
-            }
+              // SPECIAL HANDLING FOR WAV/PCM (iOS):
+              // The first chunk includes the WAV header (44 bytes).
+              // We must strip it because the server expects RAW PCM samples.
+              if (this.audioBytesSent === 0 && newBytes.byteLength > 44) {
+                 // Only strip if it looks like a WAV (starts with RIFF)
+                 const view = new DataView(newBytes);
+                 if (view.getUint32(0, false) === 0x52494646) { // 'RIFF' in big-endian
+                   console.log('[NativeVoiceAgent] Stripping WAV header from first chunk');
+                   newBytes = newBytes.slice(44);
+                 }
+              }
 
-            // Convert only the new chunk to base64
-            const uint8Array = new Uint8Array(newBytes);
-            const base64Audio = this.arrayBufferToBase64(uint8Array);
+              // Convert only the new chunk to base64
+              const uint8Array = new Uint8Array(newBytes);
+              const base64Audio = this.arrayBufferToBase64(uint8Array);
 
-            if (base64Audio && base64Audio.length > 0) {
-              this.sendWebSocketMessage({
-                type: 'audio',
-                audio: base64Audio,
-              });
+              if (base64Audio && base64Audio.length > 0) {
+                this.sendWebSocketMessage({
+                  type: 'audio',
+                  audio: base64Audio,
+                });
 
-              // Update bytes sent counter
-              this.audioBytesSent = arrayBuffer.byteLength;
+                // Update bytes sent counter
+                this.audioBytesSent = arrayBuffer.byteLength;
+              }
             }
           }
         }

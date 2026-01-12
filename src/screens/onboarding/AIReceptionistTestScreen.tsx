@@ -26,6 +26,7 @@ import NativeVoiceAgentService, {
   ConversationResult,
   ExtractedEntities,
 } from '../../services/NativeVoiceAgentService';
+import { apiClient } from '../../services/apiClient';
 import EqualizerAnimation from '../../components/ui/EqualizerAnimation';
 import { JobCard } from '../../components/jobs/JobCard';
 
@@ -81,11 +82,41 @@ const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ nav
       setAudioLevel(level);
     };
 
-    const handleConversationEnded = (result: ConversationResult) => {
+    const handleConversationEnded = async (result: ConversationResult) => {
       console.log('[AIReceptionistTest] Conversation ended:', result);
       setConversationResult(result);
-      setShowJobCard(true);
       setAudioLevel(0);
+
+      // Try to create an actual job from the conversation result
+      try {
+        const jobData = {
+          customerName: result.entities.caller_name || '',
+          serviceType: result.entities.service_type || onboardingData.businessType || 'Service Request',
+          date: result.entities.preferred_date || '',
+          time: result.entities.preferred_time || '',
+          location: result.entities.location || '',
+          notes: result.entities.notes || result.transcript.substring(0, 200) + (result.transcript.length > 200 ? '...' : ''),
+          status: 'new',
+          source: 'ai_test_call', // Indicate this came from a test call
+          businessType: onboardingData.businessType || '',
+          capturedAt: new Date().toISOString(),
+          voicemailTranscript: result.transcript,
+          userId: user?.id,
+        };
+
+        // Create job via API
+        const response = await apiClient.post('/jobs', jobData);
+        
+        // Success - show job card
+        setConversationResult(result);
+        setShowJobCard(true);
+      } catch (error) {
+        console.error('[AIReceptionistTest] Failed to create job from conversation:', error);
+        
+        // Fallback to showing extracted job data without saving to DB
+        setConversationResult(result);
+        setShowJobCard(true);
+      }
 
       // Save result to onboarding data
       updateOnboardingData({
@@ -365,17 +396,18 @@ const AIReceptionistTestScreen: React.FC<AIReceptionistTestScreenProps> = ({ nav
           </Text>
         </View>
 
-        {/* Equalizer Animation */}
-        {(conversationState === 'agent_speaking' || conversationState === 'user_speaking') && (
-          <View style={styles.equalizerContainer}>
-            <EqualizerAnimation 
-              isActive={true} 
-              barCount={15} 
-              height={80} 
-              audioLevel={audioLevel}
-            />
-          </View>
-        )}
+        {/* Equalizer Animation - Always rendered to reserve space */}
+        <View style={[
+          styles.equalizerContainer,
+          { opacity: (conversationState === 'disconnected' || conversationState === 'ended') ? 0 : 1 }
+        ]}>
+          <EqualizerAnimation 
+            isActive={conversationState === 'agent_speaking' || conversationState === 'user_speaking'} 
+            barCount={15} 
+            height={80} 
+            audioLevel={audioLevel}
+          />
+        </View>
 
         {/* Microphone Indicator */}
         {(conversationState === 'ready' || conversationState === 'user_speaking') && (

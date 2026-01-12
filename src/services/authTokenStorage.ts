@@ -70,4 +70,34 @@ export const AuthTokenStorage = {
   async getUserId() {
     return SafeAsyncStorage.getItem(USER_ID_KEY);
   },
+
+  async getSession() {
+    const accessToken = await SafeAsyncStorage.getItem(ACCESS_TOKEN_KEY);
+    const refreshToken = await SafeAsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    const expiresAt = await SafeAsyncStorage.getItem(EXPIRES_AT_KEY);
+    const userId = await SafeAsyncStorage.getItem(USER_ID_KEY);
+
+    if (!accessToken || !refreshToken || !expiresAt || !userId) {
+      return null;
+    }
+
+    // Parse expiresAt to number
+    const expiresAtNum = parseInt(expiresAt, 10);
+    
+    // Check if session has expired
+    if (isNaN(expiresAtNum) || expiresAtNum <= Date.now()) {
+      await this.clear();
+      return null;
+    }
+
+    // Return a mock session object similar to Supabase Session
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: expiresAtNum,
+      user: {
+        id: userId,
+      }
+    };
+  },
 };

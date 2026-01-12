@@ -16,6 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { supabase } from '../../services/supabase';
+import { apiClient } from '../../services/apiClient';
 import EqualizerAnimation from '../ui/EqualizerAnimation';
 
 interface FirstTimeExperienceModalProps {
@@ -97,10 +98,10 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
       setAudioLevel(level);
     };
 
-    const handleConversationEnded = (result: ConversationResult) => {
+    const handleConversationEnded = async (result: ConversationResult) => {
       setConversationState('ended');
       setAudioLevel(0);
-      generateMockJobCard(result);
+      await createJobFromConversation(result);
     };
 
     NativeVoiceAgentService.on('state_changed', handleStateChange);
@@ -116,21 +117,58 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
     };
   }, []);
 
-  const generateMockJobCard = (result: ConversationResult) => {
-    // Extract data from conversation to create mock job card
-    const card: MockJobCard = {
-      clientName: result.entities.caller_name || 'John Smith',
-      serviceType: result.entities.service_type || onboardingData.businessType || 'Service Request',
-      date: result.entities.preferred_date || 'Tomorrow',
-      time: result.entities.preferred_time || '2:00 PM',
-      location: result.entities.location || '123 Main St',
-      notes: result.entities.notes || result.transcript.substring(0, 100) + '...',
-    };
+  const createJobFromConversation = async (result: ConversationResult) => {
+    try {
+      // Prepare job data from conversation result
+      const jobData = {
+        customerName: result.entities.caller_name || '',
+        serviceType: result.entities.service_type || onboardingData.businessType || 'Service Request',
+        date: result.entities.preferred_date || '',
+        time: result.entities.preferred_time || '',
+        location: result.entities.location || '',
+        notes: result.entities.notes || result.transcript.substring(0, 200) + (result.transcript.length > 200 ? '...' : ''),
+        status: 'new',
+        source: 'ai_test_call', // Indicate this came from a test call
+        businessType: onboardingData.businessType || '',
+        capturedAt: new Date().toISOString(),
+        voicemailTranscript: result.transcript,
+        userId: user?.id,
+      };
 
-    setMockJobCard(card);
+      // Create job via API
+      const response = await apiClient.post('/jobs', jobData);
+      
+      // Create job card representation
+      const card: MockJobCard = {
+        clientName: jobData.customerName || 'Test Client',
+        serviceType: jobData.serviceType,
+        date: jobData.date || 'TBD',
+        time: jobData.time || 'TBD',
+        location: jobData.location || 'Test Location',
+        notes: jobData.notes || 'Test notes from AI receptionist test',
+      };
 
-    // Calculate conversation duration (mock)
-    setConversationDuration(45);
+      setMockJobCard(card);
+      setConversationDuration(45);
+      
+      // Refresh jobs context to show the new job
+      // Note: This depends on having access to refreshJobs from JobsContext
+    } catch (error) {
+      console.error('[FirstTimeExperience] Failed to create job from conversation:', error);
+      
+      // Fallback to mock job card if API fails
+      const card: MockJobCard = {
+        clientName: result.entities.caller_name || 'John Smith',
+        serviceType: result.entities.service_type || onboardingData.businessType || 'Service Request',
+        date: result.entities.preferred_date || 'Tomorrow',
+        time: result.entities.preferred_time || '2:00 PM',
+        location: result.entities.location || '123 Main St',
+        notes: result.entities.notes || result.transcript.substring(0, 100) + '...',
+      };
+
+      setMockJobCard(card);
+      setConversationDuration(45);
+    }
   };
 
   const startTestSession = async (greetingText: string, voiceId: string) => {
@@ -277,17 +315,18 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
         This is YOUR AI - customized with your business name and voice preference
       </Text>
 
-      {/* Reactive Equalizer Animation */}
-      {(conversationState === 'agent_speaking' || conversationState === 'user_speaking' || conversationState === 'ready') && (
-        <View style={styles.equalizerContainer}>
-          <EqualizerAnimation 
-            isActive={true} 
-            barCount={15} 
-            height={60} 
-            audioLevel={audioLevel}
-          />
-        </View>
-      )}
+      {/* Reactive Equalizer Animation - Always rendered to reserve space */}
+      <View style={[
+        styles.equalizerContainer,
+        { opacity: (conversationState === 'agent_speaking' || conversationState === 'user_speaking' || conversationState === 'ready') ? 1 : 0 }
+      ]}>
+        <EqualizerAnimation 
+          isActive={conversationState === 'agent_speaking' || conversationState === 'user_speaking'} 
+          barCount={15} 
+          height={60} 
+          audioLevel={audioLevel}
+        />
+      </View>
 
       <ScrollView 
         style={styles.transcriptContainer} 

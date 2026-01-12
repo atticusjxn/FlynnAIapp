@@ -483,7 +483,32 @@ export const LocalTestModal: React.FC<LocalTestModalProps> = ({
     conversationRef.current = [];
   };
 
-  const handleViewJob = () => {
+  const handleViewJob = async () => {
+    // If we have extracted job data, try to save it as an actual job
+    if (extractedJob) {
+      try {
+        const jobData = {
+          customerName: extractedJob.clientName,
+          serviceType: extractedJob.serviceType || onboardingData?.businessType || 'Service Request',
+          date: extractedJob.scheduledDate,
+          time: extractedJob.scheduledTime,
+          location: extractedJob.location,
+          notes: extractedJob.notes,
+          status: 'new',
+          source: 'ai_test_call', // Indicate this came from a test call
+          businessType: onboardingData?.businessType || '',
+          capturedAt: new Date().toISOString(),
+          userId: user?.id,
+        };
+
+        // Create job via API
+        await apiClient.post('/jobs', jobData);
+      } catch (error) {
+        console.error('[LocalTestModal] Failed to create job from extracted data:', error);
+        // Continue anyway even if job creation fails
+      }
+    }
+    
     cleanup();
     onClose();
     // @ts-ignore
