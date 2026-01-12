@@ -145,19 +145,19 @@ function createNativeTestHandler({
                   console.warn('[NativeTest] Invalid audio data format');
                   break;
                 }
-                
+
                 const audioBuffer = Buffer.from(message.audio, 'base64');
-                
+
                 // Validate buffer is valid and has sufficient data
                 if (!audioBuffer || audioBuffer.length < 2) {
                   console.warn('[NativeTest] Audio buffer too small:', audioBuffer?.length || 0);
                   break;
                 }
-                
+
                 // Convert from Linear16 16kHz to μ-law 8kHz for Deepgram
                 // Deepgram prefers 8kHz mulaw for telephony-like input to match its model training
                 const mulawBuffer = convertNativeToDeepgram(audioBuffer);
-                
+
                 // Only send if conversion produced valid output
                 if (mulawBuffer && mulawBuffer.length > 0) {
                   this.sendAudioToAgent(mulawBuffer);
@@ -253,14 +253,14 @@ function createNativeTestHandler({
               prompt: this.systemPrompt,
               functions: getFunctionSchema(),
             },
-          speak: {
-            provider: {
-              type: 'deepgram',
-              model: this.testConfig.voiceId === 'flynn_expert' || this.testConfig.voiceId === 'male'
-                ? 'aura-2-arcas-en' // Australian male
-                : 'aura-2-theia-en', // Australian female (default)
+            speak: {
+              provider: {
+                type: 'deepgram',
+                model: this.testConfig.voiceId === 'flynn_expert' || this.testConfig.voiceId === 'male'
+                  ? 'aura-2-arcas-en' // Australian male
+                  : 'aura-2-theia-en', // Australian female (default)
+              },
             },
-          },
             greeting: this.greeting,
           },
         });
@@ -387,15 +387,23 @@ function createNativeTestHandler({
       });
 
       // Function calls (entity extraction)
-      this.agentConnection.on('FunctionCalled', (data) => {
-        console.log('[NativeTest] Function called:', data);
+      this.agentConnection.on('FunctionCallRequest', async (request) => {
+        console.log('[NativeTest] Function call request:', request);
 
-        if (data.function_name === 'collect_booking_info' && data.arguments) {
-          try {
-            const args = typeof data.arguments === 'string'
-              ? JSON.parse(data.arguments)
-              : data.arguments;
+        try {
+          const { functions } = request;
+          if (!functions || functions.length === 0) {
+            console.warn('[NativeTest] Function call received with no functions array');
+            return;
+          }
 
+          const functionCall = functions[0];
+          const { id, name, arguments: argsString } = functionCall;
+          const args = JSON.parse(argsString);
+
+          console.log('[NativeTest] Executing function:', name, args);
+
+          if (name === 'extract_booking_details') {
             // Merge with existing entities
             this.extractedEntities = {
               ...this.extractedEntities,
@@ -409,8 +417,38 @@ function createNativeTestHandler({
               type: 'entities_extracted',
               entities: this.extractedEntities,
             });
-          } catch (error) {
-            console.error('[NativeTest] Failed to parse function arguments:', error);
+
+            // Send function response back to agent to prevent timeout
+            const response = {
+              type: 'FunctionCallResponse',
+              id: id,
+              name: name,
+              content: JSON.stringify({
+                success: true,
+                message: 'Booking details captured successfully',
+                data: this.extractedEntities,
+              }),
+            };
+            this.agentConnection.send(JSON.stringify(response));
+          }
+        } catch (error) {
+          console.error('[NativeTest] Failed to handle function call:', error);
+
+          // Send error response to prevent timeout
+          try {
+            const { functions } = request;
+            if (functions && functions.length > 0) {
+              const { id, name } = functions[0];
+              const errorResponse = {
+                type: 'FunctionCallResponse',
+                id: id,
+                name: name,
+                content: JSON.stringify({ success: false, error: error.message }),
+              };
+              this.agentConnection.send(JSON.stringify(errorResponse));
+            }
+          } catch (sendError) {
+            console.error('[NativeTest] Failed to send error response:', sendError);
           }
         }
       });
