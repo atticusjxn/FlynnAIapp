@@ -102,7 +102,7 @@ class NativeVoiceAgentService extends EventEmitter {
   ): Promise<void> {
     try {
       console.log('[NativeVoiceAgent] Starting conversation...');
-      
+
       // Reset conversation state
       this.conversationHistory = [];
       this.extractedEntities = {};
@@ -210,8 +210,20 @@ class NativeVoiceAgentService extends EventEmitter {
           break;
 
         case 'audio':
+          // STOP SENDING AUDIO IMMEDIATELY when we receive audio to play
+          // This is the earliest we know audio will play on the device
+          this.shouldSendAudio = false;
+          // Immediately stop the recording interval to prevent any more audio chunks from being sent
+          this.stopRecordingInterval();
+
           // Add to playback queue and play through earpiece
           this.queueAudio(message.audio);
+
+          // Also stop recording to fully mute the microphone
+          if (this.recording) {
+            // Only call pauseRecording if currently recording
+            this.pauseRecording();
+          }
           break;
 
         case 'agent_audio_done':
@@ -226,6 +238,8 @@ class NativeVoiceAgentService extends EventEmitter {
           this.emit('agent_started_speaking');
           // IMMEDIATELY stop sending audio (synchronous flag)
           this.shouldSendAudio = false;
+          // Immediately stop the recording interval to prevent any more audio chunks from being sent
+          this.stopRecordingInterval();
           // Then stop recording (async cleanup)
           this.pauseRecording();
           break;
@@ -327,17 +341,26 @@ class NativeVoiceAgentService extends EventEmitter {
   }
 
   /**
+   * Synchronously stop the recording interval to prevent any more audio chunks from being sent
+   * This is called IMMEDIATELY when AI starts speaking, before any async operations
+   */
+  private stopRecordingInterval(): void {
+    if (this.recordingInterval) {
+      clearInterval(this.recordingInterval);
+      this.recordingInterval = null;
+      console.log('[NativeVoiceAgent] Recording interval stopped immediately');
+    }
+  }
+
+  /**
    * Pause recording when AI speaks
    * Stops and unloads the recording to turn off the microphone
    */
   private async pauseRecording(): Promise<void> {
     console.log('[NativeVoiceAgent] Pausing recording (AI speaking)...');
 
-    // Stop the recording interval
-    if (this.recordingInterval) {
-      clearInterval(this.recordingInterval);
-      this.recordingInterval = null;
-    }
+    // Stop the recording interval (may already be stopped by stopRecordingInterval)
+    this.stopRecordingInterval();
 
     // Stop and unload the recording to turn off the microphone
     if (this.recording) {
@@ -361,10 +384,22 @@ class NativeVoiceAgentService extends EventEmitter {
       return;
     }
 
+    // Don't resume if we're not supposed to be sending audio yet
+    if (!this.shouldSendAudio) {
+      console.log('[NativeVoiceAgent] Not ready to send audio yet, skipping resume');
+      return;
+    }
+
     console.log('[NativeVoiceAgent] Resuming recording (AI done speaking)...');
 
-    // Small delay to ensure previous recording is fully cleaned up
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait for audio to fully stop playing and any reverb to dissipate
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Double-check we should still resume (state may have changed during delay)
+    if (!this.shouldSendAudio || this.recording) {
+      console.log('[NativeVoiceAgent] State changed during delay, aborting resume');
+      return;
+    }
 
     // Start fresh recording
     await this.startRecording();
@@ -408,12 +443,12 @@ class NativeVoiceAgentService extends EventEmitter {
             // The first chunk includes the WAV header (44 bytes).
             // We must strip it because the server expects RAW PCM samples.
             if (this.audioBytesSent === 0 && newBytes.byteLength > 44) {
-               // Only strip if it looks like a WAV (starts with RIFF)
-               const view = new DataView(newBytes);
-               if (view.getUint32(0, false) === 0x52494646) { // 'RIFF' in big-endian
-                 console.log('[NativeVoiceAgent] Stripping WAV header from first chunk');
-                 newBytes = newBytes.slice(44);
-               }
+              // Only strip if it looks like a WAV (starts with RIFF)
+              const view = new DataView(newBytes);
+              if (view.getUint32(0, false) === 0x52494646) { // 'RIFF' in big-endian
+                console.log('[NativeVoiceAgent] Stripping WAV header from first chunk');
+                newBytes = newBytes.slice(44);
+              }
             }
 
             // Convert only the new chunk to base64
@@ -486,12 +521,12 @@ class NativeVoiceAgentService extends EventEmitter {
         // We must add a WAV header so Expo AV can play it.
         const pcmData = this.base64ToUint8Array(base64Audio);
         const wavHeader = this.createWavHeader(pcmData.length, 16000, 1, 16);
-        
+
         // Combine header + PCM data
         const wavData = new Uint8Array(wavHeader.length + pcmData.length);
         wavData.set(wavHeader);
         wavData.set(pcmData, wavHeader.length);
-        
+
         // Encode back to base64 for Audio.Sound
         const wavBase64 = this.arrayBufferToBase64(wavData);
         const audioUri = `data:audio/wav;base64,${wavBase64}`;
@@ -506,20 +541,26 @@ class NativeVoiceAgentService extends EventEmitter {
               this.emit('audio_finished');
               this.isPlayingAudio = false;
               // Clean up current sound
-              sound.unloadAsync().catch(() => {});
+              sound.unloadAsync().catch(() => { });
               this.sound = null;
               // Trigger next chunk
               resolve();
               this.processAudioQueue();
+
+              // If queue is now empty and we should be listening, resume recording
+              if (this.audioPlaybackQueue.length === 0 && !this.isPlayingAudio && this.shouldSendAudio) {
+                console.log('[NativeVoiceAgent] Audio queue empty, triggering recording resume');
+                this.resumeRecording();
+              }
             }
           }
         );
 
         this.sound = sound;
-        
+
         // Emit fake audio levels for animation while AI speaks
         this.simulateAgentSpeakingLevels(pcmData.length);
-        
+
       } catch (error) {
         console.error('[NativeVoiceAgent] Error playing audio:', error);
         this.isPlayingAudio = false;
@@ -527,28 +568,28 @@ class NativeVoiceAgentService extends EventEmitter {
       }
     });
   }
-  
+
   private speakingInterval: NodeJS.Timeout | null = null;
-  
+
   private simulateAgentSpeakingLevels(dataLength: number) {
-      // clear existing
-      if (this.speakingInterval) clearInterval(this.speakingInterval);
-      
-      // Approx duration in seconds = samples / sampleRate / channels / (bits/8)
-      // 16kHz, 16bit = 2 bytes per sample.
-      const durationMs = (dataLength / 2 / 16000) * 1000;
-      const startTime = Date.now();
-      
-      this.speakingInterval = setInterval(() => {
-          const elapsed = Date.now() - startTime;
-          if (elapsed >= durationMs) {
-              if (this.speakingInterval) clearInterval(this.speakingInterval);
-              this.emit('audio_level', 0);
-              return;
-          }
-          // Random fluctuating level 0.3 - 0.8
-          this.emit('audio_level', 0.3 + Math.random() * 0.5);
-      }, 50);
+    // clear existing
+    if (this.speakingInterval) clearInterval(this.speakingInterval);
+
+    // Approx duration in seconds = samples / sampleRate / channels / (bits/8)
+    // 16kHz, 16bit = 2 bytes per sample.
+    const durationMs = (dataLength / 2 / 16000) * 1000;
+    const startTime = Date.now();
+
+    this.speakingInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= durationMs) {
+        if (this.speakingInterval) clearInterval(this.speakingInterval);
+        this.emit('audio_level', 0);
+        return;
+      }
+      // Random fluctuating level 0.3 - 0.8
+      this.emit('audio_level', 0.3 + Math.random() * 0.5);
+    }, 50);
   }
 
   /**
@@ -604,14 +645,14 @@ class NativeVoiceAgentService extends EventEmitter {
    */
   private async cleanup(): Promise<void> {
     console.log('[NativeVoiceAgent] Cleaning up...');
-    
+
     // Reset queue
     this.audioPlaybackQueue = [];
     this.isPlayingAudio = false;
-    
+
     if (this.speakingInterval) {
-        clearInterval(this.speakingInterval);
-        this.speakingInterval = null;
+      clearInterval(this.speakingInterval);
+      this.speakingInterval = null;
     }
 
     // Stop recording
@@ -655,39 +696,39 @@ class NativeVoiceAgentService extends EventEmitter {
    * Helper: Create WAV Header
    */
   private createWavHeader(dataLength: number, sampleRate: number, numChannels: number, bitsPerSample: number): Uint8Array {
-      const header = new Uint8Array(44);
-      const view = new DataView(header.buffer);
-      
-      // RIFF chunk descriptor
-      this.writeString(view, 0, 'RIFF');
-      view.setUint32(4, 36 + dataLength, true); // ChunkSize
-      this.writeString(view, 8, 'WAVE');
-      
-      // fmt sub-chunk
-      this.writeString(view, 12, 'fmt ');
-      view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
-      view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
-      view.setUint16(22, numChannels, true); // NumChannels
-      view.setUint32(24, sampleRate, true); // SampleRate
-      view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true); // ByteRate
-      view.setUint16(32, numChannels * (bitsPerSample / 8), true); // BlockAlign
-      view.setUint16(34, bitsPerSample, true); // BitsPerSample
-      
-      // data sub-chunk
-      this.writeString(view, 36, 'data');
-      view.setUint32(40, dataLength, true); // Subchunk2Size
-      
-      return header;
+    const header = new Uint8Array(44);
+    const view = new DataView(header.buffer);
+
+    // RIFF chunk descriptor
+    this.writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true); // ChunkSize
+    this.writeString(view, 8, 'WAVE');
+
+    // fmt sub-chunk
+    this.writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+    view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+    view.setUint16(22, numChannels, true); // NumChannels
+    view.setUint32(24, sampleRate, true); // SampleRate
+    view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true); // ByteRate
+    view.setUint16(32, numChannels * (bitsPerSample / 8), true); // BlockAlign
+    view.setUint16(34, bitsPerSample, true); // BitsPerSample
+
+    // data sub-chunk
+    this.writeString(view, 36, 'data');
+    view.setUint32(40, dataLength, true); // Subchunk2Size
+
+    return header;
   }
-  
+
   private writeString(view: DataView, offset: number, string: string) {
-      for (let i = 0; i < string.length; i++) {
-          view.setUint8(offset + i, string.charCodeAt(i));
-      }
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
   }
-  
+
   private base64ToUint8Array(base64: string): Uint8Array {
-      return new Uint8Array(Buffer.from(base64, 'base64'));
+    return new Uint8Array(Buffer.from(base64, 'base64'));
   }
 
   /**
