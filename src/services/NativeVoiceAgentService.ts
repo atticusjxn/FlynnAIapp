@@ -5,7 +5,7 @@
  * Handles audio recording, streaming, and playback for in-app conversation testing
  */
 
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeIOS } from 'expo-av';
 import { EventEmitter } from 'events';
 import { Buffer } from 'buffer';
 import { apiClient } from './apiClient';
@@ -123,15 +123,31 @@ class NativeVoiceAgentService extends EventEmitter {
       }
 
       // Configure audio mode for recording and playback
-      // Use loudspeaker with echo cancellation for proper voice chat experience
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: false, // Use loudspeaker, not earpiece
-        // iOS automatically enables echo cancellation when recording + playback
-      });
+      // DoNotMix will stop background audio (music, etc.) and take full control
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: false,
+          playThroughEarpieceAndroid: false, // Use loudspeaker, not earpiece
+          interruptionModeIOS: InterruptionModeIOS.DoNotMix, // Stop background audio
+          // iOS automatically enables echo cancellation when recording + playback
+        });
+      } catch (audioModeError) {
+        console.warn('[NativeVoiceAgent] Initial audio mode setup failed, retrying...', audioModeError);
+        // If there's background audio playing, this first attempt might fail
+        // Wait a moment and try again with the same settings
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: false,
+          playThroughEarpieceAndroid: false,
+          interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+        });
+      }
 
       // Build WebSocket URL with parameters
       const wsUrl = `${WEBSOCKET_URL}/realtime/native-test?userId=${encodeURIComponent(userId)}&greeting=${encodeURIComponent(greeting)}&voiceId=${encodeURIComponent(voiceId)}&mode=${encodeURIComponent(mode)}`;
