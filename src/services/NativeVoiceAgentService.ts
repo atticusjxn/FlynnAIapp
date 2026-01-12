@@ -85,6 +85,7 @@ class NativeVoiceAgentService extends EventEmitter {
   private audioChunks: string[] = [];
   private audioBytesSent: number = 0; // Track how many bytes we've already sent
   private conversationStartTime: number = 0; // Track conversation start for duration calculation
+  private shouldSendAudio: boolean = true; // Immediate flag to stop sending audio (set synchronously)
 
   // Audio Playback Queue
   private audioPlaybackQueue: string[] = [];
@@ -109,6 +110,7 @@ class NativeVoiceAgentService extends EventEmitter {
       this.isPlayingAudio = false;
       this.audioBytesSent = 0;
       this.conversationStartTime = 0;
+      this.shouldSendAudio = true;
 
       this.setState('connecting');
 
@@ -213,7 +215,8 @@ class NativeVoiceAgentService extends EventEmitter {
           break;
 
         case 'agent_audio_done':
-          // Resume recording after AI finishes speaking
+          // Enable audio sending and resume recording after AI finishes speaking
+          this.shouldSendAudio = true;
           this.resumeRecording();
           this.emit('agent_stopped_speaking');
           break;
@@ -221,14 +224,17 @@ class NativeVoiceAgentService extends EventEmitter {
         case 'agent_started_speaking':
           this.setState('agent_speaking');
           this.emit('agent_started_speaking');
-          // Stop recording while AI speaks to prevent feedback
+          // IMMEDIATELY stop sending audio (synchronous flag)
+          this.shouldSendAudio = false;
+          // Then stop recording (async cleanup)
           this.pauseRecording();
           break;
 
         case 'agent_stopped_speaking':
           this.setState('ready');
           this.emit('agent_stopped_speaking');
-          // Resume recording for user's response
+          // Enable audio sending and resume recording for user's response
+          this.shouldSendAudio = true;
           this.resumeRecording();
           break;
 
@@ -369,6 +375,8 @@ class NativeVoiceAgentService extends EventEmitter {
    */
   private async sendAudioChunk(): Promise<void> {
     if (!this.recording) return;
+    // Don't send audio if AI is speaking (immediate check)
+    if (!this.shouldSendAudio) return;
 
     try {
       // Get recording status to access latest audio data and metering
