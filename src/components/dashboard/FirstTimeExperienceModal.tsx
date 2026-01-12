@@ -118,56 +118,21 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
   }, []);
 
   const createJobFromConversation = async (result: ConversationResult) => {
+    // This is just a demo preview - don't create a real job, just show mock data
     try {
-      // Prepare job data from conversation result
-      const jobData = {
-        customerName: result.entities.caller_name || '',
-        serviceType: result.entities.service_type || onboardingData.businessType || 'Service Request',
-        date: result.entities.preferred_date || '',
-        time: result.entities.preferred_time || '',
-        location: result.entities.location || '',
-        notes: result.entities.notes || result.transcript.substring(0, 200) + (result.transcript.length > 200 ? '...' : ''),
-        status: 'new',
-        source: 'ai_test_call', // Indicate this came from a test call
-        businessType: onboardingData.businessType || '',
-        capturedAt: new Date().toISOString(),
-        voicemailTranscript: result.transcript,
-        userId: user?.id,
-      };
-
-      // Create job via API
-      const response = await apiClient.post('/jobs', jobData);
-      
-      // Create job card representation
-      const card: MockJobCard = {
-        clientName: jobData.customerName || 'Test Client',
-        serviceType: jobData.serviceType,
-        date: jobData.date || 'TBD',
-        time: jobData.time || 'TBD',
-        location: jobData.location || 'Test Location',
-        notes: jobData.notes || 'Test notes from AI receptionist test',
-      };
-
-      setMockJobCard(card);
-      setConversationDuration(45);
-      
-      // Refresh jobs context to show the new job
-      // Note: This depends on having access to refreshJobs from JobsContext
-    } catch (error) {
-      console.error('[FirstTimeExperience] Failed to create job from conversation:', error);
-      
-      // Fallback to mock job card if API fails
       const card: MockJobCard = {
         clientName: result.entities.caller_name || 'John Smith',
         serviceType: result.entities.service_type || onboardingData.businessType || 'Service Request',
         date: result.entities.preferred_date || 'Tomorrow',
         time: result.entities.preferred_time || '2:00 PM',
         location: result.entities.location || '123 Main St',
-        notes: result.entities.notes || result.transcript.substring(0, 100) + '...',
+        notes: result.entities.notes || result.transcript.substring(0, 100) + (result.transcript.length > 100 ? '...' : ''),
       };
 
       setMockJobCard(card);
       setConversationDuration(45);
+    } catch (error) {
+      console.error('[FirstTimeExperience] Failed to process conversation:', error);
     }
   };
 
