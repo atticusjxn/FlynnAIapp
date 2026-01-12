@@ -71,6 +71,7 @@ export interface ConversationResult {
   transcript: string;
   entities: ExtractedEntities;
   conversationHistory: ConversationMessage[];
+  durationSeconds?: number; // Total conversation duration in seconds
 }
 
 class NativeVoiceAgentService extends EventEmitter {
@@ -84,7 +85,9 @@ class NativeVoiceAgentService extends EventEmitter {
   private audioChunks: string[] = [];
   private audioBytesSent: number = 0; // Track how many bytes we've already sent
   private shouldSendAudio: boolean = true; // Control whether to send audio chunks
-  
+  private conversationStartTime: number = 0; // Track conversation start for duration calculation
+  private isFirstGreeting: boolean = true; // Don't record during AI's initial greeting
+
   // Audio Playback Queue
   private audioPlaybackQueue: string[] = [];
   private isPlayingAudio: boolean = false;
@@ -108,6 +111,8 @@ class NativeVoiceAgentService extends EventEmitter {
       this.isPlayingAudio = false;
       this.audioBytesSent = 0;
       this.shouldSendAudio = true;
+      this.conversationStartTime = 0;
+      this.isFirstGreeting = true;
 
       this.setState('connecting');
 
@@ -181,8 +186,11 @@ class NativeVoiceAgentService extends EventEmitter {
         case 'agent_ready':
           this.setState('ready');
           this.emit('agent_ready');
-          // Start recording user audio
-          this.startRecording();
+          // Track conversation start time for duration calculation
+          this.conversationStartTime = Date.now();
+          // Don't start recording yet - wait for AI to finish its initial greeting
+          // Recording will start on first 'agent_stopped_speaking' event
+          console.log('[NativeVoiceAgent] Agent ready - waiting for initial greeting to complete');
           break;
 
         case 'audio':
@@ -210,8 +218,15 @@ class NativeVoiceAgentService extends EventEmitter {
         case 'agent_stopped_speaking':
           this.setState('ready');
           this.emit('agent_stopped_speaking');
-          // Resume recording for user response
-          this.resumeRecording();
+          // If this is the first greeting, start recording for the first time
+          if (this.isFirstGreeting) {
+            console.log('[NativeVoiceAgent] Initial greeting complete - starting user recording');
+            this.isFirstGreeting = false;
+            this.startRecording();
+          } else {
+            // For subsequent interactions, resume recording
+            this.resumeRecording();
+          }
           break;
 
         case 'user_started_speaking':
@@ -239,11 +254,17 @@ class NativeVoiceAgentService extends EventEmitter {
 
         case 'conversation_ended':
           this.setState('ended');
+          // Calculate conversation duration
+          const durationMs = this.conversationStartTime ? Date.now() - this.conversationStartTime : 0;
+          const durationSeconds = Math.round(durationMs / 1000);
+
           const result: ConversationResult = {
             transcript: message.transcript,
             entities: message.entities || this.extractedEntities,
             conversationHistory: message.conversationHistory || this.conversationHistory,
+            durationSeconds,
           };
+          console.log(`[NativeVoiceAgent] Conversation ended - duration: ${durationSeconds}s`);
           this.emit('conversation_ended', result);
           this.cleanup();
           break;

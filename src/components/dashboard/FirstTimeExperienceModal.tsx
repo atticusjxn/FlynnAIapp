@@ -118,19 +118,21 @@ export const FirstTimeExperienceModal: React.FC<FirstTimeExperienceModalProps> =
   }, []);
 
   const createJobFromConversation = async (result: ConversationResult) => {
-    // This is just a demo preview - don't create a real job, just show mock data
+    // This is just a demo preview - don't create a real job, just show extracted data
     try {
       const card: MockJobCard = {
-        clientName: result.entities.caller_name || 'John Smith',
+        clientName: result.entities.caller_name || 'Not provided',
         serviceType: result.entities.service_type || onboardingData.businessType || 'Service Request',
-        date: result.entities.preferred_date || 'Tomorrow',
-        time: result.entities.preferred_time || '2:00 PM',
-        location: result.entities.location || '123 Main St',
-        notes: result.entities.notes || result.transcript.substring(0, 100) + (result.transcript.length > 100 ? '...' : ''),
+        date: result.entities.preferred_date || 'Not specified',
+        time: result.entities.preferred_time || 'Not specified',
+        location: result.entities.location || 'Not provided',
+        notes: result.entities.notes || result.transcript.substring(0, 200) + (result.transcript.length > 200 ? '...' : ''),
       };
 
       setMockJobCard(card);
-      setConversationDuration(45);
+      // Use actual conversation duration from the result
+      setConversationDuration(result.durationSeconds || 0);
+      console.log('[FirstTimeExperience] Mock job card created:', card, 'Duration:', result.durationSeconds);
     } catch (error) {
       console.error('[FirstTimeExperience] Failed to process conversation:', error);
     }
