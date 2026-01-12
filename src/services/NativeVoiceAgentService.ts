@@ -335,44 +335,41 @@ class NativeVoiceAgentService extends EventEmitter {
           this.emit('audio_level', level);
         }
 
-        // Only send audio chunks when we should (not when agent is speaking)
-        if (this.shouldSendAudio) {
-          // Read the recording URI
-          const uri = this.recording.getURI();
-          if (uri) {
-            // Fetch the entire file and read as ArrayBuffer
-            const response = await fetch(uri);
-            const arrayBuffer = await response.arrayBuffer();
+        // Read the recording URI
+        const uri = this.recording.getURI();
+        if (uri) {
+          // Fetch the entire file and read as ArrayBuffer
+          const response = await fetch(uri);
+          const arrayBuffer = await response.arrayBuffer();
 
-            // Only send the NEW bytes (skip bytes we've already sent)
-            if (arrayBuffer.byteLength > this.audioBytesSent) {
-              let newBytes = arrayBuffer.slice(this.audioBytesSent);
+          // Only send the NEW bytes (skip bytes we've already sent)
+          if (arrayBuffer.byteLength > this.audioBytesSent) {
+            let newBytes = arrayBuffer.slice(this.audioBytesSent);
 
-              // SPECIAL HANDLING FOR WAV/PCM (iOS):
-              // The first chunk includes the WAV header (44 bytes).
-              // We must strip it because the server expects RAW PCM samples.
-              if (this.audioBytesSent === 0 && newBytes.byteLength > 44) {
-                 // Only strip if it looks like a WAV (starts with RIFF)
-                 const view = new DataView(newBytes);
-                 if (view.getUint32(0, false) === 0x52494646) { // 'RIFF' in big-endian
-                   console.log('[NativeVoiceAgent] Stripping WAV header from first chunk');
-                   newBytes = newBytes.slice(44);
-                 }
-              }
+            // SPECIAL HANDLING FOR WAV/PCM (iOS):
+            // The first chunk includes the WAV header (44 bytes).
+            // We must strip it because the server expects RAW PCM samples.
+            if (this.audioBytesSent === 0 && newBytes.byteLength > 44) {
+               // Only strip if it looks like a WAV (starts with RIFF)
+               const view = new DataView(newBytes);
+               if (view.getUint32(0, false) === 0x52494646) { // 'RIFF' in big-endian
+                 console.log('[NativeVoiceAgent] Stripping WAV header from first chunk');
+                 newBytes = newBytes.slice(44);
+               }
+            }
 
-              // Convert only the new chunk to base64
-              const uint8Array = new Uint8Array(newBytes);
-              const base64Audio = this.arrayBufferToBase64(uint8Array);
+            // Convert only the new chunk to base64
+            const uint8Array = new Uint8Array(newBytes);
+            const base64Audio = this.arrayBufferToBase64(uint8Array);
 
-              if (base64Audio && base64Audio.length > 0) {
-                this.sendWebSocketMessage({
-                  type: 'audio',
-                  audio: base64Audio,
-                });
+            if (base64Audio && base64Audio.length > 0) {
+              this.sendWebSocketMessage({
+                type: 'audio',
+                audio: base64Audio,
+              });
 
-                // Update bytes sent counter
-                this.audioBytesSent = arrayBuffer.byteLength;
-              }
+              // Update bytes sent counter
+              this.audioBytesSent = arrayBuffer.byteLength;
             }
           }
         }
