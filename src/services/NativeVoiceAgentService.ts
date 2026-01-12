@@ -123,10 +123,9 @@ class NativeVoiceAgentService extends EventEmitter {
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
-        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
         shouldDuckAndroid: false,
         playThroughEarpieceAndroid: false, // Use loudspeaker, not earpiece
-        // These settings enable echo cancellation on both platforms
+        // iOS automatically enables echo cancellation when recording + playback
       });
 
       // Build WebSocket URL with parameters
