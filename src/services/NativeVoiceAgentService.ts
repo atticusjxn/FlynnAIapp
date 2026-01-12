@@ -214,7 +214,7 @@ class NativeVoiceAgentService extends EventEmitter {
 
         case 'agent_audio_done':
           // Resume recording after AI finishes speaking
-          await this.resumeRecording();
+          this.resumeRecording();
           this.emit('agent_stopped_speaking');
           break;
 
@@ -222,14 +222,14 @@ class NativeVoiceAgentService extends EventEmitter {
           this.setState('agent_speaking');
           this.emit('agent_started_speaking');
           // Stop recording while AI speaks to prevent feedback
-          await this.pauseRecording();
+          this.pauseRecording();
           break;
 
         case 'agent_stopped_speaking':
           this.setState('ready');
           this.emit('agent_stopped_speaking');
           // Resume recording for user's response
-          await this.resumeRecording();
+          this.resumeRecording();
           break;
 
         case 'user_started_speaking':
