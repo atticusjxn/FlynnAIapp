@@ -213,17 +213,23 @@ class NativeVoiceAgentService extends EventEmitter {
           break;
 
         case 'agent_audio_done':
+          // Resume recording after AI finishes speaking
+          await this.resumeRecording();
           this.emit('agent_stopped_speaking');
           break;
 
         case 'agent_started_speaking':
           this.setState('agent_speaking');
           this.emit('agent_started_speaking');
+          // Stop recording while AI speaks to prevent feedback
+          await this.pauseRecording();
           break;
 
         case 'agent_stopped_speaking':
           this.setState('ready');
           this.emit('agent_stopped_speaking');
+          // Resume recording for user's response
+          await this.resumeRecording();
           break;
 
         case 'user_started_speaking':
@@ -312,6 +318,50 @@ class NativeVoiceAgentService extends EventEmitter {
     } catch (error) {
       console.error('[NativeVoiceAgent] Failed to start recording:', error);
     }
+  }
+
+  /**
+   * Pause recording when AI speaks
+   * Stops and unloads the recording to turn off the microphone
+   */
+  private async pauseRecording(): Promise<void> {
+    console.log('[NativeVoiceAgent] Pausing recording (AI speaking)...');
+
+    // Stop the recording interval
+    if (this.recordingInterval) {
+      clearInterval(this.recordingInterval);
+      this.recordingInterval = null;
+    }
+
+    // Stop and unload the recording to turn off the microphone
+    if (this.recording) {
+      try {
+        await this.recording.stopAndUnloadAsync();
+        this.recording = null;
+        console.log('[NativeVoiceAgent] Recording stopped and unloaded');
+      } catch (error) {
+        console.warn('[NativeVoiceAgent] Error stopping recording:', error);
+      }
+    }
+  }
+
+  /**
+   * Resume recording after AI finishes speaking
+   */
+  private async resumeRecording(): Promise<void> {
+    // Don't resume if already recording
+    if (this.recording) {
+      console.log('[NativeVoiceAgent] Already recording, skipping resume');
+      return;
+    }
+
+    console.log('[NativeVoiceAgent] Resuming recording (AI done speaking)...');
+
+    // Small delay to ensure previous recording is fully cleaned up
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Start fresh recording
+    await this.startRecording();
   }
 
   /**
