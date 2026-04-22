@@ -1,0 +1,23 @@
+## User settings
+xcuserdata/
+*.xcuserstate
+
+## Derived data
+DerivedData/
+build/
+.build/
+
+## Generated Xcode project (regenerate with `xcodegen`)
+FlynnAI.xcodeproj/
+FlynnAI.xcworkspace/
+
+## Secrets
+FlynnAI/Config/Secrets.local.xcconfig
+
+## Swift Package Manager caches
+.swiftpm/
+Packages/
+Package.resolved
+
+## macOS
+.DS_Store

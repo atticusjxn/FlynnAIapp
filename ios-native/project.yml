@@ -1,0 +1,88 @@
+name: FlynnAI
+options:
+  bundleIdPrefix: com.flynnai
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  groupSortPosition: top
+  findCarthageFrameworks: false
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    DEVELOPMENT_LANGUAGE: en
+    CLANG_ENABLE_MODULES: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: "2.0.0"
+
+targets:
+  FlynnAI:
+    type: application
+    platform: iOS
+    sources:
+      - path: FlynnAI
+        excludes:
+          - "**/*.md"
+          - "Config/Secrets.local.xcconfig"
+          - "Config/Secrets.local.xcconfig.example"
+    resources:
+      - path: FlynnAI/Resources
+    info:
+      path: FlynnAI/Config/Info.plist
+      properties:
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundleDisplayName: FlynnAI
+        CFBundleShortVersionString: "1.3.0"
+        CFBundleVersion: "57"
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        UILaunchScreen:
+          UIColorName: ""
+          UIImageName: ""
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - flynnai
+            CFBundleURLName: com.flynnai.app.native
+        UIAppFonts:
+          - SpaceGrotesk-Bold.ttf
+          - SpaceGrotesk-SemiBold.ttf
+          - Inter-Regular.ttf
+          - Inter-Medium.ttf
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+        ITSAppUsesNonExemptEncryption: false
+        SUPABASE_URL: $(SUPABASE_URL)
+        SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
+        FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app.native
+        MARKETING_VERSION: "1.3.0"
+        CURRENT_PROJECT_VERSION: "57"
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_PREVIEWS: YES
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
+        INFOPLIST_KEY_UIRequiresFullScreen: YES
+    dependencies:
+      - package: Supabase
+        product: Supabase

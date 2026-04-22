@@ -1,0 +1,14 @@
+// Shared build settings — safe to commit
+
+PRODUCT_BUNDLE_IDENTIFIER = com.flynnai.app.native
+IPHONEOS_DEPLOYMENT_TARGET = 26.0
+SWIFT_VERSION = 6.0
+TARGETED_DEVICE_FAMILY = 1
+
+// Supabase project URL (public, not secret)
+SUPABASE_URL = https:/$()/zvfeafmmtfplzpnocyjw.supabase.co
+
+// Flynn telephony / API base
+FLYNN_API_BASE_URL = https:/$()/flynnai-telephony.fly.dev
+
+#include? "Secrets.local.xcconfig"
