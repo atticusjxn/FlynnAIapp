@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { BillingPaywallModal } from '../../components/billing/BillingPaywallModal';
@@ -78,7 +78,7 @@ export const FreeTrialSignupScreen: React.FC<FreeTrialSignupScreenProps> = ({
   const hasPaidPlan = !!onboardingData.billingPlan && (onboardingData.billingPlan === 'starter' || onboardingData.billingPlan === 'growth' || onboardingData.billingPlan === 'enterprise');
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {/* Header with back button and progress bar */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>

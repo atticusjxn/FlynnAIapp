@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { layout, spacing } from '../theme';
 import { Quote } from '../types/quote';
 import { Invoice } from '../types/invoice';
 import QuoteCard from '../components/money/QuoteCard';
@@ -26,6 +28,8 @@ import { supabase } from '../services/supabase';
 type TabType = 'quotes' | 'invoices';
 
 const MoneyScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const listBottomPadding = layout.tabBarHeight + insets.bottom + spacing.md;
   const [activeTab, setActiveTab] = useState<TabType>('quotes');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -215,7 +219,7 @@ const MoneyScreen: React.FC = () => {
         data={activeTab === 'quotes' ? quotes : invoices}
         renderItem={activeTab === 'quotes' ? renderQuoteItem : renderInvoiceItem}
         keyExtractor={(item: Quote | Invoice) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPadding }]}
         ListEmptyComponent={renderEmptyState}
         refreshControl={
           <RefreshControl

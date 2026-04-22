@@ -738,6 +738,10 @@ const styles = StyleSheet.create({
   
   closeButton: {
     padding: spacing.xs,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   
   content: {
@@ -985,11 +989,13 @@ const styles = StyleSheet.create({
   secondaryAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     backgroundColor: colors.gray50,
     minWidth: '45%',
+    minHeight: 44,
   },
   
   secondaryActionText: {

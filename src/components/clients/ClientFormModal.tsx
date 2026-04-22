@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TextInput,
   Alert,
 } from 'react-native';
 import { FlynnIcon } from '../ui/FlynnIcon';
@@ -46,6 +47,11 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [businessType, setBusinessType] = useState<string>('');
   const [preferredContact, setPreferredContact] = useState<ContactPreference>('phone');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const phoneRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const addressRef = useRef<TextInput>(null);
+  const notesRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (!visible) {
@@ -121,7 +127,13 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentInner}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
           <FlynnInput
             label="Name"
             value={name}
@@ -129,40 +141,65 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
             placeholder="Client name"
             required
             autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
+            returnKeyType="next"
+            onSubmitEditing={() => phoneRef.current?.focus()}
+            blurOnSubmit={false}
           />
 
           <FlynnInput
+            ref={phoneRef}
             label="Phone"
             value={phone}
             onChangeText={setPhone}
             placeholder="e.g. +1 (555) 123-4567"
             keyboardType="phone-pad"
             autoCapitalize="none"
+            autoComplete="tel"
+            textContentType="telephoneNumber"
+            returnKeyType="next"
+            onSubmitEditing={() => emailRef.current?.focus()}
+            blurOnSubmit={false}
           />
 
           <FlynnInput
+            ref={emailRef}
             label="Email"
             value={email}
             onChangeText={setEmail}
             placeholder="client@example.com"
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="next"
+            onSubmitEditing={() => addressRef.current?.focus()}
+            blurOnSubmit={false}
           />
 
           <FlynnInput
+            ref={addressRef}
             label="Address"
             value={address}
             onChangeText={setAddress}
             placeholder="Street, city, state"
+            autoComplete="street-address"
+            textContentType="fullStreetAddress"
+            returnKeyType="next"
+            onSubmitEditing={() => notesRef.current?.focus()}
+            blurOnSubmit={false}
           />
 
           <FlynnInput
+            ref={notesRef}
             label="Notes"
             value={notes}
             onChangeText={setNotes}
             placeholder="Preferences, reminders, context"
             multiline
             numberOfLines={4}
+            returnKeyType="default"
             inputStyle={{ minHeight: 120, textAlignVertical: 'top' }}
           />
 
@@ -264,10 +301,17 @@ const createStyles = (colors: any) =>
     },
     closeButton: {
       padding: spacing.xs,
+      minWidth: 44,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     content: {
       flex: 1,
       paddingHorizontal: spacing.lg,
+    },
+    contentInner: {
+      paddingBottom: spacing.xxl + spacing.lg,
     },
     section: {
       marginBottom: spacing.lg,

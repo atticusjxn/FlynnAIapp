@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  TextInput,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -37,6 +38,10 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
   const [email, setEmail] = useState(onboardingData.email || '');
   const [scraping, setScraping] = useState(false);
   const [scraped, setScraped] = useState(false);
+
+  const businessNameRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
 
   const handleScrapeWebsite = async () => {
     if (!websiteUrl.trim()) {
@@ -135,8 +140,10 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
 
         <ScrollView
           style={styles.content}
+          contentContainerStyle={styles.contentInner}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
         >
         <View style={styles.titleContainer}>
           <View style={styles.iconContainer}>
@@ -162,6 +169,9 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
             placeholder="https://yourbusiness.com"
             keyboardType="url"
             autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="done"
+            onSubmitEditing={handleScrapeWebsite}
           />
 
           <FlynnButton
@@ -188,28 +198,45 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
           </Text>
 
           <FlynnInput
+            ref={businessNameRef}
             label="Business Name *"
             value={businessName}
             onChangeText={setBusinessName}
             placeholder="Your Business Name"
             autoCapitalize="words"
+            autoComplete="organization"
+            textContentType="organizationName"
+            returnKeyType="next"
+            onSubmitEditing={() => phoneRef.current?.focus()}
+            blurOnSubmit={false}
           />
 
           <FlynnInput
+            ref={phoneRef}
             label="Phone Number"
             value={phone}
             onChangeText={setPhone}
             placeholder="+1 (555) 123-4567"
             keyboardType="phone-pad"
+            autoComplete="tel"
+            textContentType="telephoneNumber"
+            returnKeyType="next"
+            onSubmitEditing={() => emailRef.current?.focus()}
+            blurOnSubmit={false}
           />
 
           <FlynnInput
+            ref={emailRef}
             label="Email Address"
             value={email}
             onChangeText={setEmail}
             placeholder="contact@yourbusiness.com"
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="done"
+            onSubmitEditing={handleNext}
           />
         </View>
 
@@ -279,6 +306,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
+  },
+  contentInner: {
+    paddingBottom: spacing.xxl,
   },
   titleContainer: {
     alignItems: 'center',

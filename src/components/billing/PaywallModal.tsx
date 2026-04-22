@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { billingPlans } from '../../data/billingPlans';
 import { colors, spacing, typography, shadows } from '../../theme';
@@ -26,10 +27,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <ScrollView showsVerticalScrollIndicator={false}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable onPress={() => {}} style={styles.sheetWrapper}>
+          <SafeAreaView edges={['bottom']} style={styles.modal}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.message}>{message}</Text>
 
@@ -70,8 +72,9 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
               <Text style={styles.laterButtonText}>Maybe Later</Text>
             </Pressable>
           </ScrollView>
-        </View>
-      </View>
+          </SafeAreaView>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 };
@@ -82,13 +85,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  sheetWrapper: {
+    width: '100%',
+  },
   modal: {
     backgroundColor: colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
     maxHeight: '85%',
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
   },
   title: {
     ...typography.h2,
@@ -161,6 +170,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
     marginBottom: spacing.sm,
     ...shadows.md,
   },
@@ -173,6 +184,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
     borderWidth: 1,
     borderColor: colors.gray300,
   },

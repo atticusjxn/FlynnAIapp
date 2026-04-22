@@ -20,7 +20,9 @@ import { JobDetailsModal } from '../components/jobs/JobDetailsModal';
 import { CommunicationModal } from '../components/jobs/CommunicationModal';
 import { EmptyState } from '../components/jobs/EmptyState';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlynnIcon } from '../components/ui/FlynnIcon';
+import { layout } from '../theme';
 import { generateSmsConfirmation, createSmsUrl } from '../utils/smsTemplate';
 
 const formatRelativeTime = (timestamp?: string) => {
@@ -44,6 +46,8 @@ export const JobsScreen = () => {
   const { colors } = useTheme();
   const { jobs, updateJob, deleteJob, markJobComplete, saveJobEdits, refreshJobs, loading: jobsLoading } = useJobs();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const listBottomPadding = layout.tabBarHeight + insets.bottom + spacing.md;
   const styles = createStyles(colors);
   
   // State management
@@ -279,6 +283,7 @@ export const JobsScreen = () => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.listContent,
+          { paddingBottom: listBottomPadding },
           sortedJobs.length === 0 ? styles.emptyListContent : null,
         ]}
         showsVerticalScrollIndicator={false}

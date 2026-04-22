@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { FlynnIcon } from '../components/ui/FlynnIcon';
 import { useNavigation, NavigationProp, ParamListBase } from '@react-navigation/native';
-import { spacing, typography, borderRadius, shadows } from '../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { spacing, typography, borderRadius, shadows, layout } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { ClientCard } from '../components/clients/ClientCard';
 import { ClientDetailsModal } from '../components/clients/ClientDetailsModal';
@@ -28,6 +29,8 @@ export const ClientsScreen: React.FC = () => {
   const { colors } = useTheme();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const listBottomPadding = layout.tabBarHeight + insets.bottom + spacing.md;
   const styles = createStyles(colors);
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -378,7 +381,10 @@ export const ClientsScreen: React.FC = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refreshClients} tintColor={colors.primary} />
         }
-        contentContainerStyle={sortedClients.length === 0 ? styles.listEmptyContent : undefined}
+        contentContainerStyle={[
+          sortedClients.length === 0 ? styles.listEmptyContent : styles.listContent,
+          { paddingBottom: listBottomPadding },
+        ]}
       />
 
       <ClientDetailsModal
@@ -514,5 +520,8 @@ const createStyles = (colors: any) =>
       flexGrow: 1,
       justifyContent: 'center',
       paddingHorizontal: spacing.lg,
+    },
+    listContent: {
+      paddingTop: spacing.sm,
     },
   });

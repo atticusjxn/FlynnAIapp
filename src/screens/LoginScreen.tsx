@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { FlynnButton, FlynnInput, colors, typography, spacing, shadows, borderRadius } from '../components/ui';
@@ -52,6 +53,12 @@ export const LoginScreen = () => {
   const [codeSent, setCodeSent] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Refs for Return-key focus chaining
+  const passwordRef = useRef<TextInput>(null);
+  const codeRef = useRef<TextInput>(null);
+  const signupEmailRef = useRef<TextInput>(null);
+  const signupPasswordRef = useRef<TextInput>(null);
 
   // Handlers
   const handleGoogleLogin = async () => {
@@ -214,16 +221,31 @@ export const LoginScreen = () => {
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
           editable={!codeSent}
+          returnKeyType={codeSent ? 'next' : 'send'}
+          onSubmitEditing={() => {
+            if (codeSent) {
+              codeRef.current?.focus();
+            } else {
+              handleEmailCodeSubmit();
+            }
+          }}
+          blurOnSubmit={!codeSent}
         />
         {codeSent && (
           <FlynnInput
+            ref={codeRef}
             label="Enter 6-digit code"
             placeholder="000000"
             value={code}
             onChangeText={setCode}
             keyboardType="number-pad"
             maxLength={6}
+            textContentType="oneTimeCode"
+            returnKeyType="done"
+            onSubmitEditing={handleEmailCodeSubmit}
           />
         )}
         <FlynnButton
@@ -255,13 +277,23 @@ export const LoginScreen = () => {
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+          blurOnSubmit={false}
         />
         <FlynnInput
+          ref={passwordRef}
           label="Password"
           placeholder="Enter your password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          autoComplete="password"
+          textContentType="password"
+          returnKeyType="done"
+          onSubmitEditing={handleEmailPasswordSubmit}
         />
         <FlynnButton
           title="Log In"
@@ -301,21 +333,37 @@ export const LoginScreen = () => {
           placeholder="Acme Corp"
           value={businessName}
           onChangeText={setBusinessName}
+          autoComplete="organization"
+          textContentType="organizationName"
+          returnKeyType="next"
+          onSubmitEditing={() => signupEmailRef.current?.focus()}
+          blurOnSubmit={false}
         />
         <FlynnInput
+          ref={signupEmailRef}
           label="Email address"
           placeholder="name@company.com"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
+          returnKeyType="next"
+          onSubmitEditing={() => signupPasswordRef.current?.focus()}
+          blurOnSubmit={false}
         />
         <FlynnInput
+          ref={signupPasswordRef}
           label="Password"
           placeholder="Create a password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          autoComplete="password-new"
+          textContentType="newPassword"
+          returnKeyType="done"
+          onSubmitEditing={handleSignUpSubmit}
         />
         <FlynnButton
           title="Sign Up"
@@ -334,7 +382,11 @@ export const LoginScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.content}>
             {mode === 'landing' && renderLanding()}
             {mode === 'email_code' && renderEmailCode()}

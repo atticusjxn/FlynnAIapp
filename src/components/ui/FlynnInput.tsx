@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { forwardRef, useState } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ interface FlynnInputProps extends Omit<TextInputProps, 'style'> {
   required?: boolean;
 }
 
-export const FlynnInput: React.FC<FlynnInputProps> = ({
+export const FlynnInput = forwardRef<TextInput, FlynnInputProps>(({
   label,
   helperText,
   errorText,
@@ -32,8 +32,10 @@ export const FlynnInput: React.FC<FlynnInputProps> = ({
   inputStyle,
   labelStyle,
   required = false,
+  onFocus,
+  onBlur,
   ...props
-}) => {
+}, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const hasError = Boolean(errorText);
 
@@ -61,6 +63,7 @@ export const FlynnInput: React.FC<FlynnInputProps> = ({
         )}
 
         <TextInput
+          ref={ref}
           style={[
             styles.input,
             leftIcon ? styles.inputWithLeftIcon : undefined,
@@ -68,8 +71,14 @@ export const FlynnInput: React.FC<FlynnInputProps> = ({
             inputStyle,
           ]}
           placeholderTextColor={colors.textPlaceholder}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onFocus={(e) => {
+            setIsFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setIsFocused(false);
+            onBlur?.(e);
+          }}
           {...props}
         />
 
@@ -89,7 +98,9 @@ export const FlynnInput: React.FC<FlynnInputProps> = ({
       )}
     </View>
   );
-};
+});
+
+FlynnInput.displayName = 'FlynnInput';
 
 const styles = StyleSheet.create({
   container: {

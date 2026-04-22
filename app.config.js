@@ -60,6 +60,7 @@ export default {
     },
     android: {
       versionCode: 56,
+      softwareKeyboardLayoutMode: "resize",
       permissions: [
         "RECORD_AUDIO",
         "READ_PHONE_STATE",
