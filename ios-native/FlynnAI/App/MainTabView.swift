@@ -74,6 +74,26 @@ struct MainTabView: View {
         case .invoiceDetail(let id):
             InvoiceDetailView(invoiceId: id)
         case .settingsSection(let section):
+            settingsDestination(for: section)
+        }
+    }
+
+    @ViewBuilder
+    private func settingsDestination(for section: SettingsSection) -> some View {
+        switch section {
+        case .businessProfile:
+            BusinessProfileEditorView()
+        case .callForwarding:
+            ForwardingSetupView()
+        case .billing:
+            SubscriptionDetailView()
+        case .integrations:
+            IntegrationsView()
+        case .notifications:
+            NotificationsSettingsView()
+        case .appearance:
+            AppearanceView()
+        case .bookingPage, .businessType, .support, .terms, .account:
             PlaceholderDetailView(title: section.title, id: nil)
         }
     }

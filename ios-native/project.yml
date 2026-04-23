@@ -22,8 +22,8 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
 
 configFiles:
-  Debug: Config/Debug.xcconfig
-  Release: Config/Release.xcconfig
+  Debug: FlynnAI/Config/Debug.xcconfig
+  Release: FlynnAI/Config/Release.xcconfig
 
 packages:
   Supabase:
@@ -69,6 +69,8 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
         ITSAppUsesNonExemptEncryption: false
+        NSCalendarsFullAccessUsageDescription: "Flynn adds your confirmed bookings to your calendar so you never miss a job."
+        NSUserNotificationUsageDescription: "Flynn notifies you when a missed call is captured or you're running low on AI minutes."
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)

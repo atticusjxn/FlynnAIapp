@@ -49,7 +49,7 @@ enum FlynnFormatter {
 
     // MARK: Relative date
 
-    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+    nonisolated(unsafe) private static let relativeDateFormatter: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .short
         return f

@@ -111,6 +111,47 @@ const formatBusinessHours = (hours) => {
 /**
  * Build system prompt for the AI receptionist
  */
+/**
+ * Build the Deepgram Voice Agent `speak` provider config.
+ *
+ * Default: Cartesia Sonic-3 with an Australian voice (female by default).
+ * The specific voice is chosen from `businessContext.voice_profile` if the
+ * caller loaded it, otherwise falls back to `CARTESIA_VOICE_AU_FEMALE` env.
+ *
+ * If `CARTESIA_API_KEY` is not set (dev without Cartesia credentials), we fall
+ * back to Deepgram Aura-2 `aura-2-theia-en` so the agent still works end-to-end.
+ */
+const buildSpeakConfig = (businessContext) => {
+  const hasCartesia = !!process.env.CARTESIA_API_KEY;
+  if (!hasCartesia) {
+    return { provider: { type: 'deepgram', model: 'aura-2-theia-en' } };
+  }
+
+  // voice_profile may be shaped like { provider_voice_id, gender } if the caller
+  // pre-resolved it; otherwise we use gender to pick between AU male/female envs.
+  const vp = businessContext?.voice_profile || null;
+  const explicitVoiceId = vp?.provider_voice_id;
+  const gender = (vp?.gender || 'female').toLowerCase();
+  const fallbackId =
+    gender === 'male'
+      ? process.env.CARTESIA_VOICE_AU_MALE
+      : process.env.CARTESIA_VOICE_AU_FEMALE;
+  const voiceId = explicitVoiceId || fallbackId;
+
+  if (!voiceId) {
+    console.warn('[DeepgramAgent] No Cartesia voice UUID configured; falling back to Deepgram Aura-2');
+    return { provider: { type: 'deepgram', model: 'aura-2-theia-en' } };
+  }
+
+  return {
+    provider: {
+      type: 'cartesia',
+      model_id: 'sonic-english',
+      voice: { mode: 'id', id: voiceId },
+    },
+  };
+};
+
 const buildSystemPrompt = (greeting, businessContext, businessType = 'service business', mode = 'ai_only') => {
   const businessFacts = businessContext
     ? formatBusinessContext(businessContext)
@@ -502,12 +543,7 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
             prompt: this.systemPrompt,
             functions: this.getFunctionSchema(),
           },
-          speak: {
-            provider: {
-              type: 'deepgram',
-              model: 'aura-2-theia-en', // Natural Australian female voice (Deepgram Aura-2)
-            },
-          },
+          speak: buildSpeakConfig(this.businessContext),
           greeting: this.buildGreeting(),
         },
       });

@@ -9,6 +9,8 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: FlynnSpacing.lg) {
                 header
 
+                UsageBarCard()
+
                 switch store.state {
                 case .idle, .loading:
                     loadingCard

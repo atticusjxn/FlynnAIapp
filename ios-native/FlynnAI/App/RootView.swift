@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(AuthStore.self) private var auth
     @State private var showSplash = true
+    @State private var onboarding = OnboardingStore()
 
     var body: some View {
         ZStack {
@@ -29,7 +30,24 @@ struct RootView: View {
         case .signedOut:
             LoginView()
         case .signedIn:
+            signedInContent
+                .task(id: authIdentityKey) { await onboarding.load() }
+        }
+    }
+
+    @ViewBuilder
+    private var signedInContent: some View {
+        if onboarding.onboardingCompleted == false {
+            OnboardingCoordinator()
+        } else {
             MainTabView()
+        }
+    }
+
+    private var authIdentityKey: String {
+        switch auth.state {
+        case .signedIn(let id, _): return id.uuidString
+        default: return "unknown"
         }
     }
 
