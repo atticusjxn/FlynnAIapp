@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// Routes between the 5 onboarding steps. Each step reuses an existing
-/// feature view wrapped with a "Continue / Skip for now" footer so the
-/// wizard and settings share code.
+/// Routes between the 6 onboarding steps. Each step reuses existing
+/// feature views or new dedicated step views, all sharing code with settings.
 struct OnboardingCoordinator: View {
     @Environment(FlashStore.self) private var flash
     @State private var store = OnboardingStore()
@@ -21,15 +20,24 @@ struct OnboardingCoordinator: View {
                         CallHandlingModeStepView(onContinue: advance)
                     case .ivr:
                         IvrScriptStepView(onContinue: advance)
-                    case .forwarding:
-                        ForwardingStepView(
-                            onContinue: { Task { await store.markForwardingVerified(); advance() } }
+                    case .liveDemo:
+                        LiveVoiceDemoStepView(store: store, onContinue: advance)
+                    case .paywall:
+                        PaywallStepView(
+                            onSubscribe: advance,
+                            onSkip: {
+                                Task {
+                                    await store.setSmsLinksMode()
+                                    advance()
+                                }
+                            }
                         )
-                    case .testCall:
-                        TestCallStepView(onFinish: finish)
+                    case .phoneNumber:
+                        PhoneNumberStepView(store: store, onFinish: finish)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .animation(.easeInOut(duration: 0.25), value: store.currentStep)
             }
             .background(FlynnColor.background)
             .toolbar {
@@ -39,20 +47,23 @@ struct OnboardingCoordinator: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    if store.currentStep != .testCall {
+                    if store.currentStep != .phoneNumber && store.currentStep != .liveDemo {
                         Button("Skip") { advance() }
                             .foregroundColor(FlynnColor.textSecondary)
                     }
                 }
             }
         }
+        .task { await store.load() }
     }
 
     private var progress: some View {
         HStack(spacing: FlynnSpacing.xs) {
             ForEach(OnboardingStore.Step.allCases) { step in
                 Capsule()
-                    .fill(step.rawValue <= store.currentStep.rawValue ? FlynnColor.primary : FlynnColor.gray200)
+                    .fill(step.rawValue <= store.currentStep.rawValue
+                          ? FlynnColor.primary
+                          : FlynnColor.gray200)
                     .frame(height: 6)
             }
         }

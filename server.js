@@ -1817,6 +1817,34 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
   console.log('[API] Scraping website and generating config:', { url, userId, applyConfig });
 
   try {
+    // Check 24-hour scrape cache in business_profiles
+    if (supabaseStorageClient) {
+      const { data: cached } = await supabaseStorageClient
+        .from('business_profiles')
+        .select('scraped_context, updated_at')
+        .eq('user_id', userId)
+        .single();
+      if (cached?.scraped_context && cached?.updated_at) {
+        const ageMs = Date.now() - new Date(cached.updated_at).getTime();
+        if (ageMs < 86400000) {
+          console.log('[API] Returning cached scrape for user:', userId);
+          const sc = cached.scraped_context;
+          return res.status(200).json({
+            success: true,
+            url,
+            scraped_at: cached.updated_at,
+            cached: true,
+            config: {
+              businessProfile: sc.businessProfile || {},
+              greetingScript: sc.greetingScript || '',
+              intakeQuestions: sc.intakeQuestions || [],
+            },
+            scrapedData: sc.rawScrape || {},
+          });
+        }
+      }
+    }
+
     // Step 1: Scrape the website using Gemini URL Context
     const scrapedData = await scrapeWebsiteWithGemini(url);
 
@@ -1829,7 +1857,8 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
         throw new Error('Supabase client not configured');
       }
 
-      const { error } = await supabaseStorageClient
+      // Write to users table (legacy receptionist fields)
+      const { error: usersError } = await supabaseStorageClient
         .from('users')
         .update({
           receptionist_greeting: config.greetingScript,
@@ -1839,23 +1868,65 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
         })
         .eq('id', userId);
 
-      if (error) {
-        console.error('[API] Failed to apply config:', error);
+      if (usersError) {
+        console.error('[API] Failed to apply config to users:', usersError);
         throw new Error('Failed to apply configuration to user settings');
       }
 
-      console.log('[API] Successfully applied receptionist config to user:', userId);
+      // Write to business_profiles — this is what the voice agent reads
+      const parsedServices = (scrapedData.services || []).map((name) =>
+        typeof name === 'string' ? { name, description: '', price_range: '' } : name
+      );
+      const inferredIndustry = inferBusinessType(scrapedData);
+      const businessName =
+        config.businessProfile?.public_name ||
+        scrapedData.metadata?.siteName ||
+        scrapedData.metadata?.title ||
+        null;
+      const aiInstructions = buildAiInstructions(config.businessProfile);
+
+      const { error: bpError } = await supabaseStorageClient
+        .from('business_profiles')
+        .upsert(
+          {
+            user_id: userId,
+            business_name: businessName,
+            industry: inferredIndustry,
+            website_url: url,
+            services: parsedServices,
+            pricing_notes: config.businessProfile?.pricing_summary || null,
+            ai_instructions: aiInstructions,
+            ai_greeting_text: config.greetingScript,
+            ai_followup_questions: config.intakeQuestions,
+            scraped_context: {
+              rawScrape: scrapedData,
+              businessProfile: config.businessProfile,
+              greetingScript: config.greetingScript,
+              intakeQuestions: config.intakeQuestions,
+            },
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (bpError) {
+        console.warn('[API] Failed to write to business_profiles (non-fatal):', bpError.message);
+      } else {
+        console.log('[API] Successfully wrote business profile for voice agent:', userId);
+      }
     }
 
     res.status(200).json({
       success: true,
       url,
       scraped_at: scrapedData.scrapedAt,
+      cached: false,
       config: {
         businessProfile: config.businessProfile,
         greetingScript: config.greetingScript,
         intakeQuestions: config.intakeQuestions,
       },
+      scrapedData,
       applied: applyConfig,
     });
   } catch (error) {
@@ -1865,6 +1936,89 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
       error: error.message || 'Failed to scrape website and generate configuration',
     });
   }
+});
+
+/** Map scraped service keywords to a business industry slug */
+function inferBusinessType(scrapedData) {
+  const text = [
+    scrapedData.content || '',
+    (scrapedData.services || []).join(' '),
+    scrapedData.metadata?.title || '',
+  ].join(' ').toLowerCase();
+
+  if (/plumb|drain|pipe|hot water|leak/.test(text)) return 'plumbing';
+  if (/electr|wiring|solar|switchboard/.test(text)) return 'electrical';
+  if (/build|construct|renovt|reno |extension|carpent/.test(text)) return 'building';
+  if (/air con|hvac|refriger|cool|heat pump/.test(text)) return 'hvac';
+  if (/paint|coating/.test(text)) return 'painting';
+  if (/landscap|garden|lawn|tree/.test(text)) return 'landscaping';
+  if (/clean|janitorial/.test(text)) return 'cleaning';
+  if (/hair|beauty|salon|nails|lash|brow/.test(text)) return 'beauty';
+  return 'service_business';
+}
+
+/** Format brand_voice + value_propositions into AI instruction prose */
+function buildAiInstructions(businessProfile) {
+  if (!businessProfile) return null;
+  const parts = [];
+  if (businessProfile.brand_voice?.tone) {
+    parts.push(`Tone: ${businessProfile.brand_voice.tone}.`);
+  }
+  if (businessProfile.brand_voice?.personality) {
+    parts.push(`Personality: ${businessProfile.brand_voice.personality}.`);
+  }
+  if (Array.isArray(businessProfile.value_propositions) && businessProfile.value_propositions.length) {
+    parts.push(`Key selling points: ${businessProfile.value_propositions.join(', ')}.`);
+  }
+  return parts.length ? parts.join(' ') : null;
+}
+
+/**
+ * Start a demo voice session — returns WS URL for the in-app live voice demo.
+ * POST /api/demo/start-voice-session
+ */
+app.post('/api/demo/start-voice-session', authenticateJwt, (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+  const wsUrl = baseUrl.replace(/^http/, 'ws') + '/realtime/native-test';
+
+  res.json({
+    userId,
+    wsUrl,
+    greeting: req.body?.greeting || null,
+    mode: req.body?.mode || 'ai_only',
+  });
+});
+
+/**
+ * Update business profile completion fields (hours, services, call-out fee etc.)
+ * PATCH /api/business-profile
+ */
+app.patch('/api/business-profile', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const allowed = ['business_name', 'industry', 'services', 'hours_json', 'service_areas',
+    'faqs', 'pricing_notes', 'ai_instructions', 'ai_greeting_text', 'ivr_custom_script'];
+  const updates = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+  updates.updated_at = new Date().toISOString();
+
+  const { error } = await supabaseStorageClient
+    .from('business_profiles')
+    .upsert({ user_id: userId, ...updates }, { onConflict: 'user_id' });
+
+  if (error) {
+    console.error('[API] Failed to update business profile:', error);
+    return res.status(500).json({ error: 'Failed to update business profile' });
+  }
+
+  res.json({ success: true });
 });
 
 /**
