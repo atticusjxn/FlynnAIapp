@@ -47,8 +47,8 @@ targets:
       properties:
         CFBundleName: $(PRODUCT_NAME)
         CFBundleDisplayName: FlynnAI
-        CFBundleShortVersionString: "1.3.0"
-        CFBundleVersion: "57"
+        CFBundleShortVersionString: "1.3.1"
+        CFBundleVersion: "58"
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         UILaunchScreen:
           UIColorName: ""
@@ -77,12 +77,12 @@ targets:
         FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app.native
-        MARKETING_VERSION: "1.3.0"
-        CURRENT_PROJECT_VERSION: "57"
+        PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app
+        MARKETING_VERSION: "1.3.1"
+        CURRENT_PROJECT_VERSION: "58"
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: "69T5H7R46N"
         CODE_SIGN_STYLE: Automatic
         INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
         INFOPLIST_KEY_UIRequiresFullScreen: YES
