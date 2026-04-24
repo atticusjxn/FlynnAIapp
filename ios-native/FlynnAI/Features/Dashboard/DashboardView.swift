@@ -11,6 +11,8 @@ struct DashboardView: View {
 
                 UsageBarCard()
 
+                CalendarConnectCard()
+
                 switch store.state {
                 case .idle, .loading:
                     loadingCard
@@ -31,6 +33,11 @@ struct DashboardView: View {
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink(value: Route.settingsRoot) {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showingAddSheet = true

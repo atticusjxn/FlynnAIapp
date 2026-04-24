@@ -24,7 +24,18 @@ final class AuthStore {
     /// Call once from FlynnAIApp.init — restores session from Keychain/SDK storage.
     func bootstrap() async {
         do {
-            let session = try await client.auth.session
+            // 6-second timeout guards against the Supabase SDK hanging on first launch
+            // (observed in iOS 26 Simulator when no prior keychain session exists).
+            let session = try await withThrowingTaskGroup(of: Session.self) { group in
+                group.addTask { try await self.client.auth.session }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(6))
+                    throw CancellationError()
+                }
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
             setSignedIn(session: session)
         } catch {
             FlynnLog.auth.info("No active session on launch")

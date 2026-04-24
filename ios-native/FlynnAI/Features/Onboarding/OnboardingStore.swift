@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import Supabase
+import UIKit
 
 /// Drives the 6-step onboarding wizard. Steps can skip forward freely; the
 /// final step writes `users.onboarding_completed = true` which flips
@@ -35,7 +36,25 @@ final class OnboardingStore {
     private(set) var loadState: LoadState = .idle
     private(set) var onboardingCompleted: Bool?
     private(set) var hasProvisionedPhone: Bool = false
-    var currentStep: Step = .websiteScrape
+    var currentStep: Step = .websiteScrape {
+        didSet { Self.persistStep(currentStep) }
+    }
+
+    private static let stepStorageKey = "flynn.onboarding.step"
+
+    private static func persistStep(_ step: Step) {
+        UserDefaults.standard.set(step.rawValue, forKey: stepStorageKey)
+    }
+
+    private static func restoreStep() -> Step? {
+        let raw = UserDefaults.standard.integer(forKey: stepStorageKey)
+        guard UserDefaults.standard.object(forKey: stepStorageKey) != nil else { return nil }
+        return Step(rawValue: raw)
+    }
+
+    private static func clearPersistedStep() {
+        UserDefaults.standard.removeObject(forKey: stepStorageKey)
+    }
 
     // Demo voice session state
     var demoUserId: String?
@@ -66,6 +85,12 @@ final class OnboardingStore {
             onboardingCompleted = row.onboarding_completed
             hasProvisionedPhone = row.has_provisioned_phone ?? false
             demoUserId = session.user.id.uuidString
+
+            // Restore in-progress step if the user quit mid-onboarding last launch.
+            if row.onboarding_completed == false, let saved = Self.restoreStep() {
+                currentStep = saved
+            }
+
             loadState = .loaded
         } catch {
             loadState = .error(error.localizedDescription)
@@ -98,12 +123,14 @@ final class OnboardingStore {
         let all = Step.allCases
         guard let idx = all.firstIndex(of: currentStep), idx + 1 < all.count else { return }
         currentStep = all[idx + 1]
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
 
     func back() {
         let all = Step.allCases
         guard let idx = all.firstIndex(of: currentStep), idx > 0 else { return }
         currentStep = all[idx - 1]
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 
     func markComplete() async {
@@ -116,6 +143,7 @@ final class OnboardingStore {
                 .eq("id", value: session.user.id.uuidString)
                 .execute()
             onboardingCompleted = true
+            Self.clearPersistedStep()
         } catch {
             FlynnLog.network.error("Onboarding complete failed: \(error.localizedDescription, privacy: .public)")
         }

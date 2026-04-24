@@ -1,0 +1,109 @@
+{
+  "identifier" : "FlynnAI",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_applicationInternalID" : "flynnai",
+    "_developerTeamID" : "",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "en_AU",
+    "_storefront" : "AUS",
+    "_storeKitErrors" : [],
+    "_timeRate" : 1
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "FlynnAIReceptionist",
+      "localizations" : [
+        {
+          "description" : "Flynn AI receptionist plans",
+          "displayName" : "Flynn AI",
+          "locale" : "en_AU"
+        }
+      ],
+      "name" : "Flynn AI Receptionist",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "29.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "starter",
+          "introductoryOffer" : {
+            "internalID" : "starter-trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W"
+          },
+          "localizations" : [
+            {
+              "description" : "60 AI minutes, unlimited SMS links. 14-day free trial.",
+              "displayName" : "Starter",
+              "locale" : "en_AU"
+            }
+          ],
+          "productID" : "com.flynnai.starter.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Starter Monthly",
+          "subscriptionGroupID" : "FlynnAIReceptionist",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "79.00",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "growth",
+          "introductoryOffer" : {
+            "internalID" : "growth-trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W"
+          },
+          "localizations" : [
+            {
+              "description" : "250 AI minutes, unlimited SMS links, voice clone. 14-day free trial.",
+              "displayName" : "Growth",
+              "locale" : "en_AU"
+            }
+          ],
+          "productID" : "com.flynnai.growth.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Growth Monthly",
+          "subscriptionGroupID" : "FlynnAIReceptionist",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "179.00",
+          "familyShareable" : false,
+          "groupNumber" : 3,
+          "internalID" : "pro",
+          "introductoryOffer" : {
+            "internalID" : "pro-trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W"
+          },
+          "localizations" : [
+            {
+              "description" : "700 AI minutes, unlimited SMS links, voice clone, priority support. 14-day free trial.",
+              "displayName" : "Pro",
+              "locale" : "en_AU"
+            }
+          ],
+          "productID" : "com.flynnai.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Monthly",
+          "subscriptionGroupID" : "FlynnAIReceptionist",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

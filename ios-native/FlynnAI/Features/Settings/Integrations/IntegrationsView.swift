@@ -116,9 +116,11 @@ struct IntegrationsView: View {
         integrationRow(
             icon: "globe",
             title: "Google Calendar",
-            subtitle: "Coming soon",
-            toggle: .constant(false),
-            disabled: true
+            subtitle: store.googleCalendarConnected
+                ? "Connected"
+                : "Sync confirmed bookings to your Google Calendar",
+            toggle: .constant(store.googleCalendarConnected),
+            disabled: true  // one-tap OAuth initiation lands in follow-up
         )
 
         telnyxRow

@@ -133,6 +133,12 @@ struct UsageBarCard: View {
     }
 
     private func subtitleFor(fraction: Double, usage: UsageDTO) -> String {
+        if usage.subscriptionStatus == "trialing", let trialEnd = usage.trialEndAt {
+            let days = max(Calendar.current.dateComponents([.day], from: Date(), to: trialEnd).day ?? 0, 0)
+            return days > 0
+                ? "Trial · \(days) day\(days == 1 ? "" : "s") left"
+                : "Trial ends today"
+        }
         if fraction >= 1.0 {
             return "AI at limit — calls now use SMS Links"
         } else if fraction >= 0.8 {

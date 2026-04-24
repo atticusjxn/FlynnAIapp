@@ -64,6 +64,41 @@ struct BusinessProfileDTO: Codable, Hashable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
+
+    /// Forgiving decoder — jsonb columns that the DB returns as NULL (because
+    /// no migration populated them yet) default to their empty forms instead
+    /// of throwing `keyNotFound` / `valueNotFound` and blowing up entire
+    /// screens (IVR editor, BusinessProfile editor).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.userId = try c.decode(UUID.self, forKey: .userId)
+        self.orgId = try c.decodeIfPresent(UUID.self, forKey: .orgId)
+        self.businessName = try c.decodeIfPresent(String.self, forKey: .businessName)
+        self.industry = try c.decodeIfPresent(String.self, forKey: .industry)
+        self.services = (try? c.decodeIfPresent([BusinessService].self, forKey: .services)) ?? []
+        self.serviceAreas = (try? c.decodeIfPresent([String].self, forKey: .serviceAreas)) ?? []
+        self.hoursJson = try? c.decodeIfPresent(BusinessHours.self, forKey: .hoursJson)
+        self.faqs = (try? c.decodeIfPresent([BusinessFAQ].self, forKey: .faqs)) ?? []
+        self.pricingNotes = try c.decodeIfPresent(String.self, forKey: .pricingNotes)
+        self.websiteUrl = try c.decodeIfPresent(String.self, forKey: .websiteUrl)
+        self.scrapedContext = try? c.decodeIfPresent([String: String].self, forKey: .scrapedContext)
+        self.bookingLinkUrl = try c.decodeIfPresent(String.self, forKey: .bookingLinkUrl)
+        self.bookingLinkEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .bookingLinkEnabled)) ?? true
+        self.quoteLinkUrl = try c.decodeIfPresent(String.self, forKey: .quoteLinkUrl)
+        self.quoteLinkEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .quoteLinkEnabled)) ?? true
+        self.smsBookingTemplate = try c.decodeIfPresent(String.self, forKey: .smsBookingTemplate)
+        self.smsQuoteTemplate = try c.decodeIfPresent(String.self, forKey: .smsQuoteTemplate)
+        self.ivrTemplateId = try c.decodeIfPresent(UUID.self, forKey: .ivrTemplateId)
+        self.ivrCustomScript = try c.decodeIfPresent(String.self, forKey: .ivrCustomScript)
+        self.ivrGreetingAudioUrl = try c.decodeIfPresent(String.self, forKey: .ivrGreetingAudioUrl)
+        self.voiceProfileId = try c.decodeIfPresent(UUID.self, forKey: .voiceProfileId)
+        self.aiGreetingText = try c.decodeIfPresent(String.self, forKey: .aiGreetingText)
+        self.aiFollowupQuestions = (try? c.decodeIfPresent([String].self, forKey: .aiFollowupQuestions)) ?? []
+        self.aiInstructions = try c.decodeIfPresent(String.self, forKey: .aiInstructions)
+        self.recordingDisclosure = try c.decodeIfPresent(String.self, forKey: .recordingDisclosure)
+        self.createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
+        self.updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt)
+    }
 }
 
 struct BusinessService: Codable, Hashable, Sendable, Identifiable {

@@ -41,6 +41,8 @@ const {
   getReceptionistProfileByNumber,
   recordCallEvent,
   getBusinessContextForOrg,
+  getBusinessContextForUser,
+  resolveOrgIdForUser,
 } = require('./supabaseMcpClient');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 const { scrapeWebsiteWithGemini } = require('./services/geminiUrlScraper');
@@ -1823,7 +1825,7 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
         .from('business_profiles')
         .select('scraped_context, updated_at')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       if (cached?.scraped_context && cached?.updated_at) {
         const ageMs = Date.now() - new Date(cached.updated_at).getTime();
         if (ageMs < 86400000) {
@@ -1981,8 +1983,14 @@ app.post('/api/demo/start-voice-session', authenticateJwt, (req, res) => {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
-  const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+  // Prefer PUBLIC_BASE_URL when set (tunnel/prod); fall back to the incoming
+  // request's own host so the Simulator doesn't get handed a localhost URL
+  // that can't be reached from inside the simulated device network.
+  const configured = process.env.PUBLIC_BASE_URL || process.env.SERVER_PUBLIC_URL;
+  const baseUrl = configured || `${req.protocol}://${req.get('host')}`;
   const wsUrl = baseUrl.replace(/^http/, 'ws') + '/realtime/native-test';
+
+  console.log('[DemoVoice] start-voice-session', { userId, wsUrl, configured: Boolean(configured) });
 
   res.json({
     userId,
@@ -3107,13 +3115,22 @@ const handleInboundVoice = async (req, res) => {
       // Mode A: SMS Link Follow-Up (IVR with booking/quote links)
       console.log('[Telephony] Call handling mode is sms_links, routing to IVR.', { callSid });
 
-      // Fetch business profile for link configuration
-      const { data: businessProfile } = await supabaseClient
-        .from('business_profiles')
-        .select('*')
-        .eq('user_id', receptionistProfile.id)
-        .single()
-        .catch(() => ({ data: null }));
+      // Fetch business profile for link configuration. Prefer org_id (the
+      // multitenant key); fall back to user_id for accounts that only have
+      // the denormalized row populated.
+      const { data: businessProfile } = orgId
+        ? await supabaseClient
+            .from('business_profiles')
+            .select('*')
+            .eq('org_id', orgId)
+            .maybeSingle()
+            .catch(() => ({ data: null }))
+        : await supabaseClient
+            .from('business_profiles')
+            .select('*')
+            .eq('user_id', receptionistProfile.id)
+            .maybeSingle()
+            .catch(() => ({ data: null }));
 
       await logCallEvent({
         orgId,
@@ -4676,6 +4693,8 @@ if (require.main === module) {
         deepgramClient,
         onConversationComplete: handleRealtimeConversationComplete,
         getBusinessContextForOrg,
+        getBusinessContextForUser,
+        resolveOrgIdForUser,
       });
       console.log('[Server] Realtime WebSocket server attached successfully');
     } catch (error) {

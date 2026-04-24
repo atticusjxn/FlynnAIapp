@@ -14,6 +14,7 @@ struct LiveVoiceDemoStepView: View {
     @State private var elapsedSeconds: Int = 0
     @State private var micPermissionGranted: Bool = false
     @State private var isConnecting = true
+    @State private var connectionError: String?
     @State private var transcript: [TranscriptLine] = []
 
     private let presetQuestions = [
@@ -65,17 +66,7 @@ struct LiveVoiceDemoStepView: View {
             }
             .padding(FlynnSpacing.lg)
         }
-        .task {
-            await requestMicPermission()
-            await store.loadDemoSession()
-            if let wsUrl = store.demoWsUrl, let userId = store.demoUserId {
-                await agent.connect(wsUrl: wsUrl, userId: userId)
-                startTimer()
-            } else {
-                flash.error("Couldn't connect — tap continue to skip")
-                isConnecting = false
-            }
-        }
+        .task { await bootstrapDemo() }
         .onDisappear {
             timer?.invalidate()
             agent.disconnect()
@@ -89,12 +80,24 @@ struct LiveVoiceDemoStepView: View {
             // Status bar
             HStack(spacing: FlynnSpacing.xs) {
                 Circle()
-                    .fill(agent.isConnected ? FlynnColor.error : FlynnColor.gray300)
+                    .fill(statusDotColor)
                     .frame(width: 8, height: 8)
-                Text(agent.isConnected ? "LIVE · \(formattedTime)" : (isConnecting ? "Connecting…" : "Disconnected"))
+                Text(statusText)
                     .flynnType(FlynnTypography.caption)
-                    .foregroundColor(agent.isConnected ? FlynnColor.error : FlynnColor.textTertiary)
+                    .foregroundColor(statusTextColor)
                 Spacer()
+                if connectionError != nil {
+                    Button("Retry") { Task { await bootstrapDemo() } }
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.primary)
+                }
+            }
+
+            if let err = connectionError {
+                Text(err)
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             // Waveform
@@ -147,6 +150,24 @@ struct LiveVoiceDemoStepView: View {
         }
     }
 
+    private var statusDotColor: Color {
+        if agent.isConnected { return FlynnColor.error }
+        if connectionError != nil { return FlynnColor.warning }
+        return FlynnColor.gray300
+    }
+
+    private var statusText: String {
+        if agent.isConnected { return "LIVE · \(formattedTime)" }
+        if connectionError != nil { return "Couldn't connect" }
+        return isConnecting ? "Connecting…" : "Ready — hold to speak"
+    }
+
+    private var statusTextColor: Color {
+        if agent.isConnected { return FlynnColor.error }
+        if connectionError != nil { return FlynnColor.warning }
+        return FlynnColor.textTertiary
+    }
+
     private var formattedTime: String {
         let m = elapsedSeconds / 60
         let s = elapsedSeconds % 60
@@ -155,12 +176,15 @@ struct LiveVoiceDemoStepView: View {
 
     private func startTimer() {
         isConnecting = false
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            elapsedSeconds += 1
-            if elapsedSeconds >= 90 {
-                timer?.invalidate()
-                flash.info("Demo time's up — want your callers to experience this 24/7?")
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak timer] _ in
+            Task { @MainActor in
+                self.elapsedSeconds += 1
+                if self.elapsedSeconds >= 90 {
+                    self.timer?.invalidate()
+                    self.flash.info("Demo time's up — want your callers to experience this 24/7?")
+                }
             }
+            _ = timer
         }
     }
 
@@ -181,6 +205,21 @@ struct LiveVoiceDemoStepView: View {
         agent.disconnect()
         onContinue()
     }
+
+    private func bootstrapDemo() async {
+        isConnecting = true
+        connectionError = nil
+        await requestMicPermission()
+        await store.loadDemoSession()
+        guard let wsUrl = store.demoWsUrl, let userId = store.demoUserId else {
+            connectionError = "Couldn't reach the demo server. Check your connection and retry."
+            isConnecting = false
+            FlynnLog.network.error("Voice demo: no wsUrl/userId after loadDemoSession")
+            return
+        }
+        await agent.connect(wsUrl: wsUrl, userId: userId)
+        startTimer()
+    }
 }
 
 // MARK: - Animated waveform
@@ -195,19 +234,30 @@ private struct WaveformView: View {
                 let bars = 24
                 let barWidth = size.width / CGFloat(bars * 2)
                 let centerY = size.height / 2
+                let barColor: Color = isActive ? FlynnColor.primary : FlynnColor.gray300
                 for i in 0..<bars {
                     let x = CGFloat(i * 2 + 1) * barWidth
                     let t = Double(i) / Double(bars)
-                    let amplitude = isActive
-                        ? (0.2 + 0.8 * abs(sin(phase + t * .pi * 3))) * centerY
-                        : 3.0
-                    let rect = CGRect(
-                        x: x - barWidth / 2,
-                        y: centerY - amplitude,
-                        width: barWidth,
-                        height: amplitude * 2
-                    )
-                    ctx.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(FlynnColor.primary))
+                    if isActive {
+                        let amplitude = (0.2 + 0.8 * abs(sin(phase + t * .pi * 3))) * centerY
+                        let rect = CGRect(
+                            x: x - barWidth / 2,
+                            y: centerY - amplitude,
+                            width: barWidth,
+                            height: amplitude * 2
+                        )
+                        ctx.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(barColor))
+                    } else {
+                        // Flat 1pt line when disconnected — prevents the "row of orange dots" bug
+                        // caused by applying cornerRadius to a very short rect.
+                        let rect = CGRect(
+                            x: x - barWidth / 2,
+                            y: centerY - 0.5,
+                            width: barWidth,
+                            height: 1
+                        )
+                        ctx.fill(Path(rect), with: .color(barColor))
+                    }
                 }
             }
         }
@@ -221,7 +271,7 @@ private struct WaveformView: View {
 
 // MARK: - Transcript line
 
-struct TranscriptLine: Identifiable {
+struct TranscriptLine: Identifiable, Equatable {
     let id = UUID()
     let text: String
     let isAgent: Bool
@@ -250,7 +300,7 @@ final class VoiceDemoAgent: NSObject {
             try AVAudioSession.sharedInstance().setCategory(
                 .playAndRecord,
                 mode: .voiceChat,
-                options: [.defaultToSpeaker, .allowBluetooth]
+                options: [.defaultToSpeaker, .allowBluetoothHFP]
             )
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
@@ -327,14 +377,15 @@ final class VoiceDemoAgent: NSObject {
             case .success(let message):
                 switch message {
                 case .data(let data):
-                    self.playAudio(data)
+                    Task { @MainActor in self.playAudio(data) }
                 case .string(let text):
-                    self.handleTextFrame(text)
+                    Task { @MainActor in self.handleTextFrame(text) }
                 @unknown default:
                     break
                 }
                 Task { @MainActor in self.receiveLoop() }
-            case .failure:
+            case .failure(let error):
+                FlynnLog.network.error("Voice demo WS receive failed: \(error.localizedDescription, privacy: .public)")
                 Task { @MainActor in
                     self.isConnected = false
                     self.isAgentSpeaking = false
@@ -382,7 +433,7 @@ private func stepHeader(eyebrow: String, title: String, subtitle: String) -> som
     VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
         Text(eyebrow)
             .flynnType(FlynnTypography.overline)
-            .foregroundColor(FlynnColor.textSecondary)
+            .foregroundColor(FlynnColor.primary)
         Text(title)
             .flynnType(FlynnTypography.h2)
             .foregroundColor(FlynnColor.textPrimary)

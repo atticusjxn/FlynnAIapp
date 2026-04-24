@@ -28,16 +28,32 @@ final class IVRScriptEditorStore {
 
     func load() async {
         loadState = .loading
+
+        // Templates are the only hard dependency — if the user has never upserted
+        // a business_profiles row, profileRepo.fetch() either returns nil or throws
+        // a DecodingError on a half-populated row. Either way, fall through to an
+        // empty input rather than hard-erroring — the user can still pick a template.
         do {
-            async let profileTask = profileRepo.fetch()
-            async let templatesTask = templateRepo.list(locale: "en-AU", industry: nil)
-            let (profile, templates) = try await (profileTask, templatesTask)
-            if let profile { input = BusinessProfileInput(from: profile) }
-            self.templates = templates
-            loadState = .loaded
+            self.templates = try await templateRepo.list(locale: "en-AU", industry: nil)
         } catch {
             loadState = .error(error.localizedDescription)
+            return
         }
+
+        do {
+            if let profile = try await profileRepo.fetch() {
+                input = BusinessProfileInput(from: profile)
+            } else {
+                input = .empty
+            }
+        } catch {
+            FlynnLog.network.error(
+                "IVRScript profile fetch failed (falling back to empty input): \(error.localizedDescription, privacy: .public)"
+            )
+            input = .empty
+        }
+
+        loadState = .loaded
     }
 
     func selectTemplate(_ template: IvrTemplateDTO) {

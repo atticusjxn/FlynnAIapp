@@ -14,6 +14,9 @@ struct WebsiteScrapeStepView: View {
     struct ScrapeResult {
         let businessName: String?
         let services: [String]
+        let tone: String?
+        let hoursSummary: String?
+        let serviceArea: String?
         let cached: Bool
     }
 
@@ -99,11 +102,11 @@ struct WebsiteScrapeStepView: View {
                         .font(.title2)
                 }
 
-                if !result.services.isEmpty {
-                    Text("Services found")
-                        .flynnType(FlynnTypography.label)
-                        .foregroundColor(FlynnColor.textSecondary)
+                // Narrated breakdown — rolls in check-off rows sequentially so the
+                // user *feels* that Flynn has actually learned about their business.
+                ScrapeBreakdownList(result: result)
 
+                if !result.services.isEmpty {
                     FlowLayout(spacing: FlynnSpacing.xs) {
                         ForEach(Array(result.services.prefix(8).enumerated()), id: \.offset) { idx, service in
                             Text(service)
@@ -117,7 +120,7 @@ struct WebsiteScrapeStepView: View {
                                 .transition(.scale(scale: 0.8).combined(with: .opacity))
                                 .animation(
                                     .spring(response: 0.35, dampingFraction: 0.7)
-                                    .delay(Double(idx) * 0.05),
+                                    .delay(0.6 + Double(idx) * 0.05),
                                     value: result.services.count
                                 )
                         }
@@ -156,10 +159,18 @@ struct WebsiteScrapeStepView: View {
                     let rawServices = scraped?["services"] as? [String] ?? []
                     let name = bp?["public_name"] as? String
                         ?? (scraped?["metadata"] as? [String: Any])?["siteName"] as? String
+                    let tone = (bp?["brand_voice"] as? [String: Any])?["tone"] as? String
+                    let hoursSummary = (scraped?["hours"] as? String)
+                        ?? (scraped?["metadata"] as? [String: Any])?["hours"] as? String
+                    let serviceArea = scraped?["serviceArea"] as? String
+                        ?? (bp?["service_area"] as? String)
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
                         scrapeResult = ScrapeResult(
                             businessName: name,
                             services: rawServices,
+                            tone: tone,
+                            hoursSummary: hoursSummary,
+                            serviceArea: serviceArea,
                             cached: (json["cached"] as? Bool) ?? false
                         )
                     }
@@ -235,7 +246,7 @@ struct CallHandlingModeStepView: View {
             .padding(.horizontal, FlynnSpacing.lg)
             .padding(.top, FlynnSpacing.lg)
 
-            CallModeSelectorView()
+            CallModeSelectorView(showInternalHeader: false)
 
             FlynnButton(
                 title: "Continue",
@@ -274,6 +285,85 @@ struct IvrScriptStepView: View {
     }
 }
 
+// MARK: - Scrape breakdown (staggered check-off rows)
+
+/// Renders up to five rows (name → services count → tone → hours → service area)
+/// that animate in sequentially so the user *sees* that Flynn learned about them.
+private struct ScrapeBreakdownList: View {
+    let result: WebsiteScrapeStepView.ScrapeResult
+    @State private var visibleRows: Int = 0
+
+    private struct BreakdownRow: Identifiable {
+        let id = UUID()
+        let title: String
+        let value: String
+    }
+
+    private var rows: [BreakdownRow] {
+        var out: [BreakdownRow] = []
+        if let name = result.businessName {
+            out.append(.init(title: "Business name", value: name))
+        }
+        if !result.services.isEmpty {
+            let n = result.services.count
+            out.append(.init(title: "Services detected", value: "\(n) service\(n == 1 ? "" : "s")"))
+        }
+        if let tone = result.tone, !tone.isEmpty {
+            out.append(.init(title: "Tone", value: tone.capitalized))
+        }
+        if let hours = result.hoursSummary, !hours.isEmpty {
+            out.append(.init(title: "Hours", value: hours))
+        }
+        if let area = result.serviceArea, !area.isEmpty {
+            out.append(.init(title: "Service area", value: area))
+        }
+        return out
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { idx, row in
+                if idx < visibleRows {
+                    breakdownRow(row)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .opacity
+                        ))
+                }
+            }
+        }
+        .task {
+            // Stagger at 80ms intervals — quick enough to feel snappy, slow
+            // enough to read each row as it arrives.
+            for idx in 0..<rows.count {
+                try? await Task.sleep(for: .milliseconds(idx == 0 ? 120 : 80))
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    visibleRows = idx + 1
+                }
+            }
+        }
+    }
+
+    private func breakdownRow(_ row: BreakdownRow) -> some View {
+        HStack(spacing: FlynnSpacing.xs) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14))
+                .foregroundColor(FlynnColor.success)
+            Text(row.title)
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textSecondary)
+            Text("·")
+                .foregroundColor(FlynnColor.textTertiary)
+            Text(row.value)
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer()
+        }
+    }
+}
+
 // MARK: - Shared header
 
 @MainActor
@@ -282,7 +372,7 @@ private func stepHeader(eyebrow: String, title: String, subtitle: String) -> som
     VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
         Text(eyebrow)
             .flynnType(FlynnTypography.overline)
-            .foregroundColor(FlynnColor.textSecondary)
+            .foregroundColor(FlynnColor.primary)
         Text(title)
             .flynnType(FlynnTypography.h2)
             .foregroundColor(FlynnColor.textPrimary)

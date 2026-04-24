@@ -23,17 +23,18 @@ struct PaywallStepView: View {
 
                 switch subStore.loadState {
                 case .idle, .loading:
-                    ProgressView()
-                        .frame(maxWidth: .infinity, minHeight: 160)
-                case .error(let msg):
-                    Text("Couldn't load plans: \(msg)")
-                        .flynnType(FlynnTypography.bodyMedium)
-                        .foregroundColor(FlynnColor.textSecondary)
+                    VStack(spacing: FlynnSpacing.sm) {
+                        ProgressView().tint(FlynnColor.primary)
+                        Text("Loading plans…")
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 200)
+                case .error:
+                    loadFailedState
                 case .loaded:
                     if subStore.products.isEmpty {
-                        Text("No plans available right now.")
-                            .flynnType(FlynnTypography.bodyMedium)
-                            .foregroundColor(FlynnColor.textSecondary)
+                        loadFailedState
                     } else {
                         planCards
                         ctaButton
@@ -83,6 +84,26 @@ struct PaywallStepView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    private var loadFailedState: some View {
+        VStack(spacing: FlynnSpacing.sm) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 32))
+                .foregroundColor(FlynnColor.textTertiary)
+            Text("Couldn't reach the App Store")
+                .flynnType(FlynnTypography.h4)
+                .foregroundColor(FlynnColor.textPrimary)
+            Text("Check your connection and try again.")
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textSecondary)
+                .multilineTextAlignment(.center)
+            FlynnButton(
+                title: "Retry",
+                action: { Task { await subStore.bootstrap() } }
+            )
+        }
+        .frame(maxWidth: .infinity, minHeight: 220)
     }
 
     private var ctaButton: some View {

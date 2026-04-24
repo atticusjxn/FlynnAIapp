@@ -42,6 +42,8 @@
 	</dict>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Flynn adds your confirmed bookings to your calendar so you never miss a job.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Flynn uses your microphone so you can speak directly to your AI receptionist during the live demo.</string>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Flynn notifies you when a missed call is captured or you're running low on AI minutes.</string>
 	<key>SUPABASE_ANON_KEY</key>

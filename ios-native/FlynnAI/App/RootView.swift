@@ -26,7 +26,7 @@ struct RootView: View {
     private var content: some View {
         switch auth.state {
         case .loading:
-            Color.white.ignoresSafeArea()
+            FlynnColor.splashBackground.ignoresSafeArea()
         case .signedOut:
             LoginView()
         case .signedIn:
@@ -37,8 +37,8 @@ struct RootView: View {
 
     @ViewBuilder
     private var signedInContent: some View {
-        if onboarding.onboardingCompleted == false {
-            OnboardingCoordinator()
+        if onboarding.onboardingCompleted != true {
+            OnboardingCoordinator(store: onboarding)
         } else {
             MainTabView()
         }
@@ -53,8 +53,17 @@ struct RootView: View {
 
     private var isAppReady: Bool {
         switch auth.state {
-        case .loading: return false
-        default: return true
+        case .loading:
+            return false
+        case .signedOut:
+            return true
+        case .signedIn:
+            // Keep splash up until the onboarding store knows which surface to show,
+            // otherwise SwiftUI renders MainTabView for a frame while load() runs.
+            switch onboarding.loadState {
+            case .loaded, .error: return true
+            case .idle, .loading: return false
+            }
         }
     }
 }

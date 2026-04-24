@@ -1155,6 +1155,57 @@ const getBusinessContextForOrg = async (orgId) => {
   }
 };
 
+/**
+ * Resolve the primary org for a user (owner preferred, else oldest active membership).
+ * Used by realtime handlers that only have userId in scope.
+ * @param {string} userId
+ * @returns {Promise<string|null>} org_id or null
+ */
+const resolveOrgIdForUser = async (userId) => {
+  if (!userId) return null;
+
+  try {
+    const client = getDirectClient();
+    const { data, error } = await client
+      .from('org_members')
+      .select('org_id, role, created_at')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true })
+      .limit(50);
+
+    if (error) {
+      console.error('[Supabase] resolveOrgIdForUser error:', error);
+      return null;
+    }
+
+    if (!data || data.length === 0) return null;
+
+    const rolePriority = { owner: 0, admin: 1, agent: 2, viewer: 3 };
+    const sorted = [...data].sort((a, b) => {
+      const pa = rolePriority[a.role] ?? 9;
+      const pb = rolePriority[b.role] ?? 9;
+      return pa - pb;
+    });
+    return sorted[0]?.org_id ?? null;
+  } catch (error) {
+    console.error('[Supabase] resolveOrgIdForUser failed:', error);
+    return null;
+  }
+};
+
+/**
+ * Fetch business context by user_id. Resolves user → org internally so callers
+ * with only userId in scope (native voice demo handler) don't need the RPC.
+ * @param {string} userId
+ * @returns {Promise<Object|null>}
+ */
+const getBusinessContextForUser = async (userId) => {
+  const orgId = await resolveOrgIdForUser(userId);
+  if (!orgId) return null;
+  return getBusinessContextForOrg(orgId);
+};
+
 module.exports = {
   upsertCallRecord,
   executeSql,
@@ -1177,4 +1228,6 @@ module.exports = {
   updateCallRecordingSignedUrl,
   recordCallEvent,
   getBusinessContextForOrg,
+  getBusinessContextForUser,
+  resolveOrgIdForUser,
 };

@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useColorScheme } from 'react-native';
+
+export type ThemePreference = 'system' | 'light' | 'dark';
 
 interface ThemeColors {
   // Brand Colors
@@ -45,8 +48,11 @@ interface ThemeColors {
 
 interface ThemeContextType {
   isDark: boolean;
+  /** User's explicit preference. `'system'` follows the device. */
+  preference: ThemePreference;
   colors: ThemeColors;
   toggleTheme: () => void;
+  setPreference: (value: ThemePreference) => void;
 }
 
 const lightColors: ThemeColors = {
@@ -142,43 +148,50 @@ interface ThemeProviderProps {
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const [isDark, setIsDark] = useState(false);
+  const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  const systemScheme = useColorScheme();  // updates live when OS appearance flips
 
   useEffect(() => {
-    loadThemeFromStorage();
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (saved === null) return;
+        // Backwards compat: earlier versions stored a boolean `isDark`.
+        if (saved === 'true') setPreferenceState('dark');
+        else if (saved === 'false') setPreferenceState('light');
+        else if (saved === 'system' || saved === 'light' || saved === 'dark') {
+          setPreferenceState(saved);
+        }
+      } catch (error) {
+        console.log('Error loading theme preference:', error);
+      }
+    })();
   }, []);
 
-  const loadThemeFromStorage = async () => {
-    try {
-      const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-      if (savedTheme !== null) {
-        setIsDark(JSON.parse(savedTheme));
-      }
-    } catch (error) {
-      console.log('Error loading theme from storage:', error);
-    }
-  };
-
-  const saveThemeToStorage = async (darkMode: boolean) => {
-    try {
-      await AsyncStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(darkMode));
-    } catch (error) {
-      console.log('Error saving theme to storage:', error);
-    }
+  const setPreference = (value: ThemePreference) => {
+    setPreferenceState(value);
+    AsyncStorage.setItem(THEME_STORAGE_KEY, value).catch((err) =>
+      console.log('Error saving theme preference:', err)
+    );
   };
 
   const toggleTheme = () => {
-    const newTheme = !isDark;
-    setIsDark(newTheme);
-    saveThemeToStorage(newTheme);
+    // Kept for back-compat with existing toggle UI. Cycles light → dark → light.
+    setPreference(preference === 'dark' ? 'light' : 'dark');
   };
+
+  const isDark =
+    preference === 'dark' ||
+    (preference === 'system' && systemScheme === 'dark');
 
   const colors = isDark ? darkColors : lightColors;
 
   const value: ThemeContextType = {
     isDark,
+    preference,
     colors,
     toggleTheme,
+    setPreference,
   };
 
   return (

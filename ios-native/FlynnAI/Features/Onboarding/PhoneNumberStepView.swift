@@ -30,6 +30,15 @@ struct PhoneNumberStepView: View {
                     fullWidth: true
                 )
                 .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 0) }
+
+                // Inline escape hatch — the toolbar Skip is intentionally suppressed
+                // for this step, but if forwarding can't be done right now the user
+                // should still be able to reach the Dashboard.
+                Button("Set up forwarding later") { onFinish() }
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .padding(FlynnSpacing.lg)
         }
@@ -65,7 +74,7 @@ private func stepHeader(eyebrow: String, title: String, subtitle: String) -> som
     VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
         Text(eyebrow)
             .flynnType(FlynnTypography.overline)
-            .foregroundColor(FlynnColor.textSecondary)
+            .foregroundColor(FlynnColor.primary)
         Text(title)
             .flynnType(FlynnTypography.h2)
             .foregroundColor(FlynnColor.textPrimary)

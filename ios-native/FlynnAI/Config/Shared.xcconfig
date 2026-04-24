@@ -6,7 +6,7 @@ SWIFT_VERSION = 6.0
 TARGETED_DEVICE_FAMILY = 1
 
 // Supabase project URL (public, not secret)
-SUPABASE_URL = https:/$()/zvfeafmmtfplzpnocyjw.supabase.co
+SUPABASE_URL = https:/$()/kbggkjozdrxuzbshnxqc.supabase.co
 
 // Flynn telephony / API base
 FLYNN_API_BASE_URL = https:/$()/flynnai-telephony.fly.dev

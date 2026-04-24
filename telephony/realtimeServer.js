@@ -20,6 +20,8 @@ const attachRealtimeServer = ({
   deepgramClient,
   onConversationComplete,
   getBusinessContextForOrg,
+  getBusinessContextForUser,
+  resolveOrgIdForUser,
 }) => {
   const wss = new WebSocket.Server({ noServer: true });
 
@@ -84,6 +86,8 @@ const attachRealtimeServer = ({
             mode,
           },
           getBusinessContextForOrg,
+          getBusinessContextForUser,
+          resolveOrgIdForUser,
           deepgramClient,
         });
 

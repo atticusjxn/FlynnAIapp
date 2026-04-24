@@ -11,7 +11,6 @@ struct MainTabView: View {
     @State private var callsPath = NavigationPath()
     @State private var clientsPath = NavigationPath()
     @State private var moneyPath = NavigationPath()
-    @State private var settingsPath = NavigationPath()
 
     var body: some View {
         TabView(selection: $selection) {
@@ -45,12 +44,6 @@ struct MainTabView: View {
                         .navigationDestination(for: Route.self) { route in destination(for: route) }
                 }
             }
-            Tab(FlynnTab.settings.title, systemImage: FlynnTab.settings.systemImage, value: FlynnTab.settings) {
-                NavigationStack(path: $settingsPath) {
-                    SettingsView()
-                        .navigationDestination(for: Route.self) { route in destination(for: route) }
-                }
-            }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .onChange(of: deepLink.pending) { _, link in
@@ -73,6 +66,8 @@ struct MainTabView: View {
             QuoteDetailView(quoteId: id)
         case .invoiceDetail(let id):
             InvoiceDetailView(invoiceId: id)
+        case .settingsRoot:
+            SettingsView()
         case .settingsSection(let section):
             settingsDestination(for: section)
         }
@@ -107,7 +102,6 @@ struct MainTabView: View {
         case .calls: callsPath.append(route)
         case .clients: clientsPath.append(route)
         case .money: moneyPath.append(route)
-        case .settings: settingsPath.append(route)
         }
     }
 }

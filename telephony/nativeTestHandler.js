@@ -25,6 +25,8 @@ function createNativeTestHandler({
   userId,
   testConfig = {},
   getBusinessContextForOrg,
+  getBusinessContextForUser,
+  resolveOrgIdForUser,
   deepgramClient,
 }) {
   console.log('[NativeTest] Creating native test handler:', { userId, testConfig: !!testConfig });
@@ -34,6 +36,8 @@ function createNativeTestHandler({
     userId,
     testConfig,
     getBusinessContextForOrg,
+    getBusinessContextForUser,
+    resolveOrgIdForUser,
     deepgramClient,
     agentConnection: null,
     conversationHistory: [],
@@ -57,19 +61,24 @@ function createNativeTestHandler({
       });
 
       try {
-        // Fetch business context
+        // Fetch business context — OK if this returns null; we'll run with a
+        // generic greeting rather than erroring the whole session.
         await this.loadBusinessContext();
 
         // Build system prompt
         await this.buildSystemPrompt();
 
-        // Send ready message to client
+        // Send ready message to client (flag `degraded: true` if we have no
+        // business context so the UI can optionally show a hint).
         this.sendToClient({
           type: 'ready',
           message: 'Test ready - waiting for start command',
+          degraded: !this.businessContext,
         });
 
-        console.log('[NativeTest] Handler attached and ready');
+        console.log('[NativeTest] Handler attached and ready', {
+          degraded: !this.businessContext,
+        });
       } catch (error) {
         console.error('[NativeTest] Failed to initialize:', error);
         this.sendToClient({
@@ -87,16 +96,28 @@ function createNativeTestHandler({
       console.log('[NativeTest] Loading business context for user:', this.userId);
 
       try {
-        if (this.getBusinessContextForOrg && this.userId) {
-          this.businessContext = await this.getBusinessContextForOrg(this.userId);
-          console.log('[NativeTest] Business context loaded:', {
-            hasContext: !!this.businessContext,
-            businessName: this.businessContext?.business_name,
-          });
+        if (!this.userId) {
+          console.warn('[NativeTest] No userId provided — starting demo with generic prompt');
+          this.businessContext = null;
+          return;
+        }
+
+        // Prefer the user-keyed loader if supplied (e.g. fetchBusinessContextForUser),
+        // otherwise fall back to the org-keyed RPC after resolving the user's org.
+        if (this.getBusinessContextForUser) {
+          this.businessContext = await this.getBusinessContextForUser(this.userId);
+        } else if (this.getBusinessContextForOrg && this.resolveOrgIdForUser) {
+          const orgId = await this.resolveOrgIdForUser(this.userId);
+          this.businessContext = orgId ? await this.getBusinessContextForOrg(orgId) : null;
         } else {
-          console.warn('[NativeTest] No getBusinessContextForOrg function provided');
+          console.warn('[NativeTest] No business-context loader provided');
           this.businessContext = null;
         }
+
+        console.log('[NativeTest] Business context loaded:', {
+          hasContext: !!this.businessContext,
+          businessName: this.businessContext?.business_name,
+        });
       } catch (error) {
         console.error('[NativeTest] Failed to load business context:', error);
         this.businessContext = null;

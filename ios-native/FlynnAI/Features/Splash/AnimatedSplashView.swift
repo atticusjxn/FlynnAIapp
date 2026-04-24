@@ -16,6 +16,8 @@ struct AnimatedSplashView: View {
     @State private var exitOpacity: Double = 1
     @State private var drawFinished = false
     @State private var exiting = false
+    // Mirrors the `isAppReady` prop as @State so closures can read the live value.
+    @State private var appReady = false
 
     private let drawDuration: Double = 2.0
     private let strokeWidth: CGFloat = 5
@@ -52,19 +54,22 @@ struct AnimatedSplashView: View {
             .scaleEffect(exitScale)
             .opacity(exitOpacity)
         }
-        .onAppear(perform: startDraw)
+        .onAppear {
+            appReady = isAppReady
+            startDraw()
+        }
         .onChange(of: isAppReady) { _, ready in
+            appReady = ready
             if ready && drawFinished { triggerExit() }
         }
     }
 
     private func startDraw() {
         if reduceMotion {
-            // Skip the stroke-draw; just present the filled logo and fade to next screen
             drawProgress = 1
             fillOpacity = 1
             drawFinished = true
-            if isAppReady { triggerExit() }
+            if appReady { triggerExit() }
             return
         }
 
@@ -77,7 +82,7 @@ struct AnimatedSplashView: View {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + drawDuration) {
             drawFinished = true
-            if isAppReady { triggerExit() }
+            if appReady { triggerExit() }
         }
     }
 

@@ -4,7 +4,7 @@ import SwiftUI
 /// feature views or new dedicated step views, all sharing code with settings.
 struct OnboardingCoordinator: View {
     @Environment(FlashStore.self) private var flash
-    @State private var store = OnboardingStore()
+    @Bindable var store: OnboardingStore
 
     var body: some View {
         NavigationStack {
@@ -37,7 +37,7 @@ struct OnboardingCoordinator: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .animation(.easeInOut(duration: 0.25), value: store.currentStep)
+                .animation(.spring(response: 0.45, dampingFraction: 0.85), value: store.currentStep)
             }
             .background(FlynnColor.background)
             .toolbar {
@@ -54,7 +54,6 @@ struct OnboardingCoordinator: View {
                 }
             }
         }
-        .task { await store.load() }
     }
 
     private var progress: some View {
@@ -63,7 +62,7 @@ struct OnboardingCoordinator: View {
                 Capsule()
                     .fill(step.rawValue <= store.currentStep.rawValue
                           ? FlynnColor.primary
-                          : FlynnColor.gray200)
+                          : FlynnColor.gray300)
                     .frame(height: 6)
             }
         }

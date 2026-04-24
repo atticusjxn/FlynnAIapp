@@ -7,7 +7,6 @@ enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
     case calls
     case clients
     case money
-    case settings
 
     var title: String {
         switch self {
@@ -16,7 +15,6 @@ enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
         case .calls: return "Calls"
         case .clients: return "Clients"
         case .money: return "Money"
-        case .settings: return "Settings"
         }
     }
 
@@ -29,7 +27,6 @@ enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
         case .calls: return "phone"
         case .clients: return "person.2"
         case .money: return "dollarsign.circle"
-        case .settings: return "gearshape"
         }
     }
 }
@@ -42,6 +39,7 @@ enum Route: Hashable, Codable, Sendable {
     case callDetail(id: UUID)
     case quoteDetail(id: UUID)
     case invoiceDetail(id: UUID)
+    case settingsRoot
     case settingsSection(SettingsSection)
 }
 
