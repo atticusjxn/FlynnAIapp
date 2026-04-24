@@ -75,11 +75,14 @@ final class DeepLinkRouter {
                 pending = PendingLink(tab: .money, route: nil)
             }
         case "settings":
+            // Settings is no longer a tab — it lives inside the Dashboard stack.
+            // Push Route.settingsSection (or settingsRoot when no sub-section is
+            // specified) onto the Dashboard NavigationStack via the gear icon.
             if let first = pathComponents.first,
                let section = SettingsSection(rawValue: first) {
-                pending = PendingLink(tab: .settings, route: .settingsSection(section))
+                pending = PendingLink(tab: .dashboard, route: .settingsSection(section))
             } else {
-                pending = PendingLink(tab: .settings, route: nil)
+                pending = PendingLink(tab: .dashboard, route: .settingsRoot)
             }
         default:
             FlynnLog.nav.warning("Unknown deep link host: \(host ?? "nil", privacy: .public)")
