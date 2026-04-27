@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
+import { AppEventsLogger } from 'react-native-fbsdk-next';
 import { PhoneProvisioningScreen } from './onboarding/PhoneProvisioningScreen';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -40,6 +41,8 @@ export const CompleteSetupScreen: React.FC = () => {
           throw error;
         }
       }
+
+      AppEventsLogger.logEvent(AppEventsLogger.AppEvents.CompletedRegistration);
 
       // Navigate back to dashboard
       Alert.alert(

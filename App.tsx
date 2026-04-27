@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto';
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
+import { Settings } from 'react-native-fbsdk-next';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -310,6 +311,10 @@ function AppNavigator() {
 }
 
 export default function App() {
+  useEffect(() => {
+    Settings.initializeSDK();
+  }, []);
+
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,

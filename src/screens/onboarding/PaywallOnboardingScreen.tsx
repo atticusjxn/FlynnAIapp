@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { AppEventsLogger } from 'react-native-fbsdk-next';
 import {
   View,
   Text,
@@ -10,14 +11,52 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnButton } from '../../components/ui/FlynnButton';
+import { supabase } from '../../services/supabase';
 import {
   bootstrap as bootstrapPlay,
   attachListeners as attachPlayListeners,
   purchase as purchasePlay,
   type PlayProductId,
 } from '../../services/PlayBillingService';
+
+const API_BASE_URL =
+  Constants.expoConfig?.extra?.apiBaseUrl || 'https://flynnai-telephony.fly.dev';
+
+/**
+ * Provision a Telnyx phone number for the just-paid user. Idempotent on the
+ * server, safe to call multiple times. Errors are logged but non-fatal — the
+ * user can retry from settings if it fails the first time.
+ */
+async function provisionFlynnNumber(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
+  if (!accessToken) {
+    console.warn('[Paywall] No session for number provisioning — skipping');
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/telnyx/provision-number`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ countryCode: 'AU' }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.warn('[Paywall] Provision failed:', res.status, body);
+      return;
+    }
+    const data = await res.json();
+    console.log('[Paywall] Number provisioned:', data.phoneNumber);
+  } catch (err) {
+    console.warn('[Paywall] Provision request errored:', (err as Error).message);
+  }
+}
 
 const TOTAL_STEPS = 7;
 const CURRENT_STEP = 5;
@@ -69,7 +108,11 @@ export const PaywallOnboardingScreen: React.FC<Props> = ({ onNext, onBack }) => 
       console.warn('[Paywall] Play Billing bootstrap failed:', err.message)
     );
     const detach = attachPlayListeners({
-      onSuccess: () => {
+      onSuccess: async () => {
+        AppEventsLogger.logEvent(AppEventsLogger.AppEvents.StartTrial, 0, { fb_currency: 'AUD' });
+        // Provision the user's dedicated Flynn number now that the trial is active.
+        // Non-blocking on errors — caller can retry from settings if it fails.
+        await provisionFlynnNumber();
         setPurchasing(false);
         onNext();
       },

@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import Supabase
 import UIKit
+import FBSDKCoreKit
 
 /// Drives the 6-step onboarding wizard. Steps can skip forward freely; the
 /// final step writes `users.onboarding_completed = true` which flips
@@ -36,6 +37,12 @@ final class OnboardingStore {
     private(set) var loadState: LoadState = .idle
     private(set) var onboardingCompleted: Bool?
     private(set) var hasProvisionedPhone: Bool = false
+    /// E.164 number provisioned to the user (Flynn's number, not their personal one).
+    /// Populated by `provisionPhoneNumber()` after paywall success.
+    private(set) var flynnPhoneNumber: String?
+    /// Phone number from `auth.users.phone` — set if the user signed up via SMS.
+    /// Used to pre-fill the business profile phone field so the user doesn't retype.
+    private(set) var verifiedPhone: String?
     var currentStep: Step = .websiteScrape {
         didSet { Self.persistStep(currentStep) }
     }
@@ -84,6 +91,7 @@ final class OnboardingStore {
                 .value
             onboardingCompleted = row.onboarding_completed
             hasProvisionedPhone = row.has_provisioned_phone ?? false
+            verifiedPhone = session.user.phone
             demoUserId = session.user.id.uuidString
 
             // Restore in-progress step if the user quit mid-onboarding last launch.
@@ -95,6 +103,39 @@ final class OnboardingStore {
         } catch {
             loadState = .error(error.localizedDescription)
             onboardingCompleted = true
+        }
+    }
+
+    /// Provisions a Telnyx phone number for the user via the Flynn backend.
+    /// Idempotent server-side — calling repeatedly is safe.
+    /// Called immediately after paywall purchase succeeds so the user finishes
+    /// onboarding with a working Flynn number.
+    func provisionPhoneNumber(countryCode: String = "AU") async {
+        guard let url = URL(string: "\(FlynnEnv.flynnAPIBaseURL)/api/telnyx/provision-number") else { return }
+        do {
+            let session = try await client.auth.session
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(["countryCode": countryCode])
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                let bodyText = String(data: data, encoding: .utf8) ?? "<no body>"
+                FlynnLog.network.error("Provision failed: \((response as? HTTPURLResponse)?.statusCode ?? -1, privacy: .public) \(bodyText, privacy: .public)")
+                return
+            }
+            struct Response: Decodable {
+                let phoneNumber: String
+                let phoneNumberSid: String?
+            }
+            let decoded = try JSONDecoder().decode(Response.self, from: data)
+            flynnPhoneNumber = decoded.phoneNumber
+            hasProvisionedPhone = true
+            FlynnLog.network.info("Provisioned Flynn number: \(decoded.phoneNumber, privacy: .public)")
+        } catch {
+            FlynnLog.network.error("Provision request errored: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -144,6 +185,8 @@ final class OnboardingStore {
                 .execute()
             onboardingCompleted = true
             Self.clearPersistedStep()
+            // Log the registration-completion conversion event for Meta ad attribution.
+            AppEvents.shared.logEvent(.completedRegistration)
         } catch {
             FlynnLog.network.error("Onboarding complete failed: \(error.localizedDescription, privacy: .public)")
         }

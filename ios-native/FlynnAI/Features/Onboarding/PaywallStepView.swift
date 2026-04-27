@@ -1,9 +1,11 @@
 import SwiftUI
 import StoreKit
+import FBSDKCoreKit
 
 /// Step 5: Paywall shown after the live voice demo, so users have already
 /// experienced real value before being asked to pay.
 struct PaywallStepView: View {
+    let store: OnboardingStore
     let onSubscribe: () -> Void
     let onSkip: () -> Void
 
@@ -122,7 +124,13 @@ struct PaywallStepView: View {
         isPurchasing = true
         Task {
             await subStore.purchase(item)
+            // Provision the user's dedicated Flynn number now that the trial is
+            // active. Awaited so the next step has the number ready; failures
+            // are handled inside the store (logged, non-fatal — user can retry).
+            await store.provisionPhoneNumber()
             isPurchasing = false
+            // Log the StartTrial conversion event for Meta ad attribution.
+            AppEvents.shared.logEvent(.startedTrial, parameters: [.currency: "AUD"])
             flash.success("Trial started — welcome to Flynn")
             onSubscribe()
         }

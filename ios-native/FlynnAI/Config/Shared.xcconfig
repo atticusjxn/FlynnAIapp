@@ -6,9 +6,14 @@ SWIFT_VERSION = 6.0
 TARGETED_DEVICE_FAMILY = 1
 
 // Supabase project URL (public, not secret)
-SUPABASE_URL = https:/$()/kbggkjozdrxuzbshnxqc.supabase.co
+SUPABASE_URL = https:/$()/zvfeafmmtfplzpnocyjw.supabase.co
 
 // Flynn telephony / API base
 FLYNN_API_BASE_URL = https:/$()/flynnai-telephony.fly.dev
+
+// Facebook / Meta SDK — real values live in Secrets.local.xcconfig (gitignored).
+// Get these from developers.facebook.com → My Apps → FlynnAI → Settings → Basic.
+FACEBOOK_APP_ID =
+FACEBOOK_CLIENT_TOKEN =
 
 #include? "Secrets.local.xcconfig"

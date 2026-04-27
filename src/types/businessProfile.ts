@@ -163,6 +163,7 @@ export interface BusinessProfileInput {
 
   ai_instructions?: string;
   greeting_template?: string;
+  ivr_custom_script?: string;
 
   // Website scraping
   website_scraped_at?: string;

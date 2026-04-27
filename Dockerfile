@@ -4,9 +4,12 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
-# Install production dependencies only
+# Install production dependencies only.
+# --ignore-scripts skips the `postinstall` hook, which patches react-native-iap
+# Kotlin files for the Android build — irrelevant on the server and would fail
+# here because scripts/postinstall.js isn't copied into this image.
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 COPY llmClient.js ./
 

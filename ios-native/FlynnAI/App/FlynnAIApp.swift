@@ -1,4 +1,5 @@
 import SwiftUI
+import AppTrackingTransparency
 
 @main
 struct FlynnAIApp: App {
@@ -38,11 +39,25 @@ struct FlynnAIApp: App {
                         .environment(subscription)
                         .preferredColorScheme(colorScheme)
                 }
-                .onOpenURL { url in deepLink.handle(url: url) }
+                .onOpenURL { url in
+                    // Auth callback (email confirmation / magic link) takes priority —
+                    // exchange the URL for a Supabase session before any in-app routing.
+                    if url.host?.lowercased() == "auth" {
+                        Task { await auth.handleAuthCallback(url: url) }
+                    } else {
+                        deepLink.handle(url: url)
+                    }
+                }
                 .task {
                     await auth.bootstrap()
                     await subscription.bootstrap()
                     await PushAuthorization.requestAndRegister()
+                    // Request App Tracking Transparency permission so the Meta SDK
+                    // can collect IDFA for ad attribution. Apple requires this prompt
+                    // before any tracking-related data collection.
+                    if #available(iOS 14, *) {
+                        _ = await ATTrackingManager.requestTrackingAuthorization()
+                    }
                 }
         }
     }

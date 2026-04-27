@@ -9,6 +9,8 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppEventsLogger } from 'react-native-fbsdk-next';
 import Constants from 'expo-constants';
 import { FlynnIcon } from '../../components/ui/FlynnIcon';
 import { FlynnCard } from '../../components/ui/FlynnCard';
@@ -63,6 +65,18 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ navigati
   useEffect(() => {
     loadSubscriptionData();
   }, []);
+
+  // Log first paid conversion once, when trial converts to active
+  useEffect(() => {
+    if (!subscription || subscription.status !== 'active') return;
+    const key = `meta_purchase_logged_${user?.id}`;
+    AsyncStorage.getItem(key).then(logged => {
+      if (logged) return;
+      const priceAUD = subscription.plan.amount / 100;
+      AppEventsLogger.logPurchase(priceAUD, 'AUD');
+      AsyncStorage.setItem(key, '1');
+    });
+  }, [subscription?.status]);
 
   const loadSubscriptionData = async () => {
     if (!user?.id) return;

@@ -1247,6 +1247,11 @@ app.post('/webhooks/appstore', express.raw({ type: 'application/json' }), (req, 
   return handleAppStoreAssn2(req, res);
 });
 
+// Supabase Auth "Send SMS Hook" — Supabase generates the OTP and posts here;
+// we forward via Telnyx. Must be raw-body-parsed for signature verification.
+const { handleSendSmsHook } = require('./telephony/webhooks/supabaseAuthHook');
+app.post('/api/auth/send-sms-hook', express.raw({ type: 'application/json' }), handleSendSmsHook);
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
@@ -1903,6 +1908,13 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
         null;
       const aiInstructions = buildAiInstructions(config.businessProfile);
 
+      // Build a default IVR (Mode A — SMS Link follow-up) script from the
+      // scraped greeting. This is the default mode for new users; without a
+      // script the inbound webhook falls back to a generic greeting.
+      const ivrScript =
+        `${config.greetingScript || `G'day, you've reached ${businessName || 'us'}.`} ` +
+        `For a booking link, press 1. For a quote, press 2. Or leave a voicemail.`;
+
       const { error: bpError } = await supabaseStorageClient
         .from('business_profiles')
         .upsert(
@@ -1916,6 +1928,7 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
             ai_instructions: aiInstructions,
             ai_greeting_text: config.greetingScript,
             ai_followup_questions: config.intakeQuestions,
+            ivr_custom_script: ivrScript,
             scraped_context: {
               rawScrape: scrapedData,
               businessProfile: config.businessProfile,
@@ -2370,6 +2383,141 @@ app.get('/api/billing/subscription-status', authenticateJwt, async (req, res) =>
 });
 
 // Twilio Phone Number Provisioning Endpoints
+
+// ===========================
+// Telnyx number provisioning (production path)
+// ===========================
+const telnyxClient = require('./telephony/telnyxClient');
+
+/**
+ * Provision a Telnyx phone number for the authenticated user.
+ *
+ * Idempotent: if `users.telnyx_phone_number` is already set, returns it
+ * without re-purchasing. Used by both the RN and iOS Swift onboarding flows
+ * after the paywall step succeeds.
+ *
+ * Optional body:
+ *   { countryCode?: 'AU' | 'US' | ... }   defaults to 'AU'
+ *
+ * Response:
+ *   200 { phoneNumber: '+61...', phoneNumberSid: '<uuid>' }
+ *   429 { error: 'no_available_numbers' }   if Telnyx has no AU numbers
+ *   500 { error: 'order_failed', message }  on Telnyx API error
+ *
+ * POST /api/telnyx/provision-number
+ */
+app.post('/api/telnyx/provision-number', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const countryCode = (req.body?.countryCode || 'AU').toUpperCase();
+
+  try {
+    // Idempotency — return the existing number if already provisioned.
+    // Note: column is named `twilio_phone_number` for back-compat but now
+    // stores the user's Telnyx-provisioned number.
+    const { data: existing, error: existingErr } = await supabaseServiceClient
+      .from('users')
+      .select('email, business_name, twilio_phone_number, twilio_number_sid')
+      .eq('id', userId)
+      .single();
+
+    if (existingErr) {
+      console.error('[Provision] Failed to load user:', existingErr);
+      return res.status(500).json({ error: 'user_lookup_failed', message: existingErr.message });
+    }
+
+    if (existing?.twilio_phone_number) {
+      return res.status(200).json({
+        phoneNumber: existing.twilio_phone_number,
+        phoneNumberSid: existing.twilio_number_sid || null,
+        idempotent: true,
+      });
+    }
+
+    // Dev-mode short-circuit — only burn real Telnyx $$ for non-allowlisted users.
+    if (process.env.TELNYX_DEV_MODE === 'true' && process.env.TELNYX_DEV_SHARED_NUMBER) {
+      const allowList = (process.env.DEV_TEST_EMAILS || '')
+        .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+      if (existing?.email && allowList.includes(existing.email.toLowerCase())) {
+        const sharedNumber = process.env.TELNYX_DEV_SHARED_NUMBER;
+        const sharedSid = process.env.TELNYX_DEV_SHARED_SID || `DEV-${userId.slice(0, 8)}`;
+        await supabaseServiceClient
+          .from('users')
+          .update({
+            twilio_phone_number: sharedNumber,
+            twilio_number_sid: sharedSid,
+            has_provisioned_phone: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId);
+        console.log('[Provision] DEV_MODE: assigned shared number', { userId, sharedNumber });
+        return res.status(200).json({ phoneNumber: sharedNumber, phoneNumberSid: sharedSid, devMode: true });
+      }
+    }
+
+    // 1. Search Telnyx for an available AU local number with both SMS + Voice.
+    const available = await telnyxClient.searchAvailableNumbers({
+      countryCode,
+      features: ['sms', 'voice'],
+      limit: 1,
+    });
+    if (!available.length) {
+      console.warn('[Provision] No available Telnyx numbers', { countryCode });
+      return res.status(429).json({ error: 'no_available_numbers' });
+    }
+    const candidate = available[0].phone_number;
+
+    // 2. Order the number, assigning it to our existing voice connection +
+    //    messaging profile so inbound calls/SMS route to our webhooks.
+    const order = await telnyxClient.orderNumber({
+      phoneNumber: candidate,
+      connectionId: process.env.TELNYX_CONNECTION_ID,
+      messagingProfileId: process.env.TELNYX_MESSAGING_PROFILE_ID,
+    });
+
+    const ordered = order?.phone_numbers?.[0];
+    if (!ordered?.phone_number) {
+      console.error('[Provision] Order returned no phone number', { order });
+      return res.status(500).json({ error: 'order_failed', message: 'Telnyx order returned no phone numbers' });
+    }
+
+    // 3. Update users row. The column name is legacy (`twilio_phone_number`)
+    //    but now stores the Telnyx-provisioned number.
+    await supabaseServiceClient
+      .from('users')
+      .update({
+        twilio_phone_number: ordered.phone_number,
+        twilio_number_sid: ordered.id,
+        has_provisioned_phone: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    console.log('[Provision] Telnyx number provisioned', {
+      userId,
+      phoneNumber: ordered.phone_number,
+      phoneNumberId: ordered.id,
+      orderStatus: order.status,
+    });
+
+    return res.status(200).json({
+      phoneNumber: ordered.phone_number,
+      phoneNumberSid: ordered.id,
+      orderStatus: order.status,
+    });
+  } catch (err) {
+    console.error('[Provision] Failed:', err);
+    return res.status(500).json({ error: 'order_failed', message: err.message });
+  }
+});
+
+// Deprecated shim — old clients still hitting /api/twilio/purchase-number
+// get forwarded to the Telnyx path. Safe to remove once all clients ship 2.0.0.
+app.post('/api/twilio/purchase-number-legacy-redirect', authenticateJwt, (req, res) => {
+  req.url = '/api/telnyx/provision-number';
+  return app._router.handle(req, res);
+});
 
 /**
  * Search for available Twilio phone numbers

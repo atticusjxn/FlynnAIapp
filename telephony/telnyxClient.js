@@ -97,6 +97,70 @@ function transfer(callControlId, to) {
 }
 
 // ---------------------------------------------------------------------------
+// Number provisioning — search → order → assign
+// https://developers.telnyx.com/api/numbers
+// ---------------------------------------------------------------------------
+
+/**
+ * Search Telnyx for available phone numbers.
+ * @param {object} opts
+ * @param {string} opts.countryCode  ISO-2 e.g. "AU", "US"
+ * @param {string[]} opts.features   e.g. ["sms", "voice"]
+ * @param {number} opts.limit
+ * @returns {Promise<Array<{phone_number: string, region_information: any, features: any[]}>>}
+ */
+async function searchAvailableNumbers({ countryCode = 'AU', features = ['sms', 'voice'], limit = 1 } = {}) {
+  const params = new URLSearchParams();
+  params.set('filter[country_code]', countryCode);
+  params.set('filter[limit]', String(limit));
+  features.forEach((f) => params.append('filter[features][]', f));
+  const result = await telnyxRequest('GET', `/available_phone_numbers?${params.toString()}`);
+  return result?.data || [];
+}
+
+/**
+ * Place a number order for a specific phone number. Telnyx returns the order
+ * with the phone-number records (each has its own UUID, used to configure).
+ * @param {object} opts
+ * @param {string} opts.phoneNumber       E.164 phone number from search results
+ * @param {string} [opts.connectionId]    Optional Call Control connection ID — set here so inbound calls route to our voice webhook
+ * @param {string} [opts.messagingProfileId] Optional Messaging Profile ID — set here so SMS routes correctly
+ * @returns {Promise<{id: string, phone_numbers: Array<{id: string, phone_number: string, status: string}>, status: string}>}
+ */
+async function orderNumber({ phoneNumber, connectionId, messagingProfileId } = {}) {
+  if (!phoneNumber) throw new Error('orderNumber requires phoneNumber');
+  const body = {
+    phone_numbers: [
+      {
+        phone_number: phoneNumber,
+      },
+    ],
+  };
+  if (connectionId) body.connection_id = connectionId;
+  if (messagingProfileId) body.messaging_profile_id = messagingProfileId;
+  const result = await telnyxRequest('POST', '/number_orders', body);
+  return result?.data;
+}
+
+/**
+ * Update a previously-ordered phone number's connection/messaging profile.
+ * Use after orderNumber if you need to re-assign or weren't able to set on order.
+ * @param {object} opts
+ * @param {string} opts.phoneNumberId       Telnyx phone-number UUID
+ * @param {string} [opts.connectionId]
+ * @param {string} [opts.messagingProfileId]
+ */
+async function assignToProfile({ phoneNumberId, connectionId, messagingProfileId } = {}) {
+  if (!phoneNumberId) throw new Error('assignToProfile requires phoneNumberId');
+  const body = {};
+  if (connectionId) body.connection_id = connectionId;
+  if (messagingProfileId) body.messaging_profile_id = messagingProfileId;
+  if (!Object.keys(body).length) return null;
+  const result = await telnyxRequest('PATCH', `/phone_numbers/${phoneNumberId}`, body);
+  return result?.data;
+}
+
+// ---------------------------------------------------------------------------
 // Messaging
 // ---------------------------------------------------------------------------
 
@@ -151,5 +215,8 @@ module.exports = {
   hangup,
   transfer,
   sendSMS,
+  searchAvailableNumbers,
+  orderNumber,
+  assignToProfile,
   verifyWebhookSignature,
 };

@@ -13,9 +13,14 @@ final class AuthStore {
     var state: State = .loading
     var errorMessage: String?
     var isSubmitting: Bool = false
+    /// Set true after a successful email signup that requires email confirmation.
+    /// LoginView observes this to show "Check your email — we sent you a link."
+    var awaitingEmailConfirmation: Bool = false
 
     private let client: SupabaseClient
     private var authListenerTask: Task<Void, Never>?
+
+    private static let authCallbackURL = URL(string: "flynnai://auth/callback")!
 
     init(client: SupabaseClient = FlynnSupabase.client) {
         self.client = client
@@ -75,8 +80,17 @@ final class AuthStore {
     }
 
     func signUp(email: String, password: String) async {
+        awaitingEmailConfirmation = false
         await run {
-            _ = try await self.client.auth.signUp(email: email, password: password)
+            let response = try await self.client.auth.signUp(
+                email: email,
+                password: password,
+                redirectTo: Self.authCallbackURL
+            )
+            // If session is nil after signUp, Supabase is waiting on email confirmation.
+            if response.session == nil {
+                self.awaitingEmailConfirmation = true
+            }
         }
     }
 
@@ -92,15 +106,42 @@ final class AuthStore {
         }
     }
 
+    /// Sends an SMS OTP to the given phone. Supabase merges signin/signup for phone,
+    /// so the same call handles both new and existing users.
+    func signInWithPhone(phone: String) async {
+        await run {
+            try await self.client.auth.signInWithOTP(phone: phone)
+        }
+    }
+
+    /// Verifies the SMS OTP and on success transitions the store to .signedIn via
+    /// the auth state listener.
+    func verifyPhoneOTP(phone: String, token: String) async {
+        await run {
+            _ = try await self.client.auth.verifyOTP(phone: phone, token: token, type: .sms)
+        }
+    }
+
     func sendPasswordReset(email: String) async {
         await run {
-            try await self.client.auth.resetPasswordForEmail(email)
+            try await self.client.auth.resetPasswordForEmail(email, redirectTo: Self.authCallbackURL)
         }
     }
 
     func signOut() async {
         await run {
             try await self.client.auth.signOut()
+        }
+    }
+
+    /// Called when the OS delivers `flynnai://auth/callback?code=...` (email
+    /// confirmation, magic link, password reset). Exchanges the URL for a
+    /// Supabase session.
+    func handleAuthCallback(url: URL) async {
+        guard url.absoluteString.hasPrefix("flynnai://auth/callback") else { return }
+        await run {
+            try await self.client.auth.session(from: url)
+            self.awaitingEmailConfirmation = false
         }
     }
 

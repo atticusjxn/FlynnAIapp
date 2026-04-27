@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Linking } from 'react-native';
 import { supabase } from '../services/supabase';
 import { AuthTokenStorage } from '../services/authTokenStorage';
 import { registerDevicePushToken } from '../services/pushRegistration';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import Constants from 'expo-constants';
+
+const AUTH_CALLBACK_URL = 'flynnai://auth/callback';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -15,10 +17,12 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, businessName: string) => Promise<void>;
+  signUp: (email: string, password: string, businessName: string) => Promise<{ needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
   signInWithOTP: (email: string) => Promise<void>;
   verifyOTP: (email: string, token: string) => Promise<void>;
+  signInWithPhone: (phone: string) => Promise<void>;
+  verifyPhoneOTP: (phone: string, token: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
 }
@@ -176,6 +180,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [user]);
 
+  // Handle email-confirmation / magic-link callbacks: flynnai://auth/callback?code=...
+  useEffect(() => {
+    const handleAuthCallback = async (url: string | null) => {
+      if (!url || !url.startsWith('flynnai://auth/callback')) return;
+      try {
+        const parsed = new URL(url);
+        const code = parsed.searchParams.get('code');
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          if (data?.session) await updateSessionState(data.session);
+          return;
+        }
+        const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        if (accessToken && refreshToken) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) throw error;
+          if (data?.session) await updateSessionState(data.session);
+        }
+      } catch (e) {
+        console.error('[AuthContext] Auth callback handling failed:', e);
+      }
+    };
+
+    Linking.getInitialURL().then(handleAuthCallback);
+    const sub = Linking.addEventListener('url', ({ url }) => handleAuthCallback(url));
+    return () => sub.remove();
+  }, []);
+
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -189,8 +227,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email,
       password,
       options: {
-        data: { business_name: businessName }
+        data: { business_name: businessName },
+        emailRedirectTo: AUTH_CALLBACK_URL,
       }
+    });
+    if (error) throw error;
+    if (data?.session) {
+      await updateSessionState(data.session);
+      return { needsEmailConfirmation: false };
+    }
+    return { needsEmailConfirmation: true };
+  };
+
+  const signInWithPhone = async (phone: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      phone,
+      options: { shouldCreateUser: true },
+    });
+    if (error) throw error;
+  };
+
+  const verifyPhoneOTP = async (phone: string, token: string) => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: 'sms',
     });
     if (error) throw error;
     if (data?.session) {
@@ -357,6 +418,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signOut,
       signInWithOTP,
       verifyOTP,
+      signInWithPhone,
+      verifyPhoneOTP,
       resetPassword,
       signInWithGoogle
     }}>

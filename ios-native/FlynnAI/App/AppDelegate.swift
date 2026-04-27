@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+import FBSDKCoreKit
 
 /// Bridges UIKit's push-notification callbacks into SwiftUI via
 /// `@UIApplicationDelegateAdaptor`. Registers the device for remote
@@ -11,7 +12,28 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+
+        // Initialise the Meta Facebook SDK for app-install attribution and event logging.
+        // Auto-events (App Install, app activation) fire automatically. We log
+        // StartTrial / CompletedRegistration / Purchase manually from the relevant views.
+        ApplicationDelegate.shared.application(
+            application,
+            didFinishLaunchingWithOptions: launchOptions
+        )
+        Settings.shared.isAdvertiserIDCollectionEnabled = true
+        Settings.shared.isAutoLogAppEventsEnabled = true
+
         return true
+    }
+
+    /// Forwards OAuth-style URL callbacks (e.g. fb<APP_ID>://) to the FB SDK.
+    /// Note: `flynnai://auth/callback` is handled in FlynnAIApp via `.onOpenURL`.
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        return ApplicationDelegate.shared.application(app, open: url, options: options)
     }
 
     func application(

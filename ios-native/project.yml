@@ -29,6 +29,9 @@ packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
     from: "2.0.0"
+  FacebookSDK:
+    url: https://github.com/facebook/facebook-ios-sdk
+    from: "17.0.0"
 
 targets:
   FlynnAI:
@@ -66,6 +69,8 @@ targets:
           - CFBundleURLSchemes:
               - flynnai
             CFBundleURLName: com.flynnai.app.native
+          - CFBundleURLSchemes:
+              - fb885850801136212
         UIAppFonts:
           - SpaceGrotesk-Bold.ttf
           - SpaceGrotesk-SemiBold.ttf
@@ -80,6 +85,18 @@ targets:
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)
+        FacebookAppID: $(FACEBOOK_APP_ID)
+        FacebookClientToken: $(FACEBOOK_CLIENT_TOKEN)
+        FacebookDisplayName: Flynn
+        FacebookAdvertiserIDCollectionEnabled: true
+        FacebookAutoLogAppEventsEnabled: true
+        LSApplicationQueriesSchemes:
+          - fbapi
+          - fb-messenger-share-api
+          - fbauth2
+        NSUserTrackingUsageDescription: "FlynnAI uses this identifier to measure ad performance and show you more relevant ads."
+        SKAdNetworkItems:
+          - SKAdNetworkIdentifier: v9wttpbfk9.skadnetwork
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app
@@ -94,5 +111,9 @@ targets:
     dependencies:
       - package: Supabase
         product: Supabase
+      - package: FacebookSDK
+        product: FacebookCore
+      - package: FacebookSDK
+        product: FBSDKCoreKit
     scheme:
       storeKitConfiguration: FlynnAI/Resources/FlynnAI.storekit

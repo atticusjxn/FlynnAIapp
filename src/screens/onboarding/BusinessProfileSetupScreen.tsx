@@ -17,6 +17,7 @@ import { FlynnInput } from '../../components/ui/FlynnInput';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { OnboardingHeader } from '../../components/onboarding/OnboardingHeader';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { useAuth } from '../../context/AuthContext';
 import { spacing, typography, borderRadius, colors } from '../../theme';
 import { WebsiteScraperService } from '../../services/WebsiteScraperService';
 import { BusinessProfileService } from '../../services/BusinessProfileService';
@@ -31,11 +32,14 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
   onBack,
 }) => {
   const { onboardingData, updateOnboardingData } = useOnboarding();
+  const { user } = useAuth();
 
   const [websiteUrl, setWebsiteUrl] = useState(onboardingData.websiteUrl || '');
   const [businessName, setBusinessName] = useState(onboardingData.businessName || '');
-  const [phone, setPhone] = useState(onboardingData.phone || '');
-  const [email, setEmail] = useState(onboardingData.email || '');
+  // Pre-fill phone from the verified phone on the auth user (if signed up via SMS),
+  // falling back to anything already in onboarding state.
+  const [phone, setPhone] = useState(onboardingData.phone || user?.phone || '');
+  const [email, setEmail] = useState(onboardingData.email || user?.email || '');
   const [scraping, setScraping] = useState(false);
   const [scraped, setScraped] = useState(false);
 
@@ -99,6 +103,13 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
       email: email.trim(),
     });
 
+    // Default IVR script (Mode A — SMS Link follow-up). Without this the
+    // inbound webhook falls back to a generic greeting; with it the caller
+    // hears the user's actual business name on the very first call.
+    const defaultIvrScript =
+      `G'day, you've reached ${businessName.trim()}. ` +
+      `For a booking link, press 1. For a quote, press 2. Or leave a voicemail.`;
+
     // Create business profile in database
     try {
       await BusinessProfileService.upsertProfile({
@@ -107,6 +118,7 @@ export const BusinessProfileSetupScreen: React.FC<BusinessProfileSetupScreenProp
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
         business_type: onboardingData.businessType || undefined,
+        ivr_custom_script: defaultIvrScript,
       });
     } catch (error) {
       console.error('[BusinessProfileSetup] Failed to save profile:', error);

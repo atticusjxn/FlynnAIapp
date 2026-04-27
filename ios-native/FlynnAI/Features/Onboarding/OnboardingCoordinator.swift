@@ -24,6 +24,7 @@ struct OnboardingCoordinator: View {
                         LiveVoiceDemoStepView(store: store, onContinue: advance)
                     case .paywall:
                         PaywallStepView(
+                            store: store,
                             onSubscribe: advance,
                             onSkip: {
                                 Task {

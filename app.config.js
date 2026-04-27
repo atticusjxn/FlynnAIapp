@@ -24,6 +24,19 @@ export default {
           "enableGooglePay": true
         }
       ],
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": process.env.FACEBOOK_APP_ID || "885850801136212",
+          "clientToken": process.env.FACEBOOK_CLIENT_TOKEN || "REPLACE_WITH_META_CLIENT_TOKEN",
+          "displayName": "Flynn",
+          "scheme": `fb${process.env.FACEBOOK_APP_ID || "885850801136212"}`,
+          "advertiserIDCollectionEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "isAutoInitEnabled": true,
+          "iosUserTrackingPermission": "Flynn uses this identifier to measure ad performance and show you more relevant ads."
+        }
+      ],
     ],
     name: "FlynnAI",
     slug: "FlynnAI",

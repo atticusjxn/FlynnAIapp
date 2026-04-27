@@ -1,5 +1,6 @@
 import SwiftUI
 import StoreKit
+import FBSDKCoreKit
 
 /// Paywall — lists the 3 Flynn plans with App Store-resolved prices and a
 /// "Start 14-day free trial" CTA. Auto-renewable fine print follows Apple's
@@ -229,6 +230,17 @@ struct SubscriptionView: View {
         Task {
             await store.purchase(product)
             if case .success = store.purchaseState {
+                // Log paid-conversion event for Meta ad attribution. Deduped via
+                // UserDefaults so renewals don't fire it again.
+                let key = "meta.purchase.logged.\(product.product.id)"
+                if !UserDefaults.standard.bool(forKey: key) {
+                    let amount = NSDecimalNumber(decimal: product.product.price)
+                    AppEvents.shared.logPurchase(
+                        amount: amount.doubleValue,
+                        currency: product.product.priceFormatStyle.currencyCode
+                    )
+                    UserDefaults.standard.set(true, forKey: key)
+                }
                 flash.success("Welcome to \(product.plan.displayName)")
                 dismiss()
             } else if case .failed(let message) = store.purchaseState {
