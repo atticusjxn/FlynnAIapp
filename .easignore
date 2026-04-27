@@ -99,7 +99,9 @@ __tests__
 .gitignore
 
 # Scripts (dev tools — exclude all except postinstall which `npm ci` runs at build time)
-scripts
+# NOTE: must use `scripts/*` (not bare `scripts`) so gitignore-style negation
+# can re-include specific files inside.
+scripts/*
 !scripts/postinstall.js
 
 # Environment
