@@ -27,6 +27,12 @@
       "ios": {
         "ascAppId": "6752254950",
         "appleTeamId": "69T5H7R46N"
+      },
+      "android": {
+        "applicationId": "com.flynnai.app",
+        "track": "production",
+        "releaseStatus": "draft",
+        "changesNotSentForReview": false
       }
     }
   }
