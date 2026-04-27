@@ -1,6 +1,6 @@
 {
   "name": "flynnai-temp",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "test": "jest --runInBand",
     "dev": "node server.js",
-    "release:eas": "eas build --profile production --platform all && eas submit --profile production"
+    "release:eas": "eas build --profile production --platform all && eas submit --profile production",
+    "postinstall": "patch-package 2>/dev/null || true"
   },
   "dependencies": {
     "@babel/runtime": "^7.20.6",
@@ -71,6 +72,7 @@
     "react-native-dotenv": "^3.4.11",
     "react-native-elements": "^3.4.3",
     "react-native-gesture-handler": "~2.28.0",
+    "react-native-iap": "^12.15.2",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-modal": "^14.0.0-rc.1",
     "react-native-paper": "^5.14.5",
@@ -100,6 +102,7 @@
     "@babel/core": "^7.25.2",
     "@types/react": "~19.1.10",
     "jest": "^29.7.0",
+    "patch-package": "^8.0.1",
     "supertest": "^7.1.4",
     "typescript": "~5.9.2"
   },

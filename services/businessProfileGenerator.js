@@ -1,4 +1,5 @@
 const OpenAI = require('openai');
+const { GoogleGenAI } = require('@google/genai');
 
 /**
  * Business Profile Generator Service
@@ -6,7 +7,9 @@ const OpenAI = require('openai');
  * from scraped website data
  */
 
-// Determine which LLM provider to use
+// Profile generation defaults to Gemini 2.5 Flash (consistent with the URL
+// scraper, one less vendor, fast structured-JSON output). OpenAI/Grok kept as
+// fallback for the non-optimized paths and for redundancy.
 const ACTIVE_LLM_PROVIDER = (() => {
   const explicit = (process.env.LLM_PROVIDER || '').trim().toLowerCase();
   if (explicit) {
@@ -18,7 +21,9 @@ const ACTIVE_LLM_PROVIDER = (() => {
 const PROFILE_GENERATION_MODEL = process.env.PROFILE_GENERATION_MODEL
   || (ACTIVE_LLM_PROVIDER === 'grok' ? 'grok-2-1212' : 'gpt-4o-mini');
 
-// Initialize LLM client
+const GEMINI_PROFILE_MODEL = process.env.GEMINI_PROFILE_MODEL || 'gemini-2.5-flash';
+
+// Initialize LLM client (OpenAI/Grok — used by legacy generateBusinessProfile)
 const llmClient = (() => {
   if (ACTIVE_LLM_PROVIDER === 'grok') {
     return new OpenAI({
@@ -30,6 +35,14 @@ const llmClient = (() => {
     apiKey: process.env.OPENAI_API_KEY,
   });
 })();
+
+const getGeminiClient = () => {
+  const apiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY required for profile generation');
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 /**
  * Generate business profile from scraped website data
@@ -335,22 +348,26 @@ Generate the complete business profile, greeting script, and intake questions in
   try {
     const startTime = Date.now();
 
-    const completion = await llmClient.chat.completions.create({
-      model: PROFILE_GENERATION_MODEL,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.5,
+    const ai = getGeminiClient();
+    const response = await ai.models.generateContent({
+      model: GEMINI_PROFILE_MODEL,
+      contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+      config: {
+        responseMimeType: 'application/json',
+        temperature: 0.5,
+      },
     });
 
-    const content = completion?.choices?.[0]?.message?.content;
+    const content = response.text
+      || response.candidates?.[0]?.content?.parts?.[0]?.text
+      || '';
     if (!content) {
-      throw new Error('LLM returned empty response');
+      throw new Error('Gemini returned empty response');
     }
 
-    const config = JSON.parse(content);
+    // Gemini may wrap JSON in stray prose despite responseMimeType — strip if so.
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const config = JSON.parse(jsonMatch ? jsonMatch[0] : content);
 
     // Validate required fields
     if (!config.businessProfile || !config.greetingScript || !config.intakeQuestions) {

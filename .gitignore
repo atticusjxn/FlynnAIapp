@@ -62,3 +62,15 @@ RAILWAY_DEPLOYMENT.md
 FLY_DEPLOYMENT.md
 deploy-secrets.sh
 deploy-multiline-secrets.sh
+
+# Keystores and signing keys
+*.keystore
+
+# Database backups
+*.backup.gz
+
+# Local MCP config
+.mcp.json
+
+# Wrangler build cache
+.wrangler/

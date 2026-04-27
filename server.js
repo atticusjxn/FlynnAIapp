@@ -1237,8 +1237,24 @@ if (stripeClient && stripeWebhookSecret) {
   });
 }
 
+const { handleAssn2: handleAppStoreAssn2, handleClientVerify: handleAppStoreVerify } = require('./telephony/webhooks/appstoreWebhook');
+app.post('/webhooks/appstore', express.raw({ type: 'application/json' }), (req, res) => {
+  try {
+    req.body = JSON.parse(req.body.toString('utf8'));
+  } catch (err) {
+    return res.status(400).json({ error: 'invalid_json' });
+  }
+  return handleAppStoreAssn2(req, res);
+});
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+app.post('/webhooks/appstore/verify', authenticateJwt, handleAppStoreVerify);
+
+const { handleClientVerify: handlePlayVerify, handleRtdn: handlePlayRtdn } = require('./telephony/webhooks/playbillingWebhook');
+app.post('/webhooks/playbilling/verify', authenticateJwt, handlePlayVerify);
+app.post('/webhooks/playbilling/rtdn', handlePlayRtdn);
 
 // ========================================
 // Booking Page Routes (Public API)
@@ -2434,6 +2450,42 @@ app.post('/api/twilio/purchase-number', authenticateJwt, async (req, res) => {
   }
 
   try {
+    // Dev shared-number short-circuit: skip provisioning for allow-listed test
+    // emails so we don't burn $2/number on every onboarding test pass.
+    if (process.env.TELNYX_DEV_MODE === 'true' && process.env.TELNYX_DEV_SHARED_NUMBER) {
+      const allowList = (process.env.DEV_TEST_EMAILS || '')
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      const { data: devUser } = await supabaseServiceClient
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+
+      if (devUser?.email && allowList.includes(devUser.email.toLowerCase())) {
+        const sharedNumber = process.env.TELNYX_DEV_SHARED_NUMBER;
+        const sharedSid = process.env.TELNYX_DEV_SHARED_SID || `DEV-${userId.slice(0, 8)}`;
+        console.log('[Twilio] DEV MODE: assigning shared number', { userId, sharedNumber });
+
+        await supabaseServiceClient
+          .from('users')
+          .update({
+            twilio_phone_number: sharedNumber,
+            twilio_number_sid: sharedSid,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId);
+
+        return res.status(200).json({
+          phoneNumber: sharedNumber,
+          phoneNumberSid: sharedSid,
+          devMode: true,
+        });
+      }
+    }
+
     console.log('[Twilio] Starting phone number purchase', { userId, phoneNumber, hasAddress: !!address });
 
     let addressSid = null;

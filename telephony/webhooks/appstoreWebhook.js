@@ -107,8 +107,9 @@ async function handleClientVerify(req, res) {
 
     // Best-effort: stamp appAccountToken from auth context so the upsert can
     // resolve user_id without a prior subscriptions row.
-    if (req.userId && !tx.appAccountToken) {
-      tx.appAccountToken = req.userId;
+    const authUserId = req.userId || req.user?.id;
+    if (authUserId && !tx.appAccountToken) {
+      tx.appAccountToken = authUserId;
     }
 
     const result = await upsertFromTransaction(tx);

@@ -214,6 +214,17 @@ function createNativeTestHandler({
       try {
         console.log('[NativeTest] Starting Deepgram Voice Agent...');
 
+        const missingEnv = [];
+        if (!process.env.DEEPGRAM_API_KEY && !this.deepgramClient) missingEnv.push('DEEPGRAM_API_KEY');
+        if (!process.env.GEMINI_API_KEY) missingEnv.push('GEMINI_API_KEY');
+        if (missingEnv.length) {
+          const msg = `Voice demo unavailable — server missing: ${missingEnv.join(', ')}`;
+          console.error('[NativeTest]', msg);
+          this.sendToClient({ type: 'error', code: 'config_missing', error: msg });
+          this.cleanup();
+          return;
+        }
+
         // Create Deepgram client if not provided
         const client = this.deepgramClient || createClient(process.env.DEEPGRAM_API_KEY);
 

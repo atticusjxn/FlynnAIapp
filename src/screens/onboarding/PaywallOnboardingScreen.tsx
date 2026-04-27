@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,18 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnButton } from '../../components/ui/FlynnButton';
+import {
+  bootstrap as bootstrapPlay,
+  attachListeners as attachPlayListeners,
+  purchase as purchasePlay,
+  type PlayProductId,
+} from '../../services/PlayBillingService';
 
 const TOTAL_STEPS = 7;
 const CURRENT_STEP = 5;
@@ -26,7 +34,7 @@ const PLANS = [
     id: 'growth',
     name: 'Growth',
     price: '$79/mo',
-    detail: '180 min AI / month',
+    detail: '250 min AI / month + voice clone',
     description: 'Ideal for growing businesses fielding more regular call volume.',
     highlighted: true,
   },
@@ -34,7 +42,7 @@ const PLANS = [
     id: 'pro',
     name: 'Pro',
     price: '$179/mo',
-    detail: '500 min AI / month',
+    detail: '700 min AI / month + voice clone, priority support',
     description: 'Best for high-volume businesses who need maximum coverage.',
   },
 ] as const;
@@ -44,9 +52,52 @@ interface Props {
   onBack: () => void;
 }
 
+const PRODUCT_ID_BY_PLAN: Record<string, PlayProductId> = {
+  starter: 'com.flynnai.starter.monthly',
+  growth: 'com.flynnai.growth.monthly',
+  pro: 'com.flynnai.pro.monthly',
+};
+
 export const PaywallOnboardingScreen: React.FC<Props> = ({ onNext, onBack }) => {
   const insets = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<string>('growth');
+  const [purchasing, setPurchasing] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    bootstrapPlay().catch((err) =>
+      console.warn('[Paywall] Play Billing bootstrap failed:', err.message)
+    );
+    const detach = attachPlayListeners({
+      onSuccess: () => {
+        setPurchasing(false);
+        onNext();
+      },
+      onError: (err) => {
+        setPurchasing(false);
+        Alert.alert('Subscription failed', err.message);
+      },
+    });
+    return detach;
+  }, [onNext]);
+
+  const handleStartTrial = async () => {
+    if (Platform.OS === 'android') {
+      const productId = PRODUCT_ID_BY_PLAN[selectedPlan];
+      if (!productId) return;
+      try {
+        setPurchasing(true);
+        await purchasePlay(productId);
+      } catch (err) {
+        setPurchasing(false);
+        Alert.alert('Subscription failed', (err as Error).message);
+      }
+      return;
+    }
+    // iOS path is owned by native Swift PaywallStepView (rendered separately).
+    // For the React Native paywall on iOS (web/dev fallback) just advance.
+    onNext();
+  };
 
   const selected = PLANS.find(p => p.id === selectedPlan);
 
@@ -121,21 +172,15 @@ export const PaywallOnboardingScreen: React.FC<Props> = ({ onNext, onBack }) => 
           })}
         </View>
 
-        {/* Android note */}
-        <View style={styles.noteBox}>
-          <Text style={styles.noteText}>
-            In-app purchase available on iOS. Android billing coming soon.
-          </Text>
-        </View>
-
         {/* CTA */}
         <View style={[styles.ctaGroup, { paddingBottom: insets.bottom }]}>
           <FlynnButton
-            title={`Start free trial — ${selected?.price ?? ''}`}
-            onPress={onNext}
+            title={purchasing ? 'Opening Play Store…' : `Start free trial — ${selected?.price ?? ''}`}
+            onPress={handleStartTrial}
             variant="primary"
             size="large"
             fullWidth
+            disabled={purchasing}
           />
           <TouchableOpacity onPress={onNext} style={styles.skipBtn}>
             <Text style={styles.skipText}>
@@ -221,13 +266,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkmarkText: { color: colors.white, fontWeight: '700', fontSize: 14 },
-  noteBox: {
-    backgroundColor: colors.gray100,
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  noteText: { ...typography.bodySmall, color: colors.textSecondary, textAlign: 'center' },
   ctaGroup: { gap: spacing.sm },
   skipBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   skipText: { ...typography.bodyMedium, color: colors.textSecondary },
