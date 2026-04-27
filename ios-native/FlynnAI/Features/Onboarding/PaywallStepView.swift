@@ -130,7 +130,7 @@ struct PaywallStepView: View {
             await store.provisionPhoneNumber()
             isPurchasing = false
             // Log the StartTrial conversion event for Meta ad attribution.
-            AppEvents.shared.logEvent(.startedTrial, parameters: [.currency: "AUD"])
+            AppEvents.shared.logEvent(.startTrial, parameters: [.currency: "AUD"])
             flash.success("Trial started — welcome to Flynn")
             onSubscribe()
         }

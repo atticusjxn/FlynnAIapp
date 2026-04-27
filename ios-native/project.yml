@@ -113,7 +113,5 @@ targets:
         product: Supabase
       - package: FacebookSDK
         product: FacebookCore
-      - package: FacebookSDK
-        product: FBSDKCoreKit
     scheme:
       storeKitConfiguration: FlynnAI/Resources/FlynnAI.storekit
