@@ -98,8 +98,9 @@ __tests__
 .git
 .gitignore
 
-# Scripts
+# Scripts (dev tools — exclude all except postinstall which `npm ci` runs at build time)
 scripts
+!scripts/postinstall.js
 
 # Environment
 .env.local
