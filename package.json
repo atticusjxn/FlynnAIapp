@@ -10,7 +10,7 @@
     "test": "jest --runInBand",
     "dev": "node server.js",
     "release:eas": "eas build --profile production --platform all && eas submit --profile production",
-    "postinstall": "patch-package 2>/dev/null || true"
+    "postinstall": "node scripts/postinstall.js"
   },
   "dependencies": {
     "@babel/runtime": "^7.20.6",
