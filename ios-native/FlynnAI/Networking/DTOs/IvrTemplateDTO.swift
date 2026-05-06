@@ -1,40 +1,30 @@
 import Foundation
 
-/// Pre-built IVR script (shared catalog in `ivr_templates`). Users either select one
+/// Pre-built call greeting script (shared catalog in `ivr_templates`). Users either select one
 /// directly (`business_profiles.ivr_template_id`) or fork it into
 /// `business_profiles.ivr_custom_script`. Script body contains placeholders like
 /// `{business_name}`, `{booking_option}`, `{quote_option}`.
 struct IvrTemplateDTO: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
-    let slug: String
     let name: String
-    let industry: String?
+    let industry: String?   // industry_type in DB
     let tone: String?
-    let scriptBody: String
-    let includesBooking: Bool
-    let includesQuote: Bool
-    let includesVoicemail: Bool
-    let isBuiltin: Bool
-    let locale: String
+    let scriptBody: String  // script_template in DB
+    let description: String?
+    let isActive: Bool
     let createdAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id
-        case slug
         case name
-        case industry
+        case industry = "industry_type"
         case tone
-        case scriptBody = "script_body"
-        case includesBooking = "includes_booking"
-        case includesQuote = "includes_quote"
-        case includesVoicemail = "includes_voicemail"
-        case isBuiltin = "is_builtin"
-        case locale
+        case scriptBody = "script_template"
+        case description
+        case isActive = "is_active"
         case createdAt = "created_at"
     }
 
-    /// Render with placeholder substitution. Unknown placeholders are left intact so
-    /// the editor can show them to the user.
     func render(businessName: String, bookingOption: String = "a booking link",
                 quoteOption: String = "a quote form") -> String {
         scriptBody

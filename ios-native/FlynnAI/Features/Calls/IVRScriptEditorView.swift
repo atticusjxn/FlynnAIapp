@@ -34,7 +34,7 @@ final class IVRScriptEditorStore {
         // a DecodingError on a half-populated row. Either way, fall through to an
         // empty input rather than hard-erroring — the user can still pick a template.
         do {
-            self.templates = try await templateRepo.list(locale: "en-AU", industry: nil)
+            self.templates = try await templateRepo.list(industry: nil)
         } catch {
             loadState = .error(error.localizedDescription)
             return
@@ -102,7 +102,7 @@ struct IVRScriptEditorView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(FlynnColor.background)
-        .navigationTitle("IVR script")
+        .navigationTitle("Call greeting")
         .navigationBarTitleDisplayMode(.large)
         .task { await store.load() }
     }
@@ -131,10 +131,10 @@ struct IVRScriptEditorView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-            Text("What Flynn says when it answers")
+            Text("What callers hear when Flynn answers")
                 .flynnType(FlynnTypography.h3)
                 .foregroundColor(FlynnColor.textPrimary)
-            Text("Pick a template or write your own. Placeholders like `{business_name}` get filled in at call time.")
+            Text("Pick a template or write your own. Placeholders like {business_name} get filled in automatically.")
                 .flynnType(FlynnTypography.bodyMedium)
                 .foregroundColor(FlynnColor.textSecondary)
         }
@@ -142,7 +142,7 @@ struct IVRScriptEditorView: View {
 
     private var templatesSection: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            Text("Templates")
+            Text("Greeting templates")
                 .flynnType(FlynnTypography.h4)
                 .foregroundColor(FlynnColor.textPrimary)
 
@@ -262,7 +262,7 @@ struct IVRScriptEditorView: View {
 
     private func errorState(_ message: String) -> some View {
         VStack(spacing: FlynnSpacing.sm) {
-            Text("Couldn't load IVR settings")
+            Text("Couldn't load greeting templates")
                 .flynnType(FlynnTypography.h4)
             Text(message)
                 .flynnType(FlynnTypography.bodyMedium)
@@ -276,12 +276,12 @@ struct IVRScriptEditorView: View {
         Task {
             do {
                 try await store.save()
-                flash.success("IVR script saved")
+                flash.success("Greeting saved")
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription
-                flash.error("Couldn't save script")
-                FlynnLog.network.error("IVRScript save failed: \(error.localizedDescription, privacy: .public)")
+                flash.error("Couldn't save greeting")
+                FlynnLog.network.error("Greeting save failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

@@ -62,13 +62,21 @@ IMPORTANT RULES:
 5. Return ONLY the JSON object, no other text`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: SCRAPER_MODEL,
-            contents: [{ parts: [{ text: extractionPrompt }] }],
-            config: {
-                tools: [{ urlContext: {} }],
-            },
-        });
+        const TIMEOUT_MS = 80_000;
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Scrape timeout after 80s')), TIMEOUT_MS)
+        );
+
+        const response = await Promise.race([
+            ai.models.generateContent({
+                model: SCRAPER_MODEL,
+                contents: [{ parts: [{ text: extractionPrompt }] }],
+                config: {
+                    tools: [{ urlContext: {} }],
+                },
+            }),
+            timeoutPromise,
+        ]);
 
         // Extract text from response
         const responseText = response.text ||

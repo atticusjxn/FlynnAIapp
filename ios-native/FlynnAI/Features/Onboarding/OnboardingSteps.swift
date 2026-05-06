@@ -6,10 +6,16 @@ import Supabase
 struct WebsiteScrapeStepView: View {
     @Environment(FlashStore.self) private var flash
     @State private var url: String = ""
-    @State private var isSubmitting = false
-    @State private var scrapeResult: ScrapeResult?
+    @State private var phase: Phase = .idle
+    @State private var showContinueBackground = false
     @FocusState private var urlFocused: Bool
     let onContinue: () -> Void
+
+    enum Phase {
+        case idle
+        case scanning
+        case done(ScrapeResult)
+    }
 
     struct ScrapeResult {
         let businessName: String?
@@ -29,41 +35,18 @@ struct WebsiteScrapeStepView: View {
                     subtitle: "We'll pull your services and tone from your website so your receptionist sounds like you."
                 )
 
-                if scrapeResult == nil {
-                    FlynnTextField(
-                        label: "Website",
-                        text: $url,
-                        placeholder: "https://yourtradiebusiness.com.au",
-                        textContentType: .URL,
-                        autocapitalization: .never
-                    )
-                    .focused($urlFocused)
-                    .disabled(isSubmitting)
-
-                    FlynnButton(
-                        title: isSubmitting ? "Scanning…" : "Continue",
-                        action: submit,
-                        fullWidth: true,
-                        isLoading: isSubmitting
-                    )
-                    .disabled(isSubmitting)
-
-                    Button("I don't have a website") { onContinue() }
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(FlynnColor.textSecondary)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .contentShape(Rectangle())
-                } else {
-                    scrapeResultsCard
-
-                    FlynnButton(
-                        title: "Looks right — continue",
-                        action: onContinue,
-                        fullWidth: true
-                    )
+                switch phase {
+                case .idle:
+                    idleContent
+                case .scanning:
+                    scanningContent
+                case .done(let result):
+                    scrapeResultsCard(result)
+                    FlynnButton(title: "Looks right — continue", action: onContinue, fullWidth: true)
                     Button("Edit details") {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                            scrapeResult = nil
+                            phase = .idle
+                            showContinueBackground = false
                         }
                     }
                     .flynnType(FlynnTypography.caption)
@@ -77,112 +60,232 @@ struct WebsiteScrapeStepView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 
+    // MARK: - Idle state
+
     @ViewBuilder
-    private var scrapeResultsCard: some View {
-        if let result = scrapeResult {
-            VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-                HStack {
-                    VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
-                        Text(result.businessName ?? "Your Business")
-                            .flynnType(FlynnTypography.h3)
-                            .foregroundColor(FlynnColor.textPrimary)
-                        if result.cached {
-                            Text("From cache · instant")
-                                .flynnType(FlynnTypography.caption)
-                                .foregroundColor(FlynnColor.textTertiary)
-                        } else {
-                            Text("Detected from your website")
-                                .flynnType(FlynnTypography.caption)
-                                .foregroundColor(FlynnColor.textTertiary)
-                        }
-                    }
-                    Spacer()
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(FlynnColor.success)
-                        .font(.title2)
-                }
+    private var idleContent: some View {
+        FlynnTextField(
+            label: "Website",
+            text: $url,
+            placeholder: "https://yourtradiebusiness.com.au",
+            textContentType: .URL,
+            autocapitalization: .never
+        )
+        .focused($urlFocused)
 
-                // Narrated breakdown — rolls in check-off rows sequentially so the
-                // user *feels* that Flynn has actually learned about their business.
-                ScrapeBreakdownList(result: result)
+        FlynnButton(title: "Scan website", action: submit, fullWidth: true)
 
-                if !result.services.isEmpty {
-                    FlowLayout(spacing: FlynnSpacing.xs) {
-                        ForEach(Array(result.services.prefix(8).enumerated()), id: \.offset) { idx, service in
-                            Text(service)
-                                .flynnType(FlynnTypography.caption)
-                                .foregroundColor(FlynnColor.primary)
-                                .padding(.horizontal, FlynnSpacing.sm)
-                                .padding(.vertical, FlynnSpacing.xxs)
-                                .background(
-                                    Capsule().fill(FlynnColor.primaryLight)
-                                )
-                                .transition(.scale(scale: 0.8).combined(with: .opacity))
-                                .animation(
-                                    .spring(response: 0.35, dampingFraction: 0.7)
-                                    .delay(0.6 + Double(idx) * 0.05),
-                                    value: result.services.count
-                                )
-                        }
-                    }
-                }
+        Button("I don't have a website") { onContinue() }
+            .flynnType(FlynnTypography.caption)
+            .foregroundColor(FlynnColor.textSecondary)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+    }
+
+    // MARK: - Scanning state
+
+    @ViewBuilder
+    private var scanningContent: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+            HStack(spacing: FlynnSpacing.sm) {
+                ProgressView()
+                    .tint(FlynnColor.primary)
+                Text("Scanning your website…")
+                    .flynnType(FlynnTypography.h4)
+                    .foregroundColor(FlynnColor.textPrimary)
             }
-            .padding(FlynnSpacing.md)
-            .background(
-                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
-                    .fill(FlynnColor.backgroundSecondary)
-            )
-            .brutalistBorder(cornerRadius: FlynnRadii.md)
+
+            ScanningProgressRows()
+                .padding(.top, FlynnSpacing.xxs)
+        }
+        .padding(FlynnSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                .fill(FlynnColor.backgroundSecondary)
+        )
+        .brutalistBorder(cornerRadius: FlynnRadii.md)
+        .task {
+            // After 10 seconds reveal the "continue in background" escape hatch.
+            try? await Task.sleep(for: .seconds(10))
+            withAnimation(.easeInOut(duration: 0.3)) { showContinueBackground = true }
+        }
+
+        if showContinueBackground {
+            VStack(spacing: FlynnSpacing.xs) {
+                Text("This can take up to 90 seconds. Keep setting up — we'll apply it automatically when done.")
+                    .flynnType(FlynnTypography.bodySmall)
+                    .foregroundColor(FlynnColor.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                FlynnButton(title: "Continue in background", action: onContinue, fullWidth: true)
+            }
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
+    // MARK: - Results card
+
+    @ViewBuilder
+    private func scrapeResultsCard(_ result: ScrapeResult) -> some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+            HStack {
+                VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
+                    Text(result.businessName ?? "Your Business")
+                        .flynnType(FlynnTypography.h3)
+                        .foregroundColor(FlynnColor.textPrimary)
+                    Text(result.cached ? "From cache · instant" : "Detected from your website")
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textTertiary)
+                }
+                Spacer()
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(FlynnColor.success)
+                    .font(.title2)
+            }
+
+            ScrapeBreakdownList(result: result)
+
+            if !result.services.isEmpty {
+                FlowLayout(spacing: FlynnSpacing.xs) {
+                    ForEach(Array(result.services.prefix(8).enumerated()), id: \.offset) { idx, service in
+                        Text(service)
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.primary)
+                            .padding(.horizontal, FlynnSpacing.sm)
+                            .padding(.vertical, FlynnSpacing.xxs)
+                            .background(Capsule().fill(FlynnColor.primaryLight))
+                            .transition(.scale(scale: 0.8).combined(with: .opacity))
+                            .animation(
+                                .spring(response: 0.35, dampingFraction: 0.7).delay(0.6 + Double(idx) * 0.05),
+                                value: result.services.count
+                            )
+                    }
+                }
+            }
+        }
+        .padding(FlynnSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                .fill(FlynnColor.backgroundSecondary)
+        )
+        .brutalistBorder(cornerRadius: FlynnRadii.md)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    // MARK: - Submit
+
     private func submit() {
         urlFocused = false
         guard !url.isEmpty else { onContinue(); return }
-        isSubmitting = true
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { phase = .scanning }
+
+        // Unstructured Task — survives view dismissal so background scraping
+        // still saves to DB even if user taps "Continue in background".
         Task {
             do {
                 let session = try await FlynnSupabase.client.auth.session
-                var request = URLRequest(url: URL(string: "\(FlynnEnv.flynnAPIBaseURL)/api/scrape-website")!)
+                var request = URLRequest(
+                    url: URL(string: "\(FlynnEnv.flynnAPIBaseURL)/api/scrape-website")!,
+                    timeoutInterval: 120
+                )
                 request.httpMethod = "POST"
                 request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                let body: [String: Any] = ["url": url, "applyConfig": true]
-                request.httpBody = try JSONSerialization.data(withJSONObject: body)
+                request.httpBody = try JSONSerialization.data(withJSONObject: ["url": url, "applyConfig": true])
 
                 let (data, _) = try await URLSession.shared.data(for: request)
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    let config = json["config"] as? [String: Any]
-                    let bp = config?["businessProfile"] as? [String: Any]
-                    let scraped = json["scrapedData"] as? [String: Any]
-                    let rawServices = scraped?["services"] as? [String] ?? []
-                    let name = bp?["public_name"] as? String
-                        ?? (scraped?["metadata"] as? [String: Any])?["siteName"] as? String
-                    let tone = (bp?["brand_voice"] as? [String: Any])?["tone"] as? String
-                    let hoursSummary = (scraped?["hours"] as? String)
-                        ?? (scraped?["metadata"] as? [String: Any])?["hours"] as? String
-                    let serviceArea = scraped?["serviceArea"] as? String
-                        ?? (bp?["service_area"] as? String)
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                        scrapeResult = ScrapeResult(
-                            businessName: name,
-                            services: rawServices,
-                            tone: tone,
-                            hoursSummary: hoursSummary,
-                            serviceArea: serviceArea,
-                            cached: (json["cached"] as? Bool) ?? false
-                        )
+                guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    await MainActor.run { onContinue() }
+                    return
+                }
+                let config = json["config"] as? [String: Any]
+                let bp = config?["businessProfile"] as? [String: Any]
+                let scraped = json["scrapedData"] as? [String: Any]
+                let result = ScrapeResult(
+                    businessName: bp?["public_name"] as? String
+                        ?? (scraped?["metadata"] as? [String: Any])?["siteName"] as? String,
+                    services: scraped?["services"] as? [String] ?? [],
+                    tone: (bp?["brand_voice"] as? [String: Any])?["tone"] as? String,
+                    hoursSummary: scraped?["businessHours"] as? String
+                        ?? (scraped?["metadata"] as? [String: Any])?["hours"] as? String,
+                    serviceArea: scraped?["serviceArea"] as? String ?? bp?["service_area"] as? String,
+                    cached: (json["cached"] as? Bool) ?? false
+                )
+                await MainActor.run {
+                    // If the user already advanced (background mode), just flash silently.
+                    switch phase {
+                    case .scanning:
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                            showContinueBackground = false
+                            phase = .done(result)
+                        }
+                        flash.success("Business info loaded")
+                    default:
+                        flash.success("Website scanned — your receptionist is updated")
                     }
-                    flash.success("Business info loaded")
-                } else {
-                    onContinue()
                 }
             } catch {
-                flash.error("Couldn't load website — continue manually")
-                onContinue()
+                await MainActor.run {
+                    switch phase {
+                    case .scanning:
+                        flash.error("Couldn't load website — continue manually")
+                        onContinue()
+                    default:
+                        break  // already advanced; silent fail is fine
+                    }
+                }
             }
-            isSubmitting = false
+        }
+    }
+}
+
+// MARK: - Animated scanning rows (shown while waiting)
+
+private struct ScanningProgressRows: View {
+    private let labels = [
+        ("building.2", "Business name"),
+        ("wrench.and.screwdriver", "Services & offerings"),
+        ("clock", "Hours & availability"),
+        ("quote.bubble", "Tone & style"),
+        ("sparkles", "Tagline & slogan"),
+    ]
+    @State private var visibleCount = 0
+    @State private var pulse = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+            ForEach(Array(labels.enumerated()), id: \.offset) { idx, label in
+                if idx < visibleCount {
+                    HStack(spacing: FlynnSpacing.xs) {
+                        Image(systemName: label.0)
+                            .font(.system(size: 12))
+                            .foregroundColor(FlynnColor.primary)
+                            .frame(width: 16)
+                        Text(label.1)
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.textSecondary)
+                        Spacer()
+                        // Pulsing ellipsis to show active work
+                        Text("scanning")
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.textTertiary)
+                            .opacity(pulse ? 0.3 : 1.0)
+                    }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+            }
+        }
+        .task {
+            for i in 0..<labels.count {
+                try? await Task.sleep(for: .milliseconds(i == 0 ? 300 : 500))
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { visibleCount = i + 1 }
+            }
+            // Start pulsing once all rows visible
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
         }
     }
 }
@@ -267,8 +370,8 @@ struct IvrScriptStepView: View {
         VStack(spacing: 0) {
             stepHeader(
                 eyebrow: "Step 3 of 6",
-                title: "Pick an IVR template",
-                subtitle: "This is what callers hear when Flynn answers. You can tweak it later."
+                title: "What do callers hear?",
+                subtitle: "Pick a greeting template for when Flynn answers. You can customise it any time."
             )
             .padding(.horizontal, FlynnSpacing.lg)
             .padding(.top, FlynnSpacing.lg)
