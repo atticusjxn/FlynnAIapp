@@ -9,6 +9,7 @@ struct FlynnAIApp: App {
     @State private var flash = FlashStore()
     @State private var subscription = SubscriptionStore()
     @State private var paywall = PaywallPresentation()
+    @State private var appleSearchAdsAttribution = AppleSearchAdsAttributionStore()
     @AppStorage("flynn.appTheme") private var themeRaw: String = AppTheme.system.rawValue
 
     init() {
@@ -49,7 +50,9 @@ struct FlynnAIApp: App {
                     }
                 }
                 .task {
+                    await appleSearchAdsAttribution.captureIfNeeded()
                     await auth.bootstrap()
+                    await appleSearchAdsAttribution.claimIfAuthenticated()
                     await subscription.bootstrap()
                     await PushAuthorization.requestAndRegister()
                     // Request App Tracking Transparency permission so the Meta SDK
@@ -57,6 +60,11 @@ struct FlynnAIApp: App {
                     // before any tracking-related data collection.
                     if #available(iOS 14, *) {
                         _ = await ATTrackingManager.requestTrackingAuthorization()
+                    }
+                }
+                .onChange(of: auth.state) { _, newState in
+                    if case .signedIn = newState {
+                        Task { await appleSearchAdsAttribution.claimIfAuthenticated() }
                     }
                 }
         }

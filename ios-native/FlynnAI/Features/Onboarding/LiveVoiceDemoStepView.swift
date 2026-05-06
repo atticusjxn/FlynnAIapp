@@ -67,6 +67,10 @@ struct LiveVoiceDemoStepView: View {
             .padding(FlynnSpacing.lg)
         }
         .task { await bootstrapDemo() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Re-check mic permission if user went to Settings to enable it
+            Task { await requestMicPermission() }
+        }
         .onDisappear {
             timer?.invalidate()
             agent.disconnect()
@@ -100,8 +104,8 @@ struct LiveVoiceDemoStepView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Waveform
-            WaveformView(isActive: agent.isAgentSpeaking)
+            // Waveform — amplitude driven by actual PCM RMS when agent speaks
+            WaveformView(isActive: agent.isAgentSpeaking || agent.isMicActive, audioLevel: agent.audioLevel)
                 .frame(height: 48)
 
             // Transcript
@@ -137,7 +141,7 @@ struct LiveVoiceDemoStepView: View {
                     .fill(FlynnColor.backgroundSecondary)
             )
             .brutalistBorder(cornerRadius: FlynnRadii.md)
-            .disabled(!agent.isConnected || !micPermissionGranted)
+            .disabled(!agent.isConnected)
         }
         .padding(FlynnSpacing.md)
         .background(
@@ -218,6 +222,12 @@ struct LiveVoiceDemoStepView: View {
             return
         }
         await agent.connect(wsUrl: wsUrl, userId: userId)
+        // Surface server-side errors (e.g. Deepgram 401) to the UI
+        if let serverError = agent.serverError {
+            connectionError = serverError
+            isConnecting = false
+            return
+        }
         startTimer()
     }
 }
@@ -226,6 +236,7 @@ struct LiveVoiceDemoStepView: View {
 
 private struct WaveformView: View {
     let isActive: Bool
+    var audioLevel: Float = 0  // 0–1 actual amplitude; 0 = use idle animation
     @State private var phase: Double = 0
 
     var body: some View {
@@ -239,23 +250,20 @@ private struct WaveformView: View {
                     let x = CGFloat(i * 2 + 1) * barWidth
                     let t = Double(i) / Double(bars)
                     if isActive {
-                        let amplitude = (0.2 + 0.8 * abs(sin(phase + t * .pi * 3))) * centerY
+                        // When we have real amplitude data use it; otherwise fall back to
+                        // a gentle idle animation so the waveform always looks alive.
+                        let level = audioLevel > 0.01 ? Double(audioLevel) : 0.15
+                        let amplitude = (level * abs(sin(phase + t * .pi * 3))) * centerY
+                        let safeHeight = max(2.0, amplitude * 2)
                         let rect = CGRect(
                             x: x - barWidth / 2,
-                            y: centerY - amplitude,
+                            y: centerY - safeHeight / 2,
                             width: barWidth,
-                            height: amplitude * 2
+                            height: safeHeight
                         )
                         ctx.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(barColor))
                     } else {
-                        // Flat 1pt line when disconnected — prevents the "row of orange dots" bug
-                        // caused by applying cornerRadius to a very short rect.
-                        let rect = CGRect(
-                            x: x - barWidth / 2,
-                            y: centerY - 0.5,
-                            width: barWidth,
-                            height: 1
-                        )
+                        let rect = CGRect(x: x - barWidth / 2, y: centerY - 0.5, width: barWidth, height: 1)
                         ctx.fill(Path(rect), with: .color(barColor))
                     }
                 }
@@ -277,6 +285,20 @@ struct TranscriptLine: Identifiable, Equatable {
     let isAgent: Bool
 }
 
+// MARK: - Thread-safe bridge for audio tap → WebSocket
+
+/// Holds the two properties accessed from the AVAudioEngine tap closure, which
+/// runs on the CoreAudio render thread (not the main actor). Storing them here
+/// avoids the Swift 6 `dispatch_assert_queue_fail` crash that occurs when the
+/// tap closure captures `self` and touches @MainActor-isolated ivars.
+private final class AudioBridge: @unchecked Sendable {
+    var isMicActive: Bool = false
+    var webSocket: URLSessionWebSocketTask?
+    /// RMS amplitude of the most-recent mic frame (0–1). Updated on CoreAudio thread;
+    /// read on MainActor via a periodic Task dispatch.
+    var micLevel: Float = 0
+}
+
 // MARK: - Voice demo agent (WebSocket + AVAudioEngine)
 
 @MainActor
@@ -284,12 +306,15 @@ struct TranscriptLine: Identifiable, Equatable {
 final class VoiceDemoAgent: NSObject {
     private(set) var isConnected: Bool = false
     private(set) var isAgentSpeaking: Bool = false
+    private(set) var isMicActive: Bool = false
+    private(set) var audioLevel: Float = 0  // 0–1 RMS amplitude for waveform
     private(set) var latestTranscript: TranscriptLine?
+    private(set) var serverError: String?
 
-    private var webSocket: URLSessionWebSocketTask?
+    private let bridge = AudioBridge()
     private var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
-    private var isMicActive: Bool = false
+    private var micLevelTimer: Timer?
 
     func connect(wsUrl: URL, userId: String) async {
         var components = URLComponents(url: wsUrl, resolvingAgainstBaseURL: false)!
@@ -307,56 +332,120 @@ final class VoiceDemoAgent: NSObject {
             FlynnLog.network.error("AVAudioSession setup failed: \(error.localizedDescription, privacy: .public)")
         }
 
+        serverError = nil
         let session = URLSession(configuration: .default)
-        webSocket = session.webSocketTask(with: finalUrl)
-        webSocket?.resume()
+        let ws = session.webSocketTask(with: finalUrl)
+        bridge.webSocket = ws
+        ws.resume()
         isConnected = true
 
         setupAudioEngine()
         receiveLoop()
+        startMicLevelTimer()
+
+        // Tell the server to start the voice agent — it waits for this before
+        // connecting to Deepgram so we don't waste a session on connection setup.
+        sendJSON(["type": "start"])
+    }
+
+    private func startMicLevelTimer() {
+        micLevelTimer?.invalidate()
+        micLevelTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor [weak self] in
+                guard let self, self.isMicActive else { return }
+                self.audioLevel = self.bridge.micLevel
+            }
+        }
     }
 
     func disconnect() {
-        webSocket?.cancel(with: .normalClosure, reason: nil)
-        webSocket = nil
+        micLevelTimer?.invalidate()
+        micLevelTimer = nil
+        bridge.webSocket?.cancel(with: .normalClosure, reason: nil)
+        bridge.webSocket = nil
+        bridge.isMicActive = false
         audioEngine?.stop()
         audioEngine = nil
         isConnected = false
         isAgentSpeaking = false
+        isMicActive = false
     }
 
     func startSpeaking() {
-        guard isConnected, !isMicActive else { return }
+        guard isConnected, !bridge.isMicActive else { return }
+        bridge.isMicActive = true
         isMicActive = true
     }
 
     func stopSpeaking() {
+        bridge.isMicActive = false
         isMicActive = false
     }
 
     func injectText(_ text: String) {
         guard isConnected else { return }
-        let msg: [String: Any] = ["type": "inject_text", "text": text]
-        guard let data = try? JSONSerialization.data(withJSONObject: msg) else { return }
-        let frame = URLSessionWebSocketTask.Message.string(String(data: data, encoding: .utf8)!)
-        webSocket?.send(frame) { _ in }
+        sendJSON(["type": "inject_text", "text": text])
         latestTranscript = TranscriptLine(text: text, isAgent: false)
     }
 
+    private func sendJSON(_ msg: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: msg),
+              let str = String(data: data, encoding: .utf8) else { return }
+        bridge.webSocket?.send(.string(str)) { _ in }
+    }
+
     private func setupAudioEngine() {
+        let (engine, player) = Self.buildAudioEngine(bridge: bridge)
+        audioEngine = engine
+        playerNode = player
+    }
+
+    // nonisolated so the tap closure it creates is NOT @MainActor-isolated.
+    // CoreAudio calls the tap on RealtimeMessenger.mServiceQueue; if the closure
+    // inherits @MainActor isolation Swift 6 fires dispatch_assert_queue_fail.
+    //
+    // Pass nil as the tap format so AVAudio uses the hardware's native format
+    // instead of a format derived from inputNode.outputFormat() before engine start,
+    // which can return a zero-sampleRate format and cause NSInvalidArgumentException.
+    private nonisolated static func buildAudioEngine(bridge: AudioBridge) -> (AVAudioEngine, AVAudioPlayerNode) {
         let engine = AVAudioEngine()
         let player = AVAudioPlayerNode()
         engine.attach(player)
-        let format = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!
-        engine.connect(player, to: engine.mainMixerNode, format: format)
+        let playbackFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!
+        engine.connect(player, to: engine.mainMixerNode, format: playbackFormat)
 
-        let micFormat = engine.inputNode.outputFormat(forBus: 0)
-        engine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: micFormat) { [weak self] buffer, _ in
-            guard let self, self.isMicActive, let pcm = buffer.int16ChannelData?[0] else { return }
+        // nil format → native hardware format; avoids NSException from stale format before engine.start().
+        // Hardware is typically 44100 or 48000 Hz; server expects 16000 Hz Linear16 PCM.
+        // We downsample inline using the buffer's actual sampleRate so no magic constants needed.
+        //
+        // Always send audio frames — even silence — so Deepgram never receives a gap long
+        // enough to trigger CLIENT_MESSAGE_TIMEOUT and kill the session.
+        engine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: nil) { buffer, _ in
             let frameCount = Int(buffer.frameLength)
-            let data = Data(bytes: pcm, count: frameCount * 2)
-            let message = URLSessionWebSocketTask.Message.data(data)
-            self.webSocket?.send(message) { _ in }
+            guard frameCount > 0, let floatData = buffer.floatChannelData?[0] else { return }
+            let inputRate = buffer.format.sampleRate   // e.g. 44100 or 48000
+            let targetRate = 16000.0
+            let ratio = inputRate / targetRate          // e.g. 2.756 or 3.0
+            let outputCount = max(1, Int(Double(frameCount) / ratio))
+            var samples = [Int16](repeating: 0, count: outputCount)
+            if bridge.isMicActive {
+                var rmsSum: Float = 0
+                for i in 0..<outputCount {
+                    let srcIdx = min(Int(Double(i) * ratio), frameCount - 1)
+                    let f = floatData[srcIdx]
+                    samples[i] = Int16(max(-32768, min(32767, Int(f * 32767))))
+                    rmsSum += f * f
+                }
+                bridge.micLevel = min(1.0, sqrt(rmsSum / Float(outputCount)) * 4)
+            } else {
+                bridge.micLevel = 0
+            }
+            // samples is all-zeros when mic is inactive → silence frames keep session alive
+            let pcmData = samples.withUnsafeBytes { Data($0) }
+            let b64 = pcmData.base64EncodedString()
+            let json = "{\"type\":\"audio\",\"audio\":\"\(b64)\"}"
+            bridge.webSocket?.send(.string(json)) { _ in }
         }
 
         do {
@@ -364,14 +453,12 @@ final class VoiceDemoAgent: NSObject {
         } catch {
             FlynnLog.network.error("Audio engine start failed: \(error.localizedDescription, privacy: .public)")
         }
-
-        audioEngine = engine
-        playerNode = player
         player.play()
+        return (engine, player)
     }
 
     private func receiveLoop() {
-        webSocket?.receive { [weak self] result in
+        bridge.webSocket?.receive { [weak self] result in
             guard let self else { return }
             switch result {
             case .success(let message):
@@ -396,31 +483,68 @@ final class VoiceDemoAgent: NSObject {
 
     private func playAudio(_ data: Data) {
         guard let engine = audioEngine, engine.isRunning, let player = playerNode else { return }
+        // standardFormatWithSampleRate creates Float32 non-interleaved PCM — matching the
+        // engine connection format. int16ChannelData is nil for Float32 buffers, so we
+        // must convert Int16 → Float32 ourselves when filling floatChannelData.
         let format = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!
         let frameCount = AVAudioFrameCount(data.count / 2)
         guard frameCount > 0,
               let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
         buffer.frameLength = frameCount
+        var rmsSum: Float = 0
         data.withUnsafeBytes { ptr in
             guard let int16Ptr = ptr.baseAddress?.assumingMemoryBound(to: Int16.self),
-                  let dst = buffer.int16ChannelData?[0] else { return }
-            dst.update(from: int16Ptr, count: Int(frameCount))
+                  let dst = buffer.floatChannelData?[0] else { return }
+            for i in 0..<Int(frameCount) {
+                let f = Float(int16Ptr[i]) / 32768.0
+                dst[i] = f
+                rmsSum += f * f
+            }
         }
-        player.scheduleBuffer(buffer)
-        Task { @MainActor in self.isAgentSpeaking = true }
+        let rms = sqrt(rmsSum / Float(frameCount))
+        audioLevel = min(1.0, rms * 4)
+        isAgentSpeaking = true
+        player.scheduleBuffer(buffer) { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.audioLevel = 0
+            }
+        }
     }
 
     private func handleTextFrame(_ text: String) {
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-        let type = json["type"] as? String
-        if type == "transcript", let t = json["text"] as? String {
+        switch json["type"] as? String {
+        case "ready":
+            FlynnLog.network.info("Voice demo ready")
+        case "audio":
+            // Server sends agent TTS as base64 Linear16 PCM in a JSON envelope
+            if let b64 = json["audio"] as? String, let pcm = Data(base64Encoded: b64) {
+                Task { @MainActor in self.playAudio(pcm) }
+            }
+        case "agent_started_speaking":
+            Task { @MainActor in self.isAgentSpeaking = true }
+        case "agent_stopped_speaking", "agent_audio_done":
+            Task { @MainActor in self.isAgentSpeaking = false }
+        case "transcript":
+            if let t = json["text"] as? String {
+                Task { @MainActor in
+                    self.latestTranscript = TranscriptLine(text: t, isAgent: true)
+                }
+            }
+        case "user_started_speaking":
+            Task { @MainActor in self.isAgentSpeaking = false }
+        case "error":
+            let msg = json["error"] as? String ?? "Unknown error"
+            FlynnLog.network.error("Voice demo error from server: \(msg, privacy: .public)")
             Task { @MainActor in
-                self.latestTranscript = TranscriptLine(text: t, isAgent: true)
+                self.serverError = msg
+                self.isConnected = false
                 self.isAgentSpeaking = false
             }
-        } else if type == "agent_speaking" {
-            Task { @MainActor in self.isAgentSpeaking = true }
+        default:
+            break
         }
     }
 }

@@ -1247,11 +1247,6 @@ app.post('/webhooks/appstore', express.raw({ type: 'application/json' }), (req, 
   return handleAppStoreAssn2(req, res);
 });
 
-// Supabase Auth "Send SMS Hook" — Supabase generates the OTP and posts here;
-// we forward via Telnyx. Must be raw-body-parsed for signature verification.
-const { handleSendSmsHook } = require('./telephony/webhooks/supabaseAuthHook');
-app.post('/api/auth/send-sms-hook', express.raw({ type: 'application/json' }), handleSendSmsHook);
-
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
@@ -1266,6 +1261,9 @@ app.post('/webhooks/playbilling/rtdn', handlePlayRtdn);
 // ========================================
 const bookingRoutes = require('./routes/bookingRoutes');
 app.use('/api/booking', bookingRoutes);
+
+const appleSearchAdsAttributionRoutes = require('./routes/appleSearchAdsAttributionRoutes');
+app.use('/api/attribution', appleSearchAdsAttributionRoutes);
 
 // ========================================
 // Payments Summary CSV (Mates Rates compatibility)
@@ -1921,7 +1919,7 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
           {
             user_id: userId,
             business_name: businessName,
-            industry: inferredIndustry,
+            business_type: inferredIndustry,
             website_url: url,
             services: parsedServices,
             pricing_notes: config.businessProfile?.pricing_summary || null,
@@ -1929,7 +1927,7 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
             ai_greeting_text: config.greetingScript,
             ai_followup_questions: config.intakeQuestions,
             ivr_custom_script: ivrScript,
-            scraped_context: {
+            website_scrape_data: {
               rawScrape: scrapedData,
               businessProfile: config.businessProfile,
               greetingScript: config.greetingScript,

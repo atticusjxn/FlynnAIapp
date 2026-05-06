@@ -68,7 +68,7 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - flynnai
-            CFBundleURLName: com.flynnai.app.native
+            CFBundleURLName: com.flynnai.app
           - CFBundleURLSchemes:
               - fb885850801136212
         UIAppFonts:
@@ -113,5 +113,6 @@ targets:
         product: Supabase
       - package: FacebookSDK
         product: FacebookCore
+      - sdk: AdServices.framework
     scheme:
       storeKitConfiguration: FlynnAI/Resources/FlynnAI.storekit

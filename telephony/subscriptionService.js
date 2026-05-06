@@ -12,6 +12,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const { supabase } = require('./supabaseClient');
+const { recordSubscriptionConversionEvent } = require('./appleSearchAdsAttributionService');
 
 const APPLE_ROOT_CERT_PATH = process.env.APPLE_ROOT_CA_PATH;
 const EXPECTED_BUNDLE_ID = process.env.APPLE_BUNDLE_ID || 'com.flynnai.app';
@@ -244,15 +245,46 @@ async function upsertFromTransaction(tx) {
     cancelled_at: tx.revocationDate ? new Date(tx.revocationDate).toISOString() : null,
   };
 
-  const { error } = await supabase
+  const { data: subscription, error } = await supabase
     .from('subscriptions')
-    .upsert(row, { onConflict: 'apple_original_transaction_id' });
+    .upsert(row, { onConflict: 'apple_original_transaction_id' })
+    .select('id')
+    .single();
 
   if (error) {
     console.error('[AppStore] subscriptions upsert failed:', error.message);
     return { success: false, reason: error.message };
   }
-  return { success: true, userId, planId: plan.id, status };
+
+  const occurredAt = tx.purchaseDate
+    ? new Date(tx.purchaseDate).toISOString()
+    : currentPeriodStart;
+  if (tx.isTrialPeriod || tx.offerType === 1) {
+    await recordSubscriptionConversionEvent({
+      userId,
+      subscriptionId: subscription?.id,
+      eventName: 'trial_started',
+      productId: tx.productId,
+      planId: plan.id,
+      appleOriginalTransactionId: tx.originalTransactionId,
+      appleLatestTransactionId: tx.transactionId,
+      occurredAt,
+    });
+  }
+  if (status === 'active') {
+    await recordSubscriptionConversionEvent({
+      userId,
+      subscriptionId: subscription?.id,
+      eventName: 'subscription_active',
+      productId: tx.productId,
+      planId: plan.id,
+      appleOriginalTransactionId: tx.originalTransactionId,
+      appleLatestTransactionId: tx.transactionId,
+      occurredAt,
+    });
+  }
+
+  return { success: true, userId, planId: plan.id, subscriptionId: subscription?.id, status };
 }
 
 /**

@@ -14,38 +14,51 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            Tab(FlynnTab.dashboard.title, systemImage: FlynnTab.dashboard.systemImage, value: FlynnTab.dashboard) {
-                NavigationStack(path: $dashboardPath) {
-                    DashboardView()
-                        .navigationDestination(for: Route.self) { route in destination(for: route) }
-                }
+            NavigationStack(path: $dashboardPath) {
+                DashboardView()
+                    .navigationDestination(for: Route.self) { route in destination(for: route) }
             }
-            Tab(FlynnTab.events.title, systemImage: FlynnTab.events.systemImage, value: FlynnTab.events) {
-                NavigationStack(path: $eventsPath) {
-                    EventsListView()
-                        .navigationDestination(for: Route.self) { route in destination(for: route) }
-                }
+            .tabItem {
+                Label(FlynnTab.dashboard.title, systemImage: FlynnTab.dashboard.systemImage)
             }
-            Tab(FlynnTab.calls.title, systemImage: FlynnTab.calls.systemImage, value: FlynnTab.calls) {
-                NavigationStack(path: $callsPath) {
-                    CallsListView()
-                        .navigationDestination(for: Route.self) { route in destination(for: route) }
-                }
+            .tag(FlynnTab.dashboard)
+
+            NavigationStack(path: $eventsPath) {
+                EventsListView()
+                    .navigationDestination(for: Route.self) { route in destination(for: route) }
             }
-            Tab(FlynnTab.clients.title, systemImage: FlynnTab.clients.systemImage, value: FlynnTab.clients) {
-                NavigationStack(path: $clientsPath) {
-                    ClientsListView()
-                        .navigationDestination(for: Route.self) { route in destination(for: route) }
-                }
+            .tabItem {
+                Label(FlynnTab.events.title, systemImage: FlynnTab.events.systemImage)
             }
-            Tab(FlynnTab.money.title, systemImage: FlynnTab.money.systemImage, value: FlynnTab.money) {
-                NavigationStack(path: $moneyPath) {
-                    MoneyView()
-                        .navigationDestination(for: Route.self) { route in destination(for: route) }
-                }
+            .tag(FlynnTab.events)
+
+            NavigationStack(path: $callsPath) {
+                CallsListView()
+                    .navigationDestination(for: Route.self) { route in destination(for: route) }
             }
+            .tabItem {
+                Label(FlynnTab.calls.title, systemImage: FlynnTab.calls.systemImage)
+            }
+            .tag(FlynnTab.calls)
+
+            NavigationStack(path: $clientsPath) {
+                ClientsListView()
+                    .navigationDestination(for: Route.self) { route in destination(for: route) }
+            }
+            .tabItem {
+                Label(FlynnTab.clients.title, systemImage: FlynnTab.clients.systemImage)
+            }
+            .tag(FlynnTab.clients)
+
+            NavigationStack(path: $moneyPath) {
+                MoneyView()
+                    .navigationDestination(for: Route.self) { route in destination(for: route) }
+            }
+            .tabItem {
+                Label(FlynnTab.money.title, systemImage: FlynnTab.money.systemImage)
+            }
+            .tag(FlynnTab.money)
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
         .onChange(of: deepLink.pending) { _, link in
             guard let link else { return }
             applyDeepLink(link)

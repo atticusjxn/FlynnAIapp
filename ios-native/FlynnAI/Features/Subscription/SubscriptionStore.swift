@@ -77,7 +77,8 @@ final class SubscriptionStore {
 
     // MARK: - Purchase
 
-    func purchase(_ subscriptionProduct: SubscriptionProduct) async {
+    @discardableResult
+    func purchase(_ subscriptionProduct: SubscriptionProduct) async -> Bool {
         purchaseState = .purchasing(productId: subscriptionProduct.product.id)
         do {
             let result = try await subscriptionProduct.product.purchase()
@@ -87,16 +88,21 @@ final class SubscriptionStore {
                 await handleTransactionResult(.verified(transaction), source: .purchase)
                 await transaction.finish()
                 purchaseState = .success
+                return true
             case .userCancelled:
                 purchaseState = .idle
+                return false
             case .pending:
                 purchaseState = .idle
+                return false
             @unknown default:
                 purchaseState = .idle
+                return false
             }
         } catch {
             purchaseState = .failed(error.localizedDescription)
             FlynnLog.network.error("Purchase failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 

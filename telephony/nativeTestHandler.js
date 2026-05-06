@@ -114,9 +114,31 @@ function createNativeTestHandler({
           this.businessContext = null;
         }
 
+        // If the profile exists but fields are empty (e.g. scrape wrote to wrong columns
+        // in a previous bug), try to recover from website_scrape_data.rawScrape.
+        if (this.businessContext && !this.businessContext.business_name) {
+          const raw = this.businessContext.website_scrape_data?.rawScrape;
+          if (raw) {
+            this.businessContext.business_name =
+              raw.metadata?.siteName || raw.metadata?.title || null;
+            if (!this.businessContext.services || this.businessContext.services.length === 0) {
+              this.businessContext.services = (raw.services || []).map((name) =>
+                typeof name === 'string' ? { name, description: '', price_range: '' } : name
+              );
+            }
+            if (!this.businessContext.business_type) {
+              this.businessContext.business_type = raw.businessType || null;
+            }
+            if (!this.businessContext.service_area) {
+              this.businessContext.service_area = raw.serviceArea || null;
+            }
+          }
+        }
+
         console.log('[NativeTest] Business context loaded:', {
           hasContext: !!this.businessContext,
           businessName: this.businessContext?.business_name,
+          serviceCount: this.businessContext?.services?.length ?? 0,
         });
       } catch (error) {
         console.error('[NativeTest] Failed to load business context:', error);
@@ -274,13 +296,8 @@ function createNativeTestHandler({
             },
             think: {
               provider: {
-                type: 'google',
-              },
-              endpoint: {
-                url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse',
-                headers: {
-                  'x-goog-api-key': process.env.GEMINI_API_KEY,
-                },
+                type: 'open_ai',
+                model: 'gpt-4o-mini',
               },
               prompt: this.systemPrompt,
               functions: getFunctionSchema(),

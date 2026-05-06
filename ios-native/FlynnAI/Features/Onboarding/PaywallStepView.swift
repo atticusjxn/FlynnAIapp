@@ -36,7 +36,7 @@ struct PaywallStepView: View {
                     loadFailedState
                 case .loaded:
                     if subStore.products.isEmpty {
-                        loadFailedState
+                        noPlansState
                     } else {
                         planCards
                         ctaButton
@@ -108,6 +108,26 @@ struct PaywallStepView: View {
         .frame(maxWidth: .infinity, minHeight: 220)
     }
 
+    private var noPlansState: some View {
+        VStack(spacing: FlynnSpacing.sm) {
+            Image(systemName: "creditcard.trianglebadge.exclamationmark")
+                .font(.system(size: 32))
+                .foregroundColor(FlynnColor.textTertiary)
+            Text("Plans not configured")
+                .flynnType(FlynnTypography.h4)
+                .foregroundColor(FlynnColor.textPrimary)
+            Text("In-app products haven't been set up in App Store Connect yet.")
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textSecondary)
+                .multilineTextAlignment(.center)
+            FlynnButton(
+                title: "Retry",
+                action: { Task { await subStore.bootstrap() } }
+            )
+        }
+        .frame(maxWidth: .infinity, minHeight: 220)
+    }
+
     private var ctaButton: some View {
         FlynnButton(
             title: "Start free trial — continue setup",
@@ -123,12 +143,20 @@ struct PaywallStepView: View {
               let item = subStore.products.first(where: { $0.product.id == id }) else { return }
         isPurchasing = true
         Task {
-            await subStore.purchase(item)
+            let didPurchase = await subStore.purchase(item)
+            isPurchasing = false
+
+            guard didPurchase else {
+                if case .failed(let message) = subStore.purchaseState {
+                    flash.error(message)
+                }
+                return
+            }
+
             // Provision the user's dedicated Flynn number now that the trial is
             // active. Awaited so the next step has the number ready; failures
             // are handled inside the store (logged, non-fatal — user can retry).
             await store.provisionPhoneNumber()
-            isPurchasing = false
             // Log the StartTrial conversion event for Meta ad attribution.
             AppEvents.shared.logEvent(.startTrial, parameters: [.currency: "AUD"])
             flash.success("Trial started — welcome to Flynn")
