@@ -58,18 +58,7 @@ final class IVRScriptEditorStore {
 
     func selectTemplate(_ template: IvrTemplateDTO) {
         input.ivrTemplateId = template.id
-        // Wipe custom override when picking a fresh template — the preview will render
-        // straight from `script_body`.
-        input.ivrCustomScript = nil
-    }
-
-    func forkToCustom() {
-        guard let template = selectedTemplate else { return }
         input.ivrCustomScript = template.scriptBody
-    }
-
-    func clearCustom() {
-        input.ivrCustomScript = nil
     }
 
     func save() async throws {
@@ -111,8 +100,7 @@ struct IVRScriptEditorView: View {
     private var content: some View {
         header
         templatesSection
-        scriptSection
-        previewSection
+        editSection
 
         if let errorMessage {
             Text(errorMessage)
@@ -196,29 +184,18 @@ struct IVRScriptEditorView: View {
         .buttonStyle(.plain)
     }
 
-    private var scriptSection: some View {
-        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            HStack {
-                Text("Custom script")
-                    .flynnType(FlynnTypography.h4)
-                    .foregroundColor(FlynnColor.textPrimary)
-                Spacer()
-                if store.selectedTemplate != nil, store.input.ivrCustomScript == nil {
-                    Button("Fork template") { store.forkToCustom() }
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(FlynnColor.primary)
-                } else if store.input.ivrCustomScript != nil {
-                    Button("Use template instead") { store.clearCustom() }
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(FlynnColor.primary)
-                }
-            }
+    private var editSection: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+            Text("Edit greeting")
+                .flynnType(FlynnTypography.h4)
+                .foregroundColor(FlynnColor.textPrimary)
 
             TextEditor(text: Binding(
                 get: { store.input.ivrCustomScript ?? "" },
                 set: { store.input.ivrCustomScript = $0.isEmpty ? nil : $0 }
             ))
-            .frame(minHeight: 140)
+            .flynnType(FlynnTypography.bodyMedium)
+            .frame(minHeight: 120)
             .padding(FlynnSpacing.sm)
             .background(
                 RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
@@ -226,37 +203,9 @@ struct IVRScriptEditorView: View {
             )
             .brutalistBorder(cornerRadius: FlynnRadii.md)
 
-            Text("Placeholders: {business_name}, {booking_option}, {quote_option}")
+            Text("{business_name} · {booking_option} · {quote_option}")
                 .flynnType(FlynnTypography.caption)
                 .foregroundColor(FlynnColor.textTertiary)
-        }
-    }
-
-    private var previewSection: some View {
-        let scriptBody: String = store.input.ivrCustomScript
-            ?? store.selectedTemplate?.scriptBody
-            ?? ""
-
-        let rendered = scriptBody
-            .replacingOccurrences(of: "{business_name}", with: store.input.businessName ?? "your business")
-            .replacingOccurrences(of: "{booking_option}", with: store.input.bookingLinkEnabled ? " Press 1 for a booking link." : "")
-            .replacingOccurrences(of: "{quote_option}", with: store.input.quoteLinkEnabled ? " Press 2 for a quote form." : "")
-
-        return VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            Text("Preview")
-                .flynnType(FlynnTypography.h4)
-                .foregroundColor(FlynnColor.textPrimary)
-
-            Text(rendered.isEmpty ? "Pick a template or write a script to preview." : rendered)
-                .flynnType(FlynnTypography.bodyMedium)
-                .foregroundColor(rendered.isEmpty ? FlynnColor.textTertiary : FlynnColor.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(FlynnSpacing.md)
-                .background(
-                    RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
-                        .fill(FlynnColor.backgroundSecondary)
-                )
-                .brutalistBorder(cornerRadius: FlynnRadii.md)
         }
     }
 
