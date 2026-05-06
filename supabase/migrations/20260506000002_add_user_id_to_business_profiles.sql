@@ -29,3 +29,19 @@ DROP TRIGGER IF EXISTS trg_bp_set_user_id ON public.business_profiles;
 CREATE TRIGGER trg_bp_set_user_id
   BEFORE INSERT ON public.business_profiles
   FOR EACH ROW EXECUTE FUNCTION public.bp_set_user_id();
+
+-- Also fill org_id from user's default_org_id on insert (updated trigger).
+CREATE OR REPLACE FUNCTION public.bp_set_user_id()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF NEW.user_id IS NULL THEN
+    NEW.user_id := auth.uid();
+  END IF;
+  IF NEW.org_id IS NULL THEN
+    SELECT default_org_id INTO NEW.org_id
+    FROM public.users
+    WHERE id = NEW.user_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
