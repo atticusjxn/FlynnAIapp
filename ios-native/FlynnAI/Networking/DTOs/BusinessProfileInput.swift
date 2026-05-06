@@ -4,6 +4,7 @@ import Foundation
 /// when inserting, so callers omit it. All JSONB fields are sent as arrays/objects
 /// and encoded to JSON by the Supabase SDK.
 struct BusinessProfileInput: Codable, Sendable {
+    var userId: String?
     var businessName: String?
     var industry: String?
     var services: [BusinessService]
@@ -26,6 +27,7 @@ struct BusinessProfileInput: Codable, Sendable {
     var aiInstructions: String?
 
     enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
         case businessName = "business_name"
         case industry
         case services
@@ -51,6 +53,7 @@ struct BusinessProfileInput: Codable, Sendable {
 
 extension BusinessProfileInput {
     init(from dto: BusinessProfileDTO) {
+        self.userId = nil  // populated by repository before sending
         self.businessName = dto.businessName
         self.industry = dto.industry
         self.services = dto.services
@@ -75,6 +78,7 @@ extension BusinessProfileInput {
 
     static var empty: BusinessProfileInput {
         BusinessProfileInput(
+            userId: nil,
             businessName: nil,
             industry: nil,
             services: [],

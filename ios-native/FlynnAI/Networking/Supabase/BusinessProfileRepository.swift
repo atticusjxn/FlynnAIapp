@@ -1,8 +1,6 @@
 import Foundation
 import Supabase
 
-/// Reads and writes the caller's single `business_profiles` row (PK = `user_id`,
-/// RLS scopes by `auth.uid()`).
 protocol BusinessProfileRepositoryType: Sendable {
     func fetch() async throws -> BusinessProfileDTO?
     func upsert(_ input: BusinessProfileInput) async throws -> BusinessProfileDTO
@@ -15,8 +13,6 @@ final class BusinessProfileRepository: BusinessProfileRepositoryType {
         self.client = client
     }
 
-    /// Returns the profile if one exists, else nil. We use `.single()`'s error-tolerant
-    /// cousin (`limit(1)` + first) because a brand-new user may have no row yet.
     func fetch() async throws -> BusinessProfileDTO? {
         let rows: [BusinessProfileDTO] = try await client
             .from("business_profiles")
@@ -27,12 +23,13 @@ final class BusinessProfileRepository: BusinessProfileRepositoryType {
         return rows.first
     }
 
-    /// Upsert keyed on `user_id`. Server fills in `user_id` from `auth.uid()` via RLS
-    /// when missing, and returns the full row post-write.
     func upsert(_ input: BusinessProfileInput) async throws -> BusinessProfileDTO {
-        try await client
+        let userId = try await client.auth.session.user.id.uuidString
+        var payload = input
+        payload.userId = userId
+        return try await client
             .from("business_profiles")
-            .upsert(input, onConflict: "user_id", returning: .representation)
+            .upsert(payload, onConflict: "user_id", returning: .representation)
             .select()
             .single()
             .execute()
