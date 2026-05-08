@@ -1,6 +1,5 @@
 import { Resend } from 'resend';
-import type { FBGroup, IGTarget } from './airtable.js';
-import type { InstantlyStats } from './instantly.js';
+import type { FBGroup, IGTarget, ColdEmailStats as InstantlyStats } from './gtm-supabase.js';
 
 export interface BriefData {
   date: Date;

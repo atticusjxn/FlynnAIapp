@@ -24,7 +24,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { supabase } from '../lib/gtm-supabase.js';
-import { sendColdEmail, countSentLast24h } from '../lib/gmail.js';
+import * as gmailOAuth from '../lib/gmail.js';
+import * as gmailSmtp from '../lib/gmail-smtp.js';
+
+// Choose sender: App Password takes precedence (simpler setup) over OAuth.
+const sender = gmailSmtp.isAppPasswordConfigured() ? gmailSmtp : gmailOAuth;
+const sendColdEmail = sender.sendColdEmail;
+const countSentLast24h = sender.countSentLast24h;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_DIR = resolve(__dirname, '../templates/cold-email');
