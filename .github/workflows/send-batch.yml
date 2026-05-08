@@ -1,0 +1,45 @@
+name: Send cold-email batch (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_only:
+        description: 'Send a single test email instead of the full batch'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: gtm-send-batch
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90 # 30 emails × 2-4 min jitter = up to 2hr; cap at 90 for safety
+    defaults:
+      run:
+        working-directory: gtm-automation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: gtm-automation/package-lock.json
+      - run: npm ci
+      - name: Send batch
+        run: |
+          if [[ "${{ inputs.test_only }}" == "true" ]]; then
+            npm run send:test
+          else
+            npm run send:batch
+          fi
+        env:
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GMAIL_FROM_EMAIL: ${{ secrets.GMAIL_FROM_EMAIL }}
+          GMAIL_FROM_NAME: ${{ secrets.GMAIL_FROM_NAME }}
+          GMAIL_DAILY_CAP: ${{ secrets.GMAIL_DAILY_CAP }}
+          BRIEF_TO_EMAIL: ${{ secrets.BRIEF_TO_EMAIL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

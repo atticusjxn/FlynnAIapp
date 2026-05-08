@@ -1,0 +1,39 @@
+name: Run lead scrape (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_leads:
+        description: 'Max leads to scrape (default 30)'
+        required: false
+        default: '30'
+
+concurrency:
+  group: gtm-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: gtm-automation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: gtm-automation/package-lock.json
+      - run: npm ci
+      - name: Cache Puppeteer Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: ${{ runner.os }}-puppeteer-${{ hashFiles('gtm-automation/package-lock.json') }}
+      - run: npm run scrape
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SCRAPE_MAX_PER_RUN: ${{ inputs.max_leads }}

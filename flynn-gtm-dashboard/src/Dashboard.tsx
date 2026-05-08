@@ -24,6 +24,14 @@ import {
   FB_GROUP_POSTS,
   fillTemplate,
 } from './templates';
+import {
+  triggerWorkflow,
+  fetchLastRun,
+  getGitHubPAT,
+  setGitHubPAT,
+  clearGitHubPAT,
+  type WorkflowStatus,
+} from './lib/github';
 
 type Tab = 'cold-email' | 'ig-dms' | 'fb-groups';
 
@@ -81,6 +89,9 @@ export default function Dashboard({ session }: { session: Session }) {
           <YesterdayCard yesterday={yesterday} />
           <PipelineCard pipeline={pipeline} />
         </div>
+
+        {/* One-click runners */}
+        <ActionsRunner onRefresh={() => setRefreshKey((k) => k + 1)} />
 
         {/* Today's outreach */}
         <section className="card">
@@ -243,6 +254,265 @@ function PipelineCard({ pipeline }: { pipeline: ReturnType<typeof Object> & { to
         <span className="text-right font-semibold text-emerald-700">{pipeline.hotReplies}</span>
         <span className="text-red-600">Bounced</span>
         <span className="text-right font-semibold text-red-600">{pipeline.bounced}</span>
+      </div>
+    </div>
+  );
+}
+
+// ==================== Actions runner ====================
+
+function ActionsRunner({ onRefresh }: { onRefresh: () => void }) {
+  const [scrapeStatus, setScrapeStatus] = useState<WorkflowStatus | null>(null);
+  const [sendStatus, setSendStatus] = useState<WorkflowStatus | null>(null);
+  const [busy, setBusy] = useState<'scrape' | 'send' | null>(null);
+  const [toast, setToast] = useState<{ kind: 'ok' | 'err'; text: string; url?: string } | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [hasPAT, setHasPAT] = useState(!!getGitHubPAT());
+
+  const refreshStatus = async () => {
+    if (!hasPAT) return;
+    const [s1, s2] = await Promise.all([
+      fetchLastRun('run-scrape.yml'),
+      fetchLastRun('send-batch.yml'),
+    ]);
+    setScrapeStatus(s1);
+    setSendStatus(s2);
+  };
+
+  useEffect(() => {
+    refreshStatus();
+    if (!hasPAT) return;
+    const id = setInterval(refreshStatus, 15_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPAT]);
+
+  async function run(workflow: 'scrape' | 'send') {
+    if (!hasPAT) {
+      setShowSettings(true);
+      return;
+    }
+    setBusy(workflow);
+    setToast(null);
+    const file = workflow === 'scrape' ? 'run-scrape.yml' : 'send-batch.yml';
+    const res = await triggerWorkflow(file);
+    setBusy(null);
+    setToast({
+      kind: res.ok ? 'ok' : 'err',
+      text: res.ok ? `${workflow === 'scrape' ? 'Scrape' : 'Send'} started — running on GitHub Actions` : res.message,
+      url: res.runUrl,
+    });
+    setTimeout(() => {
+      refreshStatus();
+      onRefresh();
+    }, 3000);
+  }
+
+  return (
+    <section className="card card-md">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="font-display text-lg font-bold">Run today's actions</h2>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            Triggers GitHub Actions in the cloud. No terminal needed.
+          </p>
+        </div>
+        <button onClick={() => setShowSettings(true)} className="btn-ghost text-sm" title="Configure GitHub token">
+          ⚙️ {hasPAT ? 'Token configured' : 'Set up token'}
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <RunButton
+          icon="📥"
+          title="Scrape new leads"
+          subtitle="Adds ~30 fresh AU tradies to the cold-email pipeline"
+          onClick={() => run('scrape')}
+          busy={busy === 'scrape'}
+          status={scrapeStatus}
+        />
+        <RunButton
+          icon="📤"
+          title="Send daily batch"
+          subtitle="Cap 30/day · 2-4min spacing · sends from your Gmail"
+          onClick={() => run('send')}
+          busy={busy === 'send'}
+          status={sendStatus}
+        />
+      </div>
+      {toast && (
+        <div
+          className={`mt-4 px-4 py-2 rounded-md text-sm ${
+            toast.kind === 'ok'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : 'bg-red-50 text-red-700 border border-red-200'
+          }`}
+        >
+          {toast.text}{' '}
+          {toast.url && (
+            <a href={toast.url} target="_blank" rel="noopener noreferrer" className="underline">
+              View run →
+            </a>
+          )}
+        </div>
+      )}
+      {showSettings && (
+        <PATSettingsModal
+          onClose={() => setShowSettings(false)}
+          onSaved={() => {
+            setHasPAT(true);
+            setShowSettings(false);
+            refreshStatus();
+          }}
+          onCleared={() => setHasPAT(false)}
+        />
+      )}
+    </section>
+  );
+}
+
+function RunButton({
+  icon, title, subtitle, onClick, busy, status,
+}: {
+  icon: string;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+  busy: boolean;
+  status: WorkflowStatus | null;
+}) {
+  const statusPill = status ? renderStatusPill(status) : null;
+  return (
+    <div className="border border-neutral-200 rounded-lg p-4 hover:border-neutral-300 transition-colors">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl">{icon}</span>
+            <span className="font-semibold">{title}</span>
+            {statusPill}
+          </div>
+          <p className="text-xs text-neutral-500">{subtitle}</p>
+          {status?.startedAt && (
+            <p className="text-[11px] text-neutral-400 mt-1">
+              Last run: {timeAgo(status.startedAt)}{' '}
+              <a href={status.htmlUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                view log
+              </a>
+            </p>
+          )}
+        </div>
+        <button onClick={onClick} disabled={busy} className="btn-primary shrink-0">
+          {busy ? 'Starting…' : 'Run now'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function renderStatusPill(s: WorkflowStatus) {
+  if (s.state === 'in_progress' || s.state === 'queued') {
+    return <span className="pill bg-blue-50 text-blue-700">running</span>;
+  }
+  if (s.conclusion === 'success') {
+    return <span className="pill bg-emerald-50 text-emerald-700">last ✓</span>;
+  }
+  if (s.conclusion === 'failure' || s.conclusion === 'cancelled') {
+    return <span className="pill bg-red-50 text-red-700">last ✗</span>;
+  }
+  return null;
+}
+
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.round(ms / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.round(hr / 24)}d ago`;
+}
+
+function PATSettingsModal({
+  onClose, onSaved, onCleared,
+}: { onClose: () => void; onSaved: () => void; onCleared: () => void }) {
+  const [pat, setPat] = useState(getGitHubPAT() ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    if (!pat.trim().startsWith('github_pat_') && !pat.trim().startsWith('ghp_')) {
+      setError('That doesn\'t look like a GitHub token (expect github_pat_… or ghp_…)');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setGitHubPAT(pat);
+    // Verify it works
+    const res = await fetch('https://api.github.com/repos/atticusjxn/FlynnAIapp', {
+      headers: { Authorization: `Bearer ${pat.trim()}`, Accept: 'application/vnd.github+json' },
+    });
+    setSaving(false);
+    if (!res.ok) {
+      setError(`Token check failed: ${res.status} ${res.statusText}. Did you grant Actions write + Contents read?`);
+      clearGitHubPAT();
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="font-display text-xl font-bold mb-1">GitHub Personal Access Token</h3>
+        <p className="text-sm text-neutral-600 mb-4">
+          Stored only in this browser's localStorage. Used to trigger the scrape + send workflows
+          via the GitHub API.
+        </p>
+        <ol className="text-sm text-neutral-700 mb-4 space-y-1 list-decimal list-inside">
+          <li>
+            Open{' '}
+            <a
+              href="https://github.com/settings/personal-access-tokens/new"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-brand-500"
+            >
+              github.com/settings/personal-access-tokens/new
+            </a>
+          </li>
+          <li>Token name: <code className="bg-neutral-100 px-1 rounded">Flynn GTM dashboard</code></li>
+          <li>Resource owner: <code>atticusjxn</code> · Repository access: <code>FlynnAIapp</code> only</li>
+          <li>Permissions: <strong>Actions: Read & write</strong>, <strong>Contents: Read</strong>, <strong>Metadata: Read</strong></li>
+          <li>Generate token, copy, paste below</li>
+        </ol>
+        <input
+          type="password"
+          value={pat}
+          onChange={(e) => setPat(e.target.value)}
+          placeholder="github_pat_…"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-md text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+        <div className="flex justify-between mt-4">
+          <button
+            onClick={() => {
+              clearGitHubPAT();
+              setPat('');
+              onCleared();
+            }}
+            className="btn-ghost text-red-600"
+          >
+            Clear token
+          </button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="btn-outline">Cancel</button>
+            <button onClick={save} disabled={saving || !pat.trim()} className="btn-primary">
+              {saving ? 'Verifying…' : 'Save'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
