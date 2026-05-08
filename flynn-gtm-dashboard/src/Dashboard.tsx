@@ -127,19 +127,45 @@ export default function Dashboard({ session }: { session: Session }) {
 
 // ==================== Header ====================
 
+const QUICK_LINKS: Array<{ label: string; url: string; emoji: string }> = [
+  { label: 'Meta Ads', url: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=560664354692954&date=last_30d', emoji: '📘' },
+  { label: 'TikTok Ads', url: 'https://ads.tiktok.com/i18n/dashboard', emoji: '🎵' },
+  { label: 'Apple Search', url: 'https://app.searchads.apple.com', emoji: '🍎' },
+  { label: 'PostHog', url: 'https://us.posthog.com/project/414817', emoji: '📊' },
+  { label: 'Supabase', url: 'https://supabase.com/dashboard/project/zvfeafmmtfplzpnocyjw', emoji: '🗄️' },
+  { label: 'Resend', url: 'https://resend.com/emails', emoji: '✉️' },
+  { label: 'GitHub Actions', url: 'https://github.com/atticusjxn/FlynnAIapp/actions', emoji: '⚙️' },
+  { label: 'Gmail', url: 'https://mail.google.com', emoji: '📧' },
+];
+
 function Header({ email, onRefresh }: { email: string; onRefresh: () => void }) {
   return (
     <header className="border-b border-neutral-200 bg-white sticky top-0 z-20 backdrop-blur supports-[backdrop-filter]:bg-white/85">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 shrink-0">
           <div className="w-7 h-7 bg-brand-500 rounded flex items-center justify-center text-white font-display font-bold text-sm">
             F
           </div>
           <span className="font-display font-bold text-lg">Flynn GTM</span>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={onRefresh} className="btn-ghost" title="Refresh">↻ Refresh</button>
-          <span className="text-xs text-neutral-500">{email}</span>
+        <nav className="hidden md:flex items-center gap-1 overflow-x-auto flex-1 justify-center">
+          {QUICK_LINKS.map((l) => (
+            <a
+              key={l.label}
+              href={l.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 px-2 py-1 rounded transition-colors whitespace-nowrap"
+              title={`Open ${l.label} in new tab`}
+            >
+              <span className="mr-1">{l.emoji}</span>
+              {l.label}
+            </a>
+          ))}
+        </nav>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={onRefresh} className="btn-ghost" title="Refresh">↻</button>
+          <span className="hidden lg:inline text-xs text-neutral-500">{email}</span>
           <button onClick={() => supabase.auth.signOut()} className="btn-ghost text-xs">Sign out</button>
         </div>
       </div>
