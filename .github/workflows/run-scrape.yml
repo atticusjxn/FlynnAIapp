@@ -26,19 +26,21 @@ jobs:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: gtm-automation/package-lock.json
-      - run: npm ci
-      - name: Cache Puppeteer Chromium
-        id: puppeteer-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/puppeteer
-          key: ${{ runner.os }}-puppeteer-${{ hashFiles('gtm-automation/package-lock.json') }}
-      - name: Install Puppeteer Chromium (cache miss)
-        if: steps.puppeteer-cache.outputs.cache-hit != 'true'
-        run: npx puppeteer browsers install chrome
+      - name: Install npm deps (skip Chromium download)
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+        run: npm ci
+      - name: Locate system Chrome
+        id: chrome
+        run: |
+          CHROME=$(which google-chrome || which google-chrome-stable || which chromium-browser || which chromium)
+          echo "path=$CHROME" >> "$GITHUB_OUTPUT"
+          echo "Using Chrome at: $CHROME"
+          "$CHROME" --version
       - name: Run scrape
         run: npm run scrape 2>&1 | tee scrape.log
         env:
+          PUPPETEER_EXECUTABLE_PATH: ${{ steps.chrome.outputs.path }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SCRAPE_MAX_PER_RUN: ${{ inputs.max_leads }}

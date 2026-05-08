@@ -48,6 +48,9 @@ async function main() {
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    // Use system Chrome on CI (PUPPETEER_EXECUTABLE_PATH set in workflow);
+    // falls back to Puppeteer's bundled Chromium locally.
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
   });
 
   try {
