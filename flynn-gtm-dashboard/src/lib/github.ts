@@ -77,20 +77,33 @@ export async function triggerWorkflow(
     };
   }
 
-  // Wait briefly, then fetch the most-recent run for this workflow
-  await new Promise((r) => setTimeout(r, 1500));
-  const runsUrl = `https://api.github.com/repos/${REPO}/actions/workflows/${workflowFile}/runs?per_page=1`;
+  // Poll up to 8 times (≈12s) for the *new* run that's strictly newer than now.
+  // GitHub's workflow_dispatch returns 204 immediately but takes a few seconds
+  // to actually create the workflow run. Without polling, we'd surface the
+  // most recent OLD run as the "view run" link.
+  const dispatchedAt = Date.now();
+  const runsUrl = `https://api.github.com/repos/${REPO}/actions/workflows/${workflowFile}/runs?per_page=3`;
   let runUrl = `https://github.com/${REPO}/actions/workflows/${workflowFile}`;
-  try {
-    const runsRes = await fetch(runsUrl, {
-      headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${pat}` },
-    });
-    if (runsRes.ok) {
-      const data = (await runsRes.json()) as { workflow_runs?: Array<{ html_url: string }> };
-      if (data.workflow_runs?.[0]) runUrl = data.workflow_runs[0].html_url;
+  for (let i = 0; i < 8; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const runsRes = await fetch(runsUrl, {
+        headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${pat}` },
+      });
+      if (!runsRes.ok) continue;
+      const data = (await runsRes.json()) as {
+        workflow_runs?: Array<{ html_url: string; created_at: string }>;
+      };
+      const fresh = (data.workflow_runs ?? []).find(
+        (r) => new Date(r.created_at).getTime() >= dispatchedAt - 2000,
+      );
+      if (fresh) {
+        runUrl = fresh.html_url;
+        break;
+      }
+    } catch {
+      // best-effort; keep retrying
     }
-  } catch {
-    // best-effort; fall back to workflow page
   }
 
   return {
