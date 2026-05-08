@@ -28,12 +28,24 @@ jobs:
           cache-dependency-path: gtm-automation/package-lock.json
       - run: npm ci
       - name: Cache Puppeteer Chromium
+        id: puppeteer-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/puppeteer
           key: ${{ runner.os }}-puppeteer-${{ hashFiles('gtm-automation/package-lock.json') }}
-      - run: npm run scrape
+      - name: Install Puppeteer Chromium (cache miss)
+        if: steps.puppeteer-cache.outputs.cache-hit != 'true'
+        run: npx puppeteer browsers install chrome
+      - name: Run scrape
+        run: npm run scrape 2>&1 | tee scrape.log
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SCRAPE_MAX_PER_RUN: ${{ inputs.max_leads }}
+      - name: Upload scrape log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-log
+          path: gtm-automation/scrape.log
+          retention-days: 7
