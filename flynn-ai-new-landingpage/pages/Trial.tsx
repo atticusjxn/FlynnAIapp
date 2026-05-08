@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { CheckCircle2, Briefcase, Scissors, Stethoscope, UtensilsCrossed, Wrench, Sparkles } from 'lucide-react';
 import StoreButtons from '../components/StoreButtons';
 import { createTrialSignup } from '../services/supabase';
+import { captureUTMs, trackTrialSignup } from '../services/tracking';
 
 const BUSINESS_TYPES = [
   { value: 'tradie', label: 'Tradie', icon: Wrench, description: 'Plumber, Electrician, Builder' },
@@ -18,6 +19,11 @@ const Trial: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Capture UTM params on mount so we attribute the signup to the right channel.
+  useEffect(() => {
+    captureUTMs();
+  }, []);
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
@@ -46,7 +52,8 @@ const Trial: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const { data, error: supabaseError } = await createTrialSignup(email, businessType);
+      const attribution = captureUTMs();
+      const { error: supabaseError } = await createTrialSignup(email, businessType, attribution);
 
       if (supabaseError) {
         setError(supabaseError.message);
@@ -57,11 +64,8 @@ const Trial: React.FC = () => {
       setIsSuccess(true);
       setIsSubmitting(false);
 
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'trial_signup', {
-          business_type: businessType,
-        });
-      }
+      // Fire conversion events to all configured pixels (Meta, TikTok, GA4, PostHog).
+      trackTrialSignup({ email, businessType });
     } catch (err) {
       setError('Something went wrong. Please try again.');
       setIsSubmitting(false);
@@ -136,7 +140,7 @@ const Trial: React.FC = () => {
                 and help you book more jobs. Your 1-week free trial starts as soon as you set up call forwarding.
               </p>
               <p className="text-sm text-gray-500">
-                No credit card required • Cancel anytime • $79/month after trial
+                No credit card required • Cancel anytime • From $29/month after trial
               </p>
             </div>
           </div>

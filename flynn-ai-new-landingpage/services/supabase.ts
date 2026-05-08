@@ -20,12 +20,17 @@ export interface TrialSignup {
 }
 
 // Helper function to create a trial signup
-export async function createTrialSignup(email: string, businessType: string) {
+export async function createTrialSignup(
+  email: string,
+  businessType: string,
+  metadata?: Record<string, unknown>,
+) {
   const { data, error } = await supabase
     .from('trial_signups')
     .insert({
       email: email.toLowerCase().trim(),
       business_type: businessType,
+      ...(metadata ? { metadata } : {}),
     })
     .select()
     .single();

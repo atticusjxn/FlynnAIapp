@@ -1,4 +1,5 @@
 import React from 'react';
+import { trackStoreBadgeClick } from '../services/tracking';
 
 const AppleLogo = () => (
     <svg viewBox="0 0 384 512" fill="currentColor" className="w-6 h-6">
@@ -28,6 +29,7 @@ const StoreButton: React.FC<StoreButtonProps> = ({ store, url }) => {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackStoreBadgeClick(store)}
             className="flex items-center gap-3 bg-black text-white px-5 py-2.5 rounded-lg border-2 border-black hover:bg-gray-900 transition-all hover:scale-105 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]"
         >
             <Icon />
@@ -44,7 +46,7 @@ const StoreButtons: React.FC = () => {
         <div className="flex flex-wrap gap-4 mt-8">
             <StoreButton
                 store="apple"
-                url="https://apps.apple.com/tr/app/flynnai/id6752254950"
+                url="https://apps.apple.com/au/app/flynnai/id6752254950"
             />
             <StoreButton
                 store="google"

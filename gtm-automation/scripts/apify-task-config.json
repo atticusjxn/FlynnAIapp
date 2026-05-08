@@ -1,0 +1,59 @@
+{
+  "_comment": "Apify Google Maps scraper config. Run via 'npm run scrape:apify'. Rotates AU city × trade combinations daily so we don't re-scrape the same area repeatedly. Each daily run yields ~30-50 leads with email addresses (Apify auto-enriches).",
+  "actor": "compass/crawler-google-places",
+  "rotation": {
+    "trades": [
+      "plumber",
+      "electrician",
+      "HVAC contractor",
+      "carpenter",
+      "painter",
+      "roofer",
+      "handyman",
+      "landscaper",
+      "cleaner",
+      "mobile mechanic",
+      "pest control",
+      "tree service"
+    ],
+    "cities": [
+      "Sydney NSW",
+      "Melbourne VIC",
+      "Brisbane QLD",
+      "Perth WA",
+      "Adelaide SA",
+      "Gold Coast QLD",
+      "Newcastle NSW",
+      "Canberra ACT",
+      "Wollongong NSW",
+      "Geelong VIC",
+      "Hobart TAS",
+      "Townsville QLD",
+      "Cairns QLD",
+      "Sunshine Coast QLD"
+    ],
+    "_strategy": "(day-of-year mod trades.length) selects today's trade. (day-of-year div 7 mod cities.length) selects today's city. Each combination is hit ~once every 2-3 weeks."
+  },
+  "input_template": {
+    "searchStringsArray": ["{{trade}} {{city}}"],
+    "maxCrawledPlacesPerSearch": 50,
+    "language": "en",
+    "countryCode": "AU",
+    "scrapeContacts": true,
+    "scrapePlaceDetailPage": true,
+    "exportPlaceUrls": false,
+    "additionalInfo": false
+  },
+  "output_filter": {
+    "must_have_email": true,
+    "must_have_website": false,
+    "exclude_chain_keywords": [
+      "Bunnings",
+      "Mitre 10",
+      "Reece Plumbing",
+      "Dial Before You Dig",
+      "Energy Australia"
+    ]
+  },
+  "_post_processing": "scripts/run-apify-scrape.ts processes the output, filters chains and duplicates, and uploads to Instantly via lib/instantly.ts uploadLeadsToInstantly(). Capped at 30 new leads/day to stay within Instantly daily-limit best practice."
+}
