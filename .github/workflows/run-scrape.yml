@@ -1,4 +1,4 @@
-name: Run lead scrape (manual)
+name: Run lead scrape
 
 on:
   workflow_dispatch:
@@ -7,6 +7,11 @@ on:
         description: 'Max leads to scrape (default 30)'
         required: false
         default: '30'
+  schedule:
+    # Mon-Fri 22:00 UTC = 8:00am AEST Tue-Sat (one hour before send-batch).
+    # AEST is UTC+10. AEDT (Oct-Apr) shifts this to 9am local but still
+    # comfortably before 9-11am AEST send window during daylight saving.
+    - cron: '0 22 * * 0,1,2,3,4'
 
 concurrency:
   group: gtm-scrape

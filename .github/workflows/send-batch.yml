@@ -1,4 +1,4 @@
-name: Send cold-email batch (manual)
+name: Send cold-email batch
 
 on:
   workflow_dispatch:
@@ -8,6 +8,12 @@ on:
         required: false
         type: boolean
         default: false
+  schedule:
+    # Tue/Wed/Thu 23:00 UTC Mon/Tue/Wed = 9:00am AEST Tue/Wed/Thu.
+    # B2B reply rates peak Tuesday-Thursday 9-11am local time per 2025
+    # benchmarks. Skips Mon (catching up from weekend) and Fri (heading
+    # into weekend).
+    - cron: '0 23 * * 1,2,3'
 
 concurrency:
   group: gtm-send-batch
