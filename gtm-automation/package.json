@@ -6,17 +6,14 @@
   "scripts": {
     "brief": "tsx morning-brief.ts",
     "brief:dry": "tsx morning-brief.ts --dry-run",
-    "scrape:apify": "tsx scripts/run-apify-scrape.ts",
-    "upload:instantly": "tsx scripts/instantly-upload.ts",
-    "seed": "tsx scripts/seed-airtable.ts"
+    "scrape": "tsx scripts/scrape-leads.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
-    "airtable": "^0.12.2",
-    "apify-client": "^2.10.0",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.1.3",
     "dotenv": "^16.4.5",
+    "puppeteer": "^23.0.0",
     "resend": "^4.0.0"
   },
   "devDependencies": {

@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { font-family: 'Inter', system-ui, sans-serif; }
+body { font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11'; }
+
+/* Subtle "card" pattern */
+.card { @apply bg-white border border-neutral-200 rounded-lg shadow-sm; }
+.card-tight { @apply p-4; }
+.card-md { @apply p-6; }
+
+/* Pill */
+.pill { @apply inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full; }
+
+/* Button */
+.btn { @apply inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors; }
+.btn-primary { @apply btn bg-brand-500 text-white hover:bg-brand-600; }
+.btn-ghost { @apply btn text-neutral-700 hover:bg-neutral-100; }
+.btn-outline { @apply btn border border-neutral-300 text-neutral-700 hover:bg-neutral-50; }

@@ -1,7 +1,7 @@
 /**
  * Morning Brief — daily 7:30am AEST email summarising:
  *   1. Yesterday's metrics (trial starts, paid conversions, CAC)
- *   2. Today's cold-email batch (auto-firing via Instantly)
+ *   2. Today's cold-lead batch (surface 30 leads from gtm_cold_leads)
  *   3. 18 IG accounts to DM (manual, prefilled)
  *   4. 5 FB groups to engage (manual, prefilled)
  *   5. Anomalies + founder content prompts
@@ -11,16 +11,15 @@
  */
 
 import 'dotenv/config';
-import { config as loadConfig } from 'dotenv';
-import { surfaceTodaysFBGroups } from './lib/airtable.js';
-import { surfaceTodaysIGTargets } from './lib/airtable.js';
-import { writeDailyLog } from './lib/airtable.js';
-import { getInstantlyOvernightStats } from './lib/instantly.js';
+import {
+  surfaceTodaysFBGroups,
+  surfaceTodaysIGTargets,
+  writeDailyLog,
+  getColdEmailStats,
+} from './lib/gtm-supabase.js';
 import { getYesterdayEvents } from './lib/supabase.js';
 import { getYesterdayConversions, getRunningTotal } from './lib/revenuecat.js';
 import { renderBrief, sendBrief } from './lib/email.js';
-
-loadConfig();
 
 const isDry = process.argv.includes('--dry-run');
 
@@ -28,14 +27,17 @@ async function main() {
   const today = new Date();
   console.log(`[morning-brief] running for ${today.toISOString()} (dry=${isDry})`);
 
-  const [fbGroups, igTargets, instantlyStats, supabaseEvents, rcConversions, runningTotal] =
+  const [fbGroups, igTargets, coldEmailStats, supabaseEvents, rcConversions, runningTotal] =
     await Promise.all([
       surfaceTodaysFBGroups({ count: 5, daysSinceLastPost: 7 }),
       surfaceTodaysIGTargets({ count: 18 }),
-      getInstantlyOvernightStats(),
+      getColdEmailStats(),
       getYesterdayEvents(),
-      getYesterdayConversions(),
-      getRunningTotal(),
+      getYesterdayConversions().catch((e) => {
+        console.warn('[brief] revenuecat fetch failed', e.message);
+        return { count: 0, revenue: 0 };
+      }),
+      getRunningTotal().catch(() => 0),
     ]);
 
   const trialStartsBreakdown = aggregateTrialStarts(supabaseEvents);
@@ -52,10 +54,10 @@ async function main() {
       goalTotal: Number(process.env.GOAL_PAID_CUSTOMERS ?? 100),
       goalDeadline: process.env.GOAL_DEADLINE ?? '2026-06-30',
     },
-    coldEmail: instantlyStats,
+    coldEmail: coldEmailStats,
     igTargets,
     fbGroups,
-    anomalies: detectAnomalies({ instantlyStats, runningTotal }),
+    anomalies: detectAnomalies({ runningTotal }),
     founderContentPrompts: pickFounderPrompts(today),
   });
 
@@ -73,8 +75,8 @@ async function main() {
     paidConversions: rcConversions.count,
     revenueAdded: rcConversions.revenue,
     runningTotal,
-    coldEmailsSent: instantlyStats.sentLast24h,
-    coldEmailReplies: instantlyStats.repliesLast24h,
+    coldEmailsSent: coldEmailStats.sentLast24h,
+    coldEmailReplies: coldEmailStats.repliesLast24h,
   });
 
   console.log('[morning-brief] sent + logged');
@@ -86,7 +88,10 @@ function aggregateTrialStarts(events: Array<{ source: string }>): Record<string,
     const source = (event.source || 'organic').toLowerCase();
     if (source.includes('email')) breakdown.coldEmail++;
     else if (source.includes('ig') || source.includes('instagram')) breakdown.igDm++;
-    else if (source.includes('paid') || source.includes('asa') || source.includes('meta') || source.includes('tiktok')) {
+    else if (
+      source.includes('paid') || source.includes('asa') ||
+      source.includes('meta') || source.includes('tiktok')
+    ) {
       breakdown.paidAds++;
     } else breakdown.organic++;
   }
@@ -97,19 +102,8 @@ function sumValues(obj: Record<string, number>): number {
   return Object.values(obj).reduce((a, b) => a + b, 0);
 }
 
-function detectAnomalies({ instantlyStats, runningTotal }: { instantlyStats: any; runningTotal: number }) {
+function detectAnomalies({ runningTotal }: { runningTotal: number }): string[] {
   const anomalies: string[] = [];
-  if (instantlyStats.warmupBuffer > 0.85) {
-    anomalies.push(
-      `Instantly warmup buffer at ${Math.round(instantlyStats.warmupBuffer * 100)}% — consider adding another inbox before scaling sends`,
-    );
-  }
-  if (instantlyStats.bounceRateLast7d > 0.05) {
-    anomalies.push(
-      `Cold email bounce rate at ${(instantlyStats.bounceRateLast7d * 100).toFixed(1)}% — clean leads with NeverBounce before next upload`,
-    );
-  }
-  // Pace check
   const goalStart = new Date(process.env.GOAL_START_DATE ?? '2026-05-08');
   const goalDeadline = new Date(process.env.GOAL_DEADLINE ?? '2026-06-30');
   const goal = Number(process.env.GOAL_PAID_CUSTOMERS ?? 100);
@@ -125,7 +119,6 @@ function detectAnomalies({ instantlyStats, runningTotal }: { instantlyStats: any
 }
 
 function pickFounderPrompts(today: Date): string[] {
-  // Rotate 3 prompts/week — different angle each day
   const prompts = [
     'Twitter thread: Walk through the most surprising thing a tradie said about Flynn this week',
     'LinkedIn post: 200 words on why you bootstrapped Flynn from your AI automations brand',
