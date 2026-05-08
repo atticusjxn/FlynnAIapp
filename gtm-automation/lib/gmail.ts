@@ -13,8 +13,6 @@
 
 import { google, gmail_v1 } from 'googleapis';
 
-const CLIENT_ID = required('GMAIL_OAUTH_CLIENT_ID');
-const CLIENT_SECRET = required('GMAIL_OAUTH_CLIENT_SECRET');
 // REDIRECT_URI is only needed during the one-time consent flow (gmail-oauth.ts).
 // For send time we have a refresh token already, so the redirect doesn't matter.
 const REDIRECT_URI = process.env.GMAIL_OAUTH_REDIRECT_URI || 'urn:ietf:wg:oauth:2.0:oob';
@@ -25,7 +23,11 @@ export const GMAIL_SCOPES = [
 ];
 
 export function getOAuthClient() {
-  return new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+  // Lazy: only require OAuth env vars when the OAuth path is actually used.
+  // The SMTP/App-Password path (lib/gmail-smtp.ts) doesn't need these.
+  const clientId = required('GMAIL_OAUTH_CLIENT_ID');
+  const clientSecret = required('GMAIL_OAUTH_CLIENT_SECRET');
+  return new google.auth.OAuth2(clientId, clientSecret, REDIRECT_URI);
 }
 
 function getAuthedClient() {
