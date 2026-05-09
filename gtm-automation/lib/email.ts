@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import type { FBGroup, IGTarget, ColdEmailStats as InstantlyStats } from './gtm-supabase.js';
+import type { FBGroup, IGTarget, TradeIGTarget, ColdEmailStats as InstantlyStats } from './gtm-supabase.js';
 
 export interface BriefData {
   date: Date;
@@ -14,6 +14,7 @@ export interface BriefData {
   };
   coldEmail: InstantlyStats;
   igTargets: IGTarget[];
+  tradeIgTargets: TradeIGTarget[];
   fbGroups: FBGroup[];
   anomalies: string[];
   founderContentPrompts: string[];
@@ -50,12 +51,24 @@ GOOD MORNING ATTICUS — Flynn GTM brief — ${dateStr}
   Warmup buffer:         ${Math.round(data.coldEmail.warmupBuffer * 100)}%
   → Open Instantly: https://app.instantly.ai/app/campaigns
 
-📱 INSTAGRAM DMs — ${data.igTargets.length} prefilled
+📱 INSTAGRAM DMs (partnerships) — ${data.igTargets.length} prefilled
 ${data.igTargets
   .map(
     (t, i) =>
       `  ${(i + 1).toString().padStart(2, ' ')}. ${t.handle.padEnd(28, ' ')} ${String(t.followerCount).padStart(6, ' ')} followers · ${t.industry.padEnd(8)} ${t.region}   [${t.suggestedScript}]   ${t.profileUrl}`,
   )
+  .join('\n')}
+
+🛠 TRADE IG SALES — ${data.tradeIgTargets.length} prefilled (AI-written DMs ready to copy)
+${data.tradeIgTargets
+  .map((t, i) => {
+    const snippet = t.aiMessage.replace(/\s+/g, ' ').slice(0, 120);
+    const meta = `${t.followerCount.toLocaleString()} followers · ${t.trade || 'trade'} · ${t.city || 'AU'}`;
+    return `  ${(i + 1).toString().padStart(2, ' ')}. @${t.handle} — ${t.businessName || '(no name)'}
+       ${meta}
+       "${snippet}…"
+       ${t.profileUrl}`;
+  })
   .join('\n')}
 
 👥 FACEBOOK GROUPS — ${data.fbGroups.length} to engage

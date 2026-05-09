@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Flynn — Morning Command</title>
+  <link rel="preconnect" href="https://rsms.me/" />
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+    { "imports": { "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2" } }
+  </script>
+  <style>
+    :root { font-family: 'Inter', system-ui, sans-serif; }
+    body { background: radial-gradient(ellipse at top, #0b1120 0%, #050810 60%, #000 100%); }
+    .card { background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(8px); border: 1px solid rgba(148, 163, 184, 0.12); }
+    .glow { box-shadow: 0 0 40px -10px rgba(37, 99, 235, 0.4); }
+    .pill { font-variant-numeric: tabular-nums; }
+    .copy-btn { transition: all 0.15s ease; }
+    .copy-btn:active { transform: scale(0.96); }
+    .scroll-mask { mask-image: linear-gradient(to bottom, black 90%, transparent 100%); }
+    pre { white-space: pre-wrap; word-break: break-word; }
+    @keyframes pulse-glow { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+    .live-dot { animation: pulse-glow 1.8s ease-in-out infinite; }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-10">
+      <div>
+        <div class="flex items-center gap-3">
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 live-dot"></span>
+          <span class="text-xs uppercase tracking-[0.2em] text-slate-400" id="header-date">Loading…</span>
+        </div>
+        <h1 class="text-4xl font-bold text-white mt-2">Good morning.</h1>
+        <p class="text-slate-400 mt-1" id="header-subtitle">Pulling today's briefing…</p>
+      </div>
+      <div class="text-right">
+        <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Goal</div>
+        <div class="pill text-3xl font-bold text-white" id="goal-progress">— / —</div>
+        <div class="text-xs text-slate-500" id="goal-pace">—</div>
+      </div>
+    </header>
+
+    <!-- KPI strip -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      <div class="card rounded-xl p-5 glow">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Trial starts (24h)</div>
+        <div class="pill text-3xl font-bold text-white mt-2" id="kpi-trials">—</div>
+      </div>
+      <div class="card rounded-xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Paid (24h)</div>
+        <div class="pill text-3xl font-bold text-emerald-400 mt-2" id="kpi-paid">—</div>
+      </div>
+      <div class="card rounded-xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Revenue (24h)</div>
+        <div class="pill text-3xl font-bold text-white mt-2" id="kpi-revenue">$—</div>
+      </div>
+      <div class="card rounded-xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Days left</div>
+        <div class="pill text-3xl font-bold text-amber-300 mt-2" id="kpi-days">—</div>
+      </div>
+    </section>
+
+    <!-- Stream A — Emails sent -->
+    <section class="mb-10">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-semibold text-white">Stream A — Cold emails sent</h2>
+          <p class="text-sm text-slate-500">Sent automatically by the routine. Watch for replies in Gmail.</p>
+        </div>
+        <span class="pill text-sm text-slate-400" id="stream-a-count">— sent</span>
+      </div>
+      <div class="card rounded-xl divide-y divide-slate-800/50" id="stream-a-list">
+        <div class="p-6 text-slate-500 text-center text-sm">Loading…</div>
+      </div>
+    </section>
+
+    <!-- Stream B — IG DMs to send manually -->
+    <section class="mb-10">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-semibold text-white">Stream B — Instagram DMs</h2>
+          <p class="text-sm text-slate-500">Send these from your personal IG. Tap a card to copy + open.</p>
+        </div>
+        <span class="pill text-sm text-slate-400" id="stream-b-count">— targets</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="stream-b-list">
+        <div class="card rounded-xl p-6 text-slate-500 text-center text-sm col-span-full">Loading…</div>
+      </div>
+    </section>
+
+    <!-- Stream C — Partnerships -->
+    <section class="mb-10">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xl font-semibold text-white">Stream C — Partnership leads</h2>
+          <p class="text-sm text-slate-500">Today's contacts. Open LinkedIn / website and copy the pitch.</p>
+        </div>
+        <span class="pill text-sm text-slate-400" id="stream-c-count">— leads</span>
+      </div>
+      <div class="space-y-4" id="stream-c-list">
+        <div class="card rounded-xl p-6 text-slate-500 text-center text-sm">Loading…</div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-xs text-slate-600 mt-10 pt-6 border-t border-slate-900 flex justify-between">
+      <div id="footer-meta">Routine status: —</div>
+      <button id="refresh-btn" class="text-slate-500 hover:text-slate-300">↻ refresh</button>
+    </footer>
+
+  </div>
+
+  <!-- ====== CONFIG: paste your Supabase anon URL + key here ====== -->
+  <script>
+    // These two values are PUBLIC anon credentials — RLS limits this dashboard to
+    // today's morning-briefing row only. Same key your other dashboards use.
+    window.__SUPABASE_URL__  = "https://zvfeafmmtfplzpnocyjw.supabase.co";
+    window.__SUPABASE_ANON__ = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2ZmVhZm1tdGZwbHpwbm9jeWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyMDE1NDMsImV4cCI6MjA3MTc3NzU0M30.PnSY6rFvczDiDucsyN0nr-luR_Jb6a6O2uAeZxgBiRI";
+  </script>
+
+  <script type="module">
+    import { createClient } from '@supabase/supabase-js';
+
+    const sb = createClient(window.__SUPABASE_URL__, window.__SUPABASE_ANON__);
+
+    const fmt = {
+      money: (n) => `$${(n ?? 0).toFixed(0)}`,
+      date: (iso) => iso ? new Date(iso).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' }) : '',
+      followers: (n) => n >= 1000 ? `${(n/1000).toFixed(1)}k` : `${n}`,
+    };
+
+    function el(html) {
+      const t = document.createElement('template');
+      t.innerHTML = html.trim();
+      return t.content.firstElementChild;
+    }
+
+    function copyToClipboard(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.textContent;
+        btn.textContent = '✓ copied';
+        btn.classList.add('text-emerald-400');
+        setTimeout(() => { btn.textContent = original; btn.classList.remove('text-emerald-400'); }, 1400);
+      });
+    }
+
+    function renderHeader(payload) {
+      const d = new Date();
+      document.getElementById('header-date').textContent =
+        d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+      const m = payload.metrics;
+      document.getElementById('header-subtitle').textContent =
+        `${payload.stream_a_emails.length} emails · ${payload.stream_b_ig.length} IG DMs · ${payload.stream_c_partnerships.length} partnerships ready.`;
+      document.getElementById('goal-progress').textContent = `${m.running_total} / ${m.goal_target}`;
+      document.getElementById('goal-pace').textContent = `${m.daily_pace_needed}/day pace · ${m.days_left}d left`;
+
+      document.getElementById('kpi-trials').textContent = m.trial_starts_yesterday;
+      document.getElementById('kpi-paid').textContent = m.paid_yesterday;
+      document.getElementById('kpi-revenue').textContent = fmt.money(m.revenue_yesterday);
+      document.getElementById('kpi-days').textContent = m.days_left;
+    }
+
+    function renderStreamA(rows) {
+      const list = document.getElementById('stream-a-list');
+      list.innerHTML = '';
+      const sentCount = rows.filter(r => r.status === 'sent' || r.status === 'replied').length;
+      document.getElementById('stream-a-count').textContent = `${sentCount} sent · ${rows.length - sentCount} queued`;
+
+      if (rows.length === 0) {
+        list.innerHTML = '<div class="p-6 text-slate-500 text-center text-sm">No emails today — routine hasn\'t scraped yet.</div>';
+        return;
+      }
+
+      for (const r of rows) {
+        const badgeClass = {
+          sent: 'bg-emerald-500/15 text-emerald-300',
+          replied: 'bg-blue-500/15 text-blue-300',
+          bounced: 'bg-red-500/15 text-red-300',
+          queued: 'bg-slate-600/15 text-slate-400',
+        }[r.status] || 'bg-slate-600/15 text-slate-400';
+
+        const node = el(`
+          <div class="p-4 hover:bg-slate-900/40 transition">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-white font-medium truncate">${r.company ?? r.email}</span>
+                  <span class="text-xs text-slate-500">${r.trade ?? ''}${r.city ? ' · ' + r.city : ''}</span>
+                  <span class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${badgeClass}">${r.status}</span>
+                </div>
+                ${r.subject ? `<div class="text-sm text-slate-300 mt-1 truncate">${r.subject}</div>` : ''}
+                ${r.review_snippet ? `<div class="text-xs text-slate-500 mt-1 italic truncate">"${r.review_snippet}"</div>` : ''}
+              </div>
+              <div class="text-xs text-slate-500 pill whitespace-nowrap">${fmt.date(r.sent_at)}</div>
+            </div>
+          </div>
+        `);
+        list.appendChild(node);
+      }
+    }
+
+    function renderStreamB(rows) {
+      const list = document.getElementById('stream-b-list');
+      list.innerHTML = '';
+      document.getElementById('stream-b-count').textContent = `${rows.length} targets`;
+
+      if (rows.length === 0) {
+        list.innerHTML = '<div class="card rounded-xl p-6 text-slate-500 text-center text-sm col-span-full">No IG targets today.</div>';
+        return;
+      }
+
+      for (const r of rows) {
+        const card = el(`
+          <div class="card rounded-xl p-5">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <div class="text-white font-medium">@${r.handle}</div>
+                <div class="text-xs text-slate-500">${r.business_name ?? ''} · ${fmt.followers(r.follower_count)} followers · ${r.trade ?? ''}</div>
+              </div>
+              <a href="${r.profile_url}" target="_blank" rel="noopener"
+                 class="text-xs text-blue-400 hover:text-blue-300">open ↗</a>
+            </div>
+            <pre class="text-sm text-slate-300 bg-slate-950/60 rounded-lg p-3 leading-relaxed">${(r.ai_message ?? '').replace(/</g, '&lt;')}</pre>
+            <div class="flex items-center gap-2 mt-3">
+              <button class="copy-btn text-xs px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white"
+                      data-copy="${(r.ai_message ?? '').replace(/"/g, '&quot;')}">copy message</button>
+              <button class="copy-btn text-xs px-3 py-1.5 rounded-md bg-slate-700/50 hover:bg-slate-700 text-slate-200"
+                      data-mark-ig="${r.id}">mark sent</button>
+            </div>
+          </div>
+        `);
+        list.appendChild(card);
+      }
+
+      list.querySelectorAll('[data-copy]').forEach(btn => {
+        btn.addEventListener('click', () => copyToClipboard(btn.dataset.copy, btn));
+      });
+      list.querySelectorAll('[data-mark-ig]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          await sb.from('gtm_ig_trade_targets')
+            .update({ status: 'dm-sent', last_dm_at: new Date().toISOString() })
+            .eq('id', btn.dataset.markIg);
+          btn.textContent = '✓ marked';
+          btn.classList.add('text-emerald-400');
+        });
+      });
+    }
+
+    function renderStreamC(rows) {
+      const list = document.getElementById('stream-c-list');
+      list.innerHTML = '';
+      document.getElementById('stream-c-count').textContent = `${rows.length} leads`;
+
+      if (rows.length === 0) {
+        list.innerHTML = '<div class="card rounded-xl p-6 text-slate-500 text-center text-sm">No partnership leads today.</div>';
+        return;
+      }
+
+      for (const r of rows) {
+        const card = el(`
+          <div class="card rounded-xl p-5">
+            <div class="flex items-start justify-between mb-3 flex-wrap gap-2">
+              <div>
+                <div class="text-white font-medium">${r.org_name}</div>
+                <div class="text-xs text-slate-500">
+                  ${r.contact_name ?? ''}${r.contact_role ? ' · ' + r.contact_role : ''} · ${r.org_type ?? ''}
+                </div>
+              </div>
+              <div class="flex items-center gap-2 text-xs">
+                ${r.linkedin_url ? `<a href="${r.linkedin_url}" target="_blank" class="text-blue-400 hover:text-blue-300">LinkedIn ↗</a>` : ''}
+                ${r.website ? `<a href="${r.website}" target="_blank" class="text-slate-400 hover:text-slate-200">site ↗</a>` : ''}
+                ${r.email ? `<a href="mailto:${r.email}" class="text-slate-400 hover:text-slate-200">${r.email}</a>` : ''}
+              </div>
+            </div>
+            <pre class="text-sm text-slate-300 bg-slate-950/60 rounded-lg p-3 leading-relaxed">${(r.pitch_draft ?? '').replace(/</g, '&lt;')}</pre>
+            <div class="flex items-center gap-2 mt-3">
+              <button class="copy-btn text-xs px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white"
+                      data-copy="${(r.pitch_draft ?? '').replace(/"/g, '&quot;')}">copy pitch</button>
+              <button class="copy-btn text-xs px-3 py-1.5 rounded-md bg-slate-700/50 hover:bg-slate-700 text-slate-200"
+                      data-mark-pship="${r.id}">mark contacted</button>
+            </div>
+          </div>
+        `);
+        list.appendChild(card);
+      }
+
+      list.querySelectorAll('[data-copy]').forEach(btn => {
+        btn.addEventListener('click', () => copyToClipboard(btn.dataset.copy, btn));
+      });
+      list.querySelectorAll('[data-mark-pship]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          await sb.from('gtm_partnership_leads')
+            .update({ status: 'contacted', contacted_at: new Date().toISOString() })
+            .eq('id', btn.dataset.markPship);
+          btn.textContent = '✓ marked';
+          btn.classList.add('text-emerald-400');
+        });
+      });
+    }
+
+    async function load() {
+      try {
+        const { data, error } = await sb
+          .from('gtm_morning_briefing')
+          .select('payload, generated_at, briefing_date')
+          .order('briefing_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!data) {
+          document.getElementById('header-subtitle').textContent =
+            'No briefing yet — the morning routine hasn\'t run today. Hang tight.';
+          return;
+        }
+
+        const payload = data.payload;
+        renderHeader(payload);
+        renderStreamA(payload.stream_a_emails);
+        renderStreamB(payload.stream_b_ig);
+        renderStreamC(payload.stream_c_partnerships);
+
+        document.getElementById('footer-meta').textContent =
+          `Routine ran ${new Date(data.generated_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })} AEST · briefing for ${data.briefing_date}`;
+      } catch (err) {
+        console.error(err);
+        document.getElementById('header-subtitle').textContent = 'Failed to load briefing — check Supabase config.';
+        document.getElementById('footer-meta').textContent = `Error: ${err.message ?? err}`;
+      }
+    }
+
+    document.getElementById('refresh-btn').addEventListener('click', load);
+    load();
+  </script>
+</body>
+</html>

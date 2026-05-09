@@ -39,6 +39,18 @@ export interface IGTarget {
   suggestedScript: 'REV_SHARE' | 'FREE_MONTH' | 'FEEDBACK';
 }
 
+export interface TradeIGTarget {
+  id: string;
+  handle: string;
+  profileUrl: string;
+  businessName: string;
+  trade: string;
+  city: string;
+  followerCount: number;
+  bio: string;
+  aiMessage: string;
+}
+
 // ---------- Surface today's FB groups ----------
 export async function surfaceTodaysFBGroups({
   count,
@@ -122,6 +134,36 @@ function rotateScript(idx: number): IGTarget['suggestedScript'] {
   if (m < 5) return 'REV_SHARE';
   if (m < 8) return 'FREE_MONTH';
   return 'FEEDBACK';
+}
+
+// ---------- Surface today's Trade IG targets (cold sales DMs) ----------
+export async function surfaceTodaysTradeIGTargets({ count }: { count: number }): Promise<TradeIGTarget[]> {
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from('gtm_ig_trade_targets')
+    .select('id, handle, profile_url, business_name, trade, city, follower_count, bio, ai_message')
+    .or(`status.eq.not-contacted,and(status.eq.dm-sent,last_dm_at.lt.${fiveDaysAgo},reply_at.is.null)`)
+    .not('ai_message', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(count);
+
+  if (error) {
+    console.error('[gtm-supabase] trade IG targets query failed', error);
+    return [];
+  }
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    handle: r.handle,
+    profileUrl: r.profile_url || `https://instagram.com/${r.handle.replace(/^@/, '')}`,
+    businessName: r.business_name ?? '',
+    trade: r.trade ?? '',
+    city: r.city ?? '',
+    followerCount: r.follower_count ?? 0,
+    bio: r.bio ?? '',
+    aiMessage: r.ai_message ?? '',
+  }));
 }
 
 // ---------- Write daily log ----------

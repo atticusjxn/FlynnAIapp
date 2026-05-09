@@ -14,6 +14,7 @@ import 'dotenv/config';
 import {
   surfaceTodaysFBGroups,
   surfaceTodaysIGTargets,
+  surfaceTodaysTradeIGTargets,
   writeDailyLog,
   getColdEmailStats,
 } from './lib/gtm-supabase.js';
@@ -27,10 +28,11 @@ async function main() {
   const today = new Date();
   console.log(`[morning-brief] running for ${today.toISOString()} (dry=${isDry})`);
 
-  const [fbGroups, igTargets, coldEmailStats, supabaseEvents, rcConversions, runningTotal] =
+  const [fbGroups, igTargets, tradeIgTargets, coldEmailStats, supabaseEvents, rcConversions, runningTotal] =
     await Promise.all([
       surfaceTodaysFBGroups({ count: 5, daysSinceLastPost: 7 }),
       surfaceTodaysIGTargets({ count: 18 }),
+      surfaceTodaysTradeIGTargets({ count: 20 }),
       getColdEmailStats(),
       getYesterdayEvents(),
       getYesterdayConversions().catch((e) => {
@@ -56,6 +58,7 @@ async function main() {
     },
     coldEmail: coldEmailStats,
     igTargets,
+    tradeIgTargets,
     fbGroups,
     anomalies: detectAnomalies({ runningTotal }),
     founderContentPrompts: pickFounderPrompts(today),

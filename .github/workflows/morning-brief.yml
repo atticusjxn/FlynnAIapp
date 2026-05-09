@@ -1,11 +1,10 @@
 name: Morning GTM Brief
 
 on:
-  schedule:
-    # 7:30am AEST = 21:30 UTC (during AEST = UTC+10) / 22:30 UTC (during AEDT = UTC+11)
-    # Cron is in UTC. Adjust seasonally or use a single offset that's "good enough".
-    # 21:30 UTC = 7:30am AEST winter, 8:30am AEDT summer.
-    - cron: '30 21 * * *'
+  # Cron disabled 2026-05-09 — replaced by Claude Code routine `flynn-gtm-morning`.
+  # Kept workflow_dispatch as a manual fallback if the routine is ever down.
+  # schedule:
+  #   - cron: '30 21 * * *'
   workflow_dispatch: # Manual trigger from GitHub UI
 
 jobs:

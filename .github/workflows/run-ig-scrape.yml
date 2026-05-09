@@ -1,25 +1,25 @@
-name: Run lead scrape
+name: Run Trade IG scrape
 
 on:
   workflow_dispatch:
     inputs:
-      max_leads:
-        description: 'Max leads to scrape (default 30)'
+      max_per_run:
+        description: 'Max IG targets to discover (default 30)'
         required: false
         default: '30'
   # Cron disabled 2026-05-09 — replaced by Claude Code routine `flynn-gtm-morning`.
   # Kept workflow_dispatch for manual fallback runs.
   # schedule:
-  #   - cron: '0 22 * * 0,1,2,3,4'
+  #   - cron: '30 20 * * *'
 
 concurrency:
-  group: gtm-scrape
+  group: gtm-ig-scrape
   cancel-in-progress: false
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: gtm-automation
@@ -41,17 +41,18 @@ jobs:
           echo "path=$CHROME" >> "$GITHUB_OUTPUT"
           echo "Using Chrome at: $CHROME"
           "$CHROME" --version
-      - name: Run scrape
-        run: npm run scrape 2>&1 | tee scrape.log
+      - name: Run IG trade scrape
+        run: npm run scrape:ig-trades 2>&1 | tee ig-scrape.log
         env:
           PUPPETEER_EXECUTABLE_PATH: ${{ steps.chrome.outputs.path }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SCRAPE_MAX_PER_RUN: ${{ inputs.max_leads }}
-      - name: Upload scrape log
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          IG_TRADE_MAX_PER_RUN: ${{ inputs.max_per_run }}
+      - name: Upload IG scrape log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scrape-log
-          path: gtm-automation/scrape.log
+          name: ig-scrape-log
+          path: gtm-automation/ig-scrape.log
           retention-days: 7

@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-DASHBOARD_URL="https://flynn-gtm-dashboard.atticusjxn.workers.dev"
+DASHBOARD_URL="file:///Users/atticus/FlynnAIapp/gtm-automation/morning-dashboard/morning.html"
 PLIST_LABEL="com.flynn.gtm.openOnLogin"
 PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_LABEL}.plist"
 SCRIPT_PATH="$HOME/Library/Application Support/flynn-gtm/open-dashboard.sh"

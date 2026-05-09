@@ -10,9 +10,14 @@
     "seed:fb-groups": "tsx scripts/seed-fb-groups.ts",
     "gmail:oauth": "tsx scripts/gmail-oauth.ts",
     "send:batch": "tsx scripts/send-daily-batch.ts",
-    "send:test": "tsx scripts/send-daily-batch.ts --test-only"
+    "send:test": "tsx scripts/send-daily-batch.ts --test-only",
+    "send:batch:personalized": "tsx scripts/send-personalized-batch.ts",
+    "send:test:personalized": "tsx scripts/send-personalized-batch.ts --test-only",
+    "scrape:ig-trades": "tsx scripts/scrape-ig-trades.ts",
+    "brief:build": "tsx scripts/build-morning-briefing.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
     "@supabase/supabase-js": "^2.45.0",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.1.3",
