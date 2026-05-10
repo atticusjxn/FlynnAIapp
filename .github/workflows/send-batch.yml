@@ -8,10 +8,9 @@ on:
         required: false
         type: boolean
         default: false
-  # Cron disabled 2026-05-09 — replaced by Claude Code routine `flynn-gtm-morning`.
-  # Kept workflow_dispatch for manual fallback runs.
-  # schedule:
-  #   - cron: '0 23 * * 1,2,3'
+  schedule:
+    # 23:00 UTC Mon-Wed = 09:00 AEST Tue-Thu (sends batch ~1hr after morning scrape)
+    - cron: '0 23 * * 1,2,3'
 
 concurrency:
   group: gtm-send-batch
