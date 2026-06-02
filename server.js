@@ -3,7 +3,8 @@ const twilio = require('twilio');
 const dotenv = require('dotenv');
 const http = require('http');
 const WebSocket = require('ws');
-const { randomUUID } = require('crypto');
+const crypto = require('crypto');
+const { randomUUID } = crypto;
 const Stripe = require('stripe');
 const OpenAI = require('openai');
 const { toFile } = require('openai');
@@ -1247,6 +1248,54 @@ app.post('/webhooks/appstore', express.raw({ type: 'application/json' }), (req, 
   return handleAppStoreAssn2(req, res);
 });
 
+// Supabase Auth "Send SMS" hook → sends OTP via Twilio.
+// Standard Webhooks signature format: header `webhook-signature` = "v1,<base64sig>",
+// signed payload = `${webhook-id}.${webhook-timestamp}.${rawBody}`,
+// HMAC key = base64-decode of secret stripped of "v1,whsec_" prefix.
+app.post('/api/auth/send-sms-hook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const secret = process.env.SUPABASE_AUTH_SMS_HOOK_SECRET;
+  if (!secret) return res.status(500).json({ error: 'hook_not_configured' });
+
+  const id = req.headers['webhook-id'];
+  const timestamp = req.headers['webhook-timestamp'];
+  const sigHeader = req.headers['webhook-signature'];
+  if (!id || !timestamp || !sigHeader) return res.status(401).json({ error: 'missing_headers' });
+
+  const rawSecret = secret.replace(/^v1,whsec_/, '').replace(/^whsec_/, '');
+  const signedPayload = `${id}.${timestamp}.${req.body.toString('utf8')}`;
+  const expected = crypto.createHmac('sha256', Buffer.from(rawSecret, 'base64'))
+    .update(signedPayload).digest('base64');
+  const sigs = String(sigHeader).split(' ').map(s => s.replace(/^v1,/, ''));
+  const valid = sigs.some(s => s.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected)));
+  if (!valid) return res.status(401).json({ error: 'invalid_signature' });
+
+  let payload;
+  try { payload = JSON.parse(req.body.toString('utf8')); }
+  catch { return res.status(400).json({ error: 'invalid_json' }); }
+
+  const phone = payload?.user?.phone;
+  const otp = payload?.sms?.otp;
+  if (!phone || !otp) return res.status(400).json({ error: 'missing_phone_or_otp' });
+
+  // OTP is sent via Twilio (Flynn's sole SMS provider).
+  if (!twilioMessagingClient || !process.env.TWILIO_FROM_NUMBER) {
+    console.error('[Supabase send-sms] Twilio not configured');
+    return res.status(500).json({ error: 'sms_provider_not_configured' });
+  }
+  try {
+    await twilioMessagingClient.messages.create({
+      to: phone.startsWith('+') ? phone : `+${phone}`,
+      from: process.env.TWILIO_FROM_NUMBER,
+      body: `Your Flynn verification code is ${otp}. It expires in 10 minutes.`,
+    });
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('[Supabase send-sms] Twilio send failed:', err?.message || err);
+    return res.status(500).json({ error: 'sms_send_failed' });
+  }
+});
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
@@ -2383,24 +2432,26 @@ app.get('/api/billing/subscription-status', authenticateJwt, async (req, res) =>
 // Twilio Phone Number Provisioning Endpoints
 
 // ===========================
-// Telnyx number provisioning (production path)
+// Phone number provisioning (production path)
 // ===========================
-const telnyxClient = require('./telephony/telnyxClient');
+// NOTE: the route is still named `/api/telnyx/provision-number` because the
+// shipped iOS app (OnboardingStore.provisionPhoneNumber) calls that exact URL.
+// Telnyx was removed — this now provisions exclusively via Twilio AU Mobile.
 
 /**
- * Provision a Telnyx phone number for the authenticated user.
+ * Provision a Twilio phone number for the authenticated user.
  *
- * Idempotent: if `users.telnyx_phone_number` is already set, returns it
+ * Idempotent: if `users.twilio_phone_number` is already set, returns it
  * without re-purchasing. Used by both the RN and iOS Swift onboarding flows
  * after the paywall step succeeds.
  *
  * Optional body:
- *   { countryCode?: 'AU' | 'US' | ... }   defaults to 'AU'
+ *   { countryCode?: 'AU' }   defaults to 'AU' (only AU supported)
  *
  * Response:
- *   200 { phoneNumber: '+61...', phoneNumberSid: '<uuid>' }
- *   429 { error: 'no_available_numbers' }   if Telnyx has no AU numbers
- *   500 { error: 'order_failed', message }  on Telnyx API error
+ *   200 { phoneNumber: '+61...', phoneNumberSid: '<sid>' }
+ *   429 { error: 'no_available_numbers' }   if Twilio has no AU Mobile numbers
+ *   500 { error: 'order_failed', message }  on Twilio API error
  *
  * POST /api/telnyx/provision-number
  */
@@ -2412,8 +2463,6 @@ app.post('/api/telnyx/provision-number', authenticateJwt, async (req, res) => {
 
   try {
     // Idempotency — return the existing number if already provisioned.
-    // Note: column is named `twilio_phone_number` for back-compat but now
-    // stores the user's Telnyx-provisioned number.
     const { data: existing, error: existingErr } = await supabaseServiceClient
       .from('users')
       .select('email, business_name, twilio_phone_number, twilio_number_sid')
@@ -2433,7 +2482,8 @@ app.post('/api/telnyx/provision-number', authenticateJwt, async (req, res) => {
       });
     }
 
-    // Dev-mode short-circuit — only burn real Telnyx $$ for non-allowlisted users.
+    // Dev-mode short-circuit — only burn real provisioning $$ for non-allowlisted
+    // users. The TELNYX_DEV_* env names are legacy (dev shared-number toggle only).
     if (process.env.TELNYX_DEV_MODE === 'true' && process.env.TELNYX_DEV_SHARED_NUMBER) {
       const allowList = (process.env.DEV_TEST_EMAILS || '')
         .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
@@ -2454,55 +2504,62 @@ app.post('/api/telnyx/provision-number', authenticateJwt, async (req, res) => {
       }
     }
 
-    // 1. Search Telnyx for an available AU local number with both SMS + Voice.
-    const available = await telnyxClient.searchAvailableNumbers({
-      countryCode,
-      features: ['sms', 'voice'],
-      limit: 1,
-    });
+    // Twilio AU Mobile provisioning. AU Mobile (the 04xx prefix) is the only AU
+    // Twilio number type that supports SMS, and it uses our approved Mates Rates
+    // regulatory bundle. Telnyx was removed — Twilio is Flynn's sole provider.
+    if (countryCode !== 'AU') {
+      return res.status(400).json({ error: 'unsupported_country', message: 'Only AU provisioning is supported' });
+    }
+    if (!twilioMessagingClient) {
+      return res.status(503).json({ error: 'twilio_not_configured' });
+    }
+    const bundleSid = process.env.TWILIO_AU_BUNDLE_SID;
+    const addressSid = process.env.TWILIO_AU_ADDRESS_SID;
+    if (!bundleSid || !addressSid) {
+      return res.status(500).json({ error: 'twilio_au_compliance_missing' });
+    }
+
+    const available = await twilioMessagingClient
+      .availablePhoneNumbers('AU')
+      .mobile.list({ smsEnabled: true, voiceEnabled: true, limit: 1 });
     if (!available.length) {
-      console.warn('[Provision] No available Telnyx numbers', { countryCode });
+      console.warn('[Provision] No available Twilio AU Mobile numbers');
       return res.status(429).json({ error: 'no_available_numbers' });
     }
-    const candidate = available[0].phone_number;
+    const candidate = available[0].phoneNumber;
 
-    // 2. Order the number, assigning it to our existing voice connection +
-    //    messaging profile so inbound calls/SMS route to our webhooks.
-    const order = await telnyxClient.orderNumber({
+    const voiceUrl = `${process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev'}/telephony/inbound-voice`;
+    const statusCallbackUrl = `${process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev'}/telephony/stream-status`;
+    const incoming = await twilioMessagingClient.incomingPhoneNumbers.create({
       phoneNumber: candidate,
-      connectionId: process.env.TELNYX_CONNECTION_ID,
-      messagingProfileId: process.env.TELNYX_MESSAGING_PROFILE_ID,
+      voiceUrl,
+      voiceMethod: 'POST',
+      statusCallback: statusCallbackUrl,
+      statusCallbackMethod: 'POST',
+      bundleSid,
+      addressSid,
     });
 
-    const ordered = order?.phone_numbers?.[0];
-    if (!ordered?.phone_number) {
-      console.error('[Provision] Order returned no phone number', { order });
-      return res.status(500).json({ error: 'order_failed', message: 'Telnyx order returned no phone numbers' });
-    }
-
-    // 3. Update users row. The column name is legacy (`twilio_phone_number`)
-    //    but now stores the Telnyx-provisioned number.
     await supabaseServiceClient
       .from('users')
       .update({
-        twilio_phone_number: ordered.phone_number,
-        twilio_number_sid: ordered.id,
+        twilio_phone_number: incoming.phoneNumber,
+        twilio_number_sid: incoming.sid,
         has_provisioned_phone: true,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId);
 
-    console.log('[Provision] Telnyx number provisioned', {
+    console.log('[Provision] Twilio AU Mobile number provisioned', {
       userId,
-      phoneNumber: ordered.phone_number,
-      phoneNumberId: ordered.id,
-      orderStatus: order.status,
+      phoneNumber: incoming.phoneNumber,
+      phoneNumberSid: incoming.sid,
     });
 
     return res.status(200).json({
-      phoneNumber: ordered.phone_number,
-      phoneNumberSid: ordered.id,
-      orderStatus: order.status,
+      phoneNumber: incoming.phoneNumber,
+      phoneNumberSid: incoming.sid,
+      provider: 'twilio',
     });
   } catch (err) {
     console.error('[Provision] Failed:', err);
@@ -3343,12 +3400,10 @@ const handleInboundVoice = async (req, res) => {
         },
       });
 
-      // Import IVR handler
-      const ivrHandler = require('./telephony/ivrHandler');
-      const twiml = await ivrHandler.generateIVRTwiML(businessProfile, callSid, receptionistProfile.id);
-
-      res.type('text/xml');
-      return res.send(twiml);
+      // SMS-links IVR over Twilio is not yet built (the old Telnyx Call Control
+      // IVR was removed). Fall back to voicemail so the lead is still captured.
+      // TODO: rebuild the booking/quote DTMF menu as Twilio TwiML.
+      return respondWithVoicemail(req, res, inboundParams);
     }
 
     if (callHandlingMode === 'ai_receptionist') {
@@ -3475,27 +3530,18 @@ app.post('/ivr/handle-dtmf', async (req, res) => {
 
   console.log('[IVR] DTMF input received:', { digits: Digits, callSid: CallSid, from: From, userId });
 
-  try {
-    const ivrHandler = require('./telephony/ivrHandler');
-    const { twiml } = await ivrHandler.handleDTMFInput(Digits, CallSid, userId, From);
+  // The Telnyx Call Control IVR was removed and the SMS-links DTMF menu isn't yet
+  // rebuilt on Twilio. Route the caller to voicemail so the lead is captured.
+  const response = new twilio.twiml.VoiceResponse();
+  response.say({ voice: 'Polly.Joanna' }, 'Please leave a message after the tone and we\'ll get back to you.');
+  response.record({
+    maxLength: 300,
+    transcribe: true,
+    transcribeCallback: userId ? `/webhook/transcription/${userId}` : undefined
+  });
 
-    res.type('text/xml');
-    res.send(twiml);
-  } catch (error) {
-    console.error('[IVR] Failed to handle DTMF input:', error);
-
-    // Fallback to voicemail on error
-    const response = new twilio.twiml.VoiceResponse();
-    response.say({ voice: 'Polly.Joanna' }, 'We\'re sorry, there was an error. Please leave a message after the tone.');
-    response.record({
-      maxLength: 300,
-      transcribe: true,
-      transcribeCallback: userId ? `/webhook/transcription/${userId}` : undefined
-    });
-
-    res.type('text/xml');
-    res.send(response.toString());
-  }
+  res.type('text/xml');
+  res.send(response.toString());
 });
 
 app.post('/ivr/timeout', async (req, res) => {
@@ -3504,22 +3550,13 @@ app.post('/ivr/timeout', async (req, res) => {
 
   console.log('[IVR] Timeout occurred:', { callSid: CallSid, userId });
 
-  try {
-    const ivrHandler = require('./telephony/ivrHandler');
-    const twiml = await ivrHandler.handleIVRTimeout(CallSid, userId);
+  // Telnyx IVR removed; no Twilio DTMF menu yet. Politely end the call.
+  const response = new twilio.twiml.VoiceResponse();
+  response.say({ voice: 'Polly.Joanna' }, 'Thank you for calling. Goodbye.');
+  response.hangup();
 
-    res.type('text/xml');
-    res.send(twiml);
-  } catch (error) {
-    console.error('[IVR] Failed to handle timeout:', error);
-
-    const response = new twilio.twiml.VoiceResponse();
-    response.say({ voice: 'Polly.Joanna' }, 'Thank you for calling. Goodbye.');
-    response.hangup();
-
-    res.type('text/xml');
-    res.send(response.toString());
-  }
+  res.type('text/xml');
+  res.send(response.toString());
 });
 
 app.post('/telephony/stream-status', async (req, res) => {
@@ -4836,6 +4873,23 @@ app.get('/api/integrations/google-calendar/callback', async (req, res) => {
       throw new Error('Failed to save calendar connection');
     }
 
+    // Flip the per-user flag the iOS app reads from `users` so the
+    // dashboard / settings calendar prompt accurately reflects "connected".
+    try {
+      const { data: orgUsers } = await supabaseStorageClient
+        .from('users')
+        .select('id')
+        .eq('default_org_id', orgId);
+      if (orgUsers && orgUsers.length) {
+        await supabaseStorageClient
+          .from('users')
+          .update({ google_calendar_connected: true, calendar_sync_enabled: true })
+          .in('id', orgUsers.map(u => u.id));
+      }
+    } catch (flagErr) {
+      console.warn('[GoogleCalendar] Failed to flip user flags:', flagErr.message);
+    }
+
     console.log('[GoogleCalendar] Connection saved successfully:', {
       orgId,
       calendarName: calendarInfo.summary,
@@ -4931,5 +4985,270 @@ if (require.main === module) {
 
   console.log('[Server] Reminder processor scheduled (runs every 60 seconds)');
 }
+
+// ============================================================================
+// Quotes & Invoices — PDF generation + SMS sending
+// ============================================================================
+
+const buildBusinessHeader = (org, user) => ({
+  business_name: org?.business_name || user?.full_name || 'Flynn',
+  business_phone: org?.phone_number || user?.phone || '',
+  business_email: org?.email || user?.email || '',
+  business_address: org?.address || '',
+});
+
+const buildDocumentHTML = (kind, doc) => {
+  const items = (doc.line_items || []).map(li =>
+    `<tr><td>${escapeHtml(li.description)}</td><td>${li.quantity}</td><td>$${(li.unit_price || 0).toFixed(2)}</td><td>$${(li.total || 0).toFixed(2)}</td></tr>`
+  ).join('');
+  const isInvoice = kind === 'invoice';
+  const dateLabel = isInvoice ? 'Due' : 'Valid until';
+  const dateValue = isInvoice ? doc.due_date : doc.valid_until;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1E293B;padding:40px}
+    .header{display:flex;justify-content:space-between;border-bottom:3px solid #ff4500;padding-bottom:20px;margin-bottom:30px}
+    .biz-name{font-size:28px;font-weight:700;color:#1E293B}
+    .doc-title{font-size:36px;font-weight:700;color:#ff4500;text-transform:uppercase}
+    .doc-num{color:#64748B;margin-top:4px}
+    .meta{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:30px}
+    .meta-block h3{font-size:11px;text-transform:uppercase;color:#64748B;margin-bottom:6px}
+    table{width:100%;border-collapse:collapse;margin:24px 0}
+    th{background:#F8FAFC;text-align:left;padding:12px;font-size:12px;text-transform:uppercase;color:#475569;border-bottom:2px solid #E2E8F0}
+    td{padding:12px;border-bottom:1px solid #E2E8F0;font-size:14px}
+    .totals{margin-left:auto;width:300px;margin-top:24px}
+    .totals-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}
+    .totals-row.grand{border-top:2px solid #1E293B;font-size:18px;font-weight:700;padding-top:14px;margin-top:8px}
+    .notes{margin-top:40px;padding:16px;background:#F8FAFC;border-left:3px solid #ff4500;font-size:13px;color:#475569}
+    .footer{margin-top:60px;padding-top:20px;border-top:1px solid #E2E8F0;text-align:center;color:#94A3B8;font-size:11px}
+  </style></head><body>
+  <div class="header">
+    <div>
+      <div class="biz-name">${escapeHtml(doc.business_name)}</div>
+      ${doc.business_phone ? `<div style="color:#64748B;font-size:13px;margin-top:4px">${escapeHtml(doc.business_phone)}</div>` : ''}
+      ${doc.business_email ? `<div style="color:#64748B;font-size:13px">${escapeHtml(doc.business_email)}</div>` : ''}
+    </div>
+    <div style="text-align:right">
+      <div class="doc-title">${isInvoice ? 'Invoice' : 'Quote'}</div>
+      <div class="doc-num">${escapeHtml(doc.number)}</div>
+    </div>
+  </div>
+  <div class="meta">
+    <div class="meta-block"><h3>Bill to</h3>
+      <div style="font-weight:600">${escapeHtml(doc.customer_name || 'Customer')}</div>
+      ${doc.customer_phone ? `<div style="color:#64748B;font-size:13px">${escapeHtml(doc.customer_phone)}</div>` : ''}
+    </div>
+    <div class="meta-block" style="text-align:right">
+      <h3>${isInvoice ? 'Issued' : 'Date'}</h3>
+      <div>${formatDate(doc.issued_date)}</div>
+      ${dateValue ? `<h3 style="margin-top:10px">${dateLabel}</h3><div>${formatDate(dateValue)}</div>` : ''}
+    </div>
+  </div>
+  ${doc.title ? `<h2 style="margin-bottom:12px">${escapeHtml(doc.title)}</h2>` : ''}
+  <table><thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead><tbody>${items}</tbody></table>
+  <div class="totals">
+    <div class="totals-row"><span>Subtotal</span><span>$${(doc.subtotal || 0).toFixed(2)}</span></div>
+    ${doc.tax_rate > 0 ? `<div class="totals-row"><span>GST (${doc.tax_rate}%)</span><span>$${(doc.tax_amount || 0).toFixed(2)}</span></div>` : ''}
+    <div class="totals-row grand"><span>Total</span><span>$${(doc.total || 0).toFixed(2)}</span></div>
+    ${isInvoice && doc.amount_paid ? `<div class="totals-row" style="color:#10B981"><span>Paid</span><span>-$${doc.amount_paid.toFixed(2)}</span></div>
+       <div class="totals-row grand"><span>Amount due</span><span>$${(doc.amount_due || 0).toFixed(2)}</span></div>` : ''}
+  </div>
+  ${doc.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(doc.notes)}</div>` : ''}
+  <div class="footer">Generated by Flynn · flynnai.app</div>
+  </body></html>`;
+};
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+let _puppeteerBrowser = null;
+async function htmlToPDFBuffer(html) {
+  const puppeteer = require('puppeteer');
+  if (!_puppeteerBrowser) {
+    // PUPPETEER_EXECUTABLE_PATH is set in Dockerfile to /usr/bin/chromium.
+    // Locally, puppeteer falls back to its bundled Chromium.
+    _puppeteerBrowser = await puppeteer.launch({
+      headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+  }
+  const page = await _puppeteerBrowser.newPage();
+  try {
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    return await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' } });
+  } finally {
+    await page.close();
+  }
+}
+
+const resolveUserOrg = async (userId) => {
+  const { data, error } = await supabaseStorageClient
+    .from('users')
+    .select('default_org_id, full_name, email, phone, business_name, address, twilio_phone_number')
+    .eq('id', userId)
+    .single();
+  if (error || !data?.default_org_id) {
+    throw new Error('User organization not found');
+  }
+  return { orgId: data.default_org_id, user: data };
+};
+
+const buildDocFromRow = (row, kind, user) => ({
+  type: kind,
+  number: kind === 'invoice' ? row.invoice_number : row.quote_number,
+  title: row.title,
+  business_name: user.business_name || user.full_name || 'Flynn',
+  business_phone: user.twilio_phone_number || user.phone || '',
+  business_email: user.email || '',
+  business_address: user.address || '',
+  customer_name: row.client_name || 'Customer',
+  customer_phone: row.client_phone || row.sent_to || '',
+  line_items: row.line_items || [],
+  subtotal: Number(row.subtotal || 0),
+  tax_rate: Number(row.tax_rate || 0),
+  tax_amount: Number(row.tax_amount || 0),
+  total: Number(row.total || 0),
+  amount_paid: row.amount_paid ? Number(row.amount_paid) : 0,
+  amount_due: row.amount_due ? Number(row.amount_due) : 0,
+  issued_date: row.issued_date || row.created_at,
+  valid_until: row.valid_until,
+  due_date: row.due_date,
+  notes: row.notes,
+});
+
+const generatePDFAndUpload = async (kind, row, user) => {
+  const doc = buildDocFromRow(row, kind, user);
+  const html = buildDocumentHTML(kind, doc);
+  const pdfBuffer = await htmlToPDFBuffer(html);
+  const filename = `${kind === 'invoice' ? 'invoices' : 'quotes'}/${row.id}/${doc.number}.pdf`;
+  const { error: uploadError } = await supabaseStorageClient.storage
+    .from('documents')
+    .upload(filename, pdfBuffer, { contentType: 'application/pdf', upsert: true });
+  if (uploadError) throw uploadError;
+  const { data: urlData } = supabaseStorageClient.storage.from('documents').getPublicUrl(filename);
+  const pdfUrl = urlData?.publicUrl;
+  await supabaseStorageClient.from(kind === 'invoice' ? 'invoices' : 'quotes')
+    .update({ pdf_url: pdfUrl }).eq('id', row.id);
+  return { pdfBuffer, pdfUrl };
+};
+
+// ---- Quote endpoints ----
+
+app.post('/api/quotes/:id/pdf', authenticateJwt, async (req, res) => {
+  try {
+    const { user } = await resolveUserOrg(req.user.id);
+    const { data: quote, error } = await supabaseStorageClient.from('quotes').select('*').eq('id', req.params.id).single();
+    if (error || !quote) return res.status(404).json({ error: 'Quote not found' });
+    const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('quote', quote, user);
+    res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
+  } catch (err) {
+    console.error('[Quotes] PDF generation failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/quotes/:id/send', authenticateJwt, async (req, res) => {
+  try {
+    const { toPhone } = req.body;
+    if (!toPhone) return res.status(400).json({ error: 'toPhone is required' });
+    const { user } = await resolveUserOrg(req.user.id);
+    const { data: quote, error } = await supabaseStorageClient.from('quotes').select('*').eq('id', req.params.id).single();
+    if (error || !quote) return res.status(404).json({ error: 'Quote not found' });
+    const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('quote', quote, user);
+    const businessName = user.business_name || user.full_name || 'Flynn';
+    const smsBody = `Hi! Here's your quote ${quote.quote_number} from ${businessName}: ${pdfUrl}`;
+    await sendConfirmationSms({ to: toPhone, body: smsBody });
+    await supabaseStorageClient.from('quotes').update({
+      sent_at: new Date().toISOString(),
+      sent_to: toPhone,
+      status: quote.status === 'draft' ? 'sent' : quote.status,
+    }).eq('id', req.params.id);
+    res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
+  } catch (err) {
+    console.error('[Quotes] Send failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/quotes/:id/convert', authenticateJwt, async (req, res) => {
+  try {
+    const { orgId, user } = await resolveUserOrg(req.user.id);
+    const { data: quote, error: qErr } = await supabaseStorageClient.from('quotes').select('*').eq('id', req.params.id).single();
+    if (qErr || !quote) return res.status(404).json({ error: 'Quote not found' });
+    const { data: numResult } = await supabaseStorageClient.rpc('generate_invoice_number', { p_org_id: orgId });
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 14);
+    const { data: invoice, error: insErr } = await supabaseStorageClient.from('invoices').insert({
+      org_id: orgId,
+      invoice_number: numResult,
+      title: quote.title,
+      client_id: quote.client_id,
+      client_name: quote.client_name,
+      client_phone: quote.client_phone,
+      quote_id: quote.id,
+      line_items: quote.line_items,
+      subtotal: quote.subtotal,
+      tax_rate: quote.tax_rate,
+      tax_amount: quote.tax_amount,
+      total: quote.total,
+      amount_paid: 0,
+      amount_due: quote.total,
+      notes: quote.notes,
+      due_date: dueDate.toISOString(),
+      issued_date: new Date().toISOString(),
+      status: 'draft',
+    }).select().single();
+    if (insErr) throw insErr;
+    res.json(invoice);
+  } catch (err) {
+    console.error('[Quotes] Convert failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Invoice endpoints ----
+
+app.post('/api/invoices/:id/pdf', authenticateJwt, async (req, res) => {
+  try {
+    const { user } = await resolveUserOrg(req.user.id);
+    const { data: invoice, error } = await supabaseStorageClient.from('invoices').select('*').eq('id', req.params.id).single();
+    if (error || !invoice) return res.status(404).json({ error: 'Invoice not found' });
+    const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('invoice', invoice, user);
+    res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
+  } catch (err) {
+    console.error('[Invoices] PDF generation failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/invoices/:id/send', authenticateJwt, async (req, res) => {
+  try {
+    const { toPhone } = req.body;
+    if (!toPhone) return res.status(400).json({ error: 'toPhone is required' });
+    const { user } = await resolveUserOrg(req.user.id);
+    const { data: invoice, error } = await supabaseStorageClient.from('invoices').select('*').eq('id', req.params.id).single();
+    if (error || !invoice) return res.status(404).json({ error: 'Invoice not found' });
+    const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('invoice', invoice, user);
+    const businessName = user.business_name || user.full_name || 'Flynn';
+    const smsBody = `Hi! Here's your invoice ${invoice.invoice_number} from ${businessName}: ${pdfUrl}`;
+    await sendConfirmationSms({ to: toPhone, body: smsBody });
+    await supabaseStorageClient.from('invoices').update({
+      sent_at: new Date().toISOString(),
+      sent_to: toPhone,
+      status: invoice.status === 'draft' ? 'sent' : invoice.status,
+    }).eq('id', req.params.id);
+    res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
+  } catch (err) {
+    console.error('[Invoices] Send failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = app;

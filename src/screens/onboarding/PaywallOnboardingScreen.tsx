@@ -11,10 +11,10 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Constants from 'expo-constants';
 import { colors, spacing, typography, borderRadius, shadows } from '../../theme';
 import { FlynnButton } from '../../components/ui/FlynnButton';
 import { supabase } from '../../services/supabase';
+import { TwilioService } from '../../services/TwilioService';
 import {
   bootstrap as bootstrapPlay,
   attachListeners as attachPlayListeners,
@@ -22,38 +22,31 @@ import {
   type PlayProductId,
 } from '../../services/PlayBillingService';
 
-const API_BASE_URL =
-  Constants.expoConfig?.extra?.apiBaseUrl || 'https://flynnai-telephony.fly.dev';
-
 /**
- * Provision a Telnyx phone number for the just-paid user. Idempotent on the
+ * Provision a Twilio phone number for the just-paid user. Idempotent on the
  * server, safe to call multiple times. Errors are logged but non-fatal — the
- * user can retry from settings if it fails the first time.
+ * dedicated PhoneProvisioningScreen later in onboarding (which also collects the
+ * AU regulatory address) is the authoritative path; this is just an early
+ * pre-warm so most users land on the next screen with a number already reserved.
+ *
+ * Note: previously hit the Telnyx /api/telnyx/provision-number endpoint, which is
+ * blocked on AU number provisioning (ACMA requirement group declined). Twilio is
+ * the live provider for inbound calls + the AI receptionist, so we provision there.
  */
 async function provisionFlynnNumber(): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
-  const accessToken = session?.access_token;
-  if (!accessToken) {
+  if (!session?.access_token) {
     console.warn('[Paywall] No session for number provisioning — skipping');
     return;
   }
   try {
-    const res = await fetch(`${API_BASE_URL}/api/telnyx/provision-number`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ countryCode: 'AU' }),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      console.warn('[Paywall] Provision failed:', res.status, body);
-      return;
-    }
-    const data = await res.json();
-    console.log('[Paywall] Number provisioned:', data.phoneNumber);
+    // Reuse the proven Twilio flow (search → purchase → persist to users +
+    // phone_numbers). No address here — AU numbers needing a regulatory bundle
+    // are completed on PhoneProvisioningScreen, which collects the address.
+    const result = await TwilioService.provisionPhoneNumber({ countryCode: 'AU' });
+    console.log('[Paywall] Number provisioned:', result?.phoneNumber);
   } catch (err) {
+    // Non-fatal: user finishes provisioning on the dedicated screen.
     console.warn('[Paywall] Provision request errored:', (err as Error).message);
   }
 }

@@ -561,7 +561,17 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
           listen: {
             provider: {
               type: 'deepgram',
-              model: 'nova-3', // Phone-optimized STT
+              // Flux: conversational STT with model-integrated end-of-turn detection.
+              // Replaces Nova-3 + heuristic VAD, which barged in too aggressively and
+              // cut callers off mid-sentence. Flux understands semantic turn cues
+              // ("uh...", "because...") so it waits for the caller to actually finish.
+              model: 'flux-general-en',
+              // High-reliability turn-taking tuned for phone calls: require strong
+              // confidence before ending the caller's turn, with an 8s silence safety
+              // net. Higher eot_threshold = fewer false interruptions.
+              // Docs: https://developers.deepgram.com/docs/flux/configuration
+              eot_threshold: 0.85,
+              eot_timeout_ms: 8000,
             },
           },
           think: {

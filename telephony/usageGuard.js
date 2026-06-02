@@ -1,11 +1,11 @@
 /**
  * Usage guard — enforces monthly AI-minute soft cap.
  *
- * Called at `call.initiated` in the Telnyx webhook. Returns whether the user
- * is still under their plan's AI-minute budget. If over budget, `ivrHandler`
- * forces the Mode A (SMS-link) branch and tags the call with
- * `handling_mode='ai_fallback_sms'` so analytics and the per-month view can
- * tell a real fallback from a voluntary SMS-link call.
+ * Called when an inbound call starts. Returns whether the user is still under
+ * their plan's AI-minute budget. If over budget, the caller forces the Mode A
+ * (SMS-link) branch and tags the call with `handling_mode='ai_fallback_sms'` so
+ * analytics and the per-month view can tell a real fallback from a voluntary
+ * SMS-link call.
  *
  * Source of truth is the `v_current_usage` SQL view; no local counters.
  */
