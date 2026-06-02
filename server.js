@@ -2863,6 +2863,12 @@ app.get('/account-deletion', (req, res) => {
 
 const JOB_STATUS_VALUES = new Set(['new', 'in_progress', 'completed']);
 
+// Origin used to build absolute callback URLs in IVR TwiML (Gather/Redirect/Record
+// `action`s). Returns '' when SERVER_PUBLIC_URL is unset — Twilio then resolves the
+// relative paths against the inbound webhook host.
+const ivrActionBaseUrl = () =>
+  process.env.SERVER_PUBLIC_URL ? process.env.SERVER_PUBLIC_URL.trim().replace(/\/+$/, '') : '';
+
 const buildRecordingCallbackUrl = (req) => {
   const callbackPath = '/telephony/recording-complete';
   const baseUrl = process.env.SERVER_PUBLIC_URL ? process.env.SERVER_PUBLIC_URL.trim() : undefined;
@@ -3400,10 +3406,16 @@ const handleInboundVoice = async (req, res) => {
         },
       });
 
-      // SMS-links IVR over Twilio is not yet built (the old Telnyx Call Control
-      // IVR was removed). Fall back to voicemail so the lead is still captured.
-      // TODO: rebuild the booking/quote DTMF menu as Twilio TwiML.
-      return respondWithVoicemail(req, res, inboundParams);
+      // Mode A IVR: play the booking/quote menu and collect one DTMF digit.
+      const twilioIvr = require('./telephony/twilioIvrHandler');
+      const twiml = await twilioIvr.generateIVRTwiML({
+        businessProfile,
+        userId: receptionistProfile.id,
+        actionBaseUrl: ivrActionBaseUrl(),
+      });
+
+      res.type('text/xml');
+      return res.send(twiml);
     }
 
     if (callHandlingMode === 'ai_receptionist') {
@@ -3530,18 +3542,31 @@ app.post('/ivr/handle-dtmf', async (req, res) => {
 
   console.log('[IVR] DTMF input received:', { digits: Digits, callSid: CallSid, from: From, userId });
 
-  // The Telnyx Call Control IVR was removed and the SMS-links DTMF menu isn't yet
-  // rebuilt on Twilio. Route the caller to voicemail so the lead is captured.
-  const response = new twilio.twiml.VoiceResponse();
-  response.say({ voice: 'Polly.Joanna' }, 'Please leave a message after the tone and we\'ll get back to you.');
-  response.record({
-    maxLength: 300,
-    transcribe: true,
-    transcribeCallback: userId ? `/webhook/transcription/${userId}` : undefined
-  });
+  try {
+    const twilioIvr = require('./telephony/twilioIvrHandler');
+    const businessProfile = await twilioIvr.getBusinessProfileByUserId(userId);
+    const { twiml } = await twilioIvr.handleDTMFInput({
+      digits: Digits,
+      businessProfile,
+      userId,
+      callSid: CallSid,
+      fromNumber: From,
+      actionBaseUrl: ivrActionBaseUrl(),
+    });
 
-  res.type('text/xml');
-  res.send(response.toString());
+    res.type('text/xml');
+    res.send(twiml);
+  } catch (error) {
+    console.error('[IVR] Failed to handle DTMF input:', error);
+
+    // Fallback to voicemail on error so the caller is still captured.
+    const response = new twilio.twiml.VoiceResponse();
+    response.say({ voice: 'Polly.Joanna' }, 'Sorry, there was an error. Please leave a message after the tone.');
+    response.record({ action: buildRecordingCallbackUrl(req), method: 'POST', playBeep: true, maxLength: 300 });
+
+    res.type('text/xml');
+    res.send(response.toString());
+  }
 });
 
 app.post('/ivr/timeout', async (req, res) => {
@@ -3550,13 +3575,22 @@ app.post('/ivr/timeout', async (req, res) => {
 
   console.log('[IVR] Timeout occurred:', { callSid: CallSid, userId });
 
-  // Telnyx IVR removed; no Twilio DTMF menu yet. Politely end the call.
-  const response = new twilio.twiml.VoiceResponse();
-  response.say({ voice: 'Polly.Joanna' }, 'Thank you for calling. Goodbye.');
-  response.hangup();
+  try {
+    const twilioIvr = require('./telephony/twilioIvrHandler');
+    const twiml = await twilioIvr.handleIVRTimeout({ actionBaseUrl: ivrActionBaseUrl() });
 
-  res.type('text/xml');
-  res.send(response.toString());
+    res.type('text/xml');
+    res.send(twiml);
+  } catch (error) {
+    console.error('[IVR] Failed to handle timeout:', error);
+
+    const response = new twilio.twiml.VoiceResponse();
+    response.say({ voice: 'Polly.Joanna' }, 'Thank you for calling. Goodbye.');
+    response.hangup();
+
+    res.type('text/xml');
+    res.send(response.toString());
+  }
 });
 
 app.post('/telephony/stream-status', async (req, res) => {
