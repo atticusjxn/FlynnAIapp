@@ -42,7 +42,7 @@ const Layout: React.FC = () => {
     }, [pathname]);
 
     return (
-        <div className="flex flex-col min-h-screen bg-surface-50">
+        <div className="flex flex-col min-h-screen bg-[#F4E6CE]">
             <Navbar />
             <main className="flex-grow pt-20">
                 <Outlet />
