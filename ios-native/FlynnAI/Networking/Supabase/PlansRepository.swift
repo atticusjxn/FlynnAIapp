@@ -18,7 +18,7 @@ final class PlansRepository: PlansRepositoryType {
             .from("plans")
             .select()
             .eq("is_active", value: true)
-            .order("sort_order", ascending: true)
+            .order("price_monthly_aud", ascending: true)
             .execute()
             .value
     }

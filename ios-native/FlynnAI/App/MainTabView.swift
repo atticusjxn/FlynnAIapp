@@ -5,65 +5,59 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(DeepLinkRouter.self) private var deepLink
     @State private var selection: FlynnTab = .dashboard
+    @State private var drawer = DrawerController()
 
     @State private var dashboardPath = NavigationPath()
+    @State private var voicePath = NavigationPath()
+    @State private var brainPath = NavigationPath()
     @State private var eventsPath = NavigationPath()
+    // Parked tabs — paths retained so deep links to their detail routes still work.
     @State private var callsPath = NavigationPath()
     @State private var clientsPath = NavigationPath()
     @State private var moneyPath = NavigationPath()
 
     var body: some View {
-        TabView(selection: $selection) {
-            NavigationStack(path: $dashboardPath) {
-                DashboardView()
-                    .navigationDestination(for: Route.self) { route in destination(for: route) }
+        ZStack(alignment: .leading) {
+            TabView(selection: $selection) {
+                tab(.dashboard, path: $dashboardPath) { DashboardView() }
+                tab(.voice, path: $voicePath) { VoiceView() }
+                tab(.brain, path: $brainPath) { BrainView() }
+                tab(.events, path: $eventsPath) { EventsListView() }
             }
-            .tabItem {
-                Label(FlynnTab.dashboard.title, systemImage: FlynnTab.dashboard.systemImage)
-            }
-            .tag(FlynnTab.dashboard)
 
-            NavigationStack(path: $eventsPath) {
-                EventsListView()
-                    .navigationDestination(for: Route.self) { route in destination(for: route) }
+            if drawer.isOpen {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture { drawer.isOpen = false }
+                    .transition(.opacity)
+                DrawerView()
+                    .frame(maxWidth: 320, maxHeight: .infinity)
+                    .transition(.move(edge: .leading))
+                    .ignoresSafeArea(edges: .bottom)
             }
-            .tabItem {
-                Label(FlynnTab.events.title, systemImage: FlynnTab.events.systemImage)
-            }
-            .tag(FlynnTab.events)
-
-            NavigationStack(path: $callsPath) {
-                CallsListView()
-                    .navigationDestination(for: Route.self) { route in destination(for: route) }
-            }
-            .tabItem {
-                Label(FlynnTab.calls.title, systemImage: FlynnTab.calls.systemImage)
-            }
-            .tag(FlynnTab.calls)
-
-            NavigationStack(path: $clientsPath) {
-                ClientsListView()
-                    .navigationDestination(for: Route.self) { route in destination(for: route) }
-            }
-            .tabItem {
-                Label(FlynnTab.clients.title, systemImage: FlynnTab.clients.systemImage)
-            }
-            .tag(FlynnTab.clients)
-
-            NavigationStack(path: $moneyPath) {
-                MoneyView()
-                    .navigationDestination(for: Route.self) { route in destination(for: route) }
-            }
-            .tabItem {
-                Label(FlynnTab.money.title, systemImage: FlynnTab.money.systemImage)
-            }
-            .tag(FlynnTab.money)
         }
+        .environment(drawer)
+        .animation(.easeOut(duration: 0.25), value: drawer.isOpen)
         .onChange(of: deepLink.pending) { _, link in
             guard let link else { return }
             applyDeepLink(link)
             deepLink.pending = nil
         }
+    }
+
+    @ViewBuilder
+    private func tab<Root: View>(
+        _ t: FlynnTab,
+        path: Binding<NavigationPath>,
+        @ViewBuilder root: () -> Root
+    ) -> some View {
+        NavigationStack(path: path) {
+            root()
+                .navigationDestination(for: Route.self) { route in destination(for: route) }
+                .toolbar { ToolbarItem(placement: .topBarLeading) { DrawerButton() } }
+        }
+        .tabItem { Label(t.title, systemImage: t.systemImage) }
+        .tag(t)
     }
 
     @ViewBuilder
@@ -115,6 +109,8 @@ struct MainTabView: View {
         case .calls: callsPath.append(route)
         case .clients: clientsPath.append(route)
         case .money: moneyPath.append(route)
+        case .voice: voicePath.append(route)
+        case .brain: brainPath.append(route)
         }
     }
 }

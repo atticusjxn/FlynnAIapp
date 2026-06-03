@@ -74,16 +74,16 @@ final class ForwardingSetupStore {
     func load() async {
         loadState = .loading
         do {
-            struct Row: Decodable { let telnyx_phone_number: String? }
+            struct Row: Decodable { let twilio_phone_number: String? }
             let session = try await client.auth.session
             let row: Row = try await client
                 .from("users")
-                .select("telnyx_phone_number")
+                .select("twilio_phone_number")
                 .eq("id", value: session.user.id.uuidString)
                 .single()
                 .execute()
                 .value
-            telnyxNumber = row.telnyx_phone_number
+            telnyxNumber = row.twilio_phone_number
             loadState = .loaded
         } catch {
             loadState = .error(error.localizedDescription)
@@ -94,6 +94,10 @@ final class ForwardingSetupStore {
 struct ForwardingSetupView: View {
     @State private var store = ForwardingSetupStore()
     @Environment(FlashStore.self) private var flash
+    /// True once the dialer has been opened — survives background/foreground.
+    @AppStorage("forwarding_dialed") private var hasDialed = false
+    /// Explicit user confirmation that forwarding worked.
+    @AppStorage("forwarding_confirmed") private var forwardingConfirmed = false
 
     var body: some View {
         ScrollView {
@@ -108,10 +112,15 @@ struct ForwardingSetupView: View {
                     errorState(msg)
                 case .loaded:
                     if let number = store.telnyxNumber, !number.isEmpty {
-                        carrierPicker
-                        instructions
-                        actionButton(destination: number)
-                        fallbackNote(destination: number)
+                        if forwardingConfirmed {
+                            confirmedState(destination: number)
+                        } else {
+                            carrierPicker
+                            instructions
+                            actionButton(destination: number)
+                            if hasDialed { didItWorkPrompt }
+                            fallbackNote(destination: number)
+                        }
                     } else {
                         missingNumberState
                     }
@@ -123,6 +132,10 @@ struct ForwardingSetupView: View {
         .navigationTitle("Forward your calls")
         .navigationBarTitleDisplayMode(.large)
         .task { await store.load() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Refresh when user returns from the phone dialer
+            Task { await store.load() }
+        }
     }
 
     private var header: some View {
@@ -210,14 +223,78 @@ struct ForwardingSetupView: View {
         let code = store.selectedCarrier.forwardingCode(destination: destination)
         return VStack(spacing: FlynnSpacing.sm) {
             FlynnButton(
-                title: "Start Forwarding",
+                title: hasDialed ? "Open dialer again" : "Start Forwarding",
                 action: { dial(code: code) },
+                variant: hasDialed ? .secondary : .primary,
                 fullWidth: true
             )
             Text("Dialer will open with: \(code)")
                 .flynnType(FlynnTypography.caption)
                 .foregroundColor(FlynnColor.textTertiary)
         }
+    }
+
+    private var didItWorkPrompt: some View {
+        VStack(spacing: FlynnSpacing.sm) {
+            HStack(spacing: FlynnSpacing.xs) {
+                Image(systemName: "questionmark.circle.fill")
+                    .foregroundColor(FlynnColor.warning)
+                Text("Did forwarding activate?")
+                    .flynnType(FlynnTypography.bodyMedium)
+                    .foregroundColor(FlynnColor.textPrimary)
+            }
+            Text("Your carrier plays a confirmation tone after a successful dial.")
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textSecondary)
+                .multilineTextAlignment(.center)
+            HStack(spacing: FlynnSpacing.sm) {
+                FlynnButton(
+                    title: "Yes, it's set up",
+                    action: { forwardingConfirmed = true },
+                    variant: .success,
+                    fullWidth: true
+                )
+                FlynnButton(
+                    title: "Try again",
+                    action: { hasDialed = false },
+                    variant: .secondary,
+                    fullWidth: true
+                )
+            }
+        }
+        .padding(FlynnSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                .fill(FlynnColor.warningLight)
+        )
+        .brutalistBorder(cornerRadius: FlynnRadii.md, color: FlynnColor.warning)
+    }
+
+    private func confirmedState(destination: String) -> some View {
+        VStack(spacing: FlynnSpacing.md) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 48))
+                .foregroundColor(FlynnColor.success)
+            Text("Forwarding is active")
+                .flynnType(FlynnTypography.h3)
+                .foregroundColor(FlynnColor.textPrimary)
+            Text("Missed calls will now reach Flynn on \(destination).")
+                .flynnType(FlynnTypography.bodyMedium)
+                .foregroundColor(FlynnColor.textSecondary)
+                .multilineTextAlignment(.center)
+            Text("To turn forwarding off, dial ##004#")
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textTertiary)
+                .monospaced()
+            FlynnButton(
+                title: "Set up on another device",
+                action: { forwardingConfirmed = false; hasDialed = false },
+                variant: .secondary,
+                fullWidth: true
+            )
+        }
+        .frame(maxWidth: .infinity)
+        .padding(FlynnSpacing.lg)
     }
 
     private func fallbackNote(destination: String) -> some View {
@@ -264,7 +341,6 @@ struct ForwardingSetupView: View {
     }
 
     private func dial(code: String) {
-        // `*` and `#` must be percent-encoded for tel:// to parse on iOS.
         guard
             let encoded = code.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
             let url = URL(string: "tel:\(encoded)")
@@ -274,6 +350,7 @@ struct ForwardingSetupView: View {
         }
         if UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)
+            hasDialed = true
         } else {
             flash.error("Dialer unavailable (iPad or Simulator)")
         }

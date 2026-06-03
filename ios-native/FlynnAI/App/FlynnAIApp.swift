@@ -65,6 +65,11 @@ struct FlynnAIApp: App {
                 .onChange(of: auth.state) { _, newState in
                     if case .signedIn = newState {
                         Task { await appleSearchAdsAttribution.claimIfAuthenticated() }
+                        // Refresh the keyboard's long-lived token + shared config so
+                        // the custom keyboard can reach the backend.
+                        Task { await KeyboardBridge.sync() }
+                    } else if case .signedOut = newState {
+                        KeyboardBridge.clear()
                     }
                 }
         }

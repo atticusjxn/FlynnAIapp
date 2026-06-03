@@ -11,23 +11,29 @@ import FBSDKCoreKit
 @Observable
 final class OnboardingStore {
     enum Step: Int, CaseIterable, Identifiable {
-        case websiteScrape = 0
-        case mode          = 1
-        case ivr           = 2
-        case liveDemo      = 3
-        case paywall       = 4
-        case phoneNumber   = 5
+        case welcome         = 0
+        case whatYouDo       = 1
+        case confirmBrain    = 2
+        case captureVoice    = 3
+        case soundsLikeYou   = 4
+        case connectCalendar = 5
+        case paywall         = 6
+        case practice        = 7
+        case installKeyboard = 8
 
         var id: Int { rawValue }
 
         var title: String {
             switch self {
-            case .websiteScrape: return "Tell Flynn about your business"
-            case .mode:          return "How should we handle missed calls?"
-            case .ivr:           return "What should Flynn say?"
-            case .liveDemo:      return "Meet your AI receptionist"
-            case .paywall:       return "Unlock your agent"
-            case .phoneNumber:   return "Forward your calls"
+            case .welcome:         return "Welcome to Flynn"
+            case .whatYouDo:       return "What do you do?"
+            case .confirmBrain:    return "Does this look right?"
+            case .captureVoice:    return "Reply like you really would"
+            case .soundsLikeYou:   return "Sound like you?"
+            case .connectCalendar: return "Connect your calendar"
+            case .paywall:         return "Unlock Flynn"
+            case .practice:        return "Try it once"
+            case .installKeyboard: return "Add the Flynn keyboard"
             }
         }
     }
@@ -43,7 +49,7 @@ final class OnboardingStore {
     /// Phone number from `auth.users.phone` — set if the user signed up via SMS.
     /// Used to pre-fill the business profile phone field so the user doesn't retype.
     private(set) var verifiedPhone: String?
-    var currentStep: Step = .websiteScrape {
+    var currentStep: Step = .welcome {
         didSet { Self.persistStep(currentStep) }
     }
 
@@ -68,10 +74,104 @@ final class OnboardingStore {
     var demoWsUrl: URL?
     var demoCallActive: Bool = false
 
+    // MARK: - Text co-pilot onboarding state
+
+    struct DetectedService: Identifiable, Equatable {
+        let id = UUID()
+        var name: String
+        var priceRange: String
+    }
+
+    /// Free-text "what do you do" the user types; seeds tailored prompts + brain.
+    var businessDescription: String = ""
+    var websiteURL: String = ""
+    var detectedBusinessType: String = ""
+    var detectedServices: [DetectedService] = []
+    var detectedPricingNote: String = ""
+    var detectedHoursSummary: String = ""
+    /// 3 trade-tailored customer texts the user replies to (from the backend).
+    var samplePrompts: [String] = []
+    var understandingState: LoadState = .idle
+
     private let client: SupabaseClient
 
     init(client: SupabaseClient = FlynnSupabase.client) {
         self.client = client
+    }
+
+    /// Turn the free-text "what do you do" into a starter Business Brain + 3
+    /// trade-tailored sample customer texts (via /api/onboarding/understand).
+    func understandBusiness() async {
+        let desc = businessDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !desc.isEmpty else { return }
+        understandingState = .loading
+
+        struct Req: Encodable { let description: String }
+        struct Svc: Decodable { let name: String; let price_range: String? }
+        struct Resp: Decodable {
+            let businessType: String?
+            let services: [Svc]
+            let pricingNote: String?
+            let hoursSummary: String?
+            let samplePrompts: [String]
+        }
+
+        do {
+            let session = try await client.auth.session
+            var req = URLRequest(url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent("api/onboarding/understand"))
+            req.httpMethod = "POST"
+            req.timeoutInterval = 25
+            req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONEncoder().encode(Req(description: desc))
+
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                understandingState = .error("Couldn't analyse your business")
+                return
+            }
+            let decoded = try JSONDecoder().decode(Resp.self, from: data)
+            detectedBusinessType = decoded.businessType ?? ""
+            detectedServices = decoded.services.map {
+                DetectedService(name: $0.name, priceRange: $0.price_range ?? "")
+            }
+            detectedPricingNote = decoded.pricingNote ?? ""
+            detectedHoursSummary = decoded.hoursSummary ?? ""
+            samplePrompts = decoded.samplePrompts
+            understandingState = .loaded
+        } catch {
+            understandingState = .error(error.localizedDescription)
+        }
+    }
+
+    /// Persist the confirmed Business Brain to business_profiles.
+    func saveBusinessBrain() async {
+        struct Svc: Encodable { let name: String; let price_range: String }
+        struct Patch: Encodable {
+            let industry: String
+            let services: [Svc]
+            let pricing_notes: String
+            let ai_instructions: String
+            let website_url: String?
+        }
+        let payload = Patch(
+            industry: detectedBusinessType,
+            services: detectedServices.map { Svc(name: $0.name, price_range: $0.priceRange) },
+            pricing_notes: detectedPricingNote,
+            ai_instructions: businessDescription,
+            website_url: websiteURL.isEmpty ? nil : websiteURL
+        )
+        do {
+            let session = try await client.auth.session
+            var req = URLRequest(url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent("api/business-profile"))
+            req.httpMethod = "PATCH"
+            req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONEncoder().encode(payload)
+            _ = try await URLSession.shared.data(for: req)
+        } catch {
+            FlynnLog.network.error("saveBusinessBrain failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     func load() async {

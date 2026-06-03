@@ -21,6 +21,11 @@ const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
 const attachRealtimeServer = require('./telephony/realtimeServer');
 const { getLLMClient, PROVIDERS } = require('./llmClient');
+const jwt = require('jsonwebtoken');
+const { generateDrafts } = require('./services/draftReplies');
+const { understandBusiness, FALLBACK_PROMPTS } = require('./services/onboarding');
+const googleCalendar = require('./services/googleCalendar');
+const { findOpenSlots } = require('./services/slotProposer');
 
 const {
   upsertCallRecord,
@@ -2086,7 +2091,8 @@ app.patch('/api/business-profile', authenticateJwt, async (req, res) => {
   if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
 
   const allowed = ['business_name', 'industry', 'services', 'hours_json', 'service_areas',
-    'faqs', 'pricing_notes', 'ai_instructions', 'ai_greeting_text', 'ivr_custom_script'];
+    'faqs', 'pricing_notes', 'ai_instructions', 'ai_greeting_text', 'ivr_custom_script',
+    'website_url'];
   const updates = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -2201,6 +2207,368 @@ app.get('/api/business-profile/:orgId', async (req, res) => {
   } catch (error) {
     console.error('[Business Profile] Error:', error);
     res.status(500).json({ error: 'Failed to get business profile' });
+  }
+});
+
+// ========================================
+// Keyboard Co-pilot Endpoints (text-reply drafting)
+// ========================================
+
+const KEYBOARD_TOKEN_TTL_DAYS = parseIntegerEnv(process.env.KEYBOARD_TOKEN_TTL_DAYS, 60);
+const MAX_DRAFT_MESSAGES = 20;
+const MAX_ACCEPTED_TONE_SAMPLES = 8;
+const FREE_DRAFTS_PER_DAY = parseIntegerEnv(process.env.FREE_DRAFTS_PER_DAY, 10);
+
+/**
+ * Is the user on an active/trialing subscription (Pro = unlimited drafts)?
+ * Resolves via their org's subscription_status. Fails open to false (free tier).
+ */
+async function isUserEntitled(userId) {
+  try {
+    if (!supabaseStorageClient) return false;
+    const { data: userRow } = await supabaseStorageClient
+      .from('users')
+      .select('default_org_id')
+      .eq('id', userId)
+      .maybeSingle();
+    const orgId = userRow?.default_org_id;
+    if (!orgId) return false;
+    const { data: org } = await supabaseStorageClient
+      .from('organizations')
+      .select('subscription_status')
+      .eq('id', orgId)
+      .maybeSingle();
+    return ['active', 'trialing'].includes(org?.subscription_status);
+  } catch (error) {
+    console.warn('[Keyboard] entitlement check failed (treating as free):', error?.message);
+    return false;
+  }
+}
+
+/** Today's draft count for a user (free-tier accounting). */
+async function draftsUsedToday(userId) {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabaseStorageClient
+      .from('draft_usage')
+      .select('count')
+      .eq('user_id', userId)
+      .eq('usage_date', today)
+      .maybeSingle();
+    return data?.count ?? 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+/**
+ * Best-effort: compute genuinely-open Google Calendar slots for a user, to feed
+ * into draft generation or return to the app. Returns [] (never throws) if the
+ * user has no Google connection or anything fails — Apple-only users propose
+ * from business hours on-device instead.
+ */
+async function computeGoogleSlots(userId, businessHours, { days = 7, durationMins = 60, maxSlots = 3 } = {}) {
+  try {
+    if (!supabaseStorageClient) return { slots: [], timeZone: 'Australia/Sydney', connected: false };
+    const { connection } = await googleCalendar.getConnectionForUser(supabaseStorageClient, userId);
+    if (!connection) return { slots: [], timeZone: 'Australia/Sydney', connected: false };
+
+    const timeZone = connection?.metadata?.timeZone || 'Australia/Sydney';
+    const accessToken = await googleCalendar.ensureFreshAccessToken(supabaseStorageClient, connection);
+    const now = new Date();
+    const timeMax = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const busy = await googleCalendar.queryFreeBusy(accessToken, {
+      timeMin: now.toISOString(),
+      timeMax: timeMax.toISOString(),
+      calendarId: connection.account_id || 'primary',
+    });
+    const slots = findOpenSlots({
+      businessHours: businessHours || {},
+      busy,
+      timeZone,
+      durationMins,
+      from: now,
+      days,
+      maxSlots,
+    });
+    return { slots, timeZone, connected: true, calendarId: connection.account_id || 'primary' };
+  } catch (error) {
+    console.warn('[Keyboard] computeGoogleSlots failed (non-fatal):', error?.status || '', error?.message);
+    return { slots: [], timeZone: 'Australia/Sydney', connected: false };
+  }
+}
+
+/**
+ * Mint a long-lived JWT the sandboxed keyboard extension can use to call the
+ * backend (it can't run the Supabase SDK / refresh short-lived tokens). Signed
+ * with SUPABASE_JWT_SECRET so authenticateJwt verifies it unchanged. Called by
+ * the main app (with a valid session) on foreground; re-minted as needed.
+ * POST /api/keyboard/provision-token
+ */
+app.post('/api/keyboard/provision-token', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const secret = process.env.SUPABASE_JWT_SECRET || process.env.SUPABASE_ANON_JWT_SECRET;
+  if (!secret) return res.status(500).json({ error: 'Authentication not configured' });
+
+  const expiresInSeconds = KEYBOARD_TOKEN_TTL_DAYS * 24 * 60 * 60;
+  const token = jwt.sign(
+    { sub: userId, flynn_kbd: true, role: 'authenticated' },
+    secret,
+    { algorithm: 'HS256', expiresIn: expiresInSeconds }
+  );
+
+  res.json({
+    token,
+    expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
+  });
+});
+
+/**
+ * Generate tone-matched reply drafts for the customer's (possibly fragmented)
+ * messages. Used by the keyboard extension. Privacy: customer message text is
+ * used only to build the prompt and is NOT persisted.
+ * POST /api/keyboard/draft-replies
+ * Body: { messages: string[], proposedSlots?: string[], draftCount?: number }
+ */
+app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const rawMessages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+  const messages = rawMessages
+    .filter((m) => typeof m === 'string' && m.trim().length > 0)
+    .slice(-MAX_DRAFT_MESSAGES);
+  if (messages.length === 0) {
+    return res.status(400).json({ error: 'No customer messages provided' });
+  }
+
+  // Slots may be supplied by the client (e.g. computed on-device from Apple
+  // EventKit). If not, and the user has Google connected, compute them server-side.
+  let proposedSlots = Array.isArray(req.body?.proposedSlots)
+    ? req.body.proposedSlots.filter((s) => typeof s === 'string' && s.trim()).slice(0, 5)
+    : [];
+  const draftCount = Math.min(Math.max(parseInt(req.body?.draftCount, 10) || 4, 1), 4);
+
+  try {
+    // Free-tier gate: unlimited for entitled users; capped per day otherwise.
+    const entitled = await isUserEntitled(userId);
+    if (!entitled) {
+      const used = await draftsUsedToday(userId);
+      if (used >= FREE_DRAFTS_PER_DAY) {
+        return res.status(402).json({
+          limitReached: true,
+          error: 'Free daily draft limit reached',
+          freeDraftsPerDay: FREE_DRAFTS_PER_DAY,
+        });
+      }
+    }
+
+    // Business Brain.
+    const { data: profileRow } = await supabaseStorageClient
+      .from('business_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (proposedSlots.length === 0) {
+      const { slots } = await computeGoogleSlots(userId, profileRow?.hours_json);
+      proposedSlots = slots.map((s) => s.label);
+    }
+
+    // Tone samples: all onboarding samples + the most recent accepted ones
+    // (the learning loop). Newest-first; cap accepted so the prompt stays small.
+    const { data: sampleRows } = await supabaseStorageClient
+      .from('tone_samples')
+      .select('sample_text, source, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(40);
+
+    const onboarding = [];
+    const accepted = [];
+    for (const row of sampleRows || []) {
+      if (!row?.sample_text) continue;
+      if (row.source === 'accepted') accepted.push(row.sample_text);
+      else onboarding.push(row.sample_text);
+    }
+    const toneSamples = [...onboarding, ...accepted.slice(0, MAX_ACCEPTED_TONE_SAMPLES)];
+
+    const { drafts, usage } = await generateDrafts({
+      profileRow: profileRow || {},
+      toneSamples,
+      messages,
+      proposedSlots,
+      draftCount,
+    });
+
+    if (!drafts || drafts.length === 0) {
+      return res.status(502).json({ error: 'Draft generation returned no results' });
+    }
+
+    // Count this draft against the free daily cap (entitled users are unlimited).
+    if (!entitled) {
+      try { await supabaseStorageClient.rpc('bump_draft_usage', { p_user_id: userId }); } catch (_) {}
+    }
+
+    res.json({ drafts, usage });
+  } catch (error) {
+    console.error('[Keyboard] draft-replies failed:', error?.status || '', error?.message);
+    res.status(500).json({ error: 'Failed to generate drafts' });
+  }
+});
+
+/**
+ * Learning loop: record a draft the user actually tapped/sent so future drafts
+ * lean toward that style. Stored as a tone sample with source='accepted'.
+ * POST /api/keyboard/accept-draft
+ * Body: { text: string }
+ */
+app.post('/api/keyboard/accept-draft', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  if (!text) return res.status(400).json({ error: 'No draft text provided' });
+
+  try {
+    const { error } = await supabaseStorageClient
+      .from('tone_samples')
+      .insert({ user_id: userId, sample_text: text.slice(0, 1000), source: 'accepted' });
+    if (error) {
+      console.error('[Keyboard] accept-draft insert failed:', error.message);
+      return res.status(500).json({ error: 'Failed to record accepted draft' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Keyboard] accept-draft failed:', error?.message);
+    res.status(500).json({ error: 'Failed to record accepted draft' });
+  }
+});
+
+/**
+ * Onboarding: turn a one-line "what do you do" (+ optional scraped website data)
+ * into a starter Business Brain and 3 trade-tailored sample customer texts the
+ * user replies to (so we capture their voice in context). Never dead-ends —
+ * returns generic fallback prompts if the model is unavailable.
+ * POST /api/onboarding/understand
+ * Body: { description: string, websiteData?: object }
+ */
+app.post('/api/onboarding/understand', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
+  if (!description) return res.status(400).json({ error: 'A short description is required' });
+
+  try {
+    const understanding = await understandBusiness({
+      description,
+      websiteData: req.body?.websiteData,
+    });
+    if (understanding && understanding.samplePrompts.length === 3) {
+      return res.json(understanding);
+    }
+    // Partial/failed parse → still return something usable.
+    return res.json({
+      businessType: understanding?.businessType ?? null,
+      services: understanding?.services ?? [],
+      pricingNote: understanding?.pricingNote ?? null,
+      hoursSummary: understanding?.hoursSummary ?? null,
+      samplePrompts: understanding?.samplePrompts?.length
+        ? understanding.samplePrompts
+        : FALLBACK_PROMPTS,
+    });
+  } catch (error) {
+    console.error('[Onboarding] understand failed:', error?.status || '', error?.message);
+    // Don't block onboarding — hand back generic prompts.
+    res.json({
+      businessType: null,
+      services: [],
+      pricingNote: null,
+      hoursSummary: null,
+      samplePrompts: FALLBACK_PROMPTS,
+    });
+  }
+});
+
+/**
+ * Propose genuinely-open Google Calendar slots for the user (the "offer a real
+ * time" feature). Apple-only users get connected:false and propose on-device.
+ * POST /api/calendar/propose-slots
+ * Body: { durationMins?: number, days?: number, maxSlots?: number }
+ */
+app.post('/api/calendar/propose-slots', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const durationMins = Math.min(Math.max(parseInt(req.body?.durationMins, 10) || 60, 15), 480);
+  const days = Math.min(Math.max(parseInt(req.body?.days, 10) || 7, 1), 21);
+  const maxSlots = Math.min(Math.max(parseInt(req.body?.maxSlots, 10) || 3, 1), 5);
+
+  try {
+    const { data: profileRow } = await supabaseStorageClient
+      .from('business_profiles')
+      .select('hours_json')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const { slots, timeZone, connected } = await computeGoogleSlots(
+      userId,
+      profileRow?.hours_json,
+      { durationMins, days, maxSlots }
+    );
+    res.json({
+      connected,
+      timeZone,
+      slots: slots.map((s) => ({ start: s.start.toISOString(), end: s.end.toISOString(), label: s.label })),
+    });
+  } catch (error) {
+    console.error('[Calendar] propose-slots failed:', error?.message);
+    res.status(500).json({ error: 'Failed to propose slots' });
+  }
+});
+
+/**
+ * Create a calendar event (used after a time is agreed). Writes to Google
+ * server-side so it can be triggered from the keyboard. Apple Calendar writes
+ * happen on-device in the app via EventKit, not here.
+ * POST /api/calendar/events
+ * Body: { summary, description?, startISO, endISO, location?, timeZone? }
+ */
+app.post('/api/calendar/events', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const { summary, description, startISO, endISO, location, timeZone } = req.body || {};
+  if (!summary || !startISO || !endISO) {
+    return res.status(400).json({ error: 'summary, startISO and endISO are required' });
+  }
+
+  try {
+    const { connection } = await googleCalendar.getConnectionForUser(supabaseStorageClient, userId);
+    if (!connection) {
+      return res.status(409).json({ error: 'Google Calendar not connected', code: 'not_connected' });
+    }
+    const accessToken = await googleCalendar.ensureFreshAccessToken(supabaseStorageClient, connection);
+    const event = await googleCalendar.insertEvent(accessToken, {
+      calendarId: connection.account_id || 'primary',
+      summary,
+      description: description || '',
+      startISO,
+      endISO,
+      location,
+      timeZone: timeZone || connection?.metadata?.timeZone || 'Australia/Sydney',
+    });
+    res.json({ eventId: event.id, htmlLink: event.htmlLink, status: event.status });
+  } catch (error) {
+    console.error('[Calendar] event insert failed:', error?.status || '', error?.message);
+    res.status(500).json({ error: 'Failed to create calendar event' });
   }
 });
 

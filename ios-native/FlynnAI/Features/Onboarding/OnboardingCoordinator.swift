@@ -14,27 +14,28 @@ struct OnboardingCoordinator: View {
 
                 Group {
                     switch store.currentStep {
-                    case .websiteScrape:
-                        WebsiteScrapeStepView(onContinue: advance)
-                    case .mode:
-                        CallHandlingModeStepView(onContinue: advance)
-                    case .ivr:
-                        IvrScriptStepView(onContinue: advance)
-                    case .liveDemo:
-                        LiveVoiceDemoStepView(store: store, onContinue: advance)
+                    case .welcome:
+                        WelcomeStepView(onContinue: advance)
+                    case .whatYouDo:
+                        WhatYouDoStepView(store: store, onContinue: advance)
+                    case .confirmBrain:
+                        ConfirmBrainStepView(store: store, onContinue: advance)
+                    case .captureVoice:
+                        CaptureVoiceStepView(store: store, onContinue: advance)
+                    case .soundsLikeYou:
+                        SoundsLikeYouStepView(store: store, onContinue: advance)
+                    case .connectCalendar:
+                        ConnectCalendarStepView(onContinue: advance)
                     case .paywall:
                         PaywallStepView(
                             store: store,
                             onSubscribe: advance,
-                            onSkip: {
-                                Task {
-                                    await store.setSmsLinksMode()
-                                    advance()
-                                }
-                            }
+                            onSkip: advance
                         )
-                    case .phoneNumber:
-                        PhoneNumberStepView(store: store, onFinish: finish)
+                    case .practice:
+                        PracticeStepView(onContinue: advance)
+                    case .installKeyboard:
+                        InstallKeyboardStepView(onFinish: finish)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -42,13 +43,14 @@ struct OnboardingCoordinator: View {
             }
             .background(FlynnColor.background)
             .toolbar {
-                if store.currentStep != .websiteScrape {
+                if store.currentStep != .welcome {
                     ToolbarItem(placement: .topBarLeading) {
                         Button("Back") { store.back() }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    if store.currentStep != .phoneNumber && store.currentStep != .liveDemo {
+                    let skippable: [OnboardingStore.Step] = [.confirmBrain, .connectCalendar, .paywall, .practice]
+                    if skippable.contains(store.currentStep) {
                         Button("Skip") { advance() }
                             .foregroundColor(FlynnColor.textSecondary)
                     }
@@ -78,6 +80,8 @@ struct OnboardingCoordinator: View {
     private func finish() {
         Task {
             await store.markComplete()
+            // Make sure the keyboard has a fresh token + business name to work with.
+            await KeyboardBridge.sync(businessName: store.detectedBusinessType.isEmpty ? nil : store.detectedBusinessType)
             flash.success("You're set up — welcome to Flynn")
         }
     }

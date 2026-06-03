@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flynn AI · 20s Vertical Ad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #0a0a0a; overflow: hidden; font-family: 'Inter', system-ui, sans-serif; }
+  #root { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+
+// animations.jsx
+// Reusable animation starter: Stage, Timeline, Sprite, easing helpers.
+// Usage (in an HTML file that loads React + Babel):
+//
+//   <Stage width={1280} height={720} duration={10} background="#f6f4ef">
+//     <MyScene />
+//   </Stage>
+//
+// Inside <Stage>, any child can call useTime() to read the current
+// playhead (seconds). Or wrap content in <Sprite start={1} end={4}>...</Sprite>
+// to only render during that window -- children receive a `localTime` and
+// `progress` via the useSprite() hook.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Easing functions (hand-rolled, Popmotion-style) ─────────────────────────
+// All easings take t ∈ [0,1] and return eased t ∈ [0,1] (may overshoot for back/elastic).
+const Easing = {
+  linear: (t) => t,
+
+  // Quad
+  easeInQuad:    (t) => t * t,
+  easeOutQuad:   (t) => t * (2 - t),
+  easeInOutQuad: (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t),
+
+  // Cubic
+  easeInCubic:    (t) => t * t * t,
+  easeOutCubic:   (t) => (--t) * t * t + 1,
+  easeInOutCubic: (t) => (t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1),
+
+  // Quart
+  easeInQuart:    (t) => t * t * t * t,
+  easeOutQuart:   (t) => 1 - (--t) * t * t * t,
+  easeInOutQuart: (t) => (t < 0.5 ? 8 * t * t * t * t : 1 - 8 * (--t) * t * t * t),
+
+  // Expo
+  easeInExpo:  (t) => (t === 0 ? 0 : Math.pow(2, 10 * (t - 1))),
+  easeOutExpo: (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
+  easeInOutExpo: (t) => {
+    if (t === 0) return 0;
+    if (t === 1) return 1;
+    if (t < 0.5) return 0.5 * Math.pow(2, 20 * t - 10);
+    return 1 - 0.5 * Math.pow(2, -20 * t + 10);
+  },
+
+  // Sine
+  easeInSine:    (t) => 1 - Math.cos((t * Math.PI) / 2),
+  easeOutSine:   (t) => Math.sin((t * Math.PI) / 2),
+  easeInOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+
+  // Back (overshoot)
+  easeOutBack: (t) => {
+    const c1 = 1.70158, c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  },
+  easeInBack: (t) => {
+    const c1 = 1.70158, c3 = c1 + 1;
+    return c3 * t * t * t - c1 * t * t;
+  },
+  easeInOutBack: (t) => {
+    const c1 = 1.70158, c2 = c1 * 1.525;
+    return t < 0.5
+      ? (Math.pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2
+      : (Math.pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2;
+  },
+
+  // Elastic
+  easeOutElastic: (t) => {
+    const c4 = (2 * Math.PI) / 3;
+    if (t === 0) return 0;
+    if (t === 1) return 1;
+    return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+  },
+};
+
+// ── Core interpolation helpers ──────────────────────────────────────────────
+
+// Clamp a value to [min, max]
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+// interpolate([0, 0.5, 1], [0, 100, 50], ease?) -> fn(t)
+// Popmotion-style: linearly maps t across input keyframes to output values,
+// with optional easing per segment (single fn or array of fns).
+function interpolate(input, output, ease = Easing.linear) {
+  return (t) => {
+    if (t <= input[0]) return output[0];
+    if (t >= input[input.length - 1]) return output[output.length - 1];
+    for (let i = 0; i < input.length - 1; i++) {
+      if (t >= input[i] && t <= input[i + 1]) {
+        const span = input[i + 1] - input[i];
+        const local = span === 0 ? 0 : (t - input[i]) / span;
+        const easeFn = Array.isArray(ease) ? (ease[i] || Easing.linear) : ease;
+        const eased = easeFn(local);
+        return output[i] + (output[i + 1] - output[i]) * eased;
+      }
+    }
+    return output[output.length - 1];
+  };
+}
+
+// animate({from, to, start, end, ease})(t) — simpler single-segment tween.
+// Returns `from` before `start`, `to` after `end`.
+function animate({ from = 0, to = 1, start = 0, end = 1, ease = Easing.easeInOutCubic }) {
+  return (t) => {
+    if (t <= start) return from;
+    if (t >= end) return to;
+    const local = (t - start) / (end - start);
+    return from + (to - from) * ease(local);
+  };
+}
+
+// ── Timeline context ────────────────────────────────────────────────────────
+
+const TimelineContext = React.createContext({ time: 0, duration: 10, playing: false });
+
+const useTime = () => React.useContext(TimelineContext).time;
+const useTimeline = () => React.useContext(TimelineContext);
+
+// ── Sprite ──────────────────────────────────────────────────────────────────
+// Renders children only when the playhead is inside [start, end]. Provides
+// a sub-context with `localTime` (seconds since start) and `progress` (0..1).
+//
+//   <Sprite start={2} end={5}>
+//     {({ localTime, progress }) => <Thing x={progress * 100} />}
+//   </Sprite>
+//
+// Or as a plain wrapper — children can call useSprite() themselves.
+
+const SpriteContext = React.createContext({ localTime: 0, progress: 0, duration: 0 });
+const useSprite = () => React.useContext(SpriteContext);
+
+function Sprite({ start = 0, end = Infinity, children, keepMounted = false }) {
+  const { time } = useTimeline();
+  const visible = time >= start && time <= end;
+  if (!visible && !keepMounted) return null;
+
+  const duration = end - start;
+  const localTime = Math.max(0, time - start);
+  const progress = duration > 0 && isFinite(duration)
+    ? clamp(localTime / duration, 0, 1)
+    : 0;
+
+  const value = { localTime, progress, duration, visible };
+
+  return (
+    <SpriteContext.Provider value={value}>
+      {typeof children === 'function' ? children(value) : children}
+    </SpriteContext.Provider>
+  );
+}
+
+// ── Sample sprite components ────────────────────────────────────────────────
+
+// TextSprite: fades/slides text in on entry, holds, then fades out on exit.
+// Props: text, x, y, size, color, font, entryDur, exitDur, align
+function TextSprite({
+  text,
+  x = 0, y = 0,
+  size = 48,
+  color = '#111',
+  font = 'Inter, system-ui, sans-serif',
+  weight = 600,
+  entryDur = 0.45,
+  exitDur = 0.35,
+  entryEase = Easing.easeOutBack,
+  exitEase = Easing.easeInCubic,
+  align = 'left',
+  letterSpacing = '-0.01em',
+}) {
+  const { localTime, duration } = useSprite();
+  const exitStart = Math.max(0, duration - exitDur);
+
+  let opacity = 1;
+  let ty = 0;
+
+  if (localTime < entryDur) {
+    const t = entryEase(clamp(localTime / entryDur, 0, 1));
+    opacity = t;
+    ty = (1 - t) * 16;
+  } else if (localTime > exitStart) {
+    const t = exitEase(clamp((localTime - exitStart) / exitDur, 0, 1));
+    opacity = 1 - t;
+    ty = -t * 8;
+  }
+
+  const translateX = align === 'center' ? '-50%' : align === 'right' ? '-100%' : '0';
+
+  return (
+    <div style={{
+      position: 'absolute',
+      left: x, top: y,
+      transform: `translate(${translateX}, ${ty}px)`,
+      opacity,
+      fontFamily: font,
+      fontSize: size,
+      fontWeight: weight,
+      color,
+      letterSpacing,
+      whiteSpace: 'pre',
+      lineHeight: 1.1,
+      willChange: 'transform, opacity',
+    }}>
+      {text}
+    </div>
+  );
+}
+
+// ImageSprite: scales + fades in; optional Ken Burns drift during hold.
+function ImageSprite({
+  src,
+  x = 0, y = 0,
+  width = 400, height = 300,
+  entryDur = 0.6,
+  exitDur = 0.4,
+  kenBurns = false,
+  kenBurnsScale = 1.08,
+  radius = 12,
+  fit = 'cover',
+  placeholder = null, // {label: string} for striped placeholder
+}) {
+  const { localTime, duration } = useSprite();
+  const exitStart = Math.max(0, duration - exitDur);
+
+  let opacity = 1;
+  let scale = 1;
+
+  if (localTime < entryDur) {
+    const t = Easing.easeOutCubic(clamp(localTime / entryDur, 0, 1));
+    opacity = t;
+    scale = 0.96 + 0.04 * t;
+  } else if (localTime > exitStart) {
+    const t = Easing.easeInCubic(clamp((localTime - exitStart) / exitDur, 0, 1));
+    opacity = 1 - t;
+    scale = (kenBurns ? kenBurnsScale : 1) + 0.02 * t;
+  } else if (kenBurns) {
+    const holdSpan = exitStart - entryDur;
+    const holdT = holdSpan > 0 ? (localTime - entryDur) / holdSpan : 0;
+    scale = 1 + (kenBurnsScale - 1) * holdT;
+  }
+
+  const content = placeholder ? (
+    <div style={{
+      width: '100%', height: '100%',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'repeating-linear-gradient(135deg, #e9e6df 0 10px, #dcd8cf 10px 20px)',
+      color: '#6b6458',
+      fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+      fontSize: 13,
+      letterSpacing: '0.04em',
+      textTransform: 'uppercase',
+    }}>
+      {placeholder.label || 'image'}
+    </div>
+  ) : (
+    <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: fit, display: 'block' }} />
+  );
+
+  return (
+    <div style={{
+      position: 'absolute',
+      left: x, top: y,
+      width, height,
+      opacity,
+      transform: `scale(${scale})`,
+      transformOrigin: 'center',
+      borderRadius: radius,
+      overflow: 'hidden',
+      willChange: 'transform, opacity',
+    }}>
+      {content}
+    </div>
+  );
+}
+
+// RectSprite: simple rectangle that animates position/size/color via props.
+// Useful demo primitive — takes a `render` fn for per-frame customization.
+function RectSprite({
+  x = 0, y = 0,
+  width = 100, height = 100,
+  color = '#111',
+  radius = 8,
+  entryDur = 0.4,
+  exitDur = 0.3,
+  render, // optional: (ctx) => style overrides
+}) {
+  const spriteCtx = useSprite();
+  const { localTime, duration } = spriteCtx;
+  const exitStart = Math.max(0, duration - exitDur);
+
+  let opacity = 1;
+  let scale = 1;
+
+  if (localTime < entryDur) {
+    const t = Easing.easeOutBack(clamp(localTime / entryDur, 0, 1));
+    opacity = clamp(localTime / entryDur, 0, 1);
+    scale = 0.4 + 0.6 * t;
+  } else if (localTime > exitStart) {
+    const t = Easing.easeInQuad(clamp((localTime - exitStart) / exitDur, 0, 1));
+    opacity = 1 - t;
+    scale = 1 - 0.15 * t;
+  }
+
+  const overrides = render ? render(spriteCtx) : {};
+
+  return (
+    <div style={{
+      position: 'absolute',
+      left: x, top: y,
+      width, height,
+      background: color,
+      borderRadius: radius,
+      opacity,
+      transform: `scale(${scale})`,
+      transformOrigin: 'center',
+      willChange: 'transform, opacity',
+      ...overrides,
+    }} />
+  );
+}
+
+
+function Stage({
+  width = 1280,
+  height = 720,
+  duration = 10,
+  background = '#f6f4ef',
+  fps = 60,
+  loop = true,
+  autoplay = true,
+  persistKey = 'animstage',
+  children,
+}) {
+  const [time, setTime] = React.useState(() => {
+    try {
+      const v = parseFloat(localStorage.getItem(persistKey + ':t') || '0');
+      return isFinite(v) ? clamp(v, 0, duration) : 0;
+    } catch { return 0; }
+  });
+  const [playing, setPlaying] = React.useState(autoplay);
+  const [hoverTime, setHoverTime] = React.useState(null);
+  const [scale, setScale] = React.useState(1);
+
+  const stageRef = React.useRef(null);
+  const canvasRef = React.useRef(null);
+  const rafRef = React.useRef(null);
+  const lastTsRef = React.useRef(null);
+
+  // Persist playhead
+  React.useEffect(() => {
+    try { localStorage.setItem(persistKey + ':t', String(time)); } catch {}
+  }, [time, persistKey]);
+
+  // Auto-scale to fit viewport
+  React.useEffect(() => {
+    if (!stageRef.current) return;
+    const el = stageRef.current;
+    const measure = () => {
+      const barH = 44; // playback bar height
+      const s = Math.min(
+        el.clientWidth / width,
+        (el.clientHeight - barH) / height
+      );
+      setScale(Math.max(0.05, s));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [width, height]);
+
+  // Animation loop
+  React.useEffect(() => {
+    if (!playing) {
+      lastTsRef.current = null;
+      return;
+    }
+    const step = (ts) => {
+      if (lastTsRef.current == null) lastTsRef.current = ts;
+      const dt = (ts - lastTsRef.current) / 1000;
+      lastTsRef.current = ts;
+      setTime((t) => {
+        let next = t + dt;
+        if (next >= duration) {
+          if (loop) next = next % duration;
+          else { next = duration; setPlaying(false); }
+        }
+        return next;
+      });
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      lastTsRef.current = null;
+    };
+  }, [playing, duration, loop]);
+
+  // Keyboard: space = play/pause, ← → = seek
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setPlaying(p => !p);
+      } else if (e.code === 'ArrowLeft') {
+        setTime(t => clamp(t - (e.shiftKey ? 1 : 0.1), 0, duration));
+      } else if (e.code === 'ArrowRight') {
+        setTime(t => clamp(t + (e.shiftKey ? 1 : 0.1), 0, duration));
+      } else if (e.key === '0' || e.code === 'Home') {
+        setTime(0);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [duration]);
+
+  const displayTime = hoverTime != null ? hoverTime : time;
+
+  const ctxValue = React.useMemo(
+    () => ({ time: displayTime, duration, playing, setTime, setPlaying }),
+    [displayTime, duration, playing]
+  );
+
+  return (
+    <div
+      ref={stageRef}
+      style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center',
+        background: '#0a0a0a',
+        fontFamily: 'Inter, system-ui, sans-serif',
+      }}
+    >
+      {/* Canvas area — vertically centered in remaining space */}
+      <div style={{
+        flex: 1,
+        width: '100%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
+        minHeight: 0,
+      }}>
+        <div
+          ref={canvasRef}
+          style={{
+            width, height,
+            background,
+            position: 'relative',
+            transform: `scale(${scale})`,
+            transformOrigin: 'center',
+            flexShrink: 0,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+            overflow: 'hidden',
+          }}
+        >
+          <TimelineContext.Provider value={ctxValue}>
+            {children}
+          </TimelineContext.Provider>
+        </div>
+      </div>
+
+      {/* Playback bar — stacked below canvas, never overlapping */}
+      <PlaybackBar
+        time={displayTime}
+        actualTime={time}
+        duration={duration}
+        playing={playing}
+        onPlayPause={() => setPlaying(p => !p)}
+        onReset={() => { setTime(0); }}
+        onSeek={(t) => setTime(t)}
+        onHover={(t) => setHoverTime(t)}
+      />
+    </div>
+  );
+}
+
+// ── Playback bar ────────────────────────────────────────────────────────────
+// Play/pause, return-to-begin, scrub track, time display.
+// Uses fixed-width time fields so layout doesn't thrash.
+
+function PlaybackBar({ time, duration, playing, onPlayPause, onReset, onSeek, onHover }) {
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+
+  const timeFromEvent = React.useCallback((e) => {
+    const rect = trackRef.current.getBoundingClientRect();
+    const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+    return x * duration;
+  }, [duration]);
+
+  const onTrackMove = (e) => {
+    if (!trackRef.current) return;
+    const t = timeFromEvent(e);
+    if (dragging) {
+      onSeek(t);
+    } else {
+      onHover(t);
+    }
+  };
+
+  const onTrackLeave = () => {
+    if (!dragging) onHover(null);
+  };
+
+  const onTrackDown = (e) => {
+    setDragging(true);
+    const t = timeFromEvent(e);
+    onSeek(t);
+    onHover(null);
+  };
+
+  React.useEffect(() => {
+    if (!dragging) return;
+    const onUp = () => setDragging(false);
+    const onMove = (e) => {
+      if (!trackRef.current) return;
+      const t = timeFromEvent(e);
+      onSeek(t);
+    };
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('mousemove', onMove);
+    return () => {
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('mousemove', onMove);
+    };
+  }, [dragging, timeFromEvent, onSeek]);
+
+  const pct = duration > 0 ? (time / duration) * 100 : 0;
+  const fmt = (t) => {
+    const total = Math.max(0, t);
+    const m = Math.floor(total / 60);
+    const s = Math.floor(total % 60);
+    const cs = Math.floor((total * 100) % 100);
+    return `${String(m).padStart(1, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+  };
+
+  const mono = 'JetBrains Mono, ui-monospace, SFMono-Regular, monospace';
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '8px 16px',
+      background: 'rgba(20,20,20,0.92)',
+      borderTop: '1px solid rgba(255,255,255,0.08)',
+      width: '100%',
+      maxWidth: 680,
+      alignSelf: 'center',
+
+      borderRadius: 8,
+      color: '#f6f4ef',
+      fontFamily: 'Inter, system-ui, sans-serif',
+      userSelect: 'none',
+      flexShrink: 0,
+    }}>
+      <IconButton onClick={onReset} title="Return to start (0)">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M3 2v10M12 2L5 7l7 5V2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
+        </svg>
+      </IconButton>
+      <IconButton onClick={onPlayPause} title="Play/pause (space)">
+        {playing ? (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="3" y="2" width="3" height="10" fill="currentColor"/>
+            <rect x="8" y="2" width="3" height="10" fill="currentColor"/>
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 2l9 5-9 5V2z" fill="currentColor"/>
+          </svg>
+        )}
+      </IconButton>
+
+      {/* Current time: fixed width so it doesn't thrash */}
+      <div style={{
+        fontFamily: mono,
+        fontSize: 12,
+        fontVariantNumeric: 'tabular-nums',
+        width: 64, textAlign: 'right',
+        color: '#f6f4ef',
+      }}>
+        {fmt(time)}
+      </div>
+
+      {/* Scrub track */}
+      <div
+        ref={trackRef}
+        onMouseMove={onTrackMove}
+        onMouseLeave={onTrackLeave}
+        onMouseDown={onTrackDown}
+        style={{
+          flex: 1,
+          height: 22,
+          position: 'relative',
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center',
+        }}
+      >
+        <div style={{
+          position: 'absolute',
+          left: 0, right: 0, height: 4,
+          background: 'rgba(255,255,255,0.12)',
+          borderRadius: 2,
+        }}/>
+        <div style={{
+          position: 'absolute',
+          left: 0, width: `${pct}%`, height: 4,
+          background: 'oklch(72% 0.12 250)',
+          borderRadius: 2,
+        }}/>
+        <div style={{
+          position: 'absolute',
+          left: `${pct}%`, top: '50%',
+          width: 12, height: 12,
+          marginLeft: -6, marginTop: -6,
+          background: '#fff',
+          borderRadius: 6,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+        }}/>
+      </div>
+
+      {/* Duration: fixed width */}
+      <div style={{
+        fontFamily: mono,
+        fontSize: 12,
+        fontVariantNumeric: 'tabular-nums',
+        width: 64, textAlign: 'left',
+        color: 'rgba(246,244,239,0.55)',
+      }}>
+        {fmt(duration)}
+      </div>
+    </div>
+  );
+}
+
+function IconButton({ children, onClick, title }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: 28, height: 28,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: hover ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 6,
+        color: '#f6f4ef',
+        cursor: 'pointer',
+        padding: 0,
+        transition: 'background 120ms',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+
+Object.assign(window, {
+  Easing, interpolate, animate, clamp,
+  TimelineContext, useTime, useTimeline,
+  Sprite, SpriteContext, useSprite,
+  TextSprite, ImageSprite, RectSprite,
+  Stage, PlaybackBar,
+});
+</script>
+
+<script type="text/babel">
+// Flynn AI — 20s vertical ad scenes
+// Brand: #FF4500 orange (Flynn brand), #0F172A dark, #FFFFFF white, #1E293B text
+// 1080×1920 vertical (9:16). Energy: fast, punchy.
+
+const ORANGE = '#FF4500';
+const ORANGE_HI = '#FF6A2B';
+const ORANGE_DARK = '#EA3E00';
+const DARK = '#0F172A';
+const DARK_2 = '#1E293B';
+const WHITE = '#FFFFFF';
+const SLATE_50 = '#F8FAFC';
+const SLATE_100 = '#F1F5F9';
+const SLATE_400 = '#94A3B8';
+const SLATE_500 = '#64748B';
+const SLATE_700 = '#334155';
+
+// Back-compat aliases — keep BLUE/BLUE_HI names referencing the brand accent
+// so the rest of the file reads cleanly without a global rename.
+const BLUE = ORANGE;
+const BLUE_HI = ORANGE_HI;
+
+const FONT = "Inter, 'Helvetica Neue', system-ui, -apple-system, sans-serif";
+const MONO = "'JetBrains Mono', ui-monospace, monospace";
+
+// ── Scene 1: HOOK (0–3s) ────────────────────────────────────────────────────
+function HookScene() {
+  const { localTime, duration } = useSprite();
+  const t = localTime;
+
+  // Background subtle grid pulse
+  const gridOpacity = 0.05 + 0.04 * Math.sin(t * 6);
+
+  // "3 missed calls a day" — slams in at 0.15s
+  const line1Start = 0.15;
+  const line1T = clamp((t - line1Start) / 0.4, 0, 1);
+  const line1Ease = Easing.easeOutBack(line1T);
+  const line1Y = (1 - line1Ease) * 80;
+  const line1Op = clamp(line1T * 2, 0, 1);
+
+  // Number "3" mega scale punch
+  const numScale = interpolate(
+    [0.15, 0.45, 0.7, 4],
+    [0.3, 1.15, 1, 1],
+    [Easing.easeOutBack, Easing.easeOutQuad, Easing.linear]
+  )(t);
+
+  // "= $1,200 lost" slams at 1.4s (later, gives "3 missed calls" room to breathe)
+  const line2Start = 1.4;
+  const line2T = clamp((t - line2Start) / 0.35, 0, 1);
+  const line2Ease = Easing.easeOutBack(line2T);
+  const line2X = (1 - line2Ease) * -120;
+  const line2Op = clamp(line2T * 2, 0, 1);
+
+  // $1,200 counter — runs 1.6s → 2.6s
+  const counter = Math.floor(interpolate(
+    [1.6, 2.6],
+    [0, 1200],
+    Easing.easeOutCubic
+  )(t));
+
+  // Exit — whole composition zooms slightly + fades after 3.6s
+  const exitT = clamp((t - 3.6) / 0.4, 0, 1);
+  const exitOp = 1 - exitT;
+  const exitScale = 1 - exitT * 0.05;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: DARK,
+      overflow: 'hidden',
+      opacity: exitOp,
+      transform: `scale(${exitScale})`,
+    }}>
+      {/* Grid */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: `linear-gradient(${WHITE} 1px, transparent 1px), linear-gradient(90deg, ${WHITE} 1px, transparent 1px)`,
+        backgroundSize: '80px 80px',
+        opacity: gridOpacity,
+      }} />
+
+      {/* Blue glow blob behind */}
+      <div style={{
+        position: 'absolute',
+        left: -200, top: 600,
+        width: 900, height: 900,
+        borderRadius: '50%',
+        background: `radial-gradient(circle, ${BLUE}55 0%, ${BLUE}00 65%)`,
+        filter: 'blur(20px)',
+      }} />
+
+      {/* Tag chip top */}
+      <div style={{
+        position: 'absolute',
+        top: 140, left: 80,
+        opacity: clamp((t - 0.05) / 0.3, 0, 1),
+        transform: `translateY(${(1 - clamp((t - 0.05) / 0.3, 0, 1)) * -20}px)`,
+        display: 'inline-flex', alignItems: 'center', gap: 16,
+        padding: '18px 28px',
+        background: 'rgba(37,99,235,0.12)',
+        border: `1px solid ${BLUE}55`,
+        borderRadius: 100,
+      }}>
+        <span style={{
+          width: 14, height: 14, borderRadius: '50%',
+          background: '#EF4444',
+          boxShadow: `0 0 0 6px rgba(239,68,68,0.18)`,
+        }} />
+        <span style={{
+          fontFamily: MONO, fontSize: 26, color: WHITE,
+          letterSpacing: '0.18em', fontWeight: 700, textTransform: 'uppercase',
+        }}>The hidden tax on tradies</span>
+      </div>
+
+      {/* Line 1 — "3 missed calls a day" */}
+      <div style={{
+        position: 'absolute',
+        left: 80, right: 80,
+        top: 360,
+        opacity: line1Op,
+        transform: `translateY(${line1Y}px)`,
+      }}>
+        <div style={{
+          fontFamily: FONT,
+          fontWeight: 900,
+          fontSize: 160,
+          color: WHITE,
+          lineHeight: 0.92,
+          letterSpacing: '-0.05em',
+          display: 'flex', alignItems: 'baseline', gap: 32,
+        }}>
+          <span style={{
+            display: 'inline-block',
+            transform: `scale(${numScale})`,
+            transformOrigin: 'bottom left',
+            color: WHITE,
+          }}>3</span>
+          <span>missed</span>
+        </div>
+        <div style={{
+          fontFamily: FONT,
+          fontWeight: 900,
+          fontSize: 160,
+          color: WHITE,
+          lineHeight: 0.92,
+          letterSpacing: '-0.05em',
+          marginTop: 8,
+        }}>
+          calls a day
+        </div>
+      </div>
+
+      {/* Equals divider */}
+      <div style={{
+        position: 'absolute',
+        left: 80,
+        top: 880,
+        opacity: clamp((t - 0.95) / 0.2, 0, 1),
+        fontFamily: FONT,
+        fontWeight: 900,
+        fontSize: 120,
+        color: BLUE,
+        lineHeight: 1,
+      }}>=</div>
+
+      {/* Line 2 — "$1,200 lost" */}
+      <div style={{
+        position: 'absolute',
+        left: 220, right: 80,
+        top: 860,
+        opacity: line2Op,
+        transform: `translateX(${line2X}px)`,
+      }}>
+        <div style={{
+          fontFamily: FONT,
+          fontWeight: 900,
+          fontSize: 220,
+          color: BLUE,
+          lineHeight: 0.92,
+          letterSpacing: '-0.06em',
+          textShadow: `0 0 60px ${BLUE}88`,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          ${counter.toLocaleString()}
+        </div>
+        <div style={{
+          fontFamily: FONT,
+          fontWeight: 900,
+          fontSize: 160,
+          color: BLUE,
+          lineHeight: 0.95,
+          letterSpacing: '-0.04em',
+          marginTop: 8,
+        }}>
+          lost.
+        </div>
+      </div>
+
+      {/* Caption */}
+      <div style={{
+        position: 'absolute',
+        left: 80, right: 80,
+        bottom: 200,
+        fontFamily: FONT,
+        fontWeight: 600,
+        fontSize: 40,
+        color: SLATE_400,
+        letterSpacing: '-0.01em',
+        opacity: clamp((t - 2.4) / 0.4, 0, 1),
+      }}>
+        Average tradie. Every week.
+      </div>
+    </div>
+  );
+}
+
+// ── Phone frame wrapper ─────────────────────────────────────────────────────
+function PhoneFrame({ children, style }) {
+  return (
+    <div style={{
+      width: 760, height: 1480,
+      background: DARK_2,
+      borderRadius: 80,
+      padding: 16,
+      boxShadow: '0 40px 100px rgba(0,0,0,0.5), 0 0 0 2px rgba(255,255,255,0.05)',
+      ...style,
+    }}>
+      <div style={{
+        width: '100%', height: '100%',
+        background: SLATE_50,
+        borderRadius: 64,
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        {/* Notch */}
+        <div style={{
+          position: 'absolute',
+          left: '50%', top: 24,
+          transform: 'translateX(-50%)',
+          width: 220, height: 36,
+          background: DARK,
+          borderRadius: 20,
+          zIndex: 10,
+        }} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Card scene wrapper ──────────────────────────────────────────────────────
+// Slides up from bottom on entry, slides up + out on exit
+function Card({ children, color = WHITE }) {
+  const { localTime, duration } = useSprite();
+  const t = localTime;
+
+  // Entry: slide up from below (0 → 0.45s)
+  const entryT = clamp(t / 0.45, 0, 1);
+  const entryE = Easing.easeOutBack(entryT);
+  const entryY = (1 - entryE) * 1920;
+
+  // Exit: slide up & out (last 0.4s)
+  const exitStart = duration - 0.4;
+  const exitT = clamp((t - exitStart) / 0.4, 0, 1);
+  const exitE = Easing.easeInCubic(exitT);
+  const exitY = -exitE * 1920;
+
+  const totalY = entryY + exitY;
+  const opacity = entryT > 0 ? (1 - exitT) : 0;
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: SLATE_100,
+      transform: `translateY(${totalY}px)`,
+      opacity,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// Helper: text reveal (mask up)
+function RevealText({ delay = 0, duration: dur = 0.4, children, style }) {
+  const { localTime } = useSprite();
+  const t = clamp((localTime - delay) / dur, 0, 1);
+  const e = Easing.easeOutQuart(t);
+  return (
+    <div style={{ overflow: 'hidden', ...style }}>
+      <div style={{
+        transform: `translateY(${(1 - e) * 100}%)`,
+        opacity: t > 0 ? 1 : 0,
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Scene 2: AI RECEPTIONIST (4–9s) ─────────────────────────────────────────
+function Card1Scene() {
+  const { localTime } = useSprite();
+  const t = localTime;
+
+  // Voice waveform animation
+  const bars = 24;
+  const waveTime = Math.max(0, t - 0.8);
+
+  return (
+    <Card>
+      {/* Step pill */}
+      <div style={{
+        position: 'absolute', top: 110, left: 80,
+        display: 'flex', alignItems: 'center', gap: 14,
+      }}>
+        <div style={{
+          width: 14, height: 14, borderRadius: '50%',
+          background: BLUE,
+          boxShadow: `0 0 0 6px ${BLUE}22`,
+        }} />
+        <span style={{
+          fontFamily: MONO, fontSize: 24, color: SLATE_500,
+          letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 600,
+        }}>STEP 01 / 03</span>
+      </div>
+
+      {/* Heading */}
+      <div style={{ position: 'absolute', top: 200, left: 80, right: 80 }}>
+        <RevealText delay={0.3} duration={0.5} style={{ marginBottom: 8 }}>
+          <div style={{
+            fontFamily: FONT, fontWeight: 900,
+            fontSize: 110, color: DARK,
+            lineHeight: 0.95, letterSpacing: '-0.04em',
+          }}>
+            Caller hears
+          </div>
+        </RevealText>
+        <RevealText delay={0.45} duration={0.5} style={{ marginBottom: 8 }}>
+          <div style={{
+            fontFamily: FONT, fontWeight: 900,
+            fontSize: 110, color: DARK,
+            lineHeight: 0.95, letterSpacing: '-0.04em',
+          }}>
+            your <span style={{ color: BLUE }}>AI</span>
+          </div>
+        </RevealText>
+        <RevealText delay={0.6} duration={0.5}>
+          <div style={{
+            fontFamily: FONT, fontWeight: 900,
+            fontSize: 110, color: BLUE,
+            lineHeight: 0.95, letterSpacing: '-0.04em',
+          }}>
+            receptionist.
+          </div>
+        </RevealText>
+      </div>
+
+      {/* Sub */}
+      <div style={{
+        position: 'absolute', left: 80, right: 80, top: 660,
+        opacity: clamp((t - 0.9) / 0.4, 0, 1),
+        transform: `translateY(${(1 - clamp((t - 0.9) / 0.4, 0, 1)) * 20}px)`,
+      }}>
+        <div style={{
+          fontFamily: FONT, fontWeight: 600, fontSize: 36,
+          color: SLATE_500, letterSpacing: '-0.005em',
+          display: 'flex', gap: 16, flexWrap: 'wrap',
+        }}>
+          <span>Professional.</span>
+          <span style={{ color: DARK }}>Instant.</span>
+          <span>No voicemail.</span>
+        </div>
+      </div>
+
+      {/* Phone mock — call in progress */}
+      <div style={{
+        position: 'absolute',
+        left: '50%', top: 800,
+        transform: `translateX(-50%) translateY(${(1 - clamp((t - 0.4) / 0.6, 0, 1)) * 60}px) scale(0.7)`,
+        transformOrigin: 'top center',
+        opacity: clamp((t - 0.4) / 0.5, 0, 1),
+      }}>
+        <PhoneFrame>
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: `linear-gradient(180deg, ${DARK} 0%, #1E293B 100%)`,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            color: WHITE,
+          }}>
+            {/* Status */}
+            <div style={{
+              fontFamily: MONO, fontSize: 24, color: SLATE_400,
+              letterSpacing: '0.2em', marginBottom: 30,
+            }}>
+              ON CALL · 0:08
+            </div>
+
+            {/* AI ring with waveform */}
+            <div style={{
+              width: 360, height: 360,
+              borderRadius: '50%',
+              background: `radial-gradient(circle at 50% 50%, ${BLUE} 0%, ${BLUE_HI} 100%)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 0 80px ${BLUE}99`,
+              position: 'relative',
+              marginBottom: 50,
+            }}>
+              {/* Pulse rings */}
+              <div style={{
+                position: 'absolute', inset: -20,
+                borderRadius: '50%',
+                border: `2px solid ${BLUE}66`,
+                transform: `scale(${1 + ((t * 1.5) % 1) * 0.3})`,
+                opacity: 1 - ((t * 1.5) % 1),
+              }} />
+
+              {/* Waveform bars */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6, height: 100,
+              }}>
+                {Array.from({ length: bars }).map((_, i) => {
+                  const phase = waveTime * 8 + i * 0.4;
+                  const h = 16 + Math.abs(Math.sin(phase) * Math.cos(phase * 0.7)) * 80;
+                  return (
+                    <div key={i} style={{
+                      width: 6, height: h,
+                      background: WHITE,
+                      borderRadius: 3,
+                    }} />
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Caller name */}
+            <div style={{
+              fontFamily: FONT, fontWeight: 700, fontSize: 36, color: WHITE,
+              marginBottom: 8,
+            }}>
+              Mike from Bondi
+            </div>
+            <div style={{
+              fontFamily: MONO, fontSize: 22, color: SLATE_400,
+            }}>
+              +61 4·· ··· 281
+            </div>
+          </div>
+        </PhoneFrame>
+
+        {/* Speech bubble */}
+        <div style={{
+          position: 'absolute',
+          left: -60, top: 380,
+          background: WHITE,
+          borderRadius: 24,
+          padding: '20px 28px',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+          maxWidth: 360,
+          opacity: clamp((t - 1.6) / 0.3, 0, 1),
+          transform: `translateY(${(1 - clamp((t - 1.6) / 0.3, 0, 1)) * 20}px) translateZ(0)`,
+        }}>
+          <div style={{
+            fontFamily: MONO, fontSize: 16, color: BLUE,
+            letterSpacing: '0.15em', fontWeight: 700, marginBottom: 6,
+          }}>FLYNN AI</div>
+          <div style={{
+            fontFamily: FONT, fontSize: 26, color: DARK, lineHeight: 1.3, fontWeight: 500,
+          }}>
+            "G'day, you've reached Dave's Plumbing — what can I help with?"
+          </div>
+        </div>
+      </div>
+
+      {/* Burned-in caption strip at bottom */}
+      <Caption text="◾ AI answers in 2 rings — sounds human." />
+    </Card>
+  );
+}
+
+// ── Scene 3: SMS BOOKING (9–14s) ────────────────────────────────────────────
+function Card2Scene() {
+  const { localTime } = useSprite();
+  const t = localTime;
+
+  // SMS bubbles appear in sequence
+  const bubbles = [
+    { delay: 1.2, side: 'in', text: "Hey, can I get a quote on a hot water service?" },
+    { delay: 1.7, side: 'out', text: "Book yourself in 👇\nflynn.ai/dave/book" },
+    { delay: 2.4, side: 'in', text: "Locked in for Thursday 9am. Cheers!" },
+  ];
+
+  return (
+    <Card>
+      {/* Step pill */}
+      <div style={{
+        position: 'absolute', top: 110, left: 80,
+        display: 'flex', alignItems: 'center', gap: 14,
+      }}>
+        <div style={{
+          width: 14, height: 14, borderRadius: '50%',
+          background: BLUE,
+          boxShadow: `0 0 0 6px ${BLUE}22`,
+        }} />
+        <span style={{
+          fontFamily: MONO, fontSize: 24, color: SLATE_500,
+          letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 600,
+        }}>STEP 02 / 03</span>
+      </div>
+
+      {/* Heading */}
+      <div style={{ position: 'absolute', top: 200, left: 80, right: 80 }}>
+        <RevealText delay={0.25} duration={0.5}>
+          <div style={{
+            fontFamily: FONT, fontWeight: 900,
+            fontSize: 110, color: DARK,
+            lineHeight: 0.95, letterSpacing: '-0.04em',
+          }}>
+            Or gets a
+          </div>
+        </RevealText>
+        <RevealText delay={0.4} duration={0.5}>
+          <div style={{
+            fontFamily: FONT, fontWeight: 900,
+            fontSize: 110, color: BLUE,
+            lineHeight: 0.95, letterSpacing: '-0.04em',
+          }}>
+            booking link
+          </div>
+        </RevealText>
+        <RevealText delay={0.55} duration={0.5}>
+          <div style={{
+            fontFamily: FONT, fontWeight: 900,
+            fontSize: 110, color: DARK,
+            lineHeight: 0.95, letterSpacing: '-0.04em',
+          }}>
+            by SMS.
+          </div>
+        </RevealText>
+      </div>
+
+      {/* Sub */}
+      <div style={{
+        position: 'absolute', left: 80, right: 80, top: 660,
+        opacity: clamp((t - 0.85) / 0.4, 0, 1),
+        transform: `translateY(${(1 - clamp((t - 0.85) / 0.4, 0, 1)) * 20}px)`,
+      }}>
+        <div style={{
+          fontFamily: FONT, fontWeight: 600, fontSize: 36,
+          color: SLATE_500, letterSpacing: '-0.005em',
+        }}>
+          They book themselves — <span style={{ color: DARK }}>while you work.</span>
+        </div>
+      </div>
+
+      {/* Phone with SMS thread */}
+      <div style={{
+        position: 'absolute',
+        left: '50%', top: 800,
+        transform: `translateX(-50%) translateY(${(1 - clamp((t - 0.35) / 0.6, 0, 1)) * 60}px) scale(0.7)`,
+        transformOrigin: 'top center',
+        opacity: clamp((t - 0.35) / 0.5, 0, 1),
+      }}>
+        <PhoneFrame>
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: SLATE_50,
+            display: 'flex', flexDirection: 'column',
+            paddingTop: 100,
+          }}>
+            {/* SMS header */}
+            <div style={{
+              padding: '20px 32px',
+              borderBottom: `1px solid ${SLATE_100}`,
+              display: 'flex', alignItems: 'center', gap: 16,
+            }}>
+              <div style={{
+                width: 56, height: 56,
+                borderRadius: '50%',
+                background: BLUE,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: WHITE, fontFamily: FONT, fontWeight: 800, fontSize: 22,
+              }}>D</div>
+              <div>
+                <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 28, color: DARK }}>
+                  Dave's Plumbing
+                </div>
+                <div style={{ fontFamily: FONT, fontSize: 18, color: SLATE_500 }}>
+                  via Flynn AI
+                </div>
+              </div>
+            </div>
+
+            {/* Bubbles */}
+            <div style={{
+              flex: 1,
+              padding: '40px 32px',
+              display: 'flex', flexDirection: 'column', gap: 20,
+            }}>
+              {bubbles.map((b, i) => {
+                const bt = clamp((t - b.delay) / 0.4, 0, 1);
+                const e = Easing.easeOutBack(bt);
+                const isOut = b.side === 'out';
+                return (
+                  <div key={i} style={{
+                    alignSelf: isOut ? 'flex-end' : 'flex-start',
+                    maxWidth: '78%',
+                    background: isOut ? BLUE : WHITE,
+                    color: isOut ? WHITE : DARK,
+                    padding: '20px 26px',
+                    borderRadius: 28,
+                    borderBottomRightRadius: isOut ? 8 : 28,
+                    borderBottomLeftRadius: isOut ? 28 : 8,
+                    fontFamily: FONT, fontSize: 28, fontWeight: 500,
+                    lineHeight: 1.35,
+                    boxShadow: isOut ? `0 8px 24px ${BLUE}44` : '0 4px 14px rgba(15,23,42,0.06)',
+                    whiteSpace: 'pre-line',
+                    opacity: bt,
+                    transform: `scale(${0.7 + 0.3 * e})`,
+                    transformOrigin: isOut ? 'bottom right' : 'bottom left',
+                  }}>
+                    {b.text}
+                  </div>
+                );
+              })}
+
+              {/* Typing indicator after first bubble */}
+              {t > 1.6 && t < 2.2 && (
+                <div style={{
+                  alignSelf: 'flex-end',
+                  background: BLUE,
+                  padding: '16px 20px',
+                  borderRadius: 28,
+                  borderBottomRightRadius: 8,
+                  display: 'flex', gap: 6,
+                }}>
+                  {[0, 1, 2].map(i => (
+                    <div key={i} style={{
+                      width: 10, height: 10, borderRadius: '50%',
+                      background: WHITE,
+                      opacity: 0.4 + 0.6 * Math.abs(Math.sin(t * 6 + i * 0.5)),
+                    }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </PhoneFrame>
+      </div>
+
+      <Caption text="◾ Booking link → calendar → done." />
+    </Card>
+  );
+}
+
+// ── Scene 4: APP DASHBOARD (14–17s) ─────────────────────────────────────────
+function Card3Scene() {
+  const { localTime } = useSprite();
+  const t = localTime;
+
+  const leads = [
+    { time: '08:42', name: 'Mike T.', tag: 'Booked', color: BLUE },
+    { time: '09:15', name: 'Sarah J.', tag: 'Quote', color: BLUE },
+    { time: '10:03', name: '+61 412 ···', tag: 'Spam', color: SLATE_400 },
+  ];
+
+  return (
+    <Card>
+      {/* Step pill */}
+      <div style={{
+        position: 'absolute', top: 110, left: 80,
+        display: 'flex', alignItems: 'center', gap: 14,
+      }}>
+        <div style={{
+          width: 14, height: 14, borderRadius: '50%',
+          background: BLUE,
+          boxShadow: `0 0 0 6px ${BLUE}22`,
+        }} />
+        <span style={{
+          fontFamily: MONO, fontSize: 24, color: SLATE_500,
+          letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 600,
+        }}>STEP 03 / 03</span>
+      </div>
+
+      {/* Heading — tighter for 2s scene */}
+      <div style={{ position: 'absolute', top: 200, left: 80, right: 80 }}>
+        <RevealText delay={0.15} duration={0.4}>
+          <div style={{
+            fontFamily: FONT, fontWeight: 900,
+            fontSize: 110, color: DARK,
+            lineHeight: 0.95, letterSpacing: '-0.04em',
+          }}>
+            Every lead.
+          </div>
+        </RevealText>
+        <RevealText delay={0.3} duration={0.4}>
+          <div style={{
+            fontFamily: FONT, fontWeight: 900,
+            fontSize: 110, color: BLUE,
+            lineHeight: 0.95, letterSpacing: '-0.04em',
+          }}>
+            One app.
+          </div>
+        </RevealText>
+      </div>
+
+      {/* Sub */}
+      <div style={{
+        position: 'absolute', left: 80, right: 80, top: 480,
+        opacity: clamp((t - 0.6) / 0.3, 0, 1),
+      }}>
+        <div style={{
+          fontFamily: FONT, fontWeight: 600, fontSize: 36,
+          color: SLATE_500,
+        }}>
+          Calls. Transcripts. Bookings.
+        </div>
+      </div>
+
+      {/* Phone showing dashboard */}
+      <div style={{
+        position: 'absolute',
+        left: '50%', top: 620,
+        transform: `translateX(-50%) translateY(${(1 - clamp((t - 0.25) / 0.5, 0, 1)) * 60}px) scale(0.78)`,
+        transformOrigin: 'top center',
+        opacity: clamp((t - 0.25) / 0.4, 0, 1),
+      }}>
+        <PhoneFrame>
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: WHITE,
+            paddingTop: 100,
+          }}>
+            {/* Header */}
+            <div style={{ padding: '24px 36px 20px' }}>
+              <div style={{ fontFamily: FONT, fontSize: 22, color: SLATE_500, fontWeight: 600 }}>
+                Today
+              </div>
+              <div style={{
+                fontFamily: FONT, fontWeight: 900, fontSize: 56,
+                color: DARK, letterSpacing: '-0.03em', marginTop: 4,
+              }}>
+                Inbox
+              </div>
+            </div>
+
+            {/* Stats row */}
+            <div style={{
+              display: 'flex', gap: 14, padding: '0 36px 24px',
+            }}>
+              <Stat label="Calls" value="12" t={t} delay={0.5} />
+              <Stat label="Booked" value="7" t={t} delay={0.6} accent />
+              <Stat label="Revenue" value="$2.4k" t={t} delay={0.7} />
+            </div>
+
+            {/* Lead list */}
+            <div style={{ padding: '0 36px' }}>
+              {leads.map((lead, i) => {
+                const lt = clamp((t - 0.85 - i * 0.15) / 0.4, 0, 1);
+                const e = Easing.easeOutBack(lt);
+                return (
+                  <div key={i} style={{
+                    background: SLATE_50,
+                    borderRadius: 24,
+                    padding: '24px 28px',
+                    marginBottom: 14,
+                    display: 'flex', alignItems: 'center', gap: 20,
+                    opacity: lt,
+                    transform: `translateX(${(1 - e) * -40}px)`,
+                  }}>
+                    <div style={{
+                      width: 56, height: 56, borderRadius: 14,
+                      background: lead.color === BLUE ? `${BLUE}15` : `${SLATE_400}22`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.37 1.9.72 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0122 16.92z"
+                          fill={lead.color} />
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 28, color: DARK }}>
+                        {lead.name}
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: 18, color: SLATE_500, marginTop: 2 }}>
+                        {lead.time} · transcript
+                      </div>
+                    </div>
+                    <div style={{
+                      padding: '8px 16px',
+                      background: lead.color === BLUE ? BLUE : SLATE_100,
+                      color: lead.color === BLUE ? WHITE : SLATE_500,
+                      borderRadius: 100,
+                      fontFamily: FONT, fontWeight: 700, fontSize: 20,
+                      letterSpacing: '0.02em',
+                    }}>
+                      {lead.tag}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </PhoneFrame>
+      </div>
+
+      <Caption text="◾ Calls, transcripts, bookings — together." />
+    </Card>
+  );
+}
+
+function Stat({ label, value, t, delay, accent }) {
+  const lt = clamp((t - delay) / 0.4, 0, 1);
+  const e = Easing.easeOutBack(lt);
+  return (
+    <div style={{
+      flex: 1,
+      background: accent ? BLUE : SLATE_50,
+      color: accent ? WHITE : DARK,
+      borderRadius: 20,
+      padding: '20px 22px',
+      opacity: lt,
+      transform: `scale(${0.8 + 0.2 * e})`,
+    }}>
+      <div style={{
+        fontFamily: FONT, fontSize: 18,
+        color: accent ? 'rgba(255,255,255,0.7)' : SLATE_500,
+        fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
+      }}>{label}</div>
+      <div style={{
+        fontFamily: FONT, fontWeight: 900, fontSize: 44,
+        letterSpacing: '-0.03em', marginTop: 4,
+      }}>{value}</div>
+    </div>
+  );
+}
+
+// ── Caption strip ───────────────────────────────────────────────────────────
+function Caption({ text }) {
+  const { localTime, duration } = useSprite();
+  const t = localTime;
+  const inT = clamp((t - 0.7) / 0.3, 0, 1);
+  const outT = clamp((t - (duration - 0.4)) / 0.4, 0, 1);
+  const op = inT * (1 - outT);
+
+  return (
+    <div style={{
+      position: 'absolute',
+      left: 60, right: 60, bottom: 130,
+      background: DARK,
+      color: WHITE,
+      padding: '24px 32px',
+      borderRadius: 22,
+      fontFamily: FONT, fontWeight: 800, fontSize: 32,
+      letterSpacing: '-0.01em',
+      textAlign: 'center',
+      opacity: op,
+      transform: `translateY(${(1 - inT) * 30}px)`,
+      boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
+    }}>
+      {text}
+    </div>
+  );
+}
+
+// ── Scene 5: CLOSE (17–20s) ─────────────────────────────────────────────────
+function CloseScene() {
+  const { localTime, duration } = useSprite();
+  const t = localTime;
+
+  // Logo entry: scale + fade
+  const logoT = clamp(t / 0.5, 0, 1);
+  const logoE = Easing.easeOutBack(logoT);
+  const logoScale = 0.6 + 0.4 * logoE;
+
+  // Tagline
+  const tagT = clamp((t - 0.4) / 0.4, 0, 1);
+
+  // Pill badge: slide in from below
+  const pillT = clamp((t - 0.7) / 0.5, 0, 1);
+  const pillE = Easing.easeOutBack(pillT);
+  const pillY = (1 - pillE) * 60;
+
+  // Pulse on pill
+  const pillPulse = 1 + Math.sin((t - 0.7) * 6) * 0.02;
+
+  // Sweep light
+  const sweepT = clamp((t - 0.3) / 1.4, 0, 1);
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: DARK,
+      overflow: 'hidden',
+    }}>
+      {/* Background grid */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: `linear-gradient(${WHITE} 1px, transparent 1px), linear-gradient(90deg, ${WHITE} 1px, transparent 1px)`,
+        backgroundSize: '80px 80px',
+        opacity: 0.04,
+      }} />
+
+      {/* Sweep light */}
+      <div style={{
+        position: 'absolute',
+        top: -200, bottom: -200,
+        left: `${-30 + sweepT * 120}%`,
+        width: 400,
+        background: `linear-gradient(90deg, transparent 0%, ${BLUE}33 50%, transparent 100%)`,
+        transform: 'skewX(-20deg)',
+        filter: 'blur(40px)',
+      }} />
+
+      {/* Logo + name */}
+      <div style={{
+        position: 'absolute',
+        left: '50%', top: 720,
+        transform: `translate(-50%, -50%) scale(${logoScale})`,
+        opacity: logoT,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        gap: 32,
+      }}>
+        {/* App icon mark — actual Flynn logo */}
+        <div style={{
+          width: 240, height: 240,
+          borderRadius: 56,
+          overflow: 'hidden',
+          boxShadow: `0 30px 80px ${BLUE}55, 0 0 0 1px rgba(255,255,255,0.08)`,
+          position: 'relative',
+          background: WHITE,
+        }}>
+          <img
+            src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiPgo8cGF0aCBkPSJNMCAwIEMxNjUgMCAzMzAgMCA1MDAgMCBDNTAwIDE2NSA1MDAgMzMwIDUwMCA1MDAgQzMzNSA1MDAgMTcwIDUwMCAwIDUwMCBDMCAzMzUgMCAxNzAgMCAwIFogIiBmaWxsPSIjRkRGRUZFIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwLDApIj48L3BhdGg+CjxwYXRoIGQ9Ik0wIDAgQzExNi44MiAwIDIzMy42NCAwIDM1NCAwIEMzNTQgMzIuMzQgMzU0IDY0LjY4IDM1NCA5OCBDMjczLjgxIDk4IDE5My42MiA5OCAxMTEgOTggQzExMSAxMDYuNTggMTExIDExNS4xNiAxMTEgMTI0IEMxNzAuMDcgMTI0IDIyOS4xNCAxMjQgMjkwIDEyNCBDMjkwIDE1Ni4wMSAyOTAgMTg4LjAyIDI5MCAyMjEgQzIzMC45MyAyMjEgMTcxLjg2IDIyMSAxMTEgMjIxIEMxMTEgMjI3LjkzIDExMSAyMzQuODYgMTExIDI0MiBDNzQuMzcgMjQyIDM3Ljc0IDI0MiAwIDI0MiBDMCAxNjIuMTQgMCA4Mi4yOCAwIDAgWiAiIGZpbGw9IiMyRTJGMzAiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDgyLDc1KSI+PC9wYXRoPgo8cGF0aCBkPSJNMCAwIEMzNi4zIDAgNzIuNiAwIDExMCAwIEMxMTAgMjguMzggMTEwIDU2Ljc2IDExMCA4NiBDNzMuNyA4NiAzNy40IDg2IDAgODYgQzAgNTcuNjIgMCAyOS4yNCAwIDAgWiAiIGZpbGw9IiNGRTVBMTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDgzLDMzOSkiPjwvcGF0aD4KPHBhdGggZD0iTTAgMCBDNDAuOTIgMCA4MS44NCAwIDEyNCAwIEMxMjQgMC4zMyAxMjQgMC42NiAxMjQgMSBDMTIzLjM3OTE2Mzc3IDEuMDAzMzEwMTUgMTIyLjc1ODMyNzU0IDEuMDA2NjIwMjkgMTIyLjExODY3ODA5IDEuMDEwMDMwNzUgQzEwNy4wMjEwNzIyIDEuMDkxMjA2OTEgOTEuOTIzNTc1NjQgMS4xODMyODE1NCA3Ni44MjYxMTM3IDEuMjg3NTI3MDggQzY5LjUyNTEyOTA3IDEuMzM3Njc1NjQgNjIuMjI0MTU1OCAxLjM4NDExODI0IDU0LjkyMzA5NTcgMS40MjE4NzUgQzQ4LjU2MDQyMDEyIDEuNDU0Nzg4MzUgNDIuMTk3ODMyMDggMS40OTQ2MTU4MyAzNS44MzUyNTMwNiAxLjU0Mjc5MDA2IEMzMi40NjU0NzE0MiAxLjU2ODA2MTcgMjkuMDk1NzQ3OSAxLjU4OTg0MDkyIDI1LjcyNTg5Njg0IDEuNjAzMzQzOTYgQzIxLjk2NjQ2ODU0IDEuNjIwMTQ0NzMgMTguMjA3MzIzNCAxLjY0OTE2NTExIDE0LjQ0Nzk5ODA1IDEuNjgxMTUyMzQgQzEzLjMyNzM0NDUxIDEuNjgzMzEyNTMgMTIuMjA2NjkwOTggMS42ODU0NzI3MiAxMS4wNTIwNzgyNSAxLjY4NzY5ODM2IEM5LjUxODcyMzMgMS43MDQ0NDM1OSA5LjUxODcyMzMgMS43MDQ0NDM1OSA3Ljk1NDM5MTQ4IDEuNzIxNTI3MSBDNi42MjAwOTYxNCAxLjcyOTgyMzI0IDYuNjIwMDk2MTQgMS43Mjk4MjMyNCA1LjI1ODg0NTMzIDEuNzM4Mjg2OTcgQzIuNzE4NDA4OTYgMS44NTg5MzQwOCAyLjcxODQwODk2IDEuODU4OTM0MDggMCA0IEMwIDIuNjggMCAxLjM2IDAgMCBaICIgZmlsbD0iIzIwMjEyMiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODQsNzYpIj48L3BhdGg+Cjwvc3ZnPg=="
+            alt="Flynn"
+            style={{ width: '100%', height: '100%', display: 'block' }}
+          />
+        </div>
+
+        {/* Wordmark */}
+        <div style={{
+          fontFamily: FONT, fontWeight: 900,
+          fontSize: 130, color: WHITE,
+          letterSpacing: '-0.05em',
+          lineHeight: 1,
+        }}>
+          Flynn<span style={{ color: BLUE }}>.ai</span>
+        </div>
+      </div>
+
+      {/* Tagline */}
+      <div style={{
+        position: 'absolute',
+        left: 80, right: 80, top: 1180,
+        textAlign: 'center',
+        opacity: tagT,
+        transform: `translateY(${(1 - tagT) * 24}px)`,
+      }}>
+        <div style={{
+          fontFamily: FONT, fontWeight: 800, fontSize: 72,
+          color: WHITE, letterSpacing: '-0.04em',
+          lineHeight: 1.05,
+        }}>
+          Never miss
+        </div>
+        <div style={{
+          fontFamily: FONT, fontWeight: 800, fontSize: 72,
+          color: SLATE_400, letterSpacing: '-0.04em',
+          lineHeight: 1.05, marginTop: 4,
+        }}>
+          another lead.
+        </div>
+      </div>
+
+      {/* Pill badge */}
+      <div style={{
+        position: 'absolute',
+        left: '50%', bottom: 240,
+        transform: `translate(-50%, ${pillY}px) scale(${pillPulse})`,
+        opacity: pillT,
+      }}>
+        <div style={{
+          background: BLUE,
+          color: WHITE,
+          padding: '32px 56px',
+          borderRadius: 100,
+          fontFamily: FONT, fontWeight: 800, fontSize: 38,
+          letterSpacing: '-0.01em',
+          display: 'flex', alignItems: 'center', gap: 24,
+          boxShadow: `0 20px 60px ${BLUE}88`,
+          whiteSpace: 'nowrap',
+        }}>
+          <span style={{
+            background: WHITE, color: BLUE,
+            padding: '6px 16px',
+            borderRadius: 100,
+            fontSize: 32, fontWeight: 900,
+          }}>14 days free</span>
+          <span style={{ opacity: 0.9 }}>App Store · Google Play</span>
+        </div>
+      </div>
+
+      {/* Tiny mono footer */}
+      <div style={{
+        position: 'absolute',
+        left: 0, right: 0, bottom: 100,
+        textAlign: 'center',
+        fontFamily: MONO, fontSize: 22,
+        color: SLATE_500,
+        letterSpacing: '0.25em',
+        opacity: clamp((t - 1.0) / 0.4, 0, 1),
+      }}>
+        FOR AUSSIE TRADIES
+      </div>
+    </div>
+  );
+}
+
+// ── Master Composition ─────────────────────────────────────────────────────
+function FlynnAd() {
+  return (
+    <>
+      <Sprite start={0} end={4}><HookScene /></Sprite>
+      <Sprite start={4} end={9}><Card1Scene /></Sprite>
+      <Sprite start={9} end={14}><Card2Scene /></Sprite>
+      <Sprite start={14} end={17}><Card3Scene /></Sprite>
+      <Sprite start={17} end={20}><CloseScene /></Sprite>
+
+      {/* Persistent progress bar */}
+      <Sprite start={0} end={20}>
+        <PersistentChrome />
+      </Sprite>
+    </>
+  );
+}
+
+// Top progress bar
+function PersistentChrome() {
+  const { time, duration } = useTimeline();
+  const pct = (time / 20) * 100;
+  return (
+    <>
+      {/* Top progress bar */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        height: 8, background: 'rgba(255,255,255,0.1)',
+        zIndex: 100,
+      }}>
+        <div style={{
+          height: '100%', width: `${pct}%`,
+          background: BLUE,
+          transition: 'none',
+        }} />
+      </div>
+    </>
+  );
+}
+
+window.FlynnAd = FlynnAd;
+</script>
+
+<script type="text/babel">
+  function App() {
+    return (
+      <Stage
+        width={1080}
+        height={1920}
+        duration={20}
+        background="#0F172A"
+        loop={true}
+        autoplay={true}
+        persistKey="flynn-ad"
+      >
+        <FlynnAd />
+      </Stage>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

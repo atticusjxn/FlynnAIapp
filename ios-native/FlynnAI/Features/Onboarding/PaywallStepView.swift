@@ -32,8 +32,8 @@ struct PaywallStepView: View {
                             .foregroundColor(FlynnColor.textSecondary)
                     }
                     .frame(maxWidth: .infinity, minHeight: 200)
-                case .error:
-                    loadFailedState
+                case .error(let msg):
+                    loadFailedState(msg)
                 case .loaded:
                     if subStore.products.isEmpty {
                         noPlansState
@@ -88,7 +88,7 @@ struct PaywallStepView: View {
         }
     }
 
-    private var loadFailedState: some View {
+    private func loadFailedState(_ errorMessage: String) -> some View {
         VStack(spacing: FlynnSpacing.sm) {
             Image(systemName: "wifi.exclamationmark")
                 .font(.system(size: 32))
@@ -100,6 +100,12 @@ struct PaywallStepView: View {
                 .flynnType(FlynnTypography.caption)
                 .foregroundColor(FlynnColor.textSecondary)
                 .multilineTextAlignment(.center)
+            // Debug detail — helps diagnose StoreKit / sandbox issues
+            Text(errorMessage)
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, FlynnSpacing.xs)
             FlynnButton(
                 title: "Retry",
                 action: { Task { await subStore.bootstrap() } }

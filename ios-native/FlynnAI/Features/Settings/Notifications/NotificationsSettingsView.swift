@@ -103,9 +103,9 @@ struct NotificationsSettingsView: View {
     private var togglesSection: some View {
         VStack(spacing: FlynnSpacing.sm) {
             toggleRow(
-                icon: "phone.arrow.down.left.fill",
-                title: "New inbound call",
-                subtitle: "Tradies usually want this on.",
+                icon: "calendar.badge.clock",
+                title: "Booking reminders",
+                subtitle: "A nudge before your upcoming jobs.",
                 isOn: Binding(
                     get: { store.prefs.new_call },
                     set: { v in store.prefs.new_call = v; Task { await store.save() } }
@@ -113,8 +113,8 @@ struct NotificationsSettingsView: View {
             )
             toggleRow(
                 icon: "gauge.with.dots.needle.bottom.50percent",
-                title: "Usage warning (80%)",
-                subtitle: "Heads-up before your AI minutes run out.",
+                title: "Draft limit warning",
+                subtitle: "Heads-up before you hit your free daily drafts.",
                 isOn: Binding(
                     get: { store.prefs.usage_warning },
                     set: { v in store.prefs.usage_warning = v; Task { await store.save() } }

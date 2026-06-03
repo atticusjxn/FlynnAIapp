@@ -2,16 +2,26 @@ import Foundation
 
 /// Tab identifier for the root TabView. Value-based so deep links can select a tab.
 enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
+    // Rendered tabs (case names kept stable so deep links + parked code compile;
+    // `dashboard` is displayed as "Home", `events` as "Bookings").
     case dashboard
+    case voice
+    case brain
     case events
+    // Parked (not rendered as tabs; kept for deep links + future upsell).
     case calls
     case clients
     case money
 
+    /// The four tabs actually shown in the bar, in order.
+    static let visibleTabs: [FlynnTab] = [.dashboard, .voice, .brain, .events]
+
     var title: String {
         switch self {
-        case .dashboard: return "Dashboard"
-        case .events: return "Events"
+        case .dashboard: return "Home"
+        case .voice: return "Voice"
+        case .brain: return "Brain"
+        case .events: return "Bookings"
         case .calls: return "Calls"
         case .clients: return "Clients"
         case .money: return "Money"
@@ -22,7 +32,9 @@ enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
     /// deliberately use them instead of custom icon assets for tab bar items.
     var systemImage: String {
         switch self {
-        case .dashboard: return "square.grid.2x2"
+        case .dashboard: return "house"
+        case .voice: return "waveform"
+        case .brain: return "brain.head.profile"
         case .events: return "calendar"
         case .calls: return "phone"
         case .clients: return "person.2"

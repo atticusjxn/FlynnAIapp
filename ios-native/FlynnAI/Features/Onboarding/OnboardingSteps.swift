@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Supabase
 
 // MARK: - Step 1: Website scrape + results + completion form
@@ -485,4 +486,783 @@ private func stepHeader(eyebrow: String, title: String, subtitle: String) -> som
             .fixedSize(horizontal: false, vertical: true)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
+}
+
+// MARK: - Step 2: Tone samples (teach Flynn your voice)
+
+struct ToneSamplesStepView: View {
+    @Environment(FlashStore.self) private var flash
+    @State private var samples: [String] = ["", "", ""]
+    @State private var saving = false
+    let onContinue: () -> Void
+
+    private struct ToneSampleInsert: Encodable {
+        let sample_text: String
+        let source: String
+    }
+
+    private var filledCount: Int {
+        samples.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: FlynnSpacing.md) {
+                stepHeader(
+                    eyebrow: "Step 2 of 6",
+                    title: "Teach Flynn your voice",
+                    subtitle: "Paste or type a few replies you'd actually send a customer. Flynn copies your style — slang, casing, emojis and all — so its drafts sound like you, not a robot."
+                )
+
+                ForEach(samples.indices, id: \.self) { idx in
+                    FlynnTextField(
+                        label: "Example reply \(idx + 1)",
+                        text: $samples[idx],
+                        placeholder: idx == 0 ? "e.g. yeah no worries mate, can swing by tomoz arvo" : "Another reply in your words",
+                        autocapitalization: .sentences
+                    )
+                }
+
+                FlynnButton(
+                    title: filledCount > 0 ? "Save & continue" : "Continue",
+                    action: save,
+                    fullWidth: true,
+                    isLoading: saving
+                )
+
+                Text("The more examples you add, the better Flynn matches you. You can add more any time.")
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(FlynnSpacing.lg)
+        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+    }
+
+    private func save() {
+        let rows = samples
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { ToneSampleInsert(sample_text: $0, source: "onboarding") }
+
+        guard !rows.isEmpty else { onContinue(); return }
+
+        saving = true
+        Task {
+            do {
+                try await FlynnSupabase.client
+                    .from("tone_samples")
+                    .insert(rows)
+                    .execute()
+                await MainActor.run {
+                    saving = false
+                    flash.success("Flynn learned your voice")
+                    onContinue()
+                }
+            } catch {
+                await MainActor.run {
+                    saving = false
+                    flash.error("Couldn't save — continuing anyway")
+                    onContinue()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Step 3: Connect calendar
+
+struct ConnectCalendarStepView: View {
+    @Environment(FlashStore.self) private var flash
+    @State private var appleConnected = false
+    @State private var connecting = false
+    let onContinue: () -> Void
+
+    private struct AppleFlagPatch: Encodable { let apple_calendar_connected: Bool }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: FlynnSpacing.md) {
+                stepHeader(
+                    eyebrow: "Your calendar",
+                    title: "Connect your calendar",
+                    subtitle: "So Flynn can offer customers times you're actually free and drop confirmed jobs straight into your calendar."
+                )
+
+                connectRow(
+                    icon: "calendar",
+                    title: "Apple Calendar",
+                    subtitle: appleConnected ? "Connected" : "On your device — one tap",
+                    connected: appleConnected
+                ) {
+                    connectApple()
+                }
+
+                connectRow(
+                    icon: "globe",
+                    title: "Google Calendar",
+                    subtitle: "Connect later in Settings → Connected apps",
+                    connected: false,
+                    disabled: true
+                ) {}
+
+                FlynnButton(title: "Continue", action: onContinue, fullWidth: true)
+
+                Button("Skip for now") { onContinue() }
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .padding(FlynnSpacing.lg)
+        }
+    }
+
+    private func connectRow(
+        icon: String,
+        title: String,
+        subtitle: String,
+        connected: Bool,
+        disabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+                Image(systemName: icon)
+                    .font(.system(size: 22))
+                    .foregroundColor(disabled ? FlynnColor.textTertiary : FlynnColor.primary)
+                    .frame(width: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .flynnType(FlynnTypography.h4)
+                        .foregroundColor(FlynnColor.textPrimary)
+                    Text(subtitle)
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textSecondary)
+                }
+                Spacer()
+                Image(systemName: connected ? "checkmark.circle.fill" : "chevron.right")
+                    .foregroundColor(connected ? FlynnColor.success : FlynnColor.textTertiary)
+            }
+            .padding(FlynnSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                    .fill(FlynnColor.backgroundSecondary)
+            )
+            .brutalistBorder(cornerRadius: FlynnRadii.md)
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled || connecting)
+    }
+
+    private func connectApple() {
+        connecting = true
+        Task {
+            do {
+                let granted = try await AppleCalendarService().requestAccess()
+                if granted {
+                    let session = try await FlynnSupabase.client.auth.session
+                    try? await FlynnSupabase.client
+                        .from("users")
+                        .update(AppleFlagPatch(apple_calendar_connected: true))
+                        .eq("id", value: session.user.id.uuidString)
+                        .execute()
+                }
+                await MainActor.run {
+                    connecting = false
+                    appleConnected = granted
+                    if granted { flash.success("Apple Calendar connected") }
+                    else { flash.error("Calendar access denied — enable it in Settings") }
+                }
+            } catch {
+                await MainActor.run {
+                    connecting = false
+                    flash.error("Couldn't connect calendar")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Step 4: Personalized draft demo (the aha moment)
+
+struct DraftDemoStepView: View {
+    @State private var phase: Phase = .loading
+    let onContinue: () -> Void
+
+    enum Phase {
+        case loading
+        case done([String])
+        case failed
+    }
+
+    // A realistic inbound customer text the demo drafts a reply to.
+    private let sampleCustomerMessage =
+        "Hi, saw your details online — do you do quotes? Roughly how much and when could you come out to take a look?"
+
+    private struct DemoRequest: Encodable { let messages: [String] }
+    private struct DemoResponse: Decodable { let drafts: [String] }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: FlynnSpacing.md) {
+                stepHeader(
+                    eyebrow: "Step 4 of 6",
+                    title: "See Flynn reply for you",
+                    subtitle: "Here's a real customer text — and the replies Flynn drafted in your voice, using your business. In the keyboard, you'd just tap one to send."
+                )
+
+                customerBubble
+
+                switch phase {
+                case .loading:
+                    HStack(spacing: FlynnSpacing.sm) {
+                        ProgressView().tint(FlynnColor.primary)
+                        Text("Drafting replies in your voice…")
+                            .flynnType(FlynnTypography.bodyMedium)
+                            .foregroundColor(FlynnColor.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, FlynnSpacing.md)
+                case .done(let drafts):
+                    ForEach(Array(drafts.enumerated()), id: \.offset) { _, draft in
+                        draftCard(draft)
+                    }
+                case .failed:
+                    Text("Couldn't reach Flynn just now — you'll see this in action once you add the keyboard.")
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(FlynnColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                FlynnButton(title: "Love it — continue", action: onContinue, fullWidth: true)
+            }
+            .padding(FlynnSpacing.lg)
+        }
+        .task { await loadDrafts() }
+    }
+
+    private var customerBubble: some View {
+        Text(sampleCustomerMessage)
+            .flynnType(FlynnTypography.bodyMedium)
+            .foregroundColor(FlynnColor.textPrimary)
+            .padding(FlynnSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                    .fill(FlynnColor.backgroundSecondary)
+            )
+            .brutalistBorder(cornerRadius: FlynnRadii.md)
+    }
+
+    private func draftCard(_ draft: String) -> some View {
+        HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+            Image(systemName: "sparkles")
+                .foregroundColor(FlynnColor.primary)
+            Text(draft)
+                .flynnType(FlynnTypography.bodyMedium)
+                .foregroundColor(FlynnColor.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(FlynnSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                .fill(FlynnColor.primaryLight)
+        )
+        .brutalistBorder(cornerRadius: FlynnRadii.md)
+    }
+
+    private func loadDrafts() async {
+        do {
+            let session = try await FlynnSupabase.client.auth.session
+            var request = URLRequest(
+                url: URL(string: "\(FlynnEnv.flynnAPIBaseURL)/api/keyboard/draft-replies")!,
+                timeoutInterval: 20
+            )
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(DemoRequest(messages: [sampleCustomerMessage]))
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
+                  let decoded = try? JSONDecoder().decode(DemoResponse.self, from: data),
+                  !decoded.drafts.isEmpty else {
+                await MainActor.run { phase = .failed }
+                return
+            }
+            await MainActor.run {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    phase = .done(decoded.drafts)
+                }
+            }
+        } catch {
+            await MainActor.run { phase = .failed }
+        }
+    }
+}
+
+// MARK: - Step 6: Install the keyboard (the one-off "big ask", value already shown)
+
+struct InstallKeyboardStepView: View {
+    let onFinish: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: FlynnSpacing.md) {
+                Mascot(.phone, size: 132, backdrop: .cream)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, FlynnSpacing.xs)
+
+                stepHeader(
+                    eyebrow: "Last step",
+                    title: "Add the Flynn keyboard",
+                    subtitle: "This is how Flynn drafts replies right inside Messages. One-time setup — copy a customer's text, switch to the Flynn keyboard, tap a reply."
+                )
+
+                instructionRow(number: "1", text: "Open Settings → General → Keyboard → Keyboards.")
+                instructionRow(number: "2", text: "Tap “Add New Keyboard…” and choose Flynn.")
+                instructionRow(number: "3", text: "Tap Flynn in the list and turn on “Allow Full Access” so it can draft from your copied message.")
+
+                FlynnButton(title: "Open Settings", action: openSettings, fullWidth: true)
+
+                FlynnButton(
+                    title: "I've added it — finish",
+                    action: onFinish,
+                    variant: .secondary,
+                    fullWidth: true
+                )
+            }
+            .padding(FlynnSpacing.lg)
+        }
+    }
+
+    private func instructionRow(number: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+            Text(number)
+                .flynnType(FlynnTypography.h4)
+                .foregroundColor(.white)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(FlynnColor.primary))
+            Text(text)
+                .flynnType(FlynnTypography.bodyMedium)
+                .foregroundColor(FlynnColor.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func openSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+    }
+}
+
+// MARK: - Welcome
+
+struct WelcomeStepView: View {
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.lg) {
+            Spacer()
+            Mascot(.wave, size: 160, backdrop: .cream)
+                .frame(maxWidth: .infinity, alignment: .center)
+            VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+                Text("Flynn")
+                    .flynnType(FlynnTypography.overline)
+                    .foregroundColor(FlynnColor.primary)
+                Text("Reply to your customers in your own voice — and book the job.")
+                    .flynnType(FlynnTypography.displayMedium)
+                    .foregroundColor(FlynnColor.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Flynn drafts your texts so they sound like you, then drops the booking in your calendar. Let's set it up in about a minute.")
+                    .flynnType(FlynnTypography.bodyLarge)
+                    .foregroundColor(FlynnColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            FlynnButton(title: "Get started", action: onContinue, fullWidth: true)
+        }
+        .padding(FlynnSpacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - What do you do? (free-text seed → tailored prompts + brain)
+
+struct WhatYouDoStepView: View {
+    @Bindable var store: OnboardingStore
+    let onContinue: () -> Void
+    @FocusState private var focused: Bool
+
+    private var descriptionEmpty: Bool {
+        store.businessDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: FlynnSpacing.md) {
+                Mascot(.thinking, size: 116, backdrop: .cream)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                stepHeader(
+                    eyebrow: "Your business",
+                    title: "What do you do?",
+                    subtitle: "Tell Flynn in your own words — like \u{201C}mobile dog groomer in Geelong\u{201D}. Flynn uses this so its replies sound right for your trade."
+                )
+
+                FlynnTextField(
+                    label: "What you do",
+                    text: $store.businessDescription,
+                    placeholder: "e.g. emergency plumber on the northern beaches",
+                    autocapitalization: .sentences
+                )
+                .focused($focused)
+
+                FlynnTextField(
+                    label: "Website (optional)",
+                    text: $store.websiteURL,
+                    placeholder: "https://\u{2026}",
+                    textContentType: .URL,
+                    autocapitalization: .never
+                )
+
+                if case .error(let msg) = store.understandingState {
+                    Text(msg)
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.error)
+                }
+
+                FlynnButton(
+                    title: "Continue",
+                    action: submit,
+                    fullWidth: true,
+                    isLoading: store.understandingState == .loading,
+                    isDisabled: descriptionEmpty
+                )
+            }
+            .padding(FlynnSpacing.lg)
+        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+    }
+
+    private func submit() {
+        focused = false
+        Task {
+            await store.understandBusiness()
+            if case .loaded = store.understandingState { onContinue() }
+        }
+    }
+}
+
+// MARK: - Confirm Business Brain
+
+struct ConfirmBrainStepView: View {
+    @Bindable var store: OnboardingStore
+    let onContinue: () -> Void
+    @State private var saving = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: FlynnSpacing.md) {
+                stepHeader(
+                    eyebrow: "Your business",
+                    title: "Does this look right?",
+                    subtitle: "Flynn cites these in your replies. Fix anything that's off — you can always edit later."
+                )
+
+                FlynnTextField(label: "What you do", text: $store.detectedBusinessType, placeholder: "e.g. plumber")
+
+                if !store.detectedServices.isEmpty {
+                    Text("Services & rough pricing")
+                        .flynnType(FlynnTypography.label)
+                        .foregroundColor(FlynnColor.textPrimary)
+
+                    ForEach($store.detectedServices) { $svc in
+                        HStack(spacing: FlynnSpacing.sm) {
+                            TextField("Service", text: $svc.name)
+                                .flynnType(FlynnTypography.bodyMedium)
+                            TextField("Price", text: $svc.priceRange)
+                                .flynnType(FlynnTypography.bodyMedium)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 110)
+                        }
+                        .padding(FlynnSpacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                                .fill(FlynnColor.backgroundSecondary)
+                        )
+                        .brutalistBorder(cornerRadius: FlynnRadii.md)
+                    }
+                }
+
+                FlynnTextField(
+                    label: "Pricing notes (optional)",
+                    text: $store.detectedPricingNote,
+                    placeholder: "e.g. $90 callout, quotes are free"
+                )
+
+                FlynnButton(title: "Looks right — continue", action: save, fullWidth: true, isLoading: saving)
+            }
+            .padding(FlynnSpacing.lg)
+        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+    }
+
+    private func save() {
+        saving = true
+        Task {
+            await store.saveBusinessBrain()
+            saving = false
+            onContinue()
+        }
+    }
+}
+
+// MARK: - Capture voice (reply to tailored prompts)
+
+struct CaptureVoiceStepView: View {
+    @Bindable var store: OnboardingStore
+    let onContinue: () -> Void
+    @State private var replies: [String] = []
+    @State private var saving = false
+
+    private struct ToneSampleInsert: Encodable { let sample_text: String; let source: String }
+
+    private var prompts: [String] {
+        store.samplePrompts.isEmpty
+            ? ["Hi, do you have any availability this week and how much do you charge?",
+               "Hey, can you come out sometime next week? Let me know what works.",
+               "Quick question — do you cover my area?"]
+            : store.samplePrompts
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: FlynnSpacing.md) {
+                Mascot(.write, size: 120, backdrop: .cream)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                stepHeader(
+                    eyebrow: "Your voice",
+                    title: "Reply like you really would",
+                    subtitle: "These are texts a customer might send you. Reply exactly how you'd actually text back — short, casual, slang and all. This is how Flynn learns your voice."
+                )
+
+                ForEach(Array(prompts.enumerated()), id: \.offset) { idx, prompt in
+                    VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+                        Text(prompt)
+                            .flynnType(FlynnTypography.bodyMedium)
+                            .foregroundColor(FlynnColor.textPrimary)
+                            .padding(FlynnSpacing.sm)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                                    .fill(FlynnColor.backgroundSecondary)
+                            )
+                            .brutalistBorder(cornerRadius: FlynnRadii.md)
+                        FlynnTextField(
+                            label: "Your reply",
+                            text: replyBinding(idx),
+                            placeholder: "type how you'd really reply\u{2026}",
+                            autocapitalization: .sentences
+                        )
+                    }
+                }
+
+                FlynnButton(title: "Continue", action: save, fullWidth: true, isLoading: saving)
+            }
+            .padding(FlynnSpacing.lg)
+        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onAppear {
+            if replies.count != prompts.count {
+                replies = Array(repeating: "", count: prompts.count)
+            }
+        }
+    }
+
+    private func replyBinding(_ idx: Int) -> Binding<String> {
+        Binding(
+            get: { idx < replies.count ? replies[idx] : "" },
+            set: { if idx < replies.count { replies[idx] = $0 } }
+        )
+    }
+
+    private func save() {
+        let rows = replies
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { ToneSampleInsert(sample_text: $0, source: "onboarding") }
+        guard !rows.isEmpty else { onContinue(); return }
+
+        saving = true
+        Task {
+            try? await FlynnSupabase.client.from("tone_samples").insert(rows).execute()
+            saving = false
+            onContinue()
+        }
+    }
+}
+
+// MARK: - Sounds like you? (the aha loop — draft + approve/edit + redraft)
+
+struct SoundsLikeYouStepView: View {
+    @Bindable var store: OnboardingStore
+    let onContinue: () -> Void
+
+    @State private var phase: Phase = .loading
+    @State private var editing = false
+    @State private var editText = ""
+
+    enum Phase { case loading; case draft(String); case failed }
+
+    private struct DraftReq: Encodable { let messages: [String] }
+    private struct DraftResp: Decodable { let drafts: [String] }
+    private struct AcceptReq: Encodable { let text: String }
+
+    private var customerMessage: String {
+        store.samplePrompts.first ?? "Hi, are you available this week and how much would it be?"
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: FlynnSpacing.md) {
+                stepHeader(
+                    eyebrow: "Your voice",
+                    title: "Sound like you?",
+                    subtitle: "Here's Flynn replying to a customer in your voice — exactly what you'll get inside Messages."
+                )
+
+                customerBubble(customerMessage)
+
+                switch phase {
+                case .loading:
+                    HStack(spacing: FlynnSpacing.sm) {
+                        ProgressView().tint(FlynnColor.primary)
+                        Text("Drafting in your voice\u{2026}")
+                            .flynnType(FlynnTypography.bodyMedium)
+                            .foregroundColor(FlynnColor.textSecondary)
+                    }
+                    .padding(.vertical, FlynnSpacing.md)
+
+                case .draft(let d):
+                    if editing {
+                        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+                            FlynnTextField(label: "Make it sound like you", text: $editText, autocapitalization: .sentences)
+                            FlynnButton(title: "Save & redraft", action: saveEdit, fullWidth: true)
+                        }
+                    } else {
+                        Mascot(.thumbsup, size: 104, backdrop: .cream)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                        draftCard(d)
+                        HStack(spacing: FlynnSpacing.sm) {
+                            FlynnButton(title: "\u{1F44D} That's me", action: onContinue, fullWidth: true)
+                            FlynnButton(title: "Tweak it", action: { editText = d; editing = true }, variant: .secondary, fullWidth: true)
+                        }
+                    }
+
+                case .failed:
+                    Text("Couldn't draft right now — you'll see this in action once the keyboard's added.")
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(FlynnColor.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    FlynnButton(title: "Continue", action: onContinue, fullWidth: true)
+                }
+            }
+            .padding(FlynnSpacing.lg)
+        }
+        .task { await loadDraft() }
+    }
+
+    private func customerBubble(_ text: String) -> some View {
+        Text(text)
+            .flynnType(FlynnTypography.bodyMedium)
+            .foregroundColor(FlynnColor.textPrimary)
+            .padding(FlynnSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                    .fill(FlynnColor.backgroundSecondary)
+            )
+            .brutalistBorder(cornerRadius: FlynnRadii.md)
+    }
+
+    private func draftCard(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+            Image(systemName: "sparkles").foregroundColor(FlynnColor.primary)
+            Text(text)
+                .flynnType(FlynnTypography.bodyMedium)
+                .foregroundColor(FlynnColor.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(FlynnSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                .fill(FlynnColor.primaryLight)
+        )
+        .brutalistBorder(cornerRadius: FlynnRadii.md)
+    }
+
+    private func saveEdit() {
+        let text = editText.trimmingCharacters(in: .whitespacesAndNewlines)
+        editing = false
+        guard !text.isEmpty else { return }
+        phase = .loading
+        Task {
+            await postAccept(text)
+            await loadDraft()
+        }
+    }
+
+    private func postAccept(_ text: String) async {
+        do {
+            let session = try await FlynnSupabase.client.auth.session
+            var req = URLRequest(url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent("api/keyboard/accept-draft"))
+            req.httpMethod = "POST"
+            req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONEncoder().encode(AcceptReq(text: text))
+            _ = try await URLSession.shared.data(for: req)
+        } catch {
+            // best-effort
+        }
+    }
+
+    private func loadDraft() async {
+        phase = .loading
+        do {
+            let session = try await FlynnSupabase.client.auth.session
+            var req = URLRequest(
+                url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent("api/keyboard/draft-replies"),
+                timeoutInterval: 20
+            )
+            req.httpMethod = "POST"
+            req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONEncoder().encode(DraftReq(messages: [customerMessage]))
+
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode),
+                  let decoded = try? JSONDecoder().decode(DraftResp.self, from: data),
+                  let first = decoded.drafts.first else {
+                phase = .failed
+                return
+            }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                phase = .draft(first)
+            }
+        } catch {
+            phase = .failed
+        }
+    }
 }

@@ -4,17 +4,20 @@ import {
   supabase,
   fetchTodaysFBGroups,
   fetchTodaysIGTargets,
+  fetchTodaysTradeIGTargets,
   fetchTodaysColdLeads,
   fetchPipelineStats,
   fetchRecentDailyLogs,
   markFBGroupPosted,
   markIGDMSent,
+  markTradeIGDMSent,
   markColdEmailSent,
   GOAL_TOTAL,
   GOAL_START_DATE,
   GOAL_DEADLINE,
   type FBGroupRow,
   type IGTargetRow,
+  type TradeIGTargetRow,
   type ColdLeadRow,
   type DailyLogRow,
 } from './lib/supabase';
@@ -33,12 +36,13 @@ import {
   type WorkflowStatus,
 } from './lib/github';
 
-type Tab = 'cold-email' | 'ig-dms' | 'fb-groups';
+type Tab = 'cold-email' | 'trade-ig' | 'ig-dms' | 'fb-groups';
 
 export default function Dashboard({ session }: { session: Session }) {
   const [tab, setTab] = useState<Tab>('cold-email');
   const [fbGroups, setFbGroups] = useState<FBGroupRow[]>([]);
   const [igTargets, setIgTargets] = useState<IGTargetRow[]>([]);
+  const [tradeIgTargets, setTradeIgTargets] = useState<TradeIGTargetRow[]>([]);
   const [coldLeads, setColdLeads] = useState<ColdLeadRow[]>([]);
   const [pipeline, setPipeline] = useState({ total: 0, notSent: 0, inSequence: 0, hotReplies: 0, bounced: 0 });
   const [dailyLogs, setDailyLogs] = useState<DailyLogRow[]>([]);
@@ -51,14 +55,16 @@ export default function Dashboard({ session }: { session: Session }) {
     Promise.all([
       fetchTodaysFBGroups(5),
       fetchTodaysIGTargets(18),
+      fetchTodaysTradeIGTargets(20),
       fetchTodaysColdLeads(30),
       fetchPipelineStats(),
       fetchRecentDailyLogs(14),
     ])
-      .then(([fb, ig, leads, p, logs]) => {
+      .then(([fb, ig, tradeIg, leads, p, logs]) => {
         if (!alive) return;
         setFbGroups(fb);
         setIgTargets(ig);
+        setTradeIgTargets(tradeIg);
         setColdLeads(leads);
         setPipeline(p);
         setDailyLogs(logs);
@@ -99,12 +105,15 @@ export default function Dashboard({ session }: { session: Session }) {
             <div>
               <h2 className="font-display text-lg font-bold">Today's outreach</h2>
               <p className="text-xs text-neutral-500 mt-0.5">
-                Daily target: 30 cold emails · 18 IG DMs · 5 FB groups
+                Daily target: 30 cold emails · 20 trade IG DMs · 18 partner IG DMs · 5 FB groups
               </p>
             </div>
             <div className="flex gap-1 bg-neutral-100 rounded-md p-1">
               <TabButton active={tab === 'cold-email'} onClick={() => setTab('cold-email')}>
                 📧 Cold email · {coldLeads.length}
+              </TabButton>
+              <TabButton active={tab === 'trade-ig'} onClick={() => setTab('trade-ig')}>
+                🛠 Trade IG · {tradeIgTargets.length}
               </TabButton>
               <TabButton active={tab === 'ig-dms'} onClick={() => setTab('ig-dms')}>
                 📱 IG DMs · {igTargets.length}
@@ -119,6 +128,8 @@ export default function Dashboard({ session }: { session: Session }) {
             <div className="p-12 text-center text-neutral-400 text-sm">Loading…</div>
           ) : tab === 'cold-email' ? (
             <ColdEmailQueue leads={coldLeads} onSent={() => setRefreshKey((k) => k + 1)} />
+          ) : tab === 'trade-ig' ? (
+            <TradeIGQueue targets={tradeIgTargets} onSent={() => setRefreshKey((k) => k + 1)} />
           ) : tab === 'ig-dms' ? (
             <IGDMQueue targets={igTargets} onSent={() => setRefreshKey((k) => k + 1)} />
           ) : (
@@ -261,22 +272,39 @@ function PipelineCard({ pipeline }: { pipeline: ReturnType<typeof Object> & { to
 
 // ==================== Actions runner ====================
 
+type ActionWorkflow = 'scrape' | 'send' | 'ig-scrape';
+
+const WORKFLOW_FILES: Record<ActionWorkflow, string> = {
+  'scrape': 'run-scrape.yml',
+  'send': 'send-batch.yml',
+  'ig-scrape': 'run-ig-scrape.yml',
+};
+
+const WORKFLOW_LABELS: Record<ActionWorkflow, string> = {
+  'scrape': 'Scrape',
+  'send': 'Send',
+  'ig-scrape': 'IG scrape',
+};
+
 function ActionsRunner({ onRefresh }: { onRefresh: () => void }) {
   const [scrapeStatus, setScrapeStatus] = useState<WorkflowStatus | null>(null);
   const [sendStatus, setSendStatus] = useState<WorkflowStatus | null>(null);
-  const [busy, setBusy] = useState<'scrape' | 'send' | null>(null);
+  const [igScrapeStatus, setIgScrapeStatus] = useState<WorkflowStatus | null>(null);
+  const [busy, setBusy] = useState<ActionWorkflow | null>(null);
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; text: string; url?: string } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [hasPAT, setHasPAT] = useState(!!getGitHubPAT());
 
   const refreshStatus = async () => {
     if (!hasPAT) return;
-    const [s1, s2] = await Promise.all([
+    const [s1, s2, s3] = await Promise.all([
       fetchLastRun('run-scrape.yml'),
       fetchLastRun('send-batch.yml'),
+      fetchLastRun('run-ig-scrape.yml'),
     ]);
     setScrapeStatus(s1);
     setSendStatus(s2);
+    setIgScrapeStatus(s3);
   };
 
   useEffect(() => {
@@ -287,19 +315,18 @@ function ActionsRunner({ onRefresh }: { onRefresh: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPAT]);
 
-  async function run(workflow: 'scrape' | 'send') {
+  async function run(workflow: ActionWorkflow) {
     if (!hasPAT) {
       setShowSettings(true);
       return;
     }
     setBusy(workflow);
     setToast(null);
-    const file = workflow === 'scrape' ? 'run-scrape.yml' : 'send-batch.yml';
-    const res = await triggerWorkflow(file);
+    const res = await triggerWorkflow(WORKFLOW_FILES[workflow]);
     setBusy(null);
     setToast({
       kind: res.ok ? 'ok' : 'err',
-      text: res.ok ? `${workflow === 'scrape' ? 'Scrape' : 'Send'} started — running on GitHub Actions` : res.message,
+      text: res.ok ? `${WORKFLOW_LABELS[workflow]} started — running on GitHub Actions` : res.message,
       url: res.runUrl,
     });
     setTimeout(() => {
@@ -321,19 +348,27 @@ function ActionsRunner({ onRefresh }: { onRefresh: () => void }) {
           ⚙️ {hasPAT ? 'Token configured' : 'Set up token'}
         </button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <RunButton
           icon="📥"
-          title="Scrape new leads"
-          subtitle="Adds ~30 fresh AU tradies to the cold-email pipeline"
+          title="Scrape email leads"
+          subtitle="~30 fresh AU tradies for the cold-email pipeline"
           onClick={() => run('scrape')}
           busy={busy === 'scrape'}
           status={scrapeStatus}
         />
         <RunButton
+          icon="🛠"
+          title="Scrape Trade IG"
+          subtitle="~20 IG handles + AI-written DMs for trade businesses"
+          onClick={() => run('ig-scrape')}
+          busy={busy === 'ig-scrape'}
+          status={igScrapeStatus}
+        />
+        <RunButton
           icon="📤"
-          title="Send daily batch"
-          subtitle="Cap 30/day · 2-4min spacing · sends from your Gmail"
+          title="Send email batch"
+          subtitle="Cap 30/day · 2-4min spacing · from your Gmail"
           onClick={() => run('send')}
           busy={busy === 'send'}
           status={sendStatus}
@@ -612,6 +647,76 @@ function ColdLeadRow({ lead, onSent }: { lead: ColdLeadRow; onSent: () => void }
           </div>
           <pre className="whitespace-pre-wrap font-sans text-neutral-700 leading-relaxed">{body}</pre>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== Trade IG Queue ====================
+
+function TradeIGQueue({ targets, onSent }: { targets: TradeIGTargetRow[]; onSent: () => void }) {
+  if (targets.length === 0) {
+    return (
+      <div className="p-12 text-center">
+        <p className="text-neutral-500 text-sm mb-2">No trade IG targets surfaced for today.</p>
+        <p className="text-neutral-400 text-xs">
+          Click <strong>🛠 Scrape Trade IG</strong> above to discover ~20 AU trade-business accounts and pre-write DMs for each.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="divide-y divide-neutral-100">
+      {targets.map((t) => (
+        <TradeIGRow key={t.id} target={t} onSent={onSent} />
+      ))}
+    </div>
+  );
+}
+
+function TradeIGRow({ target, onSent }: { target: TradeIGTargetRow; onSent: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(true);
+
+  async function copyAndOpenIG() {
+    await navigator.clipboard.writeText(target.ai_message);
+    window.open(target.profile_url, '_blank', 'noopener');
+  }
+
+  async function markSent() {
+    setBusy(true);
+    try {
+      await markTradeIGDMSent(target.id);
+      onSent();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="px-6 py-3 hover:bg-neutral-50/50 transition-colors">
+      <div className="flex items-center gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-sm">@{target.handle}</span>
+            {target.business_name && (
+              <span className="text-xs text-neutral-600">· {target.business_name}</span>
+            )}
+            <span className="text-xs text-neutral-400">{target.follower_count.toLocaleString()} followers</span>
+            {target.trade && <span className="pill bg-neutral-100 text-neutral-700">{target.trade}</span>}
+            {target.city && <span className="pill bg-neutral-100 text-neutral-700">{target.city}</span>}
+          </div>
+        </div>
+        <button onClick={() => setOpen(!open)} className="btn-outline">{open ? 'Hide' : 'Show'}</button>
+        <button onClick={copyAndOpenIG} className="btn-outline">Copy + Open IG</button>
+        <button onClick={markSent} disabled={busy} className="btn-primary">
+          {busy ? '…' : 'Mark sent'}
+        </button>
+      </div>
+      {open && (
+        <pre className="mt-3 bg-neutral-50 border border-neutral-200 rounded-md p-3 text-xs whitespace-pre-wrap font-sans text-neutral-700 leading-relaxed">
+          {target.ai_message}
+        </pre>
       )}
     </div>
   );

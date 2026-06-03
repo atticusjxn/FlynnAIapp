@@ -16,4 +16,10 @@ FLYNN_API_BASE_URL = https:/$()/flynnai-telephony.fly.dev
 FACEBOOK_APP_ID =
 FACEBOOK_CLIENT_TOKEN =
 
+// TikTok Business SDK — real values live in Secrets.local.xcconfig.
+// Get these from TikTok Events Manager → App → Setup. TIKTOK_APP_ID is your
+// iOS bundle id; TIKTOK_TTAPP_ID is the numeric app id TikTok generates.
+TIKTOK_APP_ID =
+TIKTOK_TTAPP_ID =
+
 #include? "Secrets.local.xcconfig"

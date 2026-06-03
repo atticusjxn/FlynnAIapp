@@ -31,6 +31,20 @@ enum FlynnEnv {
         infoString("STRIPE_PUBLISHABLE_KEY")
     }
 
+    /// iOS bundle id registered against the TikTok Business SDK app entry.
+    /// Returns nil until configured in Secrets.local.xcconfig.
+    static var tiktokAppID: String? {
+        let value = infoString("TIKTOK_APP_ID")
+        return (value?.isEmpty ?? true) ? nil : value
+    }
+
+    /// Numeric TikTok App ID generated when the app is registered in TikTok
+    /// Events Manager. Required for SDK init.
+    static var tiktokTTAppID: String? {
+        let value = infoString("TIKTOK_TTAPP_ID")
+        return (value?.isEmpty ?? true) ? nil : value
+    }
+
     private static func infoString(_ key: String) -> String? {
         Bundle.main.object(forInfoDictionaryKey: key) as? String
     }
