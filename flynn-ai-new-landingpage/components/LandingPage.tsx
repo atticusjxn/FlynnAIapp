@@ -51,6 +51,30 @@ const Starburst = ({ className = '' }: { className?: string }) => (
   </svg>
 );
 
+/* ----- real calendar brand logos ----- */
+const AppleCalIcon = ({ className = 'w-12 h-12' }: { className?: string }) => (
+  <svg viewBox="0 0 48 48" className={className} aria-label="Apple Calendar">
+    <rect x="5" y="5" width="38" height="38" rx="9" fill="#fff" stroke="#E2E2E5" strokeWidth="1" />
+    <text x="24" y="17" textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight="700" fontSize="7.5" fill="#FF3B30" letterSpacing="0.5">WED</text>
+    <text x="24" y="39" textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight="600" fontSize="22" fill="#1D1D1F">12</text>
+  </svg>
+);
+const GoogleCalIcon = ({ className = 'w-12 h-12' }: { className?: string }) => (
+  <svg viewBox="0 0 48 48" className={className} aria-label="Google Calendar">
+    <rect x="10" y="10" width="28" height="28" fill="#fff" />
+    <path d="M38 14 V10 H34 Z" fill="#EA4335" />
+    <path d="M10 14 V10 H14 V14 Z" fill="#1967D2" />
+    <path d="M34 38 H38 V34 Z" fill="#188038" />
+    <path d="M10 34 V38 H14 V34 Z" fill="#FBBC04" />
+    <rect x="10" y="10" width="28" height="4" fill="#4285F4" />
+    <rect x="10" y="10" width="4" height="28" fill="#1967D2" />
+    <rect x="34" y="10" width="4" height="28" fill="#EA4335" />
+    <rect x="10" y="34" width="28" height="4" fill="#34A853" />
+    <rect x="14" y="14" width="20" height="20" fill="#fff" />
+    <text x="24" y="31" textAnchor="middle" fontFamily="Space Grotesk, sans-serif" fontWeight="700" fontSize="14" fill="#4285F4">31</text>
+  </svg>
+);
+
 /* ----- phone: real iMessage thread + the Flynn keyboard ----- */
 const PhoneHero = () => (
   <div className="relative w-[330px] sm:w-[360px] rounded-[46px] bg-[#1A1714] p-[11px] shadow-[0_30px_70px_-20px_rgba(44,32,24,0.55)]">
@@ -124,7 +148,7 @@ const steps = [
 /* ===================== FEATURES ===================== */
 const features = [
   { pose: 'write', tint: '#3C8A86', title: 'Sounds exactly like you', body: 'Flynn learns from your real replies — your slang, your casing, your emojis. Drafts that read like you typed them, not a robot.' },
-  { pose: 'phone', tint: '#E0A436', title: 'Agree a time, it books it', body: 'When you both land on a time, Flynn writes it into your Apple or Google calendar. No double-entry, no missed jobs.' },
+  { pose: 'phone', tint: '#E0A436', title: 'Knows when you’re free', body: 'Connected to your Apple or Google Calendar — so Flynn drafts around your real availability and books the time you agree on, automatically.' },
   { pose: 'thinking', tint: '#C5532B', title: 'Knows your business', body: 'Your services, prices, hours and area live in Flynn’s brain, so quotes and answers are right every time.' },
 ];
 
@@ -232,6 +256,61 @@ export default function LandingPage() {
               </Reveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ===================== CALENDAR ===================== */}
+      <section id="calendar" className="relative py-20 sm:py-28">
+        <Motifs variant={1} />
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 grid lg:grid-cols-2 gap-12 items-center">
+          <Reveal>
+            <SectionLabel>Calendar</SectionLabel>
+            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.4rem)] leading-tight">It knows when <span className="text-[#FB5B1E]">you’re free</span></h2>
+            <p className="mt-6 text-lg text-[#5A4A3C] leading-relaxed max-w-lg">
+              Connect your calendar and Flynn drafts around your <span className="font-semibold text-[#2C2018]">real availability</span> — then writes the agreed time straight back in. No flicking between apps.
+            </p>
+            <ul className="mt-7 space-y-4">
+              <li className="flex items-start gap-3">
+                <span className="mt-0.5 text-xl">💬</span>
+                <span className="text-[#2C2018]"><span className="font-semibold">“You free Thursday at 2?”</span> — Flynn checks your calendar and replies <span className="font-semibold text-[#FB5B1E]">“Yeah, Thursday at 2 works!”</span></span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="mt-0.5 text-xl">📅</span>
+                <span className="text-[#2C2018]">Agree on a time and it’s <span className="font-semibold">booked into your calendar</span> automatically — no double-entry.</span>
+              </li>
+            </ul>
+            <div className="mt-9 flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-3 bg-[#FFFBF4] border-[3px] border-[#2C2018] rounded-2xl px-4 py-3 shadow-[4px_4px_0_0_#2C2018]">
+                <AppleCalIcon className="w-9 h-9" />
+                <GoogleCalIcon className="w-9 h-9" />
+              </div>
+              <span className="font-display font-semibold text-[#5A4A3C]">Works with Apple&nbsp;Calendar &amp; Google&nbsp;Calendar</span>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.1} className="flex justify-center">
+            <div className="w-full max-w-sm space-y-3">
+              {/* customer asks about availability */}
+              <div className="max-w-[85%] bg-[#FFFBF4] border-[3px] border-[#2C2018] rounded-2xl rounded-bl-md px-4 py-3 text-[#2C2018] shadow-[4px_4px_0_0_#2C2018]">
+                Any chance you’re free Thursday arvo? Say 2pm?
+              </div>
+              {/* flynn draft, with availability check */}
+              <div className="ml-auto max-w-[88%] bg-[#FB5B1E] text-white border-[3px] border-[#2C2018] rounded-2xl rounded-br-md px-4 py-3 shadow-[4px_4px_0_0_#2C2018]">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80 flex items-center gap-1.5 mb-1">✓ checked your calendar · Thu 2pm is open</span>
+                Yeah Thursday at 2 works! Lock it in 👍
+              </div>
+              {/* booked event card */}
+              <div className="bg-[#2C2018] text-[#F4E6CE] rounded-2xl p-4 flex items-center gap-3">
+                <div className="bg-[#FFFBF4] rounded-xl p-1.5 flex items-center gap-1">
+                  <AppleCalIcon className="w-8 h-8" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-display font-bold text-[15px] flex items-center gap-2"><span className="text-[#7CD992]">✓</span> Added to your calendar</p>
+                  <p className="text-sm text-[#F4E6CE]/70">Quote — Thu 12 Jun · 2:00 PM</p>
+                </div>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </section>
 
