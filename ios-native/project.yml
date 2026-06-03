@@ -51,7 +51,7 @@ targets:
       path: FlynnAI/Config/Info.plist
       properties:
         CFBundleName: $(PRODUCT_NAME)
-        CFBundleDisplayName: FlynnAI
+        CFBundleDisplayName: Flynn
         CFBundleShortVersionString: "3.0.0"
         CFBundleVersion: "85"
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
