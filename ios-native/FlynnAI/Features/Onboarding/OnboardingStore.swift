@@ -53,6 +53,10 @@ final class OnboardingStore {
         didSet { Self.persistStep(currentStep) }
     }
 
+    /// Whether the last navigation moved forward — drives the directional slide
+    /// transition in the coordinator (forward slides in from the right).
+    private(set) var advancing = true
+
     private static let stepStorageKey = "flynn.onboarding.step"
 
     private static func persistStep(_ step: Step) {
@@ -263,6 +267,7 @@ final class OnboardingStore {
     func advance() {
         let all = Step.allCases
         guard let idx = all.firstIndex(of: currentStep), idx + 1 < all.count else { return }
+        advancing = true
         currentStep = all[idx + 1]
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
@@ -270,6 +275,7 @@ final class OnboardingStore {
     func back() {
         let all = Step.allCases
         guard let idx = all.firstIndex(of: currentStep), idx > 0 else { return }
+        advancing = false
         currentStep = all[idx - 1]
         UISelectionFeedbackGenerator().selectionChanged()
     }

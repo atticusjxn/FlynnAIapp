@@ -2,8 +2,9 @@ import SwiftUI
 import StoreKit
 import FBSDKCoreKit
 
-/// Step 5: Paywall shown after the live voice demo, so users have already
-/// experienced real value before being asked to pay.
+/// Paywall shown after the user has already felt the value (their voice, a real
+/// draft). Rendered on the cream onboarding surface. Pro = unlimited drafts +
+/// calendar booking + full voice tuning; Free keeps a daily draft cap.
 struct PaywallStepView: View {
     let store: OnboardingStore
     let onSubscribe: () -> Void
@@ -15,73 +16,90 @@ struct PaywallStepView: View {
     @State private var isPurchasing = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: FlynnSpacing.md) {
-                stepHeader(
-                    eyebrow: "Step 5 of 6",
-                    title: "Your agent is ready — unlock it",
-                    subtitle: "14-day free trial. Cancel any time. No charge today."
-                )
+        ZStack {
+            MidCenturyBackdrop(variant: 3)
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        OnboardingHeadline(
+                            eyebrow: "Step 6",
+                            title: "Go unlimited",
+                            accentTitle: "with Pro",
+                            subtitle: "Unlimited replies in your voice, calendar booking, and full voice tuning. 14-day free trial — cancel any time, no charge today."
+                        )
 
-                switch subStore.loadState {
-                case .idle, .loading:
-                    VStack(spacing: FlynnSpacing.sm) {
-                        ProgressView().tint(FlynnColor.primary)
-                        Text("Loading plans…")
-                            .flynnType(FlynnTypography.caption)
-                            .foregroundColor(FlynnColor.textSecondary)
+                        switch subStore.loadState {
+                        case .idle, .loading:
+                            VStack(spacing: 12) {
+                                ProgressView().tint(OB.orange)
+                                Text("Loading plans…")
+                                    .font(.custom(FlynnFontName.interMedium, size: 13))
+                                    .foregroundColor(OB.inkSoft)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                        case .error(let msg):
+                            loadFailedState(msg)
+                        case .loaded:
+                            if subStore.products.isEmpty { noPlansState }
+                            else { planCards }
+                        }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 200)
-                case .error(let msg):
-                    loadFailedState(msg)
-                case .loaded:
-                    if subStore.products.isEmpty {
-                        noPlansState
-                    } else {
-                        planCards
-                        ctaButton
-                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
+                    .padding(.bottom, 16)
                 }
 
-                Button("Skip for now — use SMS links (free)") { onSkip() }
-                    .flynnType(FlynnTypography.caption)
-                    .foregroundColor(FlynnColor.textSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(Rectangle())
-                    .multilineTextAlignment(.center)
+                VStack(spacing: 8) {
+                    if case .loaded = subStore.loadState, !subStore.products.isEmpty {
+                        RetroButton(
+                            title: "Start free trial",
+                            isLoading: isPurchasing,
+                            action: purchase
+                        )
+                        .opacity(selectedProductId == nil ? 0.55 : 1)
+                        .disabled(selectedProductId == nil || isPurchasing)
+                    }
+                    RetroTextButton(title: "Maybe later — keep the free plan", action: onSkip)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
             }
-            .padding(FlynnSpacing.lg)
         }
+        .environment(\.colorScheme, .light)
         .task { await subStore.bootstrap() }
     }
 
     private var planCards: some View {
-        VStack(spacing: FlynnSpacing.sm) {
+        VStack(spacing: 10) {
             ForEach(subStore.products) { item in
                 let isSelected = selectedProductId == item.product.id
                 Button(action: { selectedProductId = item.product.id }) {
                     HStack {
-                        VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
+                        VStack(alignment: .leading, spacing: 3) {
                             Text(item.plan.displayName)
-                                .flynnType(FlynnTypography.bodyMedium)
-                                .foregroundColor(FlynnColor.textPrimary)
-                            Text("\(item.plan.aiMinutesMonthly) min AI / month")
-                                .flynnType(FlynnTypography.caption)
-                                .foregroundColor(FlynnColor.textSecondary)
+                                .font(.custom(FlynnFontName.spaceGroteskSemiBold, size: 17))
+                                .foregroundColor(OB.ink)
+                            Text("Unlimited drafts · calendar booking")
+                                .font(.custom(FlynnFontName.interRegular, size: 13))
+                                .foregroundColor(OB.inkFaint)
                         }
                         Spacer()
                         Text(item.displayPrice + "/mo")
-                            .flynnType(FlynnTypography.bodyMedium)
-                            .foregroundColor(FlynnColor.textPrimary)
+                            .font(.custom(FlynnFontName.spaceGroteskSemiBold, size: 16))
+                            .foregroundColor(OB.ink)
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(isSelected ? FlynnColor.primary : FlynnColor.gray300)
+                            .foregroundColor(isSelected ? OB.orange : OB.inkFaint.opacity(0.5))
                     }
-                    .padding(FlynnSpacing.md)
+                    .padding(16)
                     .background(
-                        RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
-                            .fill(isSelected ? FlynnColor.primaryLight : FlynnColor.backgroundSecondary)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(isSelected ? OB.mustard.opacity(0.28) : OB.card)
                     )
-                    .brutalistBorder(cornerRadius: FlynnRadii.md)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(OB.ink, lineWidth: isSelected ? OB.outline + 1 : OB.outline)
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -89,59 +107,32 @@ struct PaywallStepView: View {
     }
 
     private func loadFailedState(_ errorMessage: String) -> some View {
-        VStack(spacing: FlynnSpacing.sm) {
-            Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 32))
-                .foregroundColor(FlynnColor.textTertiary)
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.exclamationmark").font(.system(size: 32)).foregroundColor(OB.inkFaint)
             Text("Couldn't reach the App Store")
-                .flynnType(FlynnTypography.h4)
-                .foregroundColor(FlynnColor.textPrimary)
+                .font(.custom(FlynnFontName.spaceGroteskSemiBold, size: 18)).foregroundColor(OB.ink)
             Text("Check your connection and try again.")
-                .flynnType(FlynnTypography.caption)
-                .foregroundColor(FlynnColor.textSecondary)
+                .font(.custom(FlynnFontName.interRegular, size: 13)).foregroundColor(OB.inkSoft)
                 .multilineTextAlignment(.center)
-            // Debug detail — helps diagnose StoreKit / sandbox issues
             Text(errorMessage)
-                .flynnType(FlynnTypography.caption)
-                .foregroundColor(FlynnColor.textTertiary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, FlynnSpacing.xs)
-            FlynnButton(
-                title: "Retry",
-                action: { Task { await subStore.bootstrap() } }
-            )
+                .font(.custom(FlynnFontName.interRegular, size: 12)).foregroundColor(OB.inkFaint)
+                .multilineTextAlignment(.center).padding(.horizontal, 8)
+            RetroButton(title: "Retry", variant: .secondary, action: { Task { await subStore.bootstrap() } })
         }
         .frame(maxWidth: .infinity, minHeight: 220)
     }
 
     private var noPlansState: some View {
-        VStack(spacing: FlynnSpacing.sm) {
-            Image(systemName: "creditcard.trianglebadge.exclamationmark")
-                .font(.system(size: 32))
-                .foregroundColor(FlynnColor.textTertiary)
+        VStack(spacing: 12) {
+            Image(systemName: "creditcard.trianglebadge.exclamationmark").font(.system(size: 32)).foregroundColor(OB.inkFaint)
             Text("Plans not configured")
-                .flynnType(FlynnTypography.h4)
-                .foregroundColor(FlynnColor.textPrimary)
+                .font(.custom(FlynnFontName.spaceGroteskSemiBold, size: 18)).foregroundColor(OB.ink)
             Text("In-app products haven't been set up in App Store Connect yet.")
-                .flynnType(FlynnTypography.caption)
-                .foregroundColor(FlynnColor.textSecondary)
+                .font(.custom(FlynnFontName.interRegular, size: 13)).foregroundColor(OB.inkSoft)
                 .multilineTextAlignment(.center)
-            FlynnButton(
-                title: "Retry",
-                action: { Task { await subStore.bootstrap() } }
-            )
+            RetroButton(title: "Retry", variant: .secondary, action: { Task { await subStore.bootstrap() } })
         }
         .frame(maxWidth: .infinity, minHeight: 220)
-    }
-
-    private var ctaButton: some View {
-        FlynnButton(
-            title: "Start free trial — continue setup",
-            action: purchase,
-            fullWidth: true,
-            isLoading: isPurchasing
-        )
-        .disabled(selectedProductId == nil || isPurchasing)
     }
 
     private func purchase() {
@@ -153,38 +144,14 @@ struct PaywallStepView: View {
             isPurchasing = false
 
             guard didPurchase else {
-                if case .failed(let message) = subStore.purchaseState {
-                    flash.error(message)
-                }
+                if case .failed(let message) = subStore.purchaseState { flash.error(message) }
                 return
             }
 
-            // Provision the user's dedicated Flynn number now that the trial is
-            // active. Awaited so the next step has the number ready; failures
-            // are handled inside the store (logged, non-fatal — user can retry).
-            await store.provisionPhoneNumber()
             // Log the StartTrial conversion event for Meta ad attribution.
             AppEvents.shared.logEvent(.startTrial, parameters: [.currency: "AUD"])
             flash.success("Trial started — welcome to Flynn")
             onSubscribe()
         }
     }
-}
-
-@MainActor
-@ViewBuilder
-private func stepHeader(eyebrow: String, title: String, subtitle: String) -> some View {
-    VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-        Text(eyebrow)
-            .flynnType(FlynnTypography.overline)
-            .foregroundColor(FlynnColor.textSecondary)
-        Text(title)
-            .flynnType(FlynnTypography.h2)
-            .foregroundColor(FlynnColor.textPrimary)
-        Text(subtitle)
-            .flynnType(FlynnTypography.bodyMedium)
-            .foregroundColor(FlynnColor.textSecondary)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
 }
