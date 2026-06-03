@@ -82,7 +82,7 @@ struct MascotEmptyState<Actions: View>: View {
 
     var body: some View {
         VStack(spacing: FlynnSpacing.md) {
-            Mascot(pose, size: 144, backdrop: .cream)
+            Mascot(pose, size: 150)
             VStack(spacing: FlynnSpacing.xs) {
                 Text(title)
                     .flynnType(FlynnTypography.h3)
@@ -106,7 +106,7 @@ struct MascotEmptyState<Actions: View>: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 110))], spacing: 16) {
             ForEach(MascotPose.allCases, id: \.self) { pose in
                 VStack(spacing: 6) {
-                    Mascot(pose, size: 96, backdrop: .cream)
+                    Mascot(pose, size: 96)
                     Text(pose.rawValue).flynnType(FlynnTypography.caption)
                 }
             }

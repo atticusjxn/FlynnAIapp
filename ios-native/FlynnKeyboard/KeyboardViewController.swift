@@ -92,7 +92,7 @@ final class KeyboardViewController: UIInputViewController {
         var config = UIButton.Configuration.filled()
         config.title = "✍️  Draft a reply"
         config.cornerStyle = .large
-        config.baseBackgroundColor = UIColor(red: 0.145, green: 0.388, blue: 0.922, alpha: 1) // #2563EB
+        config.baseBackgroundColor = UIColor(red: 0.984, green: 0.357, blue: 0.118, alpha: 1) // #FB5B1E Flynn orange
         primaryButton.configuration = config
         primaryButton.addTarget(self, action: #selector(onPrimaryTapped), for: .touchUpInside)
         container.addArrangedSubview(primaryButton)

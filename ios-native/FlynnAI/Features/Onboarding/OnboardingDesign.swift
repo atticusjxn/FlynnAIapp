@@ -142,15 +142,10 @@ struct MascotHero: View {
     @State private var appeared = false
 
     var body: some View {
-        ZStack {
-            Circle().fill(OB.card)
-                .overlay(Circle().stroke(OB.ink, lineWidth: OB.outline + 1))
-                .frame(width: size, height: size)
-            Image(pose.assetName)
-                .resizable().scaledToFit()
-                .frame(width: size * 0.74, height: size * 0.74)
-        }
-        .scaleEffect(appeared ? 1 : 0.6)
+        Image(pose.assetName)
+            .resizable().scaledToFit()
+            .frame(width: size, height: size)
+            .scaleEffect(appeared ? 1 : 0.6)
         .rotationEffect(.degrees(appeared ? 0 : -8))
         .opacity(appeared ? 1 : 0)
         .onAppear {
