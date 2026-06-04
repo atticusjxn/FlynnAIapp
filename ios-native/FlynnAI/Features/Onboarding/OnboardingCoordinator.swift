@@ -20,7 +20,6 @@ struct OnboardingCoordinator: View {
                 }
             }
             .navigationBarHidden(true)
-            .keyboardDoneToolbar()
         }
         .environment(\.colorScheme, .light)
         .tint(OB.orange)
@@ -111,6 +110,10 @@ struct OnboardingCoordinator: View {
     }
 
     private func finish() {
+        // The last onboarding step is "Add the Flynn keyboard"; reaching finish means
+        // the user has set it up. The keyboard's own heartbeat only fires once it's
+        // actually used, so record this acknowledgement to stop the home-screen nag.
+        UserDefaults.standard.set(true, forKey: "flynn.keyboardAcknowledged")
         Task {
             await store.markComplete()
             await KeyboardBridge.sync(businessName: store.detectedBusinessType.isEmpty ? nil : store.detectedBusinessType)

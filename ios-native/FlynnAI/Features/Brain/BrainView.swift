@@ -20,8 +20,9 @@ struct BrainView: View {
                     HStack {
                         TextField("Service", text: $svc.name)
                         TextField("Price", text: $svc.priceRange)
+                            .keyboardType(.numbersAndPunctuation)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 110)
+                            .frame(width: 120)
                     }
                 }
                 .onDelete { store.services.remove(atOffsets: $0) }

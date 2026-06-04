@@ -91,11 +91,11 @@ struct DrawerView: View {
 
     private var profileHeader: some View {
         HStack(spacing: FlynnSpacing.sm) {
-            Text(initials)
-                .flynnType(FlynnTypography.h3)
-                .foregroundColor(.white)
-                .frame(width: 52, height: 52)
-                .background(Circle().fill(FlynnColor.primary))
+            ZStack {
+                Circle().fill(FlynnColor.cream)
+                Mascot(.wave, size: 46)
+            }
+            .frame(width: 52, height: 52)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: FlynnSpacing.xs) {
                     Text(name.isEmpty ? "Flynn" : name)

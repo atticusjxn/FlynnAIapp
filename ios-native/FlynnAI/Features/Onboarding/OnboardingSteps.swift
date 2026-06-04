@@ -129,8 +129,9 @@ struct ConfirmBrainStepView: View {
                         TextField("Price", text: $svc.priceRange)
                             .font(.custom(FlynnFontName.interRegular, size: 16))
                             .foregroundColor(OB.ink)
+                            .keyboardType(.numbersAndPunctuation)
                             .multilineTextAlignment(.trailing)
-                            .frame(width: 110)
+                            .frame(width: 120)
                     }
                     .tint(OB.orange)
                     .padding(.horizontal, 16).padding(.vertical, 13)

@@ -92,39 +92,33 @@ struct MidCenturyBackdrop: View {
             ZStack {
                 OB.cream.ignoresSafeArea()
                 Group {
+                    // Shapes hug the top-right corner (mostly off-screen) and the
+                    // bottom half only — the top-left text zone stays clear cream so
+                    // headlines never sit on a dark shape.
                     switch variant % 4 {
                     case 0:
-                        OutlinedCircle(color: OB.teal).frame(width: w * 0.42).position(x: 0, y: 0)
-                        OutlinedWedge(color: OB.mustard, start: 90, end: 270)
-                            .frame(width: w * 0.6, height: w * 0.6).position(x: w, y: h * 0.06)
-                        Starburst(color: OB.terra).frame(width: w * 0.18).position(x: w * 0.16, y: h * 0.34)
-                        OutlinedCircle(color: OB.orange).frame(width: w * 0.1).position(x: w * 0.9, y: h * 0.42)
+                        OutlinedCircle(color: OB.teal).frame(width: w * 0.34).position(x: w * 1.04, y: h * 0.02)
                         OutlinedWedge(color: OB.olive, start: 180, end: 320)
-                            .frame(width: w * 0.55, height: w * 0.55).position(x: w * 0.1, y: h)
-                        OutlinedCircle(color: OB.teal).frame(width: w * 0.22).position(x: w * 0.92, y: h * 0.95)
+                            .frame(width: w * 0.5, height: w * 0.5).position(x: 0, y: h * 1.02)
+                        OutlinedCircle(color: OB.mustard).frame(width: w * 0.34).position(x: w, y: h * 0.97)
+                        OutlinedCircle(color: OB.orange).frame(width: w * 0.09).position(x: w * 0.84, y: h * 0.74)
                     case 1:
-                        OutlinedWedge(color: OB.terra, start: -30, end: 120)
-                            .frame(width: w * 0.5, height: w * 0.5).position(x: 0, y: 0)
-                        OutlinedCircle(color: OB.teal).frame(width: w * 0.32).position(x: w, y: h * 0.02)
-                        Starburst(color: OB.mustard).frame(width: w * 0.15).position(x: w * 0.86, y: h * 0.3)
-                        OutlinedCircle(color: OB.orange).frame(width: w * 0.12).position(x: w * 0.14, y: h * 0.9)
-                        OutlinedWedge(color: OB.mustard, start: 180, end: 320)
-                            .frame(width: w * 0.55, height: w * 0.55).position(x: w, y: h)
+                        OutlinedCircle(color: OB.mustard).frame(width: w * 0.3).position(x: w * 1.05, y: 0)
+                        OutlinedCircle(color: OB.terra).frame(width: w * 0.4).position(x: 0, y: h * 1.02)
+                        OutlinedWedge(color: OB.teal, start: 200, end: 340)
+                            .frame(width: w * 0.48, height: w * 0.48).position(x: w, y: h * 0.93)
+                        OutlinedCircle(color: OB.orange).frame(width: w * 0.08).position(x: w * 0.14, y: h * 0.74)
                     case 2:
-                        OutlinedCircle(color: OB.mustard).frame(width: w * 0.38).position(x: w, y: 0)
-                        Starburst(color: OB.teal).frame(width: w * 0.16).position(x: w * 0.14, y: h * 0.1)
-                        OutlinedWedge(color: OB.olive, start: 90, end: 230)
-                            .frame(width: w * 0.5, height: w * 0.5).position(x: 0, y: h * 0.5)
-                        OutlinedCircle(color: OB.orange).frame(width: w * 0.1).position(x: w * 0.88, y: h * 0.6)
-                        OutlinedCircle(color: OB.terra).frame(width: w * 0.26).position(x: w * 0.9, y: h)
+                        OutlinedCircle(color: OB.terra).frame(width: w * 0.32).position(x: w * 1.04, y: h * 0.03)
+                        OutlinedWedge(color: OB.teal, start: 30, end: 170)
+                            .frame(width: w * 0.48, height: w * 0.48).position(x: 0, y: h)
+                        OutlinedCircle(color: OB.mustard).frame(width: w * 0.3).position(x: w, y: h * 1.0)
+                        Starburst(color: OB.terra).frame(width: w * 0.13).position(x: w * 0.22, y: h * 0.88)
                     default:
-                        OutlinedWedge(color: OB.teal, start: 30, end: 200)
-                            .frame(width: w * 0.55, height: w * 0.55).position(x: w, y: 0)
-                        OutlinedCircle(color: OB.terra).frame(width: w * 0.2).position(x: w * 0.1, y: h * 0.06)
-                        Starburst(color: OB.mustard).frame(width: w * 0.15).position(x: w * 0.9, y: h * 0.4)
-                        OutlinedWedge(color: OB.orange, start: 200, end: 340)
-                            .frame(width: w * 0.5, height: w * 0.5).position(x: w * 0.05, y: h)
-                        OutlinedCircle(color: OB.olive).frame(width: w * 0.24).position(x: w, y: h * 0.92)
+                        OutlinedCircle(color: OB.olive).frame(width: w * 0.32).position(x: w * 1.04, y: h * 0.02)
+                        OutlinedCircle(color: OB.mustard).frame(width: w * 0.36).position(x: 0, y: h)
+                        OutlinedCircle(color: OB.terra).frame(width: w * 0.3).position(x: w, y: h * 0.96)
+                        OutlinedCircle(color: OB.teal).frame(width: w * 0.08).position(x: w * 0.86, y: h * 0.72)
                     }
                 }
                 .clipped()
@@ -308,20 +302,31 @@ struct OnboardingScaffold<Content: View, Footer: View>: View {
     var body: some View {
         ZStack {
             MidCenturyBackdrop(variant: variant)
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        content()
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 12)
-                    .padding(.bottom, 16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    content()
                 }
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            // Interactive drag-to-dismiss replaces the Done button; the footer
+            // pins above the keyboard via safeAreaInset so focused fields scroll
+            // into the right place instead of landing behind the keyboard.
+            .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 8) { footer() }
                     .padding(.horizontal, 24)
-                    .padding(.top, 8)
+                    .padding(.top, 10)
                     .padding(.bottom, 12)
+                    .background(
+                        LinearGradient(
+                            colors: [OB.cream.opacity(0), OB.cream, OB.cream],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        .ignoresSafeArea(edges: .bottom)
+                    )
             }
         }
         .environment(\.colorScheme, .light)

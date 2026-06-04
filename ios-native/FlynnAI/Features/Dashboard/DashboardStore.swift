@@ -26,7 +26,11 @@ final class DashboardStore {
 
     func load() async {
         state = .loading
+        // The keyboard stamps a heartbeat only once it's actually used; treat the
+        // onboarding "I've added it" acknowledgement as added too, so we don't nag
+        // users who set it up but haven't opened it in Messages yet.
         keyboardAdded = SharedStore.keyboardHeartbeat != nil
+            || UserDefaults.standard.bool(forKey: "flynn.keyboardAcknowledged")
         async let eventsTask = repository.list(limit: 10)
         async let profileTask: (String?, Bool) = loadProfile()
         async let repliesTask = loadRecentReplies()

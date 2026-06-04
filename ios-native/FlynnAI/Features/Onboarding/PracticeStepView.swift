@@ -141,8 +141,8 @@ struct PracticeStepView: View {
             mockKeyboard
         }
         .background(
-            OB.card
-                .overlay(Rectangle().frame(height: OB.outline).foregroundColor(OB.ink), alignment: .top)
+            OB.cream
+                .overlay(Rectangle().frame(height: 1.5).foregroundColor(OB.ink.opacity(0.18)), alignment: .top)
                 .ignoresSafeArea(edges: .bottom)
         )
     }

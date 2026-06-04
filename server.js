@@ -2090,12 +2090,16 @@ app.patch('/api/business-profile', authenticateJwt, async (req, res) => {
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
   if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
 
-  const allowed = ['business_name', 'industry', 'services', 'hours_json', 'service_areas',
+  const allowed = ['business_name', 'business_type', 'services', 'hours_json', 'service_areas',
     'faqs', 'pricing_notes', 'ai_instructions', 'ai_greeting_text', 'ivr_custom_script',
     'website_url'];
   const updates = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+  // Back-compat: older clients send `industry`; the real column is `business_type`.
+  if (req.body.industry !== undefined && updates.business_type === undefined) {
+    updates.business_type = req.body.industry;
   }
   updates.updated_at = new Date().toISOString();
 

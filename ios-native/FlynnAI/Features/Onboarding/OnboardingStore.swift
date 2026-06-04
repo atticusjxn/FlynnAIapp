@@ -152,14 +152,14 @@ final class OnboardingStore {
     func saveBusinessBrain() async {
         struct Svc: Encodable { let name: String; let price_range: String }
         struct Patch: Encodable {
-            let industry: String
+            let business_type: String
             let services: [Svc]
             let pricing_notes: String
             let ai_instructions: String
             let website_url: String?
         }
         let payload = Patch(
-            industry: detectedBusinessType,
+            business_type: detectedBusinessType,
             services: detectedServices.map { Svc(name: $0.name, price_range: $0.priceRange) },
             pricing_notes: detectedPricingNote,
             ai_instructions: businessDescription,

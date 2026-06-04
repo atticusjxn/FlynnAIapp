@@ -42,7 +42,7 @@ final class BrainStore {
         struct Svc: Decodable { let name: String?; let price_range: String? }
         struct Faq: Decodable { let question: String?; let answer: String? }
         struct Row: Decodable {
-            let industry: String?
+            let business_type: String?
             let ai_instructions: String?
             let pricing_notes: String?
             let service_areas: [String]?
@@ -55,13 +55,13 @@ final class BrainStore {
             let session = try await FlynnSupabase.client.auth.session
             let rows: [Row] = try await FlynnSupabase.client
                 .from("business_profiles")
-                .select("industry, ai_instructions, pricing_notes, service_areas, website_url, services, faqs, hours_json")
+                .select("business_type, ai_instructions, pricing_notes, service_areas, website_url, services, faqs, hours_json")
                 .eq("user_id", value: session.user.id.uuidString)
                 .limit(1)
                 .execute()
                 .value
             if let row = rows.first {
-                businessType = row.industry ?? ""
+                businessType = row.business_type ?? ""
                 businessDescription = row.ai_instructions ?? ""
                 pricingNotes = row.pricing_notes ?? ""
                 serviceArea = (row.service_areas ?? []).joined(separator: ", ")
@@ -106,7 +106,7 @@ final class BrainStore {
         struct FaqOut: Encodable { let question: String; let answer: String }
         struct DayOut: Encodable { let open: String; let close: String }
         struct Patch: Encodable {
-            let industry: String
+            let business_type: String
             let ai_instructions: String
             let pricing_notes: String
             let service_areas: [String]
@@ -127,7 +127,7 @@ final class BrainStore {
         let areas = serviceArea.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 
         let payload = Patch(
-            industry: businessType,
+            business_type: businessType,
             ai_instructions: businessDescription,
             pricing_notes: pricingNotes,
             service_areas: areas,
