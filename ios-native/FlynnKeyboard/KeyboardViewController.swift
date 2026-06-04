@@ -1,27 +1,42 @@
 import UIKit
 
-/// Flynn's custom keyboard. Flow: the user copies a customer's message, switches
-/// to this keyboard, taps "Draft a reply" — the keyboard reads the clipboard,
-/// calls the backend, and shows tone-matched draft cards. Tapping a card inserts
-/// it via the text document proxy and the user sends.
+/// Flynn's custom keyboard. Flow (fewest taps possible): the user copies a
+/// message, switches to this keyboard, and it AUTO-DRAFTS from the clipboard on
+/// appear — no "Draft a reply" tap. It shows one full reply at a time; swipe or
+/// tap ‹ › to move through the options, tap the card to insert, switch back to send.
 ///
 /// Constraints honoured here:
 ///  - UIKit code-only, minimal allocations (keyboard extensions are ~30-60MB capped).
 ///  - Works without Full Access in a non-inert fallback state (App Review 4.4).
-///  - Reads the clipboard only on an explicit tap (user intent; one paste banner).
+///  - Reads the clipboard only when its `changeCount` shows new content (one paste
+///    banner per copied message, never on idle re-appears).
 final class KeyboardViewController: UIInputViewController {
 
     private let container = UIStackView()
-    private let headerRow = UIStackView()
     private let titleLabel = UILabel()
-    private let statusLabel = UILabel()
-    private let primaryButton = UIButton(type: .system)
-    private let newButton = UIButton(type: .system)
+    private let redraftButton = UIButton(type: .system)
     private let nextKeyboardButton = UIButton(type: .system)
-    private let cardsStack = UIStackView()
+
+    // Results (the swipeable single-reply card + pager)
+    private let card = UIControl()
+    private let draftLabel = UILabel()
+    private let hintLabel = UILabel()
+    private let pager = UIStackView()
+    private let prevButton = UIButton(type: .system)
+    private let nextButton = UIButton(type: .system)
+    private let pageLabel = UILabel()
+
+    // Non-results states
+    private let statusLabel = UILabel()
     private let spinner = UIActivityIndicatorView(style: .medium)
 
+    private var drafts: [String] = []
+    private var index = 0
+    private var lastChangeCount = -1
+    private var isDrafting = false
     private var heightConstraint: NSLayoutConstraint?
+
+    private static let flynnOrange = UIColor(red: 0.984, green: 0.357, blue: 0.118, alpha: 1) // #FB5B1E
 
     // MARK: Lifecycle
 
@@ -33,13 +48,15 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        refreshState()
+        nextKeyboardButton.isHidden = !needsInputModeSwitchKey
+        titleLabel.text = SharedStore.businessName.map { "Flynn · \($0)" } ?? "Flynn"
+        maybeAutoDraft()
     }
 
     override func updateViewConstraints() {
         super.updateViewConstraints()
         if heightConstraint == nil {
-            let h = view.heightAnchor.constraint(equalToConstant: 290)
+            let h = view.heightAnchor.constraint(equalToConstant: 300)
             h.priority = .defaultHigh
             h.isActive = true
             heightConstraint = h
@@ -49,10 +66,10 @@ final class KeyboardViewController: UIInputViewController {
     // MARK: UI
 
     private func buildUI() {
-        view.backgroundColor = UIColor.secondarySystemBackground
+        view.backgroundColor = .secondarySystemBackground
 
         container.axis = .vertical
-        container.spacing = 10
+        container.spacing = 8
         container.layoutMargins = UIEdgeInsets(top: 10, left: 14, bottom: 12, right: 14)
         container.isLayoutMarginsRelativeArrangement = true
         container.translatesAutoresizingMaskIntoConstraints = false
@@ -64,175 +81,199 @@ final class KeyboardViewController: UIInputViewController {
             container.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor)
         ])
 
-        // Header: title + "New" + globe.
-        titleLabel.text = SharedStore.businessName.map { "Flynn · \($0)" } ?? "Flynn"
+        // Header: title · Redraft · globe
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = .secondaryLabel
 
-        newButton.setTitle("New", for: .normal)
-        newButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
-        newButton.addTarget(self, action: #selector(onNewTapped), for: .touchUpInside)
+        redraftButton.setTitle("↻ Redraft", for: .normal)
+        redraftButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
+        redraftButton.tintColor = Self.flynnOrange
+        redraftButton.addTarget(self, action: #selector(onRedraft), for: .touchUpInside)
 
         nextKeyboardButton.setTitle("🌐", for: .normal)
         nextKeyboardButton.titleLabel?.font = .systemFont(ofSize: 18)
         nextKeyboardButton.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
 
-        headerRow.axis = .horizontal
-        headerRow.alignment = .center
-        headerRow.spacing = 8
-        let spacer = UIView()
-        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        headerRow.addArrangedSubview(titleLabel)
-        headerRow.addArrangedSubview(spacer)
-        headerRow.addArrangedSubview(newButton)
-        headerRow.addArrangedSubview(nextKeyboardButton)
-        container.addArrangedSubview(headerRow)
+        let header = UIStackView(arrangedSubviews: [titleLabel, UIView(), redraftButton, nextKeyboardButton])
+        header.axis = .horizontal; header.alignment = .center; header.spacing = 10
+        container.addArrangedSubview(header)
 
-        // Primary action.
-        var config = UIButton.Configuration.filled()
-        config.title = "✍️  Draft a reply"
-        config.cornerStyle = .large
-        config.baseBackgroundColor = UIColor(red: 0.984, green: 0.357, blue: 0.118, alpha: 1) // #FB5B1E Flynn orange
-        primaryButton.configuration = config
-        primaryButton.addTarget(self, action: #selector(onPrimaryTapped), for: .touchUpInside)
-        container.addArrangedSubview(primaryButton)
+        // Card: one full reply, tap to insert, swipe to navigate.
+        card.backgroundColor = .tertiarySystemBackground
+        card.layer.cornerRadius = 16
+        card.translatesAutoresizingMaskIntoConstraints = false
 
-        statusLabel.font = .systemFont(ofSize: 13)
+        draftLabel.numberOfLines = 0
+        draftLabel.font = .systemFont(ofSize: 17)
+        draftLabel.textColor = .label
+        draftLabel.translatesAutoresizingMaskIntoConstraints = false
+        draftLabel.isUserInteractionEnabled = false
+
+        hintLabel.text = "Tap to insert →"
+        hintLabel.font = .systemFont(ofSize: 11, weight: .semibold)
+        hintLabel.textColor = Self.flynnOrange
+        hintLabel.translatesAutoresizingMaskIntoConstraints = false
+        hintLabel.isUserInteractionEnabled = false
+
+        card.addSubview(draftLabel)
+        card.addSubview(hintLabel)
+        NSLayoutConstraint.activate([
+            draftLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 14),
+            draftLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            draftLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            hintLabel.topAnchor.constraint(greaterThanOrEqualTo: draftLabel.bottomAnchor, constant: 8),
+            hintLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            hintLabel.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -10),
+            card.heightAnchor.constraint(greaterThanOrEqualToConstant: 132)
+        ])
+        card.addTarget(self, action: #selector(onInsert), for: .touchUpInside)
+        let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(onNext)); swipeLeft.direction = .left
+        let swipeRight = UISwipeGestureRecognizer(target: self, action: #selector(onPrev)); swipeRight.direction = .right
+        card.addGestureRecognizer(swipeLeft)
+        card.addGestureRecognizer(swipeRight)
+        container.addArrangedSubview(card)
+
+        // Pager: ‹  1 / 4  ›
+        prevButton.setTitle("‹", for: .normal)
+        prevButton.titleLabel?.font = .systemFont(ofSize: 28, weight: .medium)
+        prevButton.addTarget(self, action: #selector(onPrev), for: .touchUpInside)
+        nextButton.setTitle("›", for: .normal)
+        nextButton.titleLabel?.font = .systemFont(ofSize: 28, weight: .medium)
+        nextButton.addTarget(self, action: #selector(onNext), for: .touchUpInside)
+        pageLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        pageLabel.textColor = .secondaryLabel
+        pageLabel.textAlignment = .center
+        pageLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 60).isActive = true
+        pager.axis = .horizontal; pager.alignment = .center; pager.spacing = 24
+        pager.addArrangedSubview(prevButton)
+        pager.addArrangedSubview(pageLabel)
+        pager.addArrangedSubview(nextButton)
+        let pagerWrap = UIStackView(arrangedSubviews: [UIView(), pager, UIView()])
+        pagerWrap.axis = .horizontal
+        container.addArrangedSubview(pagerWrap)
+
+        // Status + spinner (loading / access / empty states)
+        statusLabel.font = .systemFont(ofSize: 14)
         statusLabel.textColor = .secondaryLabel
         statusLabel.numberOfLines = 0
         statusLabel.textAlignment = .center
         container.addArrangedSubview(statusLabel)
 
-        cardsStack.axis = .vertical
-        cardsStack.spacing = 8
-        let scroll = UIScrollView()
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.showsVerticalScrollIndicator = true
-        cardsStack.translatesAutoresizingMaskIntoConstraints = false
-        scroll.addSubview(cardsStack)
-        NSLayoutConstraint.activate([
-            cardsStack.leadingAnchor.constraint(equalTo: scroll.leadingAnchor),
-            cardsStack.trailingAnchor.constraint(equalTo: scroll.trailingAnchor),
-            cardsStack.topAnchor.constraint(equalTo: scroll.topAnchor),
-            cardsStack.bottomAnchor.constraint(equalTo: scroll.bottomAnchor),
-            cardsStack.widthAnchor.constraint(equalTo: scroll.widthAnchor)
-        ])
-        container.addArrangedSubview(scroll)
-
         spinner.hidesWhenStopped = true
         container.addArrangedSubview(spinner)
     }
 
-    // MARK: State
+    // MARK: State helpers
 
-    private func refreshState() {
-        titleLabel.text = SharedStore.businessName.map { "Flynn · \($0)" } ?? "Flynn"
-        nextKeyboardButton.isHidden = !needsInputModeSwitchKey
-        clearCards()
-        spinner.stopAnimating()
-
-        if !hasFullAccess {
-            primaryButton.isHidden = true
-            newButton.isHidden = true
-            statusLabel.text = "Turn on Full Access for Flynn in Settings → General → Keyboard so it can draft replies from your copied message."
-            return
-        }
-
-        if SharedSecureStore.keyboardToken == nil {
-            primaryButton.isHidden = true
-            newButton.isHidden = true
-            statusLabel.text = "Open the Flynn app once to finish setup, then come back here."
-            return
-        }
-
-        primaryButton.isHidden = false
-        newButton.isHidden = false
-        let count = SharedStore.currentMessages.count
-        statusLabel.text = count > 0
-            ? "Copy another message to refine, or tap to draft (\(count) in this chat)."
-            : "Copy a customer's message, then tap to draft a reply."
+    private func showResults() {
+        card.isHidden = false
+        pager.superview?.isHidden = drafts.count <= 1
+        statusLabel.isHidden = true
     }
 
-    // MARK: Actions
-
-    @objc private func onNewTapped() {
-        SharedStore.resetThread()
-        refreshState()
+    private func showStatus(_ text: String) {
+        statusLabel.text = text
+        statusLabel.isHidden = false
+        card.isHidden = true
+        pager.superview?.isHidden = true
     }
 
-    @objc private func onPrimaryTapped() {
-        guard hasFullAccess else { refreshState(); return }
+    private func renderCard() {
+        guard drafts.indices.contains(index) else { return }
+        draftLabel.text = drafts[index]
+        pageLabel.text = "\(index + 1) / \(drafts.count)"
+        prevButton.isEnabled = index > 0
+        nextButton.isEnabled = index < drafts.count - 1
+        prevButton.alpha = prevButton.isEnabled ? 1 : 0.3
+        nextButton.alpha = nextButton.isEnabled ? 1 : 0.3
+    }
 
-        // Reading the pasteboard triggers the system paste banner — expected and
-        // acceptable; it's gated behind this explicit tap (user intent).
+    // MARK: Drafting
+
+    /// Draft automatically on appear, but only when the clipboard has genuinely new
+    /// content (changeCount) — otherwise keep showing the drafts we already have.
+    private func maybeAutoDraft() {
+        guard hasFullAccess else {
+            showStatus("Turn on Full Access for Flynn in Settings → General → Keyboard so it can draft from your copied message.")
+            return
+        }
+        guard SharedSecureStore.keyboardToken != nil else {
+            showStatus("Open the Flynn app once to finish setup, then come back here.")
+            return
+        }
+        if isDrafting { return }
+        let cc = UIPasteboard.general.changeCount
+        if cc == lastChangeCount && !drafts.isEmpty {
+            showResults(); renderCard(); return     // nothing new copied — keep current drafts
+        }
+        draftFromClipboard()
+    }
+
+    private func draftFromClipboard() {
+        guard hasFullAccess else { maybeAutoDraft(); return }
+
+        // Reading the pasteboard triggers the system paste banner — expected, and
+        // gated to "the clipboard changed" so it doesn't fire on idle re-appears.
+        lastChangeCount = UIPasteboard.general.changeCount
         let copied = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let copied, !copied.isEmpty else {
-            statusLabel.text = "Nothing copied yet — copy the customer's message first."
+            showStatus("Copy a message first, then tap ↻ Redraft.")
             return
         }
 
         let messages = SharedStore.appendCopiedMessage(copied)
-        clearCards()
-        statusLabel.text = "Drafting…"
+        isDrafting = true
+        showStatus("Drafting in your voice…")
         spinner.startAnimating()
-        primaryButton.isEnabled = false
 
         Task { @MainActor in
-            defer {
-                spinner.stopAnimating()
-                primaryButton.isEnabled = true
-            }
+            defer { spinner.stopAnimating(); isDrafting = false }
             do {
-                let drafts = try await KeyboardDraftClient.fetchDrafts(messages: messages)
-                if drafts.isEmpty {
-                    statusLabel.text = "Couldn't draft anything — tap to try again."
+                let result = try await KeyboardDraftClient.fetchDrafts(messages: messages)
+                if result.isEmpty {
+                    showStatus("Couldn't draft anything — tap ↻ Redraft to try again.")
                 } else {
-                    statusLabel.text = "Tap a reply to insert it."
-                    renderCards(drafts)
+                    drafts = result
+                    index = 0
+                    renderCard()
+                    showResults()
                 }
             } catch KeyboardDraftClient.ClientError.notConfigured {
-                statusLabel.text = "Open the Flynn app once to finish setup."
+                showStatus("Open the Flynn app once to finish setup.")
             } catch KeyboardDraftClient.ClientError.limitReached {
-                statusLabel.text = "You're out of free drafts today — open Flynn to go unlimited."
+                showStatus("You're out of free drafts today — open Flynn to go unlimited.")
             } catch {
-                statusLabel.text = "Network hiccup — tap to try again."
+                showStatus("Network hiccup — tap ↻ Redraft to try again.")
             }
         }
     }
 
-    // MARK: Cards
+    // MARK: Actions
 
-    private func clearCards() {
-        cardsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+    @objc private func onRedraft() {
+        drafts = []
+        draftFromClipboard()
     }
 
-    private func renderCards(_ drafts: [String]) {
-        clearCards()
-        for draft in drafts {
-            let card = UIButton(type: .system)
-            var config = UIButton.Configuration.gray()
-            config.title = draft
-            config.titleLineBreakMode = .byWordWrapping
-            config.cornerStyle = .large
-            config.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12)
-            config.baseForegroundColor = .label
-            card.configuration = config
-            card.contentHorizontalAlignment = .leading
-            card.titleLabel?.numberOfLines = 0
-            card.addAction(UIAction { [weak self] _ in
-                self?.insertDraft(draft)
-            }, for: .touchUpInside)
-            cardsStack.addArrangedSubview(card)
-        }
+    @objc private func onNext() {
+        guard index < drafts.count - 1 else { return }
+        index += 1
+        renderCard()
     }
 
-    private func insertDraft(_ draft: String) {
+    @objc private func onPrev() {
+        guard index > 0 else { return }
+        index -= 1
+        renderCard()
+    }
+
+    @objc private func onInsert() {
+        guard drafts.indices.contains(index) else { return }
+        let draft = drafts[index]
         textDocumentProxy.insertText(draft)
-        // Learning loop: record what the user accepted so future drafts lean that way.
         KeyboardDraftClient.recordAccepted(text: draft)
-        // A reply was sent for this thread — start fresh next time.
         SharedStore.resetThread()
-        statusLabel.text = "Inserted ✓  — switch back to send."
-        clearCards()
+        drafts = []
+        showStatus("Inserted ✓  — switch back to send.")
     }
 }
