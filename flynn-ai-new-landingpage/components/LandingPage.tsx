@@ -22,23 +22,31 @@ const Reveal = ({ children, delay = 0, className = '' }: any) => (
 );
 
 /* ----- decorative mid-century motifs ----- */
+/* Shapes are positioned so their centres sit outside (or at) the section edge,
+   meaning at most a quarter/half-arc is visible — never overlapping text content. */
 const Motifs = ({ variant = 0 }: { variant?: number }) => {
   const sets = [
+    // variant 0 — hero (text left, phone right) + final CTA
+    // Shapes hug top-left and bottom-right corners, away from content columns.
     <>
-      <span className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-[#3C8A86] border-[3px] border-[#2C2018]" />
-      <span className="absolute top-24 right-[-30px] w-52 h-52 rounded-full bg-[#E0A436] border-[3px] border-[#2C2018]" />
-      <span className="absolute bottom-10 left-1/4 w-16 h-16 rounded-full bg-[#FB5B1E] border-[3px] border-[#2C2018]" />
+      <span className="absolute top-[-80px] left-[-80px] w-[160px] h-[160px] rounded-full bg-[#3C8A86] border-[3px] border-[#2C2018]" />
+      <span className="absolute bottom-[-104px] right-[-104px] w-[208px] h-[208px] rounded-full bg-[#E0A436] border-[3px] border-[#2C2018]" />
+      <span className="absolute bottom-[-28px] left-[-28px] w-[56px] h-[56px] rounded-full bg-[#FB5B1E] border-[3px] border-[#2C2018]" />
     </>,
+    // variant 1 — calendar (text left, widget right) + final CTA (centred)
+    // Terra on the RIGHT side where there's no text; olive in bottom-right corner.
     <>
-      <span className="absolute top-8 left-[-40px] w-44 h-44 rounded-full bg-[#C5532B] border-[3px] border-[#2C2018]" />
-      <span className="absolute bottom-[-40px] right-10 w-56 h-56 rounded-full bg-[#7E8B4F] border-[3px] border-[#2C2018]" />
+      <span className="absolute top-[15%] right-[-88px] w-[176px] h-[176px] rounded-full bg-[#C5532B] border-[3px] border-[#2C2018]" />
+      <span className="absolute bottom-[-112px] right-[-112px] w-[224px] h-[224px] rounded-full bg-[#7E8B4F] border-[3px] border-[#2C2018]" />
     </>,
+    // variant 2 — showcase (phone left, text right on desktop)
+    // Teal on the LEFT side, behind the phone visual; mustard in bottom-right corner.
     <>
-      <span className="absolute top-1/4 right-[-50px] w-60 h-60 rounded-full bg-[#3C8A86] border-[3px] border-[#2C2018]" />
-      <span className="absolute bottom-16 left-[-30px] w-32 h-32 rounded-full bg-[#E0A436] border-[3px] border-[#2C2018]" />
+      <span className="absolute top-[35%] left-[-120px] w-[240px] h-[240px] rounded-full bg-[#3C8A86] border-[3px] border-[#2C2018]" />
+      <span className="absolute bottom-[-48px] right-[-48px] w-[96px] h-[96px] rounded-full bg-[#E0A436] border-[3px] border-[#2C2018]" />
     </>,
   ];
-  return <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-90">{sets[variant % sets.length]}</div>;
+  return <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-75">{sets[variant % sets.length]}</div>;
 };
 
 const Starburst = ({ className = '' }: { className?: string }) => (
@@ -140,15 +148,15 @@ const Card = ({ children, className = '' }: any) => (
 
 /* ===================== STEPS ===================== */
 const steps = [
-  { n: '1', pose: 'point', title: 'Copy their message', body: "A customer text, a quote request, a mate asking if you're free — copy it like normal." },
+  { n: '1', pose: 'point', title: 'Capture the message', body: "Tap to grab a screenshot of the conversation — Flynn reads it in a second. Or just copy it like normal." },
   { n: '2', pose: 'phone', title: 'Tap the Flynn keyboard', body: 'Switch to Flynn right inside Messages. It reads what you copied and drafts a few replies.' },
   { n: '3', pose: 'thumbsup', title: 'Send one that’s already you', body: 'Tap the reply that sounds like you. Agreed a time? Flynn drops it in your calendar.' },
 ];
 
 /* ===================== FEATURES ===================== */
 const features = [
-  { pose: 'write', tint: '#3C8A86', title: 'Sounds exactly like you', body: 'Flynn learns from your real replies — your slang, your casing, your emojis. Drafts that read like you typed them, not a robot.' },
-  { pose: 'phone', tint: '#E0A436', title: 'Knows when you’re free', body: 'Connected to your Apple or Google Calendar — so Flynn drafts around your real availability and books the time you agree on, automatically.' },
+  { pose: ‘write’, tint: ‘#3C8A86’, title: ‘Sounds exactly like you’, body: ‘Flynn learns from your real replies — your slang, your casing, your sign-offs. Every draft reads like you actually wrote it.’ },
+  { pose: ‘phone’, tint: ‘#E0A436’, title: ‘Knows when you’re free’, body: ‘Connected to your Apple or Google Calendar — Flynn drafts around your real availability, not a guess. Agree on a time and it’s booked automatically.’ },
   { pose: 'thinking', tint: '#C5532B', title: 'Knows your business', body: 'Your services, prices, hours and area live in Flynn’s brain, so quotes and answers are right every time.' },
 ];
 
@@ -183,7 +191,6 @@ export default function LandingPage() {
         <Motifs variant={0} />
         <div className="relative max-w-7xl mx-auto px-5 sm:px-8 pt-10 pb-20 lg:py-24 grid lg:grid-cols-2 gap-12 items-center">
           <Reveal>
-            <SectionLabel>Flynn</SectionLabel>
             <h1 className="font-display font-bold leading-[0.98] text-[clamp(2.6rem,7vw,4.6rem)] tracking-tight">
               Reply in your <span className="text-[#FB5B1E]">voice.</span><br />Lock in the <span className="text-[#FB5B1E]">time.</span>
             </h1>
@@ -192,6 +199,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-2"><StoreButtons /></div>
             <p className="mt-5 text-sm font-medium text-[#8C7B6A]">Free to start · No card needed · You approve every reply</p>
+            <p className="mt-2 text-sm font-medium text-[#8C7B6A]">Also on Mac</p>
           </Reveal>
 
           <Reveal delay={0.1} className="relative flex justify-center lg:justify-end">
@@ -328,10 +336,10 @@ export default function LandingPage() {
             <SectionLabel>The whole thing</SectionLabel>
             <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.4rem)] leading-tight">Open Messages.<br />Tap Flynn. <span className="text-[#FB5B1E]">Done.</span></h2>
             <p className="mt-6 text-lg text-[#5A4A3C] leading-relaxed max-w-lg">
-              No new app to live in, no copy-pasting into a chatbot. Flynn is right there on your keyboard, in the conversation you’re already having.
+              No new app to live in, no copy-pasting into a chatbot. Flynn is right there on your keyboard — on your phone or your Mac.
             </p>
             <ul className="mt-6 space-y-3">
-              {['Works in Messages, WhatsApp — anywhere you type', 'You read and tap — nothing sends on its own', 'Gets sharper every time you pick a reply'].map(t => (
+              {['Works in Messages, WhatsApp — on iPhone, Android and Mac', 'You read and tap — nothing sends on its own', 'Gets sharper every time you pick a reply'].map(t => (
                 <li key={t} className="flex items-start gap-3 text-[#2C2018] font-medium">
                   <span className="mt-1 w-5 h-5 rounded-full bg-[#FB5B1E] text-white grid place-items-center text-xs shrink-0">✓</span>{t}
                 </li>
