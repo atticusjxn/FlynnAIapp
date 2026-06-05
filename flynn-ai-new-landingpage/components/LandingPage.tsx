@@ -156,7 +156,7 @@ const steps = [
 /* ===================== FEATURES ===================== */
 const features = [
   { pose: 'write', tint: '#3C8A86', title: 'Sounds exactly like you', body: 'Flynn learns from your real replies — your slang, your casing, your sign-offs. Every draft reads like you actually wrote it.' },
-  { pose: 'phone', tint: '#E0A436', title: 'Knows when you're free', body: 'Connected to your Apple or Google Calendar — Flynn drafts around your real availability, not a guess. Agree on a time and it's booked automatically.' },
+  { pose: 'phone', tint: '#E0A436', title: "Knows when you're free", body: "Connected to your Apple or Google Calendar — Flynn drafts around your real availability, not a guess. Agree on a time and it's booked automatically." },
   { pose: 'thinking', tint: '#C5532B', title: 'Knows your business', body: 'Your services, prices, hours and area live in Flynn’s brain, so quotes and answers are right every time.' },
 ];
 
