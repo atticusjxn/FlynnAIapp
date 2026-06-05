@@ -1,77 +1,61 @@
 import React from 'react';
-import { Zap, Instagram, Twitter, Linkedin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const Footer: React.FC = () => {
-  return (
-    <footer className="bg-white border-t-2 border-black pt-20 pb-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-12 mb-16">
-          <div className="col-span-1 md:col-span-1">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-brand-500 flex items-center justify-center shadow-[3px_3px_0px_0px_#000000]">
-                <Zap className="w-5 h-5 text-white" fill="currentColor" />
-              </div>
-              <span className="font-display font-bold text-2xl text-black">Flynn.ai</span>
-            </div>
-            <p className="text-gray-600 text-sm leading-relaxed font-medium max-w-xs">
-              The AI receptionist for service businesses. We are building the future of blue-collar work automation.
-            </p>
-          </div>
+const APP_STORE = 'https://apps.apple.com/au/app/flynnai/id6752254950';
+const PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.flynnai.app';
 
-          <div>
-            <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Product</h4>
-            <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><Link to="/features" className="hover:text-brand-500 transition-colors">Features</Link></li>
-              <li><Link to="/pricing" className="hover:text-brand-500 transition-colors">Pricing</Link></li>
-              <li><Link to="/how-it-works" className="hover:text-brand-500 transition-colors">Workflow</Link></li>
+const col = (title: string, items: { label: string; href: string; external?: boolean }[]) => (
+  <div>
+    <h4 className="font-display font-bold uppercase tracking-wider mb-5 text-[#2C2018] text-sm">{title}</h4>
+    <ul className="space-y-3 text-[15px] text-[#5A4A3C] font-medium">
+      {items.map(i => (
+        <li key={i.label}>
+          {i.external
+            ? <a href={i.href} target="_blank" rel="noopener noreferrer" className="hover:text-[#FB5B1E] transition-colors">{i.label}</a>
+            : i.href.startsWith('/#')
+              ? <a href={i.href} className="hover:text-[#FB5B1E] transition-colors">{i.label}</a>
+              : <Link to={i.href} className="hover:text-[#FB5B1E] transition-colors">{i.label}</Link>}
+        </li>
+      ))}
+    </ul>
+  </div>
+);
 
-            </ul>
+const Footer: React.FC = () => (
+  <footer className="bg-[#FFFBF4] border-t-[3px] border-[#2C2018] pt-16 pb-10">
+    <div className="max-w-7xl mx-auto px-5 sm:px-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-14">
+        <div className="col-span-2 md:col-span-1">
+          <div className="flex items-center gap-2 mb-4">
+            <img src="/mascots/mark.png" alt="Flynn" className="w-9 h-9" />
+            <span className="font-display font-bold text-2xl text-[#2C2018]">Flynn</span>
           </div>
-
-          <div>
-            <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Industries</h4>
-            <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><Link to="/industries/plumbers" className="hover:text-brand-500 transition-colors">Plumbers</Link></li>
-              <li><Link to="/industries/electricians" className="hover:text-brand-500 transition-colors">Electricians</Link></li>
-              <li><Link to="/industries/hvac" className="hover:text-brand-500 transition-colors">HVAC</Link></li>
-              <li><Link to="/industries/cleaners" className="hover:text-brand-500 transition-colors">Cleaners</Link></li>
-              <li><Link to="/industries" className="hover:text-brand-500 transition-colors text-brand-500">View All</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Company</h4>
-            <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><Link to="/blog" className="hover:text-brand-500 transition-colors">Blog</Link></li>
-              <li><Link to="/contact" className="hover:text-brand-500 transition-colors">Contact</Link></li>
-              <li><a href="mailto:support@flynnai.app?subject=Partnership" className="hover:text-brand-500 transition-colors">Partnerships</a></li>
-              <li><a href="https://apps.apple.com/tr/app/flynnai/id6752254950" className="hover:text-brand-500 transition-colors">iOS App</a></li>
-              <li><a href="https://play.google.com/store/apps/details?id=com.flynnai.app" className="hover:text-brand-500 transition-colors">Android App</a></li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-black font-display font-bold uppercase tracking-wider mb-6">Legal</h4>
-            <ul className="space-y-3 text-sm text-gray-500 font-medium">
-              <li><Link to="/privacy" className="hover:text-brand-500 transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/delete-account" className="hover:text-brand-500 transition-colors">Account Deletion</Link></li>
-              <li><a href="mailto:support@flynnai.app?subject=Security" className="hover:text-brand-500 transition-colors">Security</a></li>
-            </ul>
-          </div>
+          <p className="text-[#5A4A3C] text-[15px] leading-relaxed font-medium max-w-xs">
+            Reply in your voice. Lock in the time. The keyboard that drafts your texts and books the job — right inside Messages.
+          </p>
         </div>
-
-        <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-gray-400 text-sm font-medium">© {new Date().getFullYear()} Flynn AI. All rights reserved.</p>
-          <div className="flex space-x-6">
-            <a href="#" className="text-black hover:text-brand-500 transition-colors transform hover:-translate-y-1"><Twitter size={20} /></a>
-            <a href="#" className="text-black hover:text-brand-500 transition-colors transform hover:-translate-y-1"><Instagram size={20} /></a>
-            <a href="#" className="text-black hover:text-brand-500 transition-colors transform hover:-translate-y-1"><Linkedin size={20} /></a>
-          </div>
-        </div>
+        {col('Product', [
+          { label: 'How it works', href: '/#how' },
+          { label: 'Features', href: '/#features' },
+          { label: 'Pricing', href: '/#pricing' },
+          { label: 'FAQ', href: '/#faq' },
+        ])}
+        {col('Company', [
+          { label: 'Contact', href: '/contact' },
+          { label: 'Privacy', href: '/privacy' },
+          { label: 'Account deletion', href: '/delete-account' },
+        ])}
+        {col('Get the app', [
+          { label: 'iOS — App Store', href: APP_STORE, external: true },
+          { label: 'Android — Google Play', href: PLAY_STORE, external: true },
+        ])}
       </div>
-    </footer>
-  );
-};
+      <div className="border-t-2 border-[#2C2018]/10 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
+        <p className="text-[#8C7B6A] text-sm font-medium">© {new Date().getFullYear()} Flynn. All rights reserved.</p>
+        <p className="text-[#8C7B6A] text-sm font-medium">Made for anyone who texts to get booked.</p>
+      </div>
+    </div>
+  </footer>
+);
 
 export default Footer;

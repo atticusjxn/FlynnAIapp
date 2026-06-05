@@ -6,6 +6,15 @@ struct InvoiceDetailView: View {
     @State private var invoice: InvoiceDTO?
     @State private var errorMessage: String?
     @State private var isLoading = true
+    @State private var isWorking = false
+    @State private var pdfShareItems: [Any] = []
+    @State private var showingShareSheet = false
+    @State private var showingEditSheet = false
+    @State private var showingSendPrompt = false
+    @State private var sendToPhone = ""
+
+    @Environment(FlashStore.self) private var flash
+    @Environment(\.dismiss) private var dismiss
 
     private let repository: InvoicesRepositoryType = InvoicesRepository()
 
@@ -18,6 +27,8 @@ struct InvoiceDetailView: View {
                         .padding(.top, FlynnSpacing.xl)
                 } else if let invoice {
                     headerCard(invoice: invoice)
+                    actionsCard(invoice: invoice)
+                    lineItemsCard(invoice: invoice)
                     totalsCard(invoice: invoice)
                     timelineCard(invoice: invoice)
                     if let urlString = invoice.stripePaymentLinkUrl, let url = URL(string: urlString) {
@@ -28,8 +39,7 @@ struct InvoiceDetailView: View {
                     }
                 } else if let errorMessage {
                     ContentUnavailableView(
-                        "Couldn't load invoice",
-                        systemImage: "exclamationmark.triangle",
+                        "Couldn't load invoice", systemImage: "exclamationmark.triangle",
                         description: Text(errorMessage)
                     )
                 }
@@ -40,24 +50,104 @@ struct InvoiceDetailView: View {
         .navigationTitle("Invoice")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .sheet(isPresented: $showingShareSheet) { ShareSheet(items: pdfShareItems) }
+        .sheet(isPresented: $showingEditSheet) {
+            if let inv = invoice {
+                InvoiceFormView(editInvoice: inv) { updated in invoice = updated }
+            }
+        }
+        .alert("Send via SMS", isPresented: $showingSendPrompt) {
+            TextField("Mobile number", text: $sendToPhone).keyboardType(.phonePad)
+            Button("Send") { Task { await sendSMS() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("We'll text the client a link to pay this invoice.")
+        }
+        .overlay { if isWorking { workingOverlay } }
     }
 
     private func headerCard(invoice: InvoiceDTO) -> some View {
         FlynnCard {
-            VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(invoice.title ?? invoice.invoiceNumber)
-                            .flynnType(FlynnTypography.h2)
-                        Text(invoice.invoiceNumber)
-                            .flynnType(FlynnTypography.bodySmall)
-                            .foregroundColor(FlynnColor.textSecondary)
-                    }
-                    Spacer()
-                    FlynnBadge(
-                        label: InvoiceStatusBadgeMapper.label(for: invoice.status),
-                        variant: InvoiceStatusBadgeMapper.variant(for: invoice.status)
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(invoice.title ?? invoice.invoiceNumber)
+                        .flynnType(FlynnTypography.h2)
+                    Text(invoice.invoiceNumber)
+                        .flynnType(FlynnTypography.bodySmall)
+                        .foregroundColor(FlynnColor.textSecondary)
+                }
+                Spacer()
+                FlynnBadge(
+                    label: InvoiceStatusBadgeMapper.label(for: invoice.status),
+                    variant: InvoiceStatusBadgeMapper.variant(for: invoice.status)
+                )
+            }
+        }
+    }
+
+    private func actionsCard(invoice: InvoiceDTO) -> some View {
+        VStack(spacing: FlynnSpacing.sm) {
+            HStack(spacing: FlynnSpacing.sm) {
+                FlynnButton(
+                    title: "Send via SMS",
+                    action: { sendToPhone = ""; showingSendPrompt = true },
+                    fullWidth: true
+                )
+                FlynnButton(
+                    title: "Share PDF",
+                    action: { Task { await sharePDF() } },
+                    variant: .secondary,
+                    fullWidth: true
+                )
+            }
+            if invoice.status == "draft" {
+                HStack(spacing: FlynnSpacing.sm) {
+                    FlynnButton(
+                        title: "Edit",
+                        action: { showingEditSheet = true },
+                        variant: .secondary,
+                        fullWidth: true
                     )
+                    FlynnButton(
+                        title: "Delete",
+                        action: { Task { await deleteInvoice() } },
+                        variant: .danger,
+                        fullWidth: true
+                    )
+                }
+            }
+        }
+    }
+
+    private func lineItemsCard(invoice: InvoiceDTO) -> some View {
+        FlynnCard(shadow: .sm) {
+            VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+                Text("Line items")
+                    .flynnType(FlynnTypography.overline)
+                    .foregroundColor(FlynnColor.textTertiary)
+                if invoice.lineItems.isEmpty {
+                    Text("No items")
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(FlynnColor.textTertiary)
+                } else {
+                    ForEach(invoice.lineItems) { item in
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text(item.description)
+                                    .flynnType(FlynnTypography.bodyMedium)
+                                    .foregroundColor(FlynnColor.textPrimary)
+                                Spacer()
+                                Text(FlynnFormatter.currency(item.total))
+                                    .flynnType(FlynnTypography.label)
+                                    .foregroundColor(FlynnColor.textPrimary)
+                            }
+                            Text("\(item.quantity.formatted()) × \(FlynnFormatter.currency(item.unitPrice))")
+                                .flynnType(FlynnTypography.caption)
+                                .foregroundColor(FlynnColor.textTertiary)
+                        }
+                        .padding(.vertical, 4)
+                        if item.id != invoice.lineItems.last?.id { Divider() }
+                    }
                 }
             }
         }
@@ -70,7 +160,9 @@ struct InvoiceDetailView: View {
                     .flynnType(FlynnTypography.overline)
                     .foregroundColor(FlynnColor.textTertiary)
                 row(label: "Subtotal", value: FlynnFormatter.currency(invoice.subtotal))
-                row(label: "Tax (\(Int(invoice.taxRate))%)", value: FlynnFormatter.currency(invoice.taxAmount))
+                if invoice.taxRate > 0 {
+                    row(label: "Tax (\(Int(invoice.taxRate))%)", value: FlynnFormatter.currency(invoice.taxAmount))
+                }
                 Divider()
                 row(label: "Total", value: FlynnFormatter.currency(invoice.total), emphasized: true)
                 if invoice.amountPaid > 0 {
@@ -155,6 +247,17 @@ struct InvoiceDetailView: View {
         }
     }
 
+    private var workingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.15).ignoresSafeArea()
+            ProgressView().tint(FlynnColor.primary)
+                .padding(FlynnSpacing.lg)
+                .background(RoundedRectangle(cornerRadius: FlynnRadii.md).fill(FlynnColor.backgroundSecondary))
+        }
+    }
+
+    // MARK: – Actions
+
     private func load() async {
         isLoading = true
         defer { isLoading = false }
@@ -162,6 +265,46 @@ struct InvoiceDetailView: View {
             invoice = try await repository.fetch(id: invoiceId)
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func sharePDF() async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            let data = try await repository.generatePDF(invoiceId: invoiceId)
+            pdfShareItems = [data]
+            showingShareSheet = true
+        } catch {
+            flash.error(error.localizedDescription)
+        }
+    }
+
+    private func sendSMS() async {
+        guard !sendToPhone.trimmingCharacters(in: .whitespaces).isEmpty else {
+            flash.error("Enter a mobile number")
+            return
+        }
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            _ = try await repository.sendViaSMS(invoiceId: invoiceId, toPhone: sendToPhone)
+            flash.success("Invoice sent")
+            await load()
+        } catch {
+            flash.error(error.localizedDescription)
+        }
+    }
+
+    private func deleteInvoice() async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await repository.delete(id: invoiceId)
+            flash.success("Invoice deleted")
+            dismiss()
+        } catch {
+            flash.error(error.localizedDescription)
         }
     }
 }

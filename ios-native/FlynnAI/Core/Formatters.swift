@@ -11,14 +11,18 @@ enum FlynnFormatter {
         return f
     }()
 
+    /// Default currency for FlynnAI's home market. Pass an explicit `code:` to
+    /// any formatter call to override per-invoice/quote.
+    static let defaultCurrencyCode = "AUD"
+
     /// Formats a numeric value as localized currency. Accepts `Decimal`, `Double`,
     /// or any `BinaryFloatingPoint` — use the overloads below.
-    static func currency(_ value: Decimal, code: String = "USD") -> String {
+    static func currency(_ value: Decimal, code: String = defaultCurrencyCode) -> String {
         currencyFormatter.currencyCode = code
         return currencyFormatter.string(from: value as NSDecimalNumber) ?? "\(value)"
     }
 
-    static func currency(_ value: Double, code: String = "USD") -> String {
+    static func currency(_ value: Double, code: String = defaultCurrencyCode) -> String {
         currency(Decimal(value), code: code)
     }
 

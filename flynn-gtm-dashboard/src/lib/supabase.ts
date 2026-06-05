@@ -42,6 +42,20 @@ export interface IGTargetRow {
   reply_at: string | null;
 }
 
+export interface TradeIGTargetRow {
+  id: string;
+  handle: string;
+  profile_url: string;
+  business_name: string | null;
+  trade: string | null;
+  city: string | null;
+  follower_count: number;
+  bio: string | null;
+  ai_message: string;
+  status: string;
+  last_dm_at: string | null;
+}
+
 export interface ColdLeadRow {
   id: string;
   email: string;
@@ -106,6 +120,19 @@ export async function fetchTodaysIGTargets(limit = 18): Promise<IGTargetRow[]> {
     ...other.slice(0, limit - Math.round(limit * 0.6) - Math.round(limit * 0.25)),
   ];
   return mixed;
+}
+
+export async function fetchTodaysTradeIGTargets(limit = 20): Promise<TradeIGTargetRow[]> {
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('gtm_ig_trade_targets')
+    .select('id, handle, profile_url, business_name, trade, city, follower_count, bio, ai_message, status, last_dm_at')
+    .or(`status.eq.not-contacted,and(status.eq.dm-sent,last_dm_at.lt.${fiveDaysAgo},reply_at.is.null)`)
+    .not('ai_message', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as TradeIGTargetRow[];
 }
 
 export async function fetchTodaysColdLeads(limit = 30): Promise<ColdLeadRow[]> {
@@ -176,6 +203,14 @@ export async function markIGDMSent(id: string, script: string) {
   const { error } = await supabase
     .from('gtm_ig_targets')
     .update({ status: 'dm-sent', last_dm_at: new Date().toISOString(), last_dm_script: script })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function markTradeIGDMSent(id: string) {
+  const { error } = await supabase
+    .from('gtm_ig_trade_targets')
+    .update({ status: 'dm-sent', last_dm_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw error;
 }

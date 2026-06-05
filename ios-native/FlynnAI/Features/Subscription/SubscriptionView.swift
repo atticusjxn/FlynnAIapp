@@ -53,10 +53,10 @@ struct SubscriptionView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-            Text("Never miss another booking")
+            Text("Reply in your voice. Book the job.")
                 .flynnType(FlynnTypography.h2)
                 .foregroundColor(FlynnColor.textPrimary)
-            Text("Flynn answers every missed call, texts back a booking link, and — on paid plans — talks to your customers for you. Try free for 14 days.")
+            Text("Flynn drafts replies that sound like you and books jobs into your calendar. Free to start — go Pro for unlimited drafts and calendar booking.")
                 .flynnType(FlynnTypography.bodyMedium)
                 .foregroundColor(FlynnColor.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -95,9 +95,9 @@ struct SubscriptionView: View {
                 }
 
                 HStack(spacing: FlynnSpacing.xs) {
-                    Image(systemName: "waveform")
+                    Image(systemName: "infinity")
                         .foregroundColor(FlynnColor.primary)
-                    Text("\(item.plan.aiMinutesMonthly) min AI receptionist / month")
+                    Text("Unlimited drafts in your voice")
                         .flynnType(FlynnTypography.bodyMedium)
                         .foregroundColor(FlynnColor.textPrimary)
                 }
@@ -230,15 +230,13 @@ struct SubscriptionView: View {
         Task {
             await store.purchase(product)
             if case .success = store.purchaseState {
-                // Log paid-conversion event for Meta ad attribution. Deduped via
-                // UserDefaults so renewals don't fire it again.
-                let key = "meta.purchase.logged.\(product.product.id)"
+                // Log paid-conversion event for Meta + TikTok ad attribution.
+                // Deduped via UserDefaults so renewals don't fire it again.
+                let key = "ads.purchase.logged.\(product.product.id)"
                 if !UserDefaults.standard.bool(forKey: key) {
                     let amount = NSDecimalNumber(decimal: product.product.price)
-                    AppEvents.shared.logPurchase(
-                        amount: amount.doubleValue,
-                        currency: product.product.priceFormatStyle.currencyCode
-                    )
+                    let currency = product.product.priceFormatStyle.currencyCode
+                    AppEvents.shared.logPurchase(amount: amount.doubleValue, currency: currency)
                     UserDefaults.standard.set(true, forKey: key)
                 }
                 flash.success("Welcome to \(product.plan.displayName)")

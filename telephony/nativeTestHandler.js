@@ -291,7 +291,13 @@ function createNativeTestHandler({
             listen: {
               provider: {
                 type: 'deepgram',
-                model: 'nova-3',
+                // Flux: conversational STT with model-integrated end-of-turn detection
+                // (replaces Nova-3 + heuristic VAD that cut callers off). Keep this in
+                // sync with telephony/deepgramVoiceAgent.js.
+                // Docs: https://developers.deepgram.com/docs/flux/configuration
+                model: 'flux-general-en',
+                eot_threshold: 0.85,
+                eot_timeout_ms: 8000,
               },
             },
             think: {

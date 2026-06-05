@@ -1,22 +1,34 @@
 /**
  * SMS Link Sender — Mode A (SMS Link Follow-Up).
  *
- * Sends booking and quote links via Telnyx Messaging API (v2 /messages).
- * Aligned to the new Supabase schema:
+ * Sends booking and quote links via the Twilio Messaging API. Twilio is Flynn's
+ * sole telephony provider (inbound calls + the AI receptionist already run on
+ * Twilio Media Streams); the previous Telnyx path was removed.
+ *
+ * Aligned to the Supabase schema:
  *   business_profiles.{booking_link_url, booking_link_enabled,
  *                      quote_link_url, quote_link_enabled,
  *                      sms_booking_template, sms_quote_template,
  *                      business_name}
- *   users.telnyx_phone_number (falls back to env TELNYX_PHONE_NUMBER)
+ *   users.twilio_phone_number (falls back to env TWILIO_FROM_NUMBER)
  *
- * Event logging writes directly to `call_events` via costTracker.logCallEvent;
- * there's no more `log_call_event` RPC.
+ * Event logging writes directly to `call_events` via costTracker.logCallEvent.
+ *
+ * NOTE: the `callSid` argument is stored on the call row via costTracker's
+ * `telnyxCallControlId` field — that column name is legacy; it now carries a
+ * Twilio CallSid (any opaque per-call correlation id works).
  */
 
 const { supabase } = require('./supabaseClient');
-const telnyx = require('./telnyxClient');
+const twilio = require('twilio');
 const { ensureCallRow, logCallEvent } = require('./costTracker');
 
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
+// Twilio surfaces HTTP status on err.status; retry the same transient classes.
 const TRANSIENT_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function defaultBookingTemplate(businessName, url) {
@@ -38,10 +50,10 @@ function renderTemplate(template, { businessName, url }) {
 async function resolveFromNumber(userId) {
   const { data: user } = await supabase
     .from('users')
-    .select('telnyx_phone_number')
+    .select('twilio_phone_number')
     .eq('id', userId)
     .maybeSingle();
-  return user?.telnyx_phone_number || process.env.TELNYX_PHONE_NUMBER || null;
+  return user?.twilio_phone_number || process.env.TWILIO_FROM_NUMBER || null;
 }
 
 const FALLBACK_APOLOGY_PREFIX = "Sorry we just missed you — ";
@@ -50,13 +62,13 @@ async function sendLinkSMS({
   linkType,              // 'booking_link' | 'quote_link'
   toNumber,
   userId,
-  telnyxCallControlId,   // required for event correlation
+  callSid,               // Twilio CallSid (or any per-call correlation id)
   businessProfile,       // { business_name, sms_booking_template, sms_quote_template, ... }
   linkUrl,
   fallbackApology = false,
 }) {
   const callId = await ensureCallRow({
-    telnyxCallControlId,
+    telnyxCallControlId: callSid,
     userId,
     fromNumber: toNumber,
     toNumber: null,
@@ -92,17 +104,17 @@ async function sendLinkSMS({
         to: toNumber,
       },
     });
-    return { success: false, error: 'No Telnyx sender number configured' };
+    return { success: false, error: 'No Twilio sender number configured' };
   }
 
   try {
     console.log(`[SMS] Sending ${linkType} to ${toNumber} from ${fromNumber}`);
-    const result = await telnyx.sendSMS({
+    const result = await twilioClient.messages.create({
       to: toNumber,
       from: fromNumber,
-      text: messageBody,
+      body: messageBody,
     });
-    const messageId = result?.data?.id || null;
+    const messageId = result?.sid || null;
 
     await logCallEvent({
       callId,
@@ -114,7 +126,7 @@ async function sendLinkSMS({
         to: toNumber,
         from: fromNumber,
         link: linkUrl,
-        telnyx_message_id: messageId,
+        twilio_message_sid: messageId,
       },
     });
 
@@ -126,10 +138,10 @@ async function sendLinkSMS({
     if (transient) {
       try {
         console.log('[SMS] Retrying after transient error...');
-        const retry = await telnyx.sendSMS({
+        const retry = await twilioClient.messages.create({
           to: toNumber,
           from: fromNumber,
-          text: messageBody,
+          body: messageBody,
         });
         await logCallEvent({
           callId,
@@ -141,10 +153,10 @@ async function sendLinkSMS({
             link_type: linkType,
             to: toNumber,
             link: linkUrl,
-            telnyx_message_id: retry?.data?.id || null,
+            twilio_message_sid: retry?.sid || null,
           },
         });
-        return { success: true, messageId: retry?.data?.id, retried: true };
+        return { success: true, messageId: retry?.sid, retried: true };
       } catch (retryErr) {
         console.error('[SMS] Retry failed:', retryErr.message);
       }
@@ -166,10 +178,9 @@ async function sendLinkSMS({
   }
 }
 
-// Public wrappers kept API-compatible with the old Twilio version so the rest
-// of the codebase can swap without churn.
+// Public wrappers. The trailing correlation-id arg is a Twilio CallSid.
 
-async function sendBookingLinkSMS(toNumber, businessName, bookingUrl, userId, telnyxCallControlId, opts = {}) {
+async function sendBookingLinkSMS(toNumber, businessName, bookingUrl, userId, callSid, opts = {}) {
   const { data: profile } = await supabase
     .from('business_profiles')
     .select('business_name, sms_booking_template')
@@ -180,14 +191,14 @@ async function sendBookingLinkSMS(toNumber, businessName, bookingUrl, userId, te
     linkType: 'booking_link',
     toNumber,
     userId,
-    telnyxCallControlId,
+    callSid,
     businessProfile: profile || { business_name: businessName },
     linkUrl: bookingUrl,
     fallbackApology: !!opts.fallbackApology,
   });
 }
 
-async function sendQuoteLinkSMS(toNumber, businessName, quoteUrl, userId, telnyxCallControlId, opts = {}) {
+async function sendQuoteLinkSMS(toNumber, businessName, quoteUrl, userId, callSid, opts = {}) {
   const { data: profile } = await supabase
     .from('business_profiles')
     .select('business_name, sms_quote_template')
@@ -198,7 +209,7 @@ async function sendQuoteLinkSMS(toNumber, businessName, quoteUrl, userId, telnyx
     linkType: 'quote_link',
     toNumber,
     userId,
-    telnyxCallControlId,
+    callSid,
     businessProfile: profile || { business_name: businessName },
     linkUrl: quoteUrl,
     fallbackApology: !!opts.fallbackApology,
@@ -226,7 +237,7 @@ async function sendTestSMS(toNumber, userId, linkType = 'booking') {
     linkType: linkType === 'booking' ? 'booking_link' : 'quote_link',
     toNumber,
     userId,
-    telnyxCallControlId: `test-${Date.now()}`,
+    callSid: `test-${Date.now()}`,
     businessProfile: profile,
     linkUrl: url,
   });

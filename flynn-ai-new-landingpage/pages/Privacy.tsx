@@ -87,7 +87,7 @@ export default function Privacy() {
             </p>
             <ul className="list-disc list-inside text-gray-700 leading-relaxed space-y-1">
               <li><strong>Supabase</strong> — database, authentication, storage</li>
-              <li><strong>Telnyx, Twilio</strong> — telephony (call forwarding, SMS)</li>
+              <li><strong>Twilio</strong> — telephony (call forwarding, SMS)</li>
               <li><strong>Stripe</strong> — web subscription billing</li>
               <li><strong>Apple App Store, Google Play Billing</strong> — in-app subscriptions</li>
               <li><strong>OpenAI, Google Gemini, Deepgram, Cartesia, ElevenLabs</strong> — AI transcription, language understanding, voice synthesis</li>

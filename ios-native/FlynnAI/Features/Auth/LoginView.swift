@@ -83,11 +83,11 @@ struct LoginView: View {
                         .flynnType(FlynnTypography.displayLarge)
                         .foregroundColor(FlynnColor.primary)
                 }
-                Text("Never miss\nanother lead.")
+                Text("Reply in your\nown voice.")
                     .flynnType(FlynnTypography.displayMedium)
                     .foregroundColor(FlynnColor.textPrimary)
                     .multilineTextAlignment(.center)
-                Text("The AI receptionist for tradies and service businesses.")
+                Text("Flynn drafts your customer texts and books the jobs — in seconds.")
                     .flynnType(FlynnTypography.bodyLarge)
                     .foregroundColor(FlynnColor.textSecondary)
                     .multilineTextAlignment(.center)

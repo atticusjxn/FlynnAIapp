@@ -103,6 +103,12 @@ enum FlynnColor {
     static let borderFocus = Color(hex: "#ff4500")
     static let borderError = Color(hex: "#EF4444")
 
+    // Mascot — Flynn the chat-bubble character. `cream` matches the app-icon
+    // backdrop (#F4E6CE); it deepens slightly in dark mode so the mascot still
+    // reads as sitting on its own warm patch rather than the page.
+    static let mascotOrange = Color(hex: "#FB5B1E")
+    static let cream = Color.dynamic(light: "#F4E6CE", dark: "#2A2620")
+
     // Splash — swap the mascot so it stays legible on the dark background.
     static let splashBackground = Color.dynamic(light: "#FFFFFF", dark: "#0B0B0F")
     static let splashLogoBody = Color.dynamic(light: "#2E2F30", dark: "#F9FAFB")

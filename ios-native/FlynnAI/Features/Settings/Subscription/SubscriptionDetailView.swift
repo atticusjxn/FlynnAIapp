@@ -53,7 +53,7 @@ struct SubscriptionDetailView: View {
                     labelled("Trial", value: "Active — cancel before renewal to avoid charge")
                 }
             } else {
-                Text("Start a 14-day free trial to unlock the AI receptionist.")
+                Text("Go Pro for unlimited drafts and calendar booking.")
                     .flynnType(FlynnTypography.bodyMedium)
                     .foregroundColor(FlynnColor.textSecondary)
             }

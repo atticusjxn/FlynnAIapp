@@ -12,7 +12,7 @@ struct EventsListView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .error(let message):
                 ContentUnavailableView {
-                    Label("Couldn't load events", systemImage: "exclamationmark.triangle")
+                    Label("Couldn't load bookings", systemImage: "exclamationmark.triangle")
                 } description: {
                     Text(message)
                 } actions: {
@@ -20,10 +20,10 @@ struct EventsListView: View {
                 }
             case .loaded:
                 if store.events.isEmpty {
-                    ContentUnavailableView(
-                        "No events yet",
-                        systemImage: "calendar",
-                        description: Text("Captured leads and scheduled jobs will show here.")
+                    MascotEmptyState(
+                        pose: .sleep,
+                        title: "No bookings yet",
+                        message: "Jobs you book with Flynn — and ones you add — show up here, synced to your calendar."
                     )
                 } else {
                     list
@@ -31,13 +31,13 @@ struct EventsListView: View {
             }
         }
         .background(FlynnColor.background)
-        .navigationTitle("Events")
+        .navigationTitle("Bookings")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showingAddSheet = true
                 } label: {
-                    Label("New event", systemImage: "plus")
+                    Label("New booking", systemImage: "plus")
                 }
             }
         }
@@ -52,17 +52,33 @@ struct EventsListView: View {
 
     private var list: some View {
         ScrollView {
-            LazyVStack(spacing: FlynnSpacing.md) {
-                ForEach(store.events) { event in
-                    NavigationLink(value: Route.eventDetail(id: event.id)) {
-                        EventRow(event: event)
-                    }
-                    .buttonStyle(.plain)
+            LazyVStack(alignment: .leading, spacing: FlynnSpacing.md) {
+                if !store.upcoming.isEmpty {
+                    sectionHeader("Upcoming")
+                    ForEach(store.upcoming) { eventRow($0) }
+                }
+                if !store.past.isEmpty {
+                    sectionHeader("Past")
+                    ForEach(store.past) { eventRow($0) }
                 }
             }
             .padding(.horizontal, FlynnSpacing.lg)
             .padding(.vertical, FlynnSpacing.md)
         }
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .flynnType(FlynnTypography.overline)
+            .foregroundColor(FlynnColor.textTertiary)
+            .padding(.top, FlynnSpacing.xs)
+    }
+
+    private func eventRow(_ event: EventDTO) -> some View {
+        NavigationLink(value: Route.eventDetail(id: event.id)) {
+            EventRow(event: event)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -75,6 +91,15 @@ final class EventsListStore {
 
     var state: State = .idle
     var events: [EventDTO] = []
+
+    var upcoming: [EventDTO] { events.filter { isUpcoming($0) } }
+    var past: [EventDTO] { events.filter { !isUpcoming($0) } }
+
+    private func isUpcoming(_ e: EventDTO) -> Bool {
+        if e.status == "complete" { return false }
+        if let d = e.scheduledDate { return d >= Calendar.current.startOfDay(for: Date()) }
+        return true
+    }
 
     private let repository: EventsRepositoryType
 

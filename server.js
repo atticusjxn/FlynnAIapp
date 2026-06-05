@@ -3,7 +3,8 @@ const twilio = require('twilio');
 const dotenv = require('dotenv');
 const http = require('http');
 const WebSocket = require('ws');
-const { randomUUID } = require('crypto');
+const crypto = require('crypto');
+const { randomUUID } = crypto;
 const Stripe = require('stripe');
 const OpenAI = require('openai');
 const { toFile } = require('openai');
@@ -20,6 +21,11 @@ const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
 const attachRealtimeServer = require('./telephony/realtimeServer');
 const { getLLMClient, PROVIDERS } = require('./llmClient');
+const jwt = require('jsonwebtoken');
+const { generateDrafts } = require('./services/draftReplies');
+const { understandBusiness, FALLBACK_PROMPTS } = require('./services/onboarding');
+const googleCalendar = require('./services/googleCalendar');
+const { findOpenSlots } = require('./services/slotProposer');
 
 const {
   upsertCallRecord,
@@ -1247,6 +1253,54 @@ app.post('/webhooks/appstore', express.raw({ type: 'application/json' }), (req, 
   return handleAppStoreAssn2(req, res);
 });
 
+// Supabase Auth "Send SMS" hook → sends OTP via Twilio.
+// Standard Webhooks signature format: header `webhook-signature` = "v1,<base64sig>",
+// signed payload = `${webhook-id}.${webhook-timestamp}.${rawBody}`,
+// HMAC key = base64-decode of secret stripped of "v1,whsec_" prefix.
+app.post('/api/auth/send-sms-hook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const secret = process.env.SUPABASE_AUTH_SMS_HOOK_SECRET;
+  if (!secret) return res.status(500).json({ error: 'hook_not_configured' });
+
+  const id = req.headers['webhook-id'];
+  const timestamp = req.headers['webhook-timestamp'];
+  const sigHeader = req.headers['webhook-signature'];
+  if (!id || !timestamp || !sigHeader) return res.status(401).json({ error: 'missing_headers' });
+
+  const rawSecret = secret.replace(/^v1,whsec_/, '').replace(/^whsec_/, '');
+  const signedPayload = `${id}.${timestamp}.${req.body.toString('utf8')}`;
+  const expected = crypto.createHmac('sha256', Buffer.from(rawSecret, 'base64'))
+    .update(signedPayload).digest('base64');
+  const sigs = String(sigHeader).split(' ').map(s => s.replace(/^v1,/, ''));
+  const valid = sigs.some(s => s.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected)));
+  if (!valid) return res.status(401).json({ error: 'invalid_signature' });
+
+  let payload;
+  try { payload = JSON.parse(req.body.toString('utf8')); }
+  catch { return res.status(400).json({ error: 'invalid_json' }); }
+
+  const phone = payload?.user?.phone;
+  const otp = payload?.sms?.otp;
+  if (!phone || !otp) return res.status(400).json({ error: 'missing_phone_or_otp' });
+
+  // OTP is sent via Twilio (Flynn's sole SMS provider).
+  if (!twilioMessagingClient || !process.env.TWILIO_FROM_NUMBER) {
+    console.error('[Supabase send-sms] Twilio not configured');
+    return res.status(500).json({ error: 'sms_provider_not_configured' });
+  }
+  try {
+    await twilioMessagingClient.messages.create({
+      to: phone.startsWith('+') ? phone : `+${phone}`,
+      from: process.env.TWILIO_FROM_NUMBER,
+      body: `Your Flynn verification code is ${otp}. It expires in 10 minutes.`,
+    });
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('[Supabase send-sms] Twilio send failed:', err?.message || err);
+    return res.status(500).json({ error: 'sms_send_failed' });
+  }
+});
+
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
@@ -2036,11 +2090,16 @@ app.patch('/api/business-profile', authenticateJwt, async (req, res) => {
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
   if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
 
-  const allowed = ['business_name', 'industry', 'services', 'hours_json', 'service_areas',
-    'faqs', 'pricing_notes', 'ai_instructions', 'ai_greeting_text', 'ivr_custom_script'];
+  const allowed = ['business_name', 'business_type', 'services', 'hours_json', 'service_areas',
+    'faqs', 'pricing_notes', 'ai_instructions', 'ai_greeting_text', 'ivr_custom_script',
+    'website_url'];
   const updates = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+  // Back-compat: older clients send `industry`; the real column is `business_type`.
+  if (req.body.industry !== undefined && updates.business_type === undefined) {
+    updates.business_type = req.body.industry;
   }
   updates.updated_at = new Date().toISOString();
 
@@ -2152,6 +2211,404 @@ app.get('/api/business-profile/:orgId', async (req, res) => {
   } catch (error) {
     console.error('[Business Profile] Error:', error);
     res.status(500).json({ error: 'Failed to get business profile' });
+  }
+});
+
+// ========================================
+// Keyboard Co-pilot Endpoints (text-reply drafting)
+// ========================================
+
+const KEYBOARD_TOKEN_TTL_DAYS = parseIntegerEnv(process.env.KEYBOARD_TOKEN_TTL_DAYS, 60);
+const MAX_DRAFT_MESSAGES = 20;
+const MAX_ACCEPTED_TONE_SAMPLES = 8;
+const FREE_DRAFTS_PER_DAY = parseIntegerEnv(process.env.FREE_DRAFTS_PER_DAY, 10);
+
+/**
+ * Is the user on an active/trialing subscription (Pro = unlimited drafts)?
+ * Resolves via their org's subscription_status. Fails open to false (free tier).
+ */
+async function isUserEntitled(userId) {
+  try {
+    if (!supabaseStorageClient) return false;
+    const { data: userRow } = await supabaseStorageClient
+      .from('users')
+      .select('default_org_id')
+      .eq('id', userId)
+      .maybeSingle();
+    const orgId = userRow?.default_org_id;
+    if (!orgId) return false;
+    const { data: org } = await supabaseStorageClient
+      .from('organizations')
+      .select('subscription_status')
+      .eq('id', orgId)
+      .maybeSingle();
+    return ['active', 'trialing'].includes(org?.subscription_status);
+  } catch (error) {
+    console.warn('[Keyboard] entitlement check failed (treating as free):', error?.message);
+    return false;
+  }
+}
+
+/** Today's draft count for a user (free-tier accounting). */
+async function draftsUsedToday(userId) {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabaseStorageClient
+      .from('draft_usage')
+      .select('count')
+      .eq('user_id', userId)
+      .eq('usage_date', today)
+      .maybeSingle();
+    return data?.count ?? 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+/**
+ * Best-effort: compute genuinely-open Google Calendar slots for a user, to feed
+ * into draft generation or return to the app. Returns [] (never throws) if the
+ * user has no Google connection or anything fails — Apple-only users propose
+ * from business hours on-device instead.
+ */
+async function computeGoogleSlots(userId, businessHours, { days = 7, durationMins = 60, maxSlots = 3 } = {}) {
+  try {
+    if (!supabaseStorageClient) return { slots: [], timeZone: 'Australia/Sydney', connected: false };
+    const { connection } = await googleCalendar.getConnectionForUser(supabaseStorageClient, userId);
+    if (!connection) return { slots: [], timeZone: 'Australia/Sydney', connected: false };
+
+    const timeZone = connection?.metadata?.timeZone || 'Australia/Sydney';
+    const accessToken = await googleCalendar.ensureFreshAccessToken(supabaseStorageClient, connection);
+    const now = new Date();
+    const timeMax = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const busy = await googleCalendar.queryFreeBusy(accessToken, {
+      timeMin: now.toISOString(),
+      timeMax: timeMax.toISOString(),
+      calendarId: connection.account_id || 'primary',
+    });
+    const slots = findOpenSlots({
+      businessHours: businessHours || {},
+      busy,
+      timeZone,
+      durationMins,
+      from: now,
+      days,
+      maxSlots,
+    });
+    return { slots, timeZone, connected: true, calendarId: connection.account_id || 'primary' };
+  } catch (error) {
+    console.warn('[Keyboard] computeGoogleSlots failed (non-fatal):', error?.status || '', error?.message);
+    return { slots: [], timeZone: 'Australia/Sydney', connected: false };
+  }
+}
+
+/**
+ * Mint a long-lived JWT the sandboxed keyboard extension can use to call the
+ * backend (it can't run the Supabase SDK / refresh short-lived tokens). Signed
+ * with SUPABASE_JWT_SECRET so authenticateJwt verifies it unchanged. Called by
+ * the main app (with a valid session) on foreground; re-minted as needed.
+ * POST /api/keyboard/provision-token
+ */
+app.post('/api/keyboard/provision-token', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const secret = process.env.SUPABASE_JWT_SECRET || process.env.SUPABASE_ANON_JWT_SECRET;
+  if (!secret) return res.status(500).json({ error: 'Authentication not configured' });
+
+  const expiresInSeconds = KEYBOARD_TOKEN_TTL_DAYS * 24 * 60 * 60;
+  const token = jwt.sign(
+    { sub: userId, flynn_kbd: true, role: 'authenticated' },
+    secret,
+    { algorithm: 'HS256', expiresIn: expiresInSeconds }
+  );
+
+  res.json({
+    token,
+    expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
+  });
+});
+
+/**
+ * Generate tone-matched reply drafts for the customer's (possibly fragmented)
+ * messages. Used by the keyboard extension. Privacy: customer message text is
+ * used only to build the prompt and is NOT persisted.
+ * POST /api/keyboard/draft-replies
+ * Body: { messages: string[], proposedSlots?: string[], draftCount?: number,
+ *         source?: 'clipboard'|'screenshot' }
+ */
+app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const rawMessages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+  const messages = rawMessages
+    .filter((m) => typeof m === 'string' && m.trim().length > 0)
+    .slice(-MAX_DRAFT_MESSAGES);
+  if (messages.length === 0) {
+    return res.status(400).json({ error: 'No customer messages provided' });
+  }
+
+  // Slots may be supplied by the client (e.g. computed on-device from Apple
+  // EventKit). If not, and the user has Google connected, compute them server-side.
+  let proposedSlots = Array.isArray(req.body?.proposedSlots)
+    ? req.body.proposedSlots.filter((s) => typeof s === 'string' && s.trim()).slice(0, 5)
+    : [];
+  const draftCount = Math.min(Math.max(parseInt(req.body?.draftCount, 10) || 4, 1), 4);
+  // How the conversation was captured: 'screenshot' (gesture) or 'clipboard'
+  // (copy→keyboard). Tweaks the prompt framing; defaults to clipboard.
+  const source = req.body?.source === 'screenshot' ? 'screenshot' : 'clipboard';
+
+  try {
+    // Free-tier gate: unlimited for entitled users; capped per day otherwise.
+    const entitled = await isUserEntitled(userId);
+    if (!entitled) {
+      const used = await draftsUsedToday(userId);
+      if (used >= FREE_DRAFTS_PER_DAY) {
+        return res.status(402).json({
+          limitReached: true,
+          error: 'Free daily draft limit reached',
+          freeDraftsPerDay: FREE_DRAFTS_PER_DAY,
+        });
+      }
+    }
+
+    // Business Brain.
+    const { data: profileRow } = await supabaseStorageClient
+      .from('business_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (proposedSlots.length === 0) {
+      const { slots } = await computeGoogleSlots(userId, profileRow?.hours_json);
+      proposedSlots = slots.map((s) => s.label);
+    }
+
+    // Tone samples: all onboarding samples + the most recent accepted ones
+    // (the learning loop). Newest-first; cap accepted so the prompt stays small.
+    const { data: sampleRows } = await supabaseStorageClient
+      .from('tone_samples')
+      .select('sample_text, source, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(40);
+
+    const onboarding = [];
+    const accepted = [];
+    for (const row of sampleRows || []) {
+      if (!row?.sample_text) continue;
+      if (row.source === 'accepted') accepted.push(row.sample_text);
+      else onboarding.push(row.sample_text);
+    }
+    const toneSamples = [...onboarding, ...accepted.slice(0, MAX_ACCEPTED_TONE_SAMPLES)];
+
+    const { drafts, usage } = await generateDrafts({
+      profileRow: profileRow || {},
+      toneSamples,
+      // The accepted samples are exactly the replies the user has picked before —
+      // used to derive substance preferences (length, price, time, emoji, greeting).
+      pickedSamples: accepted,
+      messages,
+      proposedSlots,
+      draftCount,
+      source,
+    });
+
+    if (!drafts || drafts.length === 0) {
+      return res.status(502).json({ error: 'Draft generation returned no results' });
+    }
+
+    // Count this draft against the free daily cap (entitled users are unlimited).
+    if (!entitled) {
+      try { await supabaseStorageClient.rpc('bump_draft_usage', { p_user_id: userId }); } catch (_) {}
+    }
+
+    res.json({ drafts, usage });
+  } catch (error) {
+    console.error('[Keyboard] draft-replies failed:', error?.status || '', error?.message);
+    res.status(500).json({ error: 'Failed to generate drafts' });
+  }
+});
+
+/**
+ * Learning loop: record a draft the user actually tapped/sent so future drafts
+ * lean toward that style (voice) AND substance. The accepted text is stored as a
+ * tone sample (source='accepted'); the full candidate set + picked index + source
+ * + conversation are stored in draft_picks for contrastive/substance learning.
+ * POST /api/keyboard/accept-draft
+ * Body: { text: string, candidates?: string[], pickedIndex?: number,
+ *         source?: 'clipboard'|'screenshot', messages?: string[] }
+ */
+app.post('/api/keyboard/accept-draft', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  if (!text) return res.status(400).json({ error: 'No draft text provided' });
+
+  // Optional richer learning signals (back-compatible: clipboard path may omit them).
+  const candidates = Array.isArray(req.body?.candidates)
+    ? req.body.candidates.filter((c) => typeof c === 'string').map((c) => c.slice(0, 1000)).slice(0, 8)
+    : [];
+  const messages = Array.isArray(req.body?.messages)
+    ? req.body.messages.filter((m) => typeof m === 'string').map((m) => m.slice(0, 2000)).slice(0, 20)
+    : [];
+  const pickedIndex = Number.isInteger(req.body?.pickedIndex) ? req.body.pickedIndex : null;
+  const source = req.body?.source === 'screenshot' ? 'screenshot' : 'clipboard';
+
+  try {
+    const { error } = await supabaseStorageClient
+      .from('tone_samples')
+      .insert({ user_id: userId, sample_text: text.slice(0, 1000), source: 'accepted' });
+    if (error) {
+      console.error('[Keyboard] accept-draft insert failed:', error.message);
+      return res.status(500).json({ error: 'Failed to record accepted draft' });
+    }
+
+    // Best-effort: never fail the request if the richer record can't be written.
+    try {
+      await supabaseStorageClient.from('draft_picks').insert({
+        user_id: userId,
+        messages,
+        candidates,
+        picked_index: pickedIndex,
+        picked_text: text.slice(0, 1000),
+        source,
+      });
+    } catch (pickErr) {
+      console.warn('[Keyboard] draft_picks insert failed (non-fatal):', pickErr?.message);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Keyboard] accept-draft failed:', error?.message);
+    res.status(500).json({ error: 'Failed to record accepted draft' });
+  }
+});
+
+/**
+ * Onboarding: turn a one-line "what do you do" (+ optional scraped website data)
+ * into a starter Business Brain and 3 trade-tailored sample customer texts the
+ * user replies to (so we capture their voice in context). Never dead-ends —
+ * returns generic fallback prompts if the model is unavailable.
+ * POST /api/onboarding/understand
+ * Body: { description: string, websiteData?: object }
+ */
+app.post('/api/onboarding/understand', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
+  if (!description) return res.status(400).json({ error: 'A short description is required' });
+
+  try {
+    const understanding = await understandBusiness({
+      description,
+      websiteData: req.body?.websiteData,
+    });
+    if (understanding && understanding.samplePrompts.length === 3) {
+      return res.json(understanding);
+    }
+    // Partial/failed parse → still return something usable.
+    return res.json({
+      businessType: understanding?.businessType ?? null,
+      services: understanding?.services ?? [],
+      pricingNote: understanding?.pricingNote ?? null,
+      hoursSummary: understanding?.hoursSummary ?? null,
+      samplePrompts: understanding?.samplePrompts?.length
+        ? understanding.samplePrompts
+        : FALLBACK_PROMPTS,
+    });
+  } catch (error) {
+    console.error('[Onboarding] understand failed:', error?.status || '', error?.message);
+    // Don't block onboarding — hand back generic prompts.
+    res.json({
+      businessType: null,
+      services: [],
+      pricingNote: null,
+      hoursSummary: null,
+      samplePrompts: FALLBACK_PROMPTS,
+    });
+  }
+});
+
+/**
+ * Propose genuinely-open Google Calendar slots for the user (the "offer a real
+ * time" feature). Apple-only users get connected:false and propose on-device.
+ * POST /api/calendar/propose-slots
+ * Body: { durationMins?: number, days?: number, maxSlots?: number }
+ */
+app.post('/api/calendar/propose-slots', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const durationMins = Math.min(Math.max(parseInt(req.body?.durationMins, 10) || 60, 15), 480);
+  const days = Math.min(Math.max(parseInt(req.body?.days, 10) || 7, 1), 21);
+  const maxSlots = Math.min(Math.max(parseInt(req.body?.maxSlots, 10) || 3, 1), 5);
+
+  try {
+    const { data: profileRow } = await supabaseStorageClient
+      .from('business_profiles')
+      .select('hours_json')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const { slots, timeZone, connected } = await computeGoogleSlots(
+      userId,
+      profileRow?.hours_json,
+      { durationMins, days, maxSlots }
+    );
+    res.json({
+      connected,
+      timeZone,
+      slots: slots.map((s) => ({ start: s.start.toISOString(), end: s.end.toISOString(), label: s.label })),
+    });
+  } catch (error) {
+    console.error('[Calendar] propose-slots failed:', error?.message);
+    res.status(500).json({ error: 'Failed to propose slots' });
+  }
+});
+
+/**
+ * Create a calendar event (used after a time is agreed). Writes to Google
+ * server-side so it can be triggered from the keyboard. Apple Calendar writes
+ * happen on-device in the app via EventKit, not here.
+ * POST /api/calendar/events
+ * Body: { summary, description?, startISO, endISO, location?, timeZone? }
+ */
+app.post('/api/calendar/events', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const { summary, description, startISO, endISO, location, timeZone } = req.body || {};
+  if (!summary || !startISO || !endISO) {
+    return res.status(400).json({ error: 'summary, startISO and endISO are required' });
+  }
+
+  try {
+    const { connection } = await googleCalendar.getConnectionForUser(supabaseStorageClient, userId);
+    if (!connection) {
+      return res.status(409).json({ error: 'Google Calendar not connected', code: 'not_connected' });
+    }
+    const accessToken = await googleCalendar.ensureFreshAccessToken(supabaseStorageClient, connection);
+    const event = await googleCalendar.insertEvent(accessToken, {
+      calendarId: connection.account_id || 'primary',
+      summary,
+      description: description || '',
+      startISO,
+      endISO,
+      location,
+      timeZone: timeZone || connection?.metadata?.timeZone || 'Australia/Sydney',
+    });
+    res.json({ eventId: event.id, htmlLink: event.htmlLink, status: event.status });
+  } catch (error) {
+    console.error('[Calendar] event insert failed:', error?.status || '', error?.message);
+    res.status(500).json({ error: 'Failed to create calendar event' });
   }
 });
 
@@ -2383,24 +2840,26 @@ app.get('/api/billing/subscription-status', authenticateJwt, async (req, res) =>
 // Twilio Phone Number Provisioning Endpoints
 
 // ===========================
-// Telnyx number provisioning (production path)
+// Phone number provisioning (production path)
 // ===========================
-const telnyxClient = require('./telephony/telnyxClient');
+// NOTE: the route is still named `/api/telnyx/provision-number` because the
+// shipped iOS app (OnboardingStore.provisionPhoneNumber) calls that exact URL.
+// Telnyx was removed — this now provisions exclusively via Twilio AU Mobile.
 
 /**
- * Provision a Telnyx phone number for the authenticated user.
+ * Provision a Twilio phone number for the authenticated user.
  *
- * Idempotent: if `users.telnyx_phone_number` is already set, returns it
+ * Idempotent: if `users.twilio_phone_number` is already set, returns it
  * without re-purchasing. Used by both the RN and iOS Swift onboarding flows
  * after the paywall step succeeds.
  *
  * Optional body:
- *   { countryCode?: 'AU' | 'US' | ... }   defaults to 'AU'
+ *   { countryCode?: 'AU' }   defaults to 'AU' (only AU supported)
  *
  * Response:
- *   200 { phoneNumber: '+61...', phoneNumberSid: '<uuid>' }
- *   429 { error: 'no_available_numbers' }   if Telnyx has no AU numbers
- *   500 { error: 'order_failed', message }  on Telnyx API error
+ *   200 { phoneNumber: '+61...', phoneNumberSid: '<sid>' }
+ *   429 { error: 'no_available_numbers' }   if Twilio has no AU Mobile numbers
+ *   500 { error: 'order_failed', message }  on Twilio API error
  *
  * POST /api/telnyx/provision-number
  */
@@ -2412,8 +2871,6 @@ app.post('/api/telnyx/provision-number', authenticateJwt, async (req, res) => {
 
   try {
     // Idempotency — return the existing number if already provisioned.
-    // Note: column is named `twilio_phone_number` for back-compat but now
-    // stores the user's Telnyx-provisioned number.
     const { data: existing, error: existingErr } = await supabaseServiceClient
       .from('users')
       .select('email, business_name, twilio_phone_number, twilio_number_sid')
@@ -2433,7 +2890,8 @@ app.post('/api/telnyx/provision-number', authenticateJwt, async (req, res) => {
       });
     }
 
-    // Dev-mode short-circuit — only burn real Telnyx $$ for non-allowlisted users.
+    // Dev-mode short-circuit — only burn real provisioning $$ for non-allowlisted
+    // users. The TELNYX_DEV_* env names are legacy (dev shared-number toggle only).
     if (process.env.TELNYX_DEV_MODE === 'true' && process.env.TELNYX_DEV_SHARED_NUMBER) {
       const allowList = (process.env.DEV_TEST_EMAILS || '')
         .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
@@ -2454,55 +2912,62 @@ app.post('/api/telnyx/provision-number', authenticateJwt, async (req, res) => {
       }
     }
 
-    // 1. Search Telnyx for an available AU local number with both SMS + Voice.
-    const available = await telnyxClient.searchAvailableNumbers({
-      countryCode,
-      features: ['sms', 'voice'],
-      limit: 1,
-    });
+    // Twilio AU Mobile provisioning. AU Mobile (the 04xx prefix) is the only AU
+    // Twilio number type that supports SMS, and it uses our approved Mates Rates
+    // regulatory bundle. Telnyx was removed — Twilio is Flynn's sole provider.
+    if (countryCode !== 'AU') {
+      return res.status(400).json({ error: 'unsupported_country', message: 'Only AU provisioning is supported' });
+    }
+    if (!twilioMessagingClient) {
+      return res.status(503).json({ error: 'twilio_not_configured' });
+    }
+    const bundleSid = process.env.TWILIO_AU_BUNDLE_SID;
+    const addressSid = process.env.TWILIO_AU_ADDRESS_SID;
+    if (!bundleSid || !addressSid) {
+      return res.status(500).json({ error: 'twilio_au_compliance_missing' });
+    }
+
+    const available = await twilioMessagingClient
+      .availablePhoneNumbers('AU')
+      .mobile.list({ smsEnabled: true, voiceEnabled: true, limit: 1 });
     if (!available.length) {
-      console.warn('[Provision] No available Telnyx numbers', { countryCode });
+      console.warn('[Provision] No available Twilio AU Mobile numbers');
       return res.status(429).json({ error: 'no_available_numbers' });
     }
-    const candidate = available[0].phone_number;
+    const candidate = available[0].phoneNumber;
 
-    // 2. Order the number, assigning it to our existing voice connection +
-    //    messaging profile so inbound calls/SMS route to our webhooks.
-    const order = await telnyxClient.orderNumber({
+    const voiceUrl = `${process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev'}/telephony/inbound-voice`;
+    const statusCallbackUrl = `${process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev'}/telephony/stream-status`;
+    const incoming = await twilioMessagingClient.incomingPhoneNumbers.create({
       phoneNumber: candidate,
-      connectionId: process.env.TELNYX_CONNECTION_ID,
-      messagingProfileId: process.env.TELNYX_MESSAGING_PROFILE_ID,
+      voiceUrl,
+      voiceMethod: 'POST',
+      statusCallback: statusCallbackUrl,
+      statusCallbackMethod: 'POST',
+      bundleSid,
+      addressSid,
     });
 
-    const ordered = order?.phone_numbers?.[0];
-    if (!ordered?.phone_number) {
-      console.error('[Provision] Order returned no phone number', { order });
-      return res.status(500).json({ error: 'order_failed', message: 'Telnyx order returned no phone numbers' });
-    }
-
-    // 3. Update users row. The column name is legacy (`twilio_phone_number`)
-    //    but now stores the Telnyx-provisioned number.
     await supabaseServiceClient
       .from('users')
       .update({
-        twilio_phone_number: ordered.phone_number,
-        twilio_number_sid: ordered.id,
+        twilio_phone_number: incoming.phoneNumber,
+        twilio_number_sid: incoming.sid,
         has_provisioned_phone: true,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId);
 
-    console.log('[Provision] Telnyx number provisioned', {
+    console.log('[Provision] Twilio AU Mobile number provisioned', {
       userId,
-      phoneNumber: ordered.phone_number,
-      phoneNumberId: ordered.id,
-      orderStatus: order.status,
+      phoneNumber: incoming.phoneNumber,
+      phoneNumberSid: incoming.sid,
     });
 
     return res.status(200).json({
-      phoneNumber: ordered.phone_number,
-      phoneNumberSid: ordered.id,
-      orderStatus: order.status,
+      phoneNumber: incoming.phoneNumber,
+      phoneNumberSid: incoming.sid,
+      provider: 'twilio',
     });
   } catch (err) {
     console.error('[Provision] Failed:', err);
@@ -2805,6 +3270,12 @@ app.get('/account-deletion', (req, res) => {
 });
 
 const JOB_STATUS_VALUES = new Set(['new', 'in_progress', 'completed']);
+
+// Origin used to build absolute callback URLs in IVR TwiML (Gather/Redirect/Record
+// `action`s). Returns '' when SERVER_PUBLIC_URL is unset — Twilio then resolves the
+// relative paths against the inbound webhook host.
+const ivrActionBaseUrl = () =>
+  process.env.SERVER_PUBLIC_URL ? process.env.SERVER_PUBLIC_URL.trim().replace(/\/+$/, '') : '';
 
 const buildRecordingCallbackUrl = (req) => {
   const callbackPath = '/telephony/recording-complete';
@@ -3343,9 +3814,13 @@ const handleInboundVoice = async (req, res) => {
         },
       });
 
-      // Import IVR handler
-      const ivrHandler = require('./telephony/ivrHandler');
-      const twiml = await ivrHandler.generateIVRTwiML(businessProfile, callSid, receptionistProfile.id);
+      // Mode A IVR: play the booking/quote menu and collect one DTMF digit.
+      const twilioIvr = require('./telephony/twilioIvrHandler');
+      const twiml = await twilioIvr.generateIVRTwiML({
+        businessProfile,
+        userId: receptionistProfile.id,
+        actionBaseUrl: ivrActionBaseUrl(),
+      });
 
       res.type('text/xml');
       return res.send(twiml);
@@ -3476,22 +3951,26 @@ app.post('/ivr/handle-dtmf', async (req, res) => {
   console.log('[IVR] DTMF input received:', { digits: Digits, callSid: CallSid, from: From, userId });
 
   try {
-    const ivrHandler = require('./telephony/ivrHandler');
-    const { twiml } = await ivrHandler.handleDTMFInput(Digits, CallSid, userId, From);
+    const twilioIvr = require('./telephony/twilioIvrHandler');
+    const businessProfile = await twilioIvr.getBusinessProfileByUserId(userId);
+    const { twiml } = await twilioIvr.handleDTMFInput({
+      digits: Digits,
+      businessProfile,
+      userId,
+      callSid: CallSid,
+      fromNumber: From,
+      actionBaseUrl: ivrActionBaseUrl(),
+    });
 
     res.type('text/xml');
     res.send(twiml);
   } catch (error) {
     console.error('[IVR] Failed to handle DTMF input:', error);
 
-    // Fallback to voicemail on error
+    // Fallback to voicemail on error so the caller is still captured.
     const response = new twilio.twiml.VoiceResponse();
-    response.say({ voice: 'Polly.Joanna' }, 'We\'re sorry, there was an error. Please leave a message after the tone.');
-    response.record({
-      maxLength: 300,
-      transcribe: true,
-      transcribeCallback: userId ? `/webhook/transcription/${userId}` : undefined
-    });
+    response.say({ voice: 'Polly.Joanna' }, 'Sorry, there was an error. Please leave a message after the tone.');
+    response.record({ action: buildRecordingCallbackUrl(req), method: 'POST', playBeep: true, maxLength: 300 });
 
     res.type('text/xml');
     res.send(response.toString());
@@ -3505,8 +3984,8 @@ app.post('/ivr/timeout', async (req, res) => {
   console.log('[IVR] Timeout occurred:', { callSid: CallSid, userId });
 
   try {
-    const ivrHandler = require('./telephony/ivrHandler');
-    const twiml = await ivrHandler.handleIVRTimeout(CallSid, userId);
+    const twilioIvr = require('./telephony/twilioIvrHandler');
+    const twiml = await twilioIvr.handleIVRTimeout({ actionBaseUrl: ivrActionBaseUrl() });
 
     res.type('text/xml');
     res.send(twiml);
@@ -4836,6 +5315,23 @@ app.get('/api/integrations/google-calendar/callback', async (req, res) => {
       throw new Error('Failed to save calendar connection');
     }
 
+    // Flip the per-user flag the iOS app reads from `users` so the
+    // dashboard / settings calendar prompt accurately reflects "connected".
+    try {
+      const { data: orgUsers } = await supabaseStorageClient
+        .from('users')
+        .select('id')
+        .eq('default_org_id', orgId);
+      if (orgUsers && orgUsers.length) {
+        await supabaseStorageClient
+          .from('users')
+          .update({ google_calendar_connected: true, calendar_sync_enabled: true })
+          .in('id', orgUsers.map(u => u.id));
+      }
+    } catch (flagErr) {
+      console.warn('[GoogleCalendar] Failed to flip user flags:', flagErr.message);
+    }
+
     console.log('[GoogleCalendar] Connection saved successfully:', {
       orgId,
       calendarName: calendarInfo.summary,
@@ -4931,5 +5427,270 @@ if (require.main === module) {
 
   console.log('[Server] Reminder processor scheduled (runs every 60 seconds)');
 }
+
+// ============================================================================
+// Quotes & Invoices — PDF generation + SMS sending
+// ============================================================================
+
+const buildBusinessHeader = (org, user) => ({
+  business_name: org?.business_name || user?.full_name || 'Flynn',
+  business_phone: org?.phone_number || user?.phone || '',
+  business_email: org?.email || user?.email || '',
+  business_address: org?.address || '',
+});
+
+const buildDocumentHTML = (kind, doc) => {
+  const items = (doc.line_items || []).map(li =>
+    `<tr><td>${escapeHtml(li.description)}</td><td>${li.quantity}</td><td>$${(li.unit_price || 0).toFixed(2)}</td><td>$${(li.total || 0).toFixed(2)}</td></tr>`
+  ).join('');
+  const isInvoice = kind === 'invoice';
+  const dateLabel = isInvoice ? 'Due' : 'Valid until';
+  const dateValue = isInvoice ? doc.due_date : doc.valid_until;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1E293B;padding:40px}
+    .header{display:flex;justify-content:space-between;border-bottom:3px solid #ff4500;padding-bottom:20px;margin-bottom:30px}
+    .biz-name{font-size:28px;font-weight:700;color:#1E293B}
+    .doc-title{font-size:36px;font-weight:700;color:#ff4500;text-transform:uppercase}
+    .doc-num{color:#64748B;margin-top:4px}
+    .meta{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:30px}
+    .meta-block h3{font-size:11px;text-transform:uppercase;color:#64748B;margin-bottom:6px}
+    table{width:100%;border-collapse:collapse;margin:24px 0}
+    th{background:#F8FAFC;text-align:left;padding:12px;font-size:12px;text-transform:uppercase;color:#475569;border-bottom:2px solid #E2E8F0}
+    td{padding:12px;border-bottom:1px solid #E2E8F0;font-size:14px}
+    .totals{margin-left:auto;width:300px;margin-top:24px}
+    .totals-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}
+    .totals-row.grand{border-top:2px solid #1E293B;font-size:18px;font-weight:700;padding-top:14px;margin-top:8px}
+    .notes{margin-top:40px;padding:16px;background:#F8FAFC;border-left:3px solid #ff4500;font-size:13px;color:#475569}
+    .footer{margin-top:60px;padding-top:20px;border-top:1px solid #E2E8F0;text-align:center;color:#94A3B8;font-size:11px}
+  </style></head><body>
+  <div class="header">
+    <div>
+      <div class="biz-name">${escapeHtml(doc.business_name)}</div>
+      ${doc.business_phone ? `<div style="color:#64748B;font-size:13px;margin-top:4px">${escapeHtml(doc.business_phone)}</div>` : ''}
+      ${doc.business_email ? `<div style="color:#64748B;font-size:13px">${escapeHtml(doc.business_email)}</div>` : ''}
+    </div>
+    <div style="text-align:right">
+      <div class="doc-title">${isInvoice ? 'Invoice' : 'Quote'}</div>
+      <div class="doc-num">${escapeHtml(doc.number)}</div>
+    </div>
+  </div>
+  <div class="meta">
+    <div class="meta-block"><h3>Bill to</h3>
+      <div style="font-weight:600">${escapeHtml(doc.customer_name || 'Customer')}</div>
+      ${doc.customer_phone ? `<div style="color:#64748B;font-size:13px">${escapeHtml(doc.customer_phone)}</div>` : ''}
+    </div>
+    <div class="meta-block" style="text-align:right">
+      <h3>${isInvoice ? 'Issued' : 'Date'}</h3>
+      <div>${formatDate(doc.issued_date)}</div>
+      ${dateValue ? `<h3 style="margin-top:10px">${dateLabel}</h3><div>${formatDate(dateValue)}</div>` : ''}
+    </div>
+  </div>
+  ${doc.title ? `<h2 style="margin-bottom:12px">${escapeHtml(doc.title)}</h2>` : ''}
+  <table><thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Total</th></tr></thead><tbody>${items}</tbody></table>
+  <div class="totals">
+    <div class="totals-row"><span>Subtotal</span><span>$${(doc.subtotal || 0).toFixed(2)}</span></div>
+    ${doc.tax_rate > 0 ? `<div class="totals-row"><span>GST (${doc.tax_rate}%)</span><span>$${(doc.tax_amount || 0).toFixed(2)}</span></div>` : ''}
+    <div class="totals-row grand"><span>Total</span><span>$${(doc.total || 0).toFixed(2)}</span></div>
+    ${isInvoice && doc.amount_paid ? `<div class="totals-row" style="color:#10B981"><span>Paid</span><span>-$${doc.amount_paid.toFixed(2)}</span></div>
+       <div class="totals-row grand"><span>Amount due</span><span>$${(doc.amount_due || 0).toFixed(2)}</span></div>` : ''}
+  </div>
+  ${doc.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(doc.notes)}</div>` : ''}
+  <div class="footer">Generated by Flynn · flynnai.app</div>
+  </body></html>`;
+};
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+let _puppeteerBrowser = null;
+async function htmlToPDFBuffer(html) {
+  const puppeteer = require('puppeteer');
+  if (!_puppeteerBrowser) {
+    // PUPPETEER_EXECUTABLE_PATH is set in Dockerfile to /usr/bin/chromium.
+    // Locally, puppeteer falls back to its bundled Chromium.
+    _puppeteerBrowser = await puppeteer.launch({
+      headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+  }
+  const page = await _puppeteerBrowser.newPage();
+  try {
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    return await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' } });
+  } finally {
+    await page.close();
+  }
+}
+
+const resolveUserOrg = async (userId) => {
+  const { data, error } = await supabaseStorageClient
+    .from('users')
+    .select('default_org_id, full_name, email, phone, business_name, address, twilio_phone_number')
+    .eq('id', userId)
+    .single();
+  if (error || !data?.default_org_id) {
+    throw new Error('User organization not found');
+  }
+  return { orgId: data.default_org_id, user: data };
+};
+
+const buildDocFromRow = (row, kind, user) => ({
+  type: kind,
+  number: kind === 'invoice' ? row.invoice_number : row.quote_number,
+  title: row.title,
+  business_name: user.business_name || user.full_name || 'Flynn',
+  business_phone: user.twilio_phone_number || user.phone || '',
+  business_email: user.email || '',
+  business_address: user.address || '',
+  customer_name: row.client_name || 'Customer',
+  customer_phone: row.client_phone || row.sent_to || '',
+  line_items: row.line_items || [],
+  subtotal: Number(row.subtotal || 0),
+  tax_rate: Number(row.tax_rate || 0),
+  tax_amount: Number(row.tax_amount || 0),
+  total: Number(row.total || 0),
+  amount_paid: row.amount_paid ? Number(row.amount_paid) : 0,
+  amount_due: row.amount_due ? Number(row.amount_due) : 0,
+  issued_date: row.issued_date || row.created_at,
+  valid_until: row.valid_until,
+  due_date: row.due_date,
+  notes: row.notes,
+});
+
+const generatePDFAndUpload = async (kind, row, user) => {
+  const doc = buildDocFromRow(row, kind, user);
+  const html = buildDocumentHTML(kind, doc);
+  const pdfBuffer = await htmlToPDFBuffer(html);
+  const filename = `${kind === 'invoice' ? 'invoices' : 'quotes'}/${row.id}/${doc.number}.pdf`;
+  const { error: uploadError } = await supabaseStorageClient.storage
+    .from('documents')
+    .upload(filename, pdfBuffer, { contentType: 'application/pdf', upsert: true });
+  if (uploadError) throw uploadError;
+  const { data: urlData } = supabaseStorageClient.storage.from('documents').getPublicUrl(filename);
+  const pdfUrl = urlData?.publicUrl;
+  await supabaseStorageClient.from(kind === 'invoice' ? 'invoices' : 'quotes')
+    .update({ pdf_url: pdfUrl }).eq('id', row.id);
+  return { pdfBuffer, pdfUrl };
+};
+
+// ---- Quote endpoints ----
+
+app.post('/api/quotes/:id/pdf', authenticateJwt, async (req, res) => {
+  try {
+    const { user } = await resolveUserOrg(req.user.id);
+    const { data: quote, error } = await supabaseStorageClient.from('quotes').select('*').eq('id', req.params.id).single();
+    if (error || !quote) return res.status(404).json({ error: 'Quote not found' });
+    const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('quote', quote, user);
+    res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
+  } catch (err) {
+    console.error('[Quotes] PDF generation failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/quotes/:id/send', authenticateJwt, async (req, res) => {
+  try {
+    const { toPhone } = req.body;
+    if (!toPhone) return res.status(400).json({ error: 'toPhone is required' });
+    const { user } = await resolveUserOrg(req.user.id);
+    const { data: quote, error } = await supabaseStorageClient.from('quotes').select('*').eq('id', req.params.id).single();
+    if (error || !quote) return res.status(404).json({ error: 'Quote not found' });
+    const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('quote', quote, user);
+    const businessName = user.business_name || user.full_name || 'Flynn';
+    const smsBody = `Hi! Here's your quote ${quote.quote_number} from ${businessName}: ${pdfUrl}`;
+    await sendConfirmationSms({ to: toPhone, body: smsBody });
+    await supabaseStorageClient.from('quotes').update({
+      sent_at: new Date().toISOString(),
+      sent_to: toPhone,
+      status: quote.status === 'draft' ? 'sent' : quote.status,
+    }).eq('id', req.params.id);
+    res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
+  } catch (err) {
+    console.error('[Quotes] Send failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/quotes/:id/convert', authenticateJwt, async (req, res) => {
+  try {
+    const { orgId, user } = await resolveUserOrg(req.user.id);
+    const { data: quote, error: qErr } = await supabaseStorageClient.from('quotes').select('*').eq('id', req.params.id).single();
+    if (qErr || !quote) return res.status(404).json({ error: 'Quote not found' });
+    const { data: numResult } = await supabaseStorageClient.rpc('generate_invoice_number', { p_org_id: orgId });
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 14);
+    const { data: invoice, error: insErr } = await supabaseStorageClient.from('invoices').insert({
+      org_id: orgId,
+      invoice_number: numResult,
+      title: quote.title,
+      client_id: quote.client_id,
+      client_name: quote.client_name,
+      client_phone: quote.client_phone,
+      quote_id: quote.id,
+      line_items: quote.line_items,
+      subtotal: quote.subtotal,
+      tax_rate: quote.tax_rate,
+      tax_amount: quote.tax_amount,
+      total: quote.total,
+      amount_paid: 0,
+      amount_due: quote.total,
+      notes: quote.notes,
+      due_date: dueDate.toISOString(),
+      issued_date: new Date().toISOString(),
+      status: 'draft',
+    }).select().single();
+    if (insErr) throw insErr;
+    res.json(invoice);
+  } catch (err) {
+    console.error('[Quotes] Convert failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Invoice endpoints ----
+
+app.post('/api/invoices/:id/pdf', authenticateJwt, async (req, res) => {
+  try {
+    const { user } = await resolveUserOrg(req.user.id);
+    const { data: invoice, error } = await supabaseStorageClient.from('invoices').select('*').eq('id', req.params.id).single();
+    if (error || !invoice) return res.status(404).json({ error: 'Invoice not found' });
+    const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('invoice', invoice, user);
+    res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
+  } catch (err) {
+    console.error('[Invoices] PDF generation failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/invoices/:id/send', authenticateJwt, async (req, res) => {
+  try {
+    const { toPhone } = req.body;
+    if (!toPhone) return res.status(400).json({ error: 'toPhone is required' });
+    const { user } = await resolveUserOrg(req.user.id);
+    const { data: invoice, error } = await supabaseStorageClient.from('invoices').select('*').eq('id', req.params.id).single();
+    if (error || !invoice) return res.status(404).json({ error: 'Invoice not found' });
+    const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('invoice', invoice, user);
+    const businessName = user.business_name || user.full_name || 'Flynn';
+    const smsBody = `Hi! Here's your invoice ${invoice.invoice_number} from ${businessName}: ${pdfUrl}`;
+    await sendConfirmationSms({ to: toPhone, body: smsBody });
+    await supabaseStorageClient.from('invoices').update({
+      sent_at: new Date().toISOString(),
+      sent_to: toPhone,
+      status: invoice.status === 'draft' ? 'sent' : invoice.status,
+    }).eq('id', req.params.id);
+    res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
+  } catch (err) {
+    console.error('[Invoices] Send failed', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = app;

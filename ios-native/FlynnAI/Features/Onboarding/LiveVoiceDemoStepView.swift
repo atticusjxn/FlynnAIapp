@@ -106,29 +106,45 @@ struct LiveVoiceDemoStepView: View {
 
             // Waveform — amplitude driven by actual PCM RMS when agent speaks
             WaveformView(isActive: agent.isAgentSpeaking || agent.isMicActive, audioLevel: agent.audioLevel)
-                .frame(height: 48)
+                .frame(height: 52)
 
-            // Transcript
+            // Transcript — chat bubbles, auto-scrolled to latest message
             if !transcript.isEmpty {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
-                        ForEach(transcript.suffix(4)) { line in
-                            Text(line.text)
-                                .flynnType(FlynnTypography.bodyMedium)
-                                .foregroundColor(line.isAgent ? FlynnColor.textPrimary : FlynnColor.primary)
-                                .frame(maxWidth: .infinity, alignment: line.isAgent ? .leading : .trailing)
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+                        ForEach(transcript.suffix(6)) { line in
+                            HStack(spacing: 0) {
+                                if !line.isAgent { Spacer(minLength: 48) }
+                                Text(line.text)
+                                    .flynnType(FlynnTypography.bodyMedium)
+                                    .foregroundColor(line.isAgent ? FlynnColor.textPrimary : FlynnColor.textInverse)
+                                    .padding(.horizontal, FlynnSpacing.sm)
+                                    .padding(.vertical, 7)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(line.isAgent ? FlynnColor.backgroundTertiary : FlynnColor.primary)
+                                    )
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if line.isAgent { Spacer(minLength: 48) }
+                            }
                         }
                     }
+                    .padding(.vertical, 2)
                 }
-                .frame(maxHeight: 80)
+                .frame(height: 150)
+                .defaultScrollAnchor(.bottom)
+                .clipped()
             }
 
-            // Push-to-talk button
+            // Push-to-talk button — turns orange while active
             Button(action: {}) {
-                Label("Hold to speak", systemImage: "mic.fill")
-                    .flynnType(FlynnTypography.button)
-                    .foregroundColor(FlynnColor.textPrimary)
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                Label(
+                    agent.isMicActive ? "Listening…" : "Hold to speak",
+                    systemImage: agent.isMicActive ? "waveform" : "mic.fill"
+                )
+                .flynnType(FlynnTypography.button)
+                .foregroundColor(agent.isMicActive ? FlynnColor.textInverse : FlynnColor.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: 44)
             }
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
@@ -138,10 +154,12 @@ struct LiveVoiceDemoStepView: View {
             .padding(FlynnSpacing.sm)
             .background(
                 RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
-                    .fill(FlynnColor.backgroundSecondary)
+                    .fill(agent.isMicActive ? FlynnColor.primary : FlynnColor.backgroundSecondary)
+                    .animation(.easeInOut(duration: 0.15), value: agent.isMicActive)
             )
             .brutalistBorder(cornerRadius: FlynnRadii.md)
             .disabled(!agent.isConnected)
+            .sensoryFeedback(.impact(weight: .medium, intensity: 0.8), trigger: agent.isMicActive) { _, new in new }
         }
         .padding(FlynnSpacing.md)
         .background(
@@ -236,42 +254,58 @@ struct LiveVoiceDemoStepView: View {
 
 private struct WaveformView: View {
     let isActive: Bool
-    var audioLevel: Float = 0  // 0–1 actual amplitude; 0 = use idle animation
-    @State private var phase: Double = 0
+    var audioLevel: Float = 0  // 0–1 actual RMS amplitude
+
+    private static let barCount = 26
+    // Pre-seeded per-bar frequency multipliers (0.7–2.3) so each bar pulses
+    // at its own speed — creates an organic, non-uniform EQ appearance.
+    private static let freqMults: [Double] = (0..<barCount).map { i in
+        // Deterministic pseudo-random spread using golden-angle spacing
+        0.7 + abs(sin(Double(i) * 2.3999631697)) * 1.6
+    }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
             Canvas { ctx, size in
-                let bars = 24
-                let barWidth = size.width / CGFloat(bars * 2)
+                let t = context.date.timeIntervalSinceReferenceDate
+                let bars = Self.barCount
+                let gap: CGFloat = 3
+                let barWidth = max(2, (size.width - gap * CGFloat(bars - 1)) / CGFloat(bars))
                 let centerY = size.height / 2
-                let barColor: Color = isActive ? FlynnColor.primary : FlynnColor.gray300
-                for i in 0..<bars {
-                    let x = CGFloat(i * 2 + 1) * barWidth
-                    let t = Double(i) / Double(bars)
-                    if isActive {
-                        // When we have real amplitude data use it; otherwise fall back to
-                        // a gentle idle animation so the waveform always looks alive.
-                        let level = audioLevel > 0.01 ? Double(audioLevel) : 0.15
-                        let amplitude = (level * abs(sin(phase + t * .pi * 3))) * centerY
-                        let safeHeight = max(2.0, amplitude * 2)
-                        let rect = CGRect(
-                            x: x - barWidth / 2,
-                            y: centerY - safeHeight / 2,
-                            width: barWidth,
-                            height: safeHeight
-                        )
-                        ctx.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(barColor))
-                    } else {
-                        let rect = CGRect(x: x - barWidth / 2, y: centerY - 0.5, width: barWidth, height: 1)
-                        ctx.fill(Path(rect), with: .color(barColor))
-                    }
+                // Non-linear scale: pow(level, 0.55) makes quiet sounds clearly visible
+                // Real audio level mapped to 0–1, with a strong visual floor so bars
+                // are always clearly animated whenever the waveform is active —
+                // even if the audio tap hasn't supplied signal yet.
+                let rawLevel = CGFloat(audioLevel)
+                let boosted: CGFloat
+                if isActive {
+                    let scaled = rawLevel > 0.02 ? min(1.0, pow(rawLevel, 0.45) * 1.3) : 0
+                    boosted = max(0.5, scaled)   // never below 50% when active
+                } else {
+                    boosted = 0
                 }
-            }
-        }
-        .onAppear {
-            withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
-                phase = .pi * 2
+                let barColor: Color = isActive ? FlynnColor.primary : FlynnColor.gray300
+
+                for i in 0..<bars {
+                    let x = CGFloat(i) * (barWidth + gap)
+                    let fMult = Self.freqMults[i]
+                    let barH: CGFloat
+                    if isActive {
+                        // Each bar oscillates at its own frequency — organic EQ feel.
+                        // floor at 20% + ceiling at 100% of boosted height ensures
+                        // bars are always moving and clearly visible.
+                        let wave = (sin(t * 5.5 * fMult + Double(i) * 0.45) + 1.0) * 0.5
+                        let floor = boosted * size.height * 0.20
+                        let ceiling = boosted * size.height
+                        barH = max(2, floor + (ceiling - floor) * CGFloat(wave))
+                    } else {
+                        // Idle: very slow gentle breathing, gray
+                        let wave = (sin(t * 0.9 + Double(i) * 0.35) + 1.0) * 0.5
+                        barH = max(2, CGFloat(wave) * size.height * 0.18 + 2)
+                    }
+                    let rect = CGRect(x: x, y: centerY - barH / 2, width: barWidth, height: barH)
+                    ctx.fill(Path(roundedRect: rect, cornerRadius: barWidth / 2), with: .color(barColor))
+                }
             }
         }
     }
@@ -287,16 +321,16 @@ struct TranscriptLine: Identifiable, Equatable {
 
 // MARK: - Thread-safe bridge for audio tap → WebSocket
 
-/// Holds the two properties accessed from the AVAudioEngine tap closure, which
-/// runs on the CoreAudio render thread (not the main actor). Storing them here
-/// avoids the Swift 6 `dispatch_assert_queue_fail` crash that occurs when the
-/// tap closure captures `self` and touches @MainActor-isolated ivars.
+/// Holds the properties accessed from AVAudioEngine tap closures, which run on
+/// the CoreAudio render thread (not the main actor). Storing them here avoids
+/// the Swift 6 `dispatch_assert_queue_fail` crash from touching @MainActor ivars.
 private final class AudioBridge: @unchecked Sendable {
     var isMicActive: Bool = false
     var webSocket: URLSessionWebSocketTask?
-    /// RMS amplitude of the most-recent mic frame (0–1). Updated on CoreAudio thread;
-    /// read on MainActor via a periodic Task dispatch.
+    /// RMS of the most-recent mic frame (0–1). CoreAudio thread → MainActor via timer.
     var micLevel: Float = 0
+    /// RMS of the most-recent agent playback frame (0–1). Same threading model.
+    var agentLevel: Float = 0
 }
 
 // MARK: - Voice demo agent (WebSocket + AVAudioEngine)
@@ -353,8 +387,16 @@ final class VoiceDemoAgent: NSObject {
         micLevelTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor [weak self] in
-                guard let self, self.isMicActive else { return }
-                self.audioLevel = self.bridge.micLevel
+                guard let self else { return }
+                if self.isMicActive {
+                    self.audioLevel = self.bridge.micLevel
+                } else if self.isAgentSpeaking {
+                    self.audioLevel = self.bridge.agentLevel
+                } else {
+                    // Gentle decay so bars don't freeze on the last value
+                    let d = self.audioLevel * 0.8
+                    self.audioLevel = d < 0.01 ? 0 : d
+                }
             }
         }
     }
@@ -411,9 +453,24 @@ final class VoiceDemoAgent: NSObject {
     private nonisolated static func buildAudioEngine(bridge: AudioBridge) -> (AVAudioEngine, AVAudioPlayerNode) {
         let engine = AVAudioEngine()
         let player = AVAudioPlayerNode()
+        let monitor = AVAudioMixerNode()
         engine.attach(player)
+        engine.attach(monitor)
         let playbackFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!
-        engine.connect(player, to: engine.mainMixerNode, format: playbackFormat)
+        // Route player → monitor → mainMixer so we can tap the agent audio level.
+        engine.connect(player, to: monitor, format: playbackFormat)
+        engine.connect(monitor, to: engine.mainMixerNode, format: playbackFormat)
+
+        // Real-time agent playback level — drives the waveform while Flynn speaks.
+        monitor.installTap(onBus: 0, bufferSize: 2048, format: nil) { buffer, _ in
+            guard let floatData = buffer.floatChannelData?[0] else { return }
+            let count = Int(buffer.frameLength)
+            guard count > 0 else { return }
+            var rmsSum: Float = 0
+            for i in 0..<count { rmsSum += floatData[i] * floatData[i] }
+            // pow(x, 0.4) boosts quiet TTS into a visible range
+            bridge.agentLevel = min(1.0, pow(sqrt(rmsSum / Float(count)), 0.4) * 1.6)
+        }
 
         // nil format → native hardware format; avoids NSException from stale format before engine.start().
         // Hardware is typically 44100 or 48000 Hz; server expects 16000 Hz Linear16 PCM.
@@ -437,7 +494,8 @@ final class VoiceDemoAgent: NSObject {
                     samples[i] = Int16(max(-32768, min(32767, Int(f * 32767))))
                     rmsSum += f * f
                 }
-                bridge.micLevel = min(1.0, sqrt(rmsSum / Float(outputCount)) * 4)
+                // *8 boost + sqrt makes quiet speech clearly visible in the waveform
+                bridge.micLevel = min(1.0, sqrt(sqrt(rmsSum / Float(outputCount))) * 1.4)
             } else {
                 bridge.micLevel = 0
             }
@@ -491,25 +549,16 @@ final class VoiceDemoAgent: NSObject {
         guard frameCount > 0,
               let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
         buffer.frameLength = frameCount
-        var rmsSum: Float = 0
         data.withUnsafeBytes { ptr in
             guard let int16Ptr = ptr.baseAddress?.assumingMemoryBound(to: Int16.self),
                   let dst = buffer.floatChannelData?[0] else { return }
             for i in 0..<Int(frameCount) {
-                let f = Float(int16Ptr[i]) / 32768.0
-                dst[i] = f
-                rmsSum += f * f
+                dst[i] = Float(int16Ptr[i]) / 32768.0
             }
         }
-        let rms = sqrt(rmsSum / Float(frameCount))
-        audioLevel = min(1.0, rms * 4)
         isAgentSpeaking = true
-        player.scheduleBuffer(buffer) { [weak self] in
-            Task { @MainActor in
-                guard let self else { return }
-                self.audioLevel = 0
-            }
-        }
+        // audioLevel is now driven by the monitor mixer tap in real time.
+        player.scheduleBuffer(buffer)
     }
 
     private func handleTextFrame(_ text: String) {

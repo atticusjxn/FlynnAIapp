@@ -1,5 +1,41 @@
 import Foundation
 
+// Shared between quotes and invoices — mirrors the JSONB line_items column.
+struct LineItem: Codable, Identifiable, Hashable, Equatable, Sendable {
+    var id: UUID
+    var description: String
+    var quantity: Double
+    var unitPrice: Double
+    var total: Double
+
+    enum CodingKeys: String, CodingKey {
+        case id, description, quantity, total
+        case unitPrice = "unit_price"
+    }
+}
+
+// Mutable draft used in form views only — never persisted directly.
+struct LineItemDraft: Identifiable {
+    var id = UUID()
+    var description: String = ""
+    var quantity: Double = 1
+    var unitPrice: Double = 0
+    var total: Double { quantity * unitPrice }
+
+    func toLineItem() -> LineItem {
+        LineItem(id: id, description: description, quantity: quantity, unitPrice: unitPrice, total: total)
+    }
+
+    static func from(_ item: LineItem) -> LineItemDraft {
+        var d = LineItemDraft()
+        d.id = item.id
+        d.description = item.description
+        d.quantity = item.quantity
+        d.unitPrice = item.unitPrice
+        return d
+    }
+}
+
 struct QuoteDTO: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     let orgId: UUID
@@ -7,6 +43,7 @@ struct QuoteDTO: Identifiable, Codable, Hashable, Sendable {
     let title: String?
     let clientId: UUID?
     let jobId: UUID?
+    let lineItems: [LineItem]
     let subtotal: Double
     let taxRate: Double
     let taxAmount: Double
@@ -18,6 +55,7 @@ struct QuoteDTO: Identifiable, Codable, Hashable, Sendable {
     let stripePaymentLinkUrl: String?
     let pdfUrl: String?
     let sentAt: Date?
+    let sentTo: String?
     let viewedAt: Date?
     let acceptedAt: Date?
     let declinedAt: Date?
@@ -31,6 +69,7 @@ struct QuoteDTO: Identifiable, Codable, Hashable, Sendable {
         case title
         case clientId = "client_id"
         case jobId = "job_id"
+        case lineItems = "line_items"
         case subtotal
         case taxRate = "tax_rate"
         case taxAmount = "tax_amount"
@@ -42,6 +81,7 @@ struct QuoteDTO: Identifiable, Codable, Hashable, Sendable {
         case stripePaymentLinkUrl = "stripe_payment_link_url"
         case pdfUrl = "pdf_url"
         case sentAt = "sent_at"
+        case sentTo = "sent_to"
         case viewedAt = "viewed_at"
         case acceptedAt = "accepted_at"
         case declinedAt = "declined_at"

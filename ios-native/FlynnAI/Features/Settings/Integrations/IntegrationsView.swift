@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Supabase
 
 @MainActor
@@ -20,22 +21,22 @@ final class IntegrationsStore {
     func load() async {
         loadState = .loading
         struct Row: Decodable {
-            let apple_calendar_connected: Bool
-            let google_calendar_connected: Bool
-            let telnyx_phone_number: String?
+            let apple_calendar_connected: Bool?
+            let google_calendar_connected: Bool?
+            let twilio_phone_number: String?
         }
         do {
             let session = try await client.auth.session
             let row: Row = try await client
                 .from("users")
-                .select("apple_calendar_connected, google_calendar_connected, telnyx_phone_number")
+                .select("apple_calendar_connected, google_calendar_connected, twilio_phone_number")
                 .eq("id", value: session.user.id.uuidString)
                 .single()
                 .execute()
                 .value
-            appleCalendarConnected = row.apple_calendar_connected
-            googleCalendarConnected = row.google_calendar_connected
-            telnyxPhoneNumber = row.telnyx_phone_number
+            appleCalendarConnected = row.apple_calendar_connected ?? false
+            googleCalendarConnected = row.google_calendar_connected ?? false
+            telnyxPhoneNumber = row.twilio_phone_number
             loadState = .loaded
         } catch {
             loadState = .error(error.localizedDescription)
@@ -82,17 +83,17 @@ struct IntegrationsView: View {
             .padding(FlynnSpacing.lg)
         }
         .background(FlynnColor.background)
-        .navigationTitle("Connected apps")
+        .navigationTitle("Calendar & Keyboard")
         .navigationBarTitleDisplayMode(.large)
         .task { await store.load() }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-            Text("Integrations")
+            Text("Setup")
                 .flynnType(FlynnTypography.overline)
                 .foregroundColor(FlynnColor.textTertiary)
-            Text("Keep Flynn in sync with your calendar and phone")
+            Text("Keep Flynn connected to your calendar and keyboard")
                 .flynnType(FlynnTypography.h3)
                 .foregroundColor(FlynnColor.textPrimary)
         }
@@ -123,7 +124,7 @@ struct IntegrationsView: View {
             disabled: true  // one-tap OAuth initiation lands in follow-up
         )
 
-        telnyxRow
+        keyboardRow
     }
 
     private func integrationRow(
@@ -161,29 +162,39 @@ struct IntegrationsView: View {
         .brutalistBorder(cornerRadius: FlynnRadii.md)
     }
 
-    private var telnyxRow: some View {
-        HStack(alignment: .top, spacing: FlynnSpacing.sm) {
-            Image(systemName: "phone.connection")
-                .font(.system(size: 22))
-                .foregroundColor(FlynnColor.success)
-                .frame(width: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Flynn phone number")
-                    .flynnType(FlynnTypography.h4)
-                    .foregroundColor(FlynnColor.textPrimary)
-                Text(store.telnyxPhoneNumber ?? "Not provisioned yet")
-                    .flynnType(FlynnTypography.caption)
-                    .foregroundColor(FlynnColor.textSecondary)
-                    .monospaced()
+    private var keyboardAdded: Bool { SharedStore.keyboardHeartbeat != nil }
+
+    private var keyboardRow: some View {
+        Button {
+            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+        } label: {
+            HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+                Image(systemName: "keyboard")
+                    .font(.system(size: 22))
+                    .foregroundColor(keyboardAdded ? FlynnColor.success : FlynnColor.primary)
+                    .frame(width: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Flynn keyboard")
+                        .flynnType(FlynnTypography.h4)
+                        .foregroundColor(FlynnColor.textPrimary)
+                    Text(keyboardAdded
+                         ? "Added — draft replies inside Messages"
+                         : "Add it in Settings → General → Keyboard, and turn on Full Access")
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textSecondary)
+                }
+                Spacer()
+                Image(systemName: keyboardAdded ? "checkmark.circle.fill" : "chevron.right")
+                    .foregroundColor(keyboardAdded ? FlynnColor.success : FlynnColor.textTertiary)
             }
-            Spacer()
+            .padding(FlynnSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                    .fill(FlynnColor.backgroundSecondary)
+            )
+            .brutalistBorder(cornerRadius: FlynnRadii.md)
         }
-        .padding(FlynnSpacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
-                .fill(FlynnColor.backgroundSecondary)
-        )
-        .brutalistBorder(cornerRadius: FlynnRadii.md)
+        .buttonStyle(.plain)
     }
 }

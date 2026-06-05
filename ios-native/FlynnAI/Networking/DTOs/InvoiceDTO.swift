@@ -8,6 +8,7 @@ struct InvoiceDTO: Identifiable, Codable, Hashable, Sendable {
     let clientId: UUID?
     let jobId: UUID?
     let quoteId: UUID?
+    let lineItems: [LineItem]
     let subtotal: Double
     let taxRate: Double
     let taxAmount: Double
@@ -36,6 +37,7 @@ struct InvoiceDTO: Identifiable, Codable, Hashable, Sendable {
         case clientId = "client_id"
         case jobId = "job_id"
         case quoteId = "quote_id"
+        case lineItems = "line_items"
         case subtotal
         case taxRate = "tax_rate"
         case taxAmount = "tax_amount"
