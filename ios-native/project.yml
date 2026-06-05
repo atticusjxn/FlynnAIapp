@@ -52,8 +52,8 @@ targets:
       properties:
         CFBundleName: $(PRODUCT_NAME)
         CFBundleDisplayName: Flynn
-        CFBundleShortVersionString: "3.0.0"
-        CFBundleVersion: "88"
+        CFBundleShortVersionString: "3.0.1"
+        CFBundleVersion: "89"
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         UILaunchScreen:
           UIColorName: ""
@@ -102,8 +102,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app
-        MARKETING_VERSION: "3.0.0"
-        CURRENT_PROJECT_VERSION: "88"
+        MARKETING_VERSION: "3.0.1"
+        CURRENT_PROJECT_VERSION: "89"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
         DEVELOPMENT_TEAM: "69T5H7R46N"
@@ -135,8 +135,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app.keyboard
         PRODUCT_NAME: FlynnKeyboard
-        MARKETING_VERSION: "3.0.0"
-        CURRENT_PROJECT_VERSION: "88"
+        MARKETING_VERSION: "3.0.1"
+        CURRENT_PROJECT_VERSION: "89"
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: "69T5H7R46N"
         CODE_SIGN_STYLE: Automatic
