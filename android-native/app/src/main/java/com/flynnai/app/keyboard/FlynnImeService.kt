@@ -4,11 +4,9 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.inputmethodservice.InputMethodService
 import android.view.View
-import android.view.inputmethod.InputConnection
+import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -31,8 +29,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.style.TextAlign
@@ -53,9 +51,9 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.flynnai.app.capture.staging.CaptureStagingStore
+import com.flynnai.app.capture.staging.StagedDraft
 import com.flynnai.app.data.api.FlynnApi
-import com.flynnai.app.ui.components.Mascot
-import com.flynnai.app.ui.components.MascotPose
 import com.flynnai.app.ui.theme.FlynnBackground
 import com.flynnai.app.ui.theme.FlynnCard
 import com.flynnai.app.ui.theme.FlynnInk
@@ -64,8 +62,12 @@ import com.flynnai.app.ui.theme.FlynnTextSecondary
 import com.flynnai.app.ui.theme.FlynnTextTertiary
 import com.flynnai.app.ui.theme.FlynnTheme
 import com.flynnai.app.ui.theme.FlynnTypography
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FlynnImeService : InputMethodService(), LifecycleOwner, SavedStateRegistryOwner {
 
@@ -78,15 +80,26 @@ class FlynnImeService : InputMethodService(), LifecycleOwner, SavedStateRegistry
 
     private var lastClipHash: Int = -1
 
+    // Bumped on every keyboard show so Compose re-evaluates the capture pickup. `onCreateInputView`
+    // (and its LaunchedEffect) runs only once, so without this a second field-show would not pick
+    // up a freshly-staged draft.
+    private val pickupTrigger = MutableStateFlow(0L)
+
     override fun onCreate() {
         super.onCreate()
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
     }
 
-    override fun onStartInput(attribute: android.view.inputmethod.EditorInfo?, restarting: Boolean) {
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+    }
+
+    override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
+        super.onStartInputView(info, restarting)
+        // Re-evaluate pickup priority each time the keyboard becomes visible.
+        pickupTrigger.value = System.currentTimeMillis()
     }
 
     override fun onFinishInput() {
@@ -108,15 +121,11 @@ class FlynnImeService : InputMethodService(), LifecycleOwner, SavedStateRegistry
                 FlynnTheme {
                     ImeContent(
                         context = this@FlynnImeService,
-                        onInsert = { text ->
-                            currentInputConnection?.commitText(text, 1)
-                            // Record accepted draft (fire and forget)
-                            val token = KeyboardTokenStore.getToken(this@FlynnImeService) ?: return@ImeContent
-                            FlynnApi.recordAccepted(text, token)
-                        },
+                        pickupTrigger = pickupTrigger,
+                        onCommit = { text -> currentInputConnection?.commitText(text, 1) },
                         onSwitchKeyboard = { switchToNextInputMethod(false) },
-                        shouldAutoTrigger = { freshClip() },
-                        getClipText = { clipText() },
+                        freshClip = { freshClip() },
+                        clipText = { clipText() },
                     )
                 }
             }
@@ -141,32 +150,50 @@ class FlynnImeService : InputMethodService(), LifecycleOwner, SavedStateRegistry
 }
 
 // ─────────────────────────────────────────────────────────
-// UI
+// State
 // ─────────────────────────────────────────────────────────
+
+private const val STAGED_FRESH_MS = 8_000L
 
 private sealed interface ImeState {
     data object Idle : ImeState
     data object Loading : ImeState
-    data class Results(val drafts: List<String>, val index: Int) : ImeState
+    data class Results(
+        val drafts: List<String>,
+        val index: Int,
+        val sender: String?,
+        val source: String,
+        val messages: List<String>,
+    ) : ImeState
     data class StatusMessage(val text: String) : ImeState
 }
+
+// ─────────────────────────────────────────────────────────
+// UI
+// ─────────────────────────────────────────────────────────
 
 @Composable
 private fun ImeContent(
     context: Context,
-    onInsert: (String) -> Unit,
+    pickupTrigger: StateFlow<Long>,
+    onCommit: (String) -> Unit,
     onSwitchKeyboard: () -> Unit,
-    shouldAutoTrigger: () -> Boolean,
-    getClipText: () -> String?,
+    freshClip: () -> Boolean,
+    clipText: () -> String?,
 ) {
     var state by remember { mutableStateOf<ImeState>(ImeState.Idle) }
     val scope = rememberCoroutineScope()
 
-    // Auto-draft on appear when clipboard is new
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (shouldAutoTrigger()) {
-            triggerDraft(context, getClipText, onStateChange = { state = it }, scope)
-        }
+    // Re-run pickup on every keyboard show (pickupTrigger changes), plus once on first composition.
+    val trigger by pickupTrigger.collectAsState()
+    LaunchedEffect(trigger) {
+        runPickup(
+            context = context,
+            scope = scope,
+            freshClip = freshClip,
+            clipText = clipText,
+            onStateChange = { state = it },
+        )
     }
 
     Column(
@@ -181,16 +208,22 @@ private fun ImeContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val businessName = KeyboardTokenStore.getBusinessName(context)
+            val headerLabel = (state as? ImeState.Results)?.sender?.let { "Replying to $it" }
+                ?: KeyboardTokenStore.getBusinessName(context)?.let { "Flynn · $it" }
+                ?: "Flynn"
             Text(
-                text = if (businessName != null) "Flynn · $businessName" else "Flynn",
+                text = headerLabel,
                 style = FlynnTypography.labelMedium,
                 color = FlynnTextSecondary,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = {
-                    state = ImeState.Loading
-                    triggerDraft(context, getClipText, onStateChange = { state = it }, scope)
+                    val clip = clipText()
+                    if (clip == null) {
+                        state = ImeState.StatusMessage("Copy a message first, then tap ↻ Redraft.")
+                    } else {
+                        triggerDraft(context, listOf(clip), FlynnApi.Source.CLIPBOARD, null, scope) { state = it }
+                    }
                 }) {
                     Text("↻ Redraft", color = FlynnOrange, style = FlynnTypography.labelMedium)
                 }
@@ -203,14 +236,13 @@ private fun ImeContent(
 
         Spacer(Modifier.height(6.dp))
 
-        // Content area
         AnimatedContent(
             targetState = state,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             label = "imeContent",
         ) { s ->
             when (s) {
-                is ImeState.Idle -> StatusText("Copy a message, then tap ↻ Redraft.")
+                is ImeState.Idle -> StatusText("Copy a message, or capture a chat — drafts appear here.")
                 is ImeState.Loading -> LoadingView()
                 is ImeState.StatusMessage -> StatusText(s.text)
                 is ImeState.Results -> DraftCard(
@@ -219,7 +251,18 @@ private fun ImeContent(
                     onNext = { state = s.copy(index = (s.index + 1).coerceAtMost(s.drafts.lastIndex)) },
                     onPrev = { state = s.copy(index = (s.index - 1).coerceAtLeast(0)) },
                     onInsert = { text ->
-                        onInsert(text)
+                        onCommit(text)
+                        // Fire-and-forget learning signal with full contrastive context.
+                        KeyboardTokenStore.getToken(context)?.let { token ->
+                            FlynnApi.recordAccepted(
+                                text = text,
+                                token = token,
+                                source = s.source,
+                                candidates = s.drafts,
+                                pickedIndex = s.index,
+                                messages = s.messages.ifEmpty { null },
+                            )
+                        }
                         state = ImeState.StatusMessage("Inserted ✓  — switch back to send.")
                     },
                 )
@@ -230,30 +273,73 @@ private fun ImeContent(
     }
 }
 
+/**
+ * Decide what to show when the keyboard appears. Priority:
+ *   1. A fresh, un-consumed staged capture (notification / screenshot) within the freshness window.
+ *   2. A new clipboard copy.
+ *   3. Otherwise leave the current state untouched (don't clobber drafts the user is browsing).
+ */
+private suspend fun runPickup(
+    context: Context,
+    scope: CoroutineScope,
+    freshClip: () -> Boolean,
+    clipText: () -> String?,
+    onStateChange: (ImeState) -> Unit,
+) {
+    val now = System.currentTimeMillis()
+    val fresh = withContext(Dispatchers.IO) { CaptureStagingStore.peek(context) }?.takeIf {
+        !it.consumed &&
+            (it.source == FlynnApi.Source.NOTIFICATION || it.source == FlynnApi.Source.SCREENSHOT) &&
+            now - it.capturedAt <= STAGED_FRESH_MS
+    }
+
+    if (fresh != null) {
+        withContext(Dispatchers.IO) { CaptureStagingStore.markConsumed(context) }
+        when {
+            fresh.limitReached ->
+                onStateChange(ImeState.StatusMessage("You're out of free drafts today — open Flynn to go unlimited."))
+            fresh.needsDraft || fresh.drafts.isEmpty() ->
+                triggerDraft(context, fresh.messages, fresh.source, fresh.sender, scope, onStateChange)
+            else ->
+                onStateChange(ImeState.Results(fresh.drafts, 0, fresh.sender, fresh.source, fresh.messages))
+        }
+        return
+    }
+
+    // No fresh staged capture — fall back to a new clipboard copy. Otherwise leave the current
+    // state untouched so we don't clobber drafts the user is browsing.
+    if (freshClip()) {
+        clipText()?.let { clip ->
+            triggerDraft(context, listOf(clip), FlynnApi.Source.CLIPBOARD, null, scope, onStateChange)
+        }
+    }
+}
+
 private fun triggerDraft(
     context: Context,
-    getClipText: () -> String?,
+    messages: List<String>,
+    source: String,
+    sender: String?,
+    scope: CoroutineScope,
     onStateChange: (ImeState) -> Unit,
-    scope: kotlinx.coroutines.CoroutineScope,
 ) {
     val token = KeyboardTokenStore.getToken(context)
     if (token == null) {
         onStateChange(ImeState.StatusMessage("Open the Flynn app once to finish setup."))
         return
     }
-    val text = getClipText()
-    if (text == null) {
-        onStateChange(ImeState.StatusMessage("Copy a message first, then tap ↻ Redraft."))
+    if (messages.isEmpty() || messages.all { it.isBlank() }) {
+        onStateChange(ImeState.StatusMessage("Nothing to draft yet — copy a message or capture a chat."))
         return
     }
     onStateChange(ImeState.Loading)
     scope.launch(Dispatchers.IO) {
         try {
-            val drafts = FlynnApi.fetchDrafts(listOf(text), token)
+            val drafts = FlynnApi.fetchDrafts(messages, token, source)
             if (drafts.isEmpty()) {
                 onStateChange(ImeState.StatusMessage("Couldn't draft anything — tap ↻ Redraft."))
             } else {
-                onStateChange(ImeState.Results(drafts, 0))
+                onStateChange(ImeState.Results(drafts, 0, sender, source, messages))
             }
         } catch (e: FlynnApi.ApiError.LimitReached) {
             onStateChange(ImeState.StatusMessage("You're out of free drafts today — open Flynn to go unlimited."))
@@ -274,7 +360,6 @@ private fun DraftCard(
     var dragAccum by remember { mutableStateOf(0f) }
 
     Column {
-        // Swipeable card
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -302,7 +387,6 @@ private fun DraftCard(
             }
         }
 
-        // Pager (hidden if only 1 draft)
         if (drafts.size > 1) {
             Spacer(Modifier.height(4.dp))
             Row(

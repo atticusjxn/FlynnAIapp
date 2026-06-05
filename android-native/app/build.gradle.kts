@@ -51,6 +51,13 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 val supabaseVersion = "3.1.4"
@@ -74,6 +81,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-service:2.8.7")
     implementation("androidx.navigation:navigation-compose:2.8.4")
     // IME Compose lifecycle integration
@@ -105,4 +113,17 @@ dependencies {
 
     // Coil (image loading — mascot PNGs)
     implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+
+    // ML Kit on-device OCR (GMS-delivered model → lean APK, downloaded once via Play Services)
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
+
+    // AndroidX core for NotificationCompat.MessagingStyle extraction (already transitively present
+    // via compose, declared explicitly for the capture layer).
+    implementation("androidx.core:core:1.15.0")
+
+    // Unit tests
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core:1.6.1")
 }

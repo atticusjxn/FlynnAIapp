@@ -65,6 +65,7 @@ fun MainTabView() {
 
     var showSettings by remember { mutableStateOf(false) }
     var showAccount by remember { mutableStateOf(false) }
+    var showCapture by remember { mutableStateOf(false) }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -113,8 +114,18 @@ fun MainTabView() {
                 }
             },
         ) { paddingValues ->
+            if (showCapture) {
+                com.flynnai.app.feature.settings.CaptureSetupScreen(
+                    modifier = Modifier.padding(paddingValues),
+                    onBack = { showCapture = false },
+                )
+                return@Scaffold
+            }
             if (showSettings) {
-                SettingsScreen(modifier = Modifier.padding(paddingValues))
+                SettingsScreen(
+                    modifier = Modifier.padding(paddingValues),
+                    onNavigateToCapture = { showCapture = true },
+                )
                 return@Scaffold
             }
             if (showAccount) {

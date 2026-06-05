@@ -29,14 +29,34 @@ object FlynnApi {
     @Serializable
     private data class ProvisionTokenResponse(val token: String, val expiresAt: String? = null)
 
+    /** Where a capture originated. The backend currently buckets anything != "screenshot"
+     *  as "clipboard"; "notification" is forwarded for future server-side framing and is
+     *  safe today (it falls through to the clipboard prompt). */
+    object Source {
+        const val CLIPBOARD = "clipboard"
+        const val SCREENSHOT = "screenshot"
+        const val NOTIFICATION = "notification"
+    }
+
     @Serializable
-    data class DraftRequest(val messages: List<String>)
+    data class DraftRequest(
+        val messages: List<String>,
+        val source: String = Source.CLIPBOARD,
+        val draftCount: Int? = null,
+        val proposedSlots: List<String>? = null,
+    )
 
     @Serializable
     data class DraftResponse(val drafts: List<String>)
 
     @Serializable
-    data class AcceptDraftRequest(val text: String)
+    data class AcceptDraftRequest(
+        val text: String,
+        val source: String = Source.CLIPBOARD,
+        val candidates: List<String>? = null,
+        val pickedIndex: Int? = null,
+        val messages: List<String>? = null,
+    )
 
     sealed class ApiError : Exception() {
         data object NotConfigured : ApiError()
@@ -56,10 +76,16 @@ object FlynnApi {
         return json.decodeFromString<ProvisionTokenResponse>(response.bodyAsText()).token
     }
 
-    suspend fun fetchDrafts(messages: List<String>, token: String): List<String> {
+    suspend fun fetchDrafts(
+        messages: List<String>,
+        token: String,
+        source: String = Source.CLIPBOARD,
+        draftCount: Int? = null,
+        proposedSlots: List<String>? = null,
+    ): List<String> {
         val response = http.post("${Environment.flynnApiBaseUrl}/api/keyboard/draft-replies") {
             bearerAuth(token)
-            setBody(DraftRequest(messages))
+            setBody(DraftRequest(messages, source, draftCount, proposedSlots))
         }
         return when (response.status.value) {
             402 -> throw ApiError.LimitReached
@@ -68,13 +94,22 @@ object FlynnApi {
         }
     }
 
-    fun recordAccepted(text: String, token: String) {
+    /** Fire-and-forget learning signal. Sends the inserted text plus the full candidate set,
+     *  picked index, source, and the originating messages for contrastive/substance learning. */
+    fun recordAccepted(
+        text: String,
+        token: String,
+        source: String = Source.CLIPBOARD,
+        candidates: List<String>? = null,
+        pickedIndex: Int? = null,
+        messages: List<String>? = null,
+    ) {
         @Suppress("OPT_IN_USAGE")
         GlobalScope.launch(Dispatchers.IO) {
             runCatching {
                 http.post("${Environment.flynnApiBaseUrl}/api/keyboard/accept-draft") {
                     bearerAuth(token)
-                    setBody(AcceptDraftRequest(text))
+                    setBody(AcceptDraftRequest(text, source, candidates, pickedIndex, messages))
                 }
             }
         }

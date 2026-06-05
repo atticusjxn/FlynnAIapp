@@ -6,6 +6,21 @@
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Screen capture (screenshot fallback path) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Resolve which allow-listed messaging apps are installed, for the capture picker. -->
+    <queries>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+        <package android:name="com.google.android.apps.messaging" />
+        <package android:name="com.facebook.orca" />
+        <package android:name="org.thoughtcrime.securesms" />
+        <package android:name="com.instagram.android" />
+    </queries>
+
     <application
         android:name=".FlynnApp"
         android:allowBackup="false"
@@ -38,6 +53,41 @@
                 android:name="android.view.im"
                 android:resource="@xml/method" />
         </service>
+
+        <!-- PRIMARY capture: read-only message-notification listener. Bound by the system via
+             the privileged bind permission; the user enables it in Settings › Notification access. -->
+        <service
+            android:name=".capture.notification.FlynnNotificationListener"
+            android:exported="true"
+            android:label="@string/notification_listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- Fallback capture: Quick Settings tile → MediaProjection screenshot + on-device OCR. -->
+        <service
+            android:name=".capture.screenshot.FlynnCaptureTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_flynn"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".capture.screenshot.MediaProjectionConsentActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Flynn.Transparent" />
+
+        <service
+            android:name=".capture.screenshot.ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
     </application>
 </manifest>

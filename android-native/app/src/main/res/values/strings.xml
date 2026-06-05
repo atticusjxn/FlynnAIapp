@@ -2,4 +2,15 @@
 <resources>
     <string name="app_name">Flynn</string>
     <string name="ime_label">Flynn Keyboard</string>
+
+    <!-- Notification listener -->
+    <string name="notification_listener_label">Flynn message capture</string>
+
+    <!-- Quick Settings capture tile -->
+    <string name="tile_label">Flynn capture</string>
+
+    <!-- Screen-capture foreground service -->
+    <string name="capture_channel_name">Screen capture</string>
+    <string name="capture_notification_title">Flynn is reading the screen</string>
+    <string name="capture_notification_text">Drafting a reply…</string>
 </resources>

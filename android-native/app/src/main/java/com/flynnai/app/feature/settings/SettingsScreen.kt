@@ -18,9 +18,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -38,7 +38,11 @@ import com.flynnai.app.ui.theme.FlynnTextTertiary
 import com.flynnai.app.ui.theme.FlynnTypography
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier, onNavigateToSubscription: () -> Unit = {}) {
+fun SettingsScreen(
+    modifier: Modifier = Modifier,
+    onNavigateToSubscription: () -> Unit = {},
+    onNavigateToCapture: () -> Unit = {},
+) {
     val context = LocalContext.current
     Column(
         modifier = modifier
@@ -51,6 +55,10 @@ fun SettingsScreen(modifier: Modifier = Modifier, onNavigateToSubscription: () -
         Spacer(Modifier.height(20.dp))
 
         SettingsSection("Setup") {
+            SettingsRow(Icons.Default.ChatBubbleOutline, "Message capture",
+                subtitle = "How Flynn reads messages to draft replies",
+                onClick = onNavigateToCapture)
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = OB.ink.copy(alpha = 0.08f))
             SettingsRow(Icons.Default.CalendarMonth, "Calendar & Keyboard",
                 subtitle = "Connect integrations") {
                 context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
@@ -58,8 +66,6 @@ fun SettingsScreen(modifier: Modifier = Modifier, onNavigateToSubscription: () -
         }
 
         SettingsSection("Preferences") {
-            SettingsRow(Icons.Default.Notifications, "Notifications") {}
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = OB.ink.copy(alpha = 0.08f))
             SettingsRow(Icons.Default.Brush, "Appearance") {}
         }
 
