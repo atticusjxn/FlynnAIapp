@@ -11,7 +11,7 @@ enum FlynnConfig {
     ///
     /// While this is `nil`, the capture-setup screen shows the manual build steps
     /// as a fallback.
-    static let captureShortcutURL: URL? = nil
+    static let captureShortcutURL: URL? = URL(string: "https://www.icloud.com/shortcuts/d94df0905caa48cfaa903d1e5878e571")
 
     /// The intent's title as it appears in the Shortcuts/Settings pickers — kept in
     /// one place so onboarding copy and the AppIntent title stay in sync.

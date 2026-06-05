@@ -2,7 +2,7 @@ name: FlynnAI
 options:
   bundleIdPrefix: com.flynnai
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "17.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
   groupSortPosition: top
@@ -16,7 +16,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
-    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     DEVELOPMENT_LANGUAGE: en
     CLANG_ENABLE_MODULES: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -103,7 +103,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app
         MARKETING_VERSION: "3.0.1"
-        CURRENT_PROJECT_VERSION: "89"
+        CURRENT_PROJECT_VERSION: "92"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
         DEVELOPMENT_TEAM: "69T5H7R46N"
@@ -136,7 +136,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app.keyboard
         PRODUCT_NAME: FlynnKeyboard
         MARKETING_VERSION: "3.0.1"
-        CURRENT_PROJECT_VERSION: "89"
+        CURRENT_PROJECT_VERSION: "92"
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: "69T5H7R46N"
         CODE_SIGN_STYLE: Automatic
