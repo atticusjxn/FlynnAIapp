@@ -21,6 +21,8 @@ enum FlynnShared {
         static let threadKey = "flynn.thread.key"
         static let threadMessages = "flynn.thread.messages"
         static let threadUpdatedAt = "flynn.thread.updatedAt"
+        /// Drafts staged by the screenshot App Intent for the keyboard to display.
+        static let stagedScreenshot = "flynn.staged.screenshot"
     }
 
     /// Keychain account name for the keyboard JWT.
@@ -29,4 +31,9 @@ enum FlynnShared {
     /// A new copy that lands more than this many seconds after the last one starts
     /// a fresh conversation thread instead of appending.
     static let threadResetWindowSeconds: TimeInterval = 600
+
+    /// A staged screenshot capture older than this is ignored by the keyboard, so a
+    /// stale capture never overrides a fresh clipboard copy. Sized to comfortably
+    /// cover the gesture → app-switch → open-keyboard hop.
+    static let stagedDraftFreshnessSeconds: TimeInterval = 90
 }

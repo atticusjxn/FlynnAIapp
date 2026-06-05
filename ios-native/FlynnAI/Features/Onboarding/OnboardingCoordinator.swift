@@ -98,7 +98,9 @@ struct OnboardingCoordinator: View {
             case .practice:
                 PracticeStepView(onContinue: store.advance)
             case .installKeyboard:
-                InstallKeyboardStepView(onFinish: finish)
+                InstallKeyboardStepView(onContinue: store.advance)
+            case .captureSetup:
+                CaptureSetupStepView(onFinish: finish)
             }
         }
         .id(store.currentStep)

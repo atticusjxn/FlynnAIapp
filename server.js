@@ -2334,7 +2334,8 @@ app.post('/api/keyboard/provision-token', authenticateJwt, async (req, res) => {
  * messages. Used by the keyboard extension. Privacy: customer message text is
  * used only to build the prompt and is NOT persisted.
  * POST /api/keyboard/draft-replies
- * Body: { messages: string[], proposedSlots?: string[], draftCount?: number }
+ * Body: { messages: string[], proposedSlots?: string[], draftCount?: number,
+ *         source?: 'clipboard'|'screenshot' }
  */
 app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
   const userId = req.user?.id;
@@ -2355,6 +2356,9 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
     ? req.body.proposedSlots.filter((s) => typeof s === 'string' && s.trim()).slice(0, 5)
     : [];
   const draftCount = Math.min(Math.max(parseInt(req.body?.draftCount, 10) || 4, 1), 4);
+  // How the conversation was captured: 'screenshot' (gesture) or 'clipboard'
+  // (copy→keyboard). Tweaks the prompt framing; defaults to clipboard.
+  const source = req.body?.source === 'screenshot' ? 'screenshot' : 'clipboard';
 
   try {
     // Free-tier gate: unlimited for entitled users; capped per day otherwise.
@@ -2403,9 +2407,13 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
     const { drafts, usage } = await generateDrafts({
       profileRow: profileRow || {},
       toneSamples,
+      // The accepted samples are exactly the replies the user has picked before —
+      // used to derive substance preferences (length, price, time, emoji, greeting).
+      pickedSamples: accepted,
       messages,
       proposedSlots,
       draftCount,
+      source,
     });
 
     if (!drafts || drafts.length === 0) {
@@ -2426,9 +2434,12 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
 
 /**
  * Learning loop: record a draft the user actually tapped/sent so future drafts
- * lean toward that style. Stored as a tone sample with source='accepted'.
+ * lean toward that style (voice) AND substance. The accepted text is stored as a
+ * tone sample (source='accepted'); the full candidate set + picked index + source
+ * + conversation are stored in draft_picks for contrastive/substance learning.
  * POST /api/keyboard/accept-draft
- * Body: { text: string }
+ * Body: { text: string, candidates?: string[], pickedIndex?: number,
+ *         source?: 'clipboard'|'screenshot', messages?: string[] }
  */
 app.post('/api/keyboard/accept-draft', authenticateJwt, async (req, res) => {
   const userId = req.user?.id;
@@ -2438,6 +2449,16 @@ app.post('/api/keyboard/accept-draft', authenticateJwt, async (req, res) => {
   const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
   if (!text) return res.status(400).json({ error: 'No draft text provided' });
 
+  // Optional richer learning signals (back-compatible: clipboard path may omit them).
+  const candidates = Array.isArray(req.body?.candidates)
+    ? req.body.candidates.filter((c) => typeof c === 'string').map((c) => c.slice(0, 1000)).slice(0, 8)
+    : [];
+  const messages = Array.isArray(req.body?.messages)
+    ? req.body.messages.filter((m) => typeof m === 'string').map((m) => m.slice(0, 2000)).slice(0, 20)
+    : [];
+  const pickedIndex = Number.isInteger(req.body?.pickedIndex) ? req.body.pickedIndex : null;
+  const source = req.body?.source === 'screenshot' ? 'screenshot' : 'clipboard';
+
   try {
     const { error } = await supabaseStorageClient
       .from('tone_samples')
@@ -2446,6 +2467,21 @@ app.post('/api/keyboard/accept-draft', authenticateJwt, async (req, res) => {
       console.error('[Keyboard] accept-draft insert failed:', error.message);
       return res.status(500).json({ error: 'Failed to record accepted draft' });
     }
+
+    // Best-effort: never fail the request if the richer record can't be written.
+    try {
+      await supabaseStorageClient.from('draft_picks').insert({
+        user_id: userId,
+        messages,
+        candidates,
+        picked_index: pickedIndex,
+        picked_text: text.slice(0, 1000),
+        source,
+      });
+    } catch (pickErr) {
+      console.warn('[Keyboard] draft_picks insert failed (non-fatal):', pickErr?.message);
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('[Keyboard] accept-draft failed:', error?.message);

@@ -20,6 +20,7 @@ final class OnboardingStore {
         case paywall         = 6
         case practice        = 7
         case installKeyboard = 8
+        case captureSetup    = 9
 
         var id: Int { rawValue }
 
@@ -34,6 +35,7 @@ final class OnboardingStore {
             case .paywall:         return "Unlock Flynn"
             case .practice:        return "Try it once"
             case .installKeyboard: return "Add the Flynn keyboard"
+            case .captureSetup:    return "How you'll capture"
             }
         }
     }
@@ -186,27 +188,30 @@ final class OnboardingStore {
         }
         do {
             let session = try await client.auth.session
-            let row: Row = try await client
+            let rows: [Row] = try await client
                 .from("users")
                 .select("onboarding_completed, has_provisioned_phone")
                 .eq("id", value: session.user.id.uuidString)
-                .single()
+                .limit(1)
                 .execute()
                 .value
-            onboardingCompleted = row.onboarding_completed
-            hasProvisionedPhone = row.has_provisioned_phone ?? false
             verifiedPhone = session.user.phone
             demoUserId = session.user.id.uuidString
-
-            // Restore in-progress step if the user quit mid-onboarding last launch.
-            if row.onboarding_completed == false, let saved = Self.restoreStep() {
-                currentStep = saved
+            if let row = rows.first {
+                onboardingCompleted = row.onboarding_completed
+                hasProvisionedPhone = row.has_provisioned_phone ?? false
+                if row.onboarding_completed == false, let saved = Self.restoreStep() {
+                    currentStep = saved
+                }
+            } else {
+                // New user — no users row yet, always show onboarding.
+                onboardingCompleted = false
             }
-
             loadState = .loaded
         } catch {
             loadState = .error(error.localizedDescription)
-            onboardingCompleted = true
+            // Leave onboardingCompleted as nil — nil != true so onboarding shows,
+            // which is the safe default for both new users and transient errors.
         }
     }
 

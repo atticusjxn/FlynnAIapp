@@ -47,15 +47,66 @@ const profileRowToContext = (row = {}) => {
   };
 };
 
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}]/u;
+const PRICE_RE = /(\$\s?\d|\bquote\b|\bprice[ds]?\b|\bcost[s]?\b|\bper hour\b|\b\d+\s?(?:dollars|bucks)\b)/i;
+const TIME_RE = /\b(mon|tue|wed|thu|fri|sat|sun|today|tomorrow|tonight|morning|afternoon|evening|\d{1,2}(?::\d{2})?\s?(?:am|pm)|\d{1,2}\s?(?:am|pm))\b/i;
+const GREETING_RE = /^(hi|hey|hello|g'?day|gday|morning|cheers|yo)\b/i;
+
+/**
+ * Derive lightweight "substance" preferences from the replies the owner has
+ * picked before (passive learning beyond pure voice mimicry). Pure heuristics,
+ * no extra model call. Returns a compact instruction block, or '' when there
+ * isn't enough signal yet.
+ */
+const deriveLearnedPreferences = (pickedSamples = []) => {
+  const samples = (pickedSamples || [])
+    .filter((s) => typeof s === 'string' && s.trim().length > 0)
+    .slice(0, 25);
+  if (samples.length < 3) return ''; // not enough history to be confident
+
+  const n = samples.length;
+  const frac = (pred) => samples.filter(pred).length / n;
+  const avgWords =
+    samples.reduce((sum, s) => sum + s.trim().split(/\s+/).length, 0) / n;
+
+  const lines = [];
+  // Length: only assert when consistently short or notably long.
+  if (avgWords <= 14) lines.push(`- Keep replies short (around ${Math.round(avgWords)} words).`);
+  else if (avgWords >= 30) lines.push(`- Replies tend to be longer (around ${Math.round(avgWords)} words).`);
+
+  const priceFrac = frac((s) => PRICE_RE.test(s));
+  if (priceFrac >= 0.6) lines.push('- Usually mentions a price, quote or cost.');
+  else if (priceFrac <= 0.15) lines.push('- Rarely talks price up front.');
+
+  const timeFrac = frac((s) => TIME_RE.test(s));
+  if (timeFrac >= 0.6) lines.push('- Often offers a specific day or time.');
+
+  const emojiFrac = frac((s) => EMOJI_RE.test(s));
+  if (emojiFrac >= 0.5) lines.push('- Often uses an emoji.');
+  else if (emojiFrac <= 0.1) lines.push('- Rarely uses emoji.');
+
+  const greetFrac = frac((s) => GREETING_RE.test(s.trim()));
+  if (greetFrac >= 0.6) lines.push('- Usually opens with a quick greeting.');
+  else if (greetFrac <= 0.15) lines.push('- Usually skips a greeting and gets to the point.');
+
+  if (lines.length === 0) return '';
+  return [
+    'Learned preferences — patterns from replies this owner has actually picked before. Lean toward these (they describe substance, not just style):',
+    lines.join('\n'),
+  ].join('\n');
+};
+
 /**
  * Build the system + user prompt for a draft request.
  */
 const buildPrompt = ({
   businessBrainText = '',
   toneSamples = [],
+  pickedSamples = [],
   messages = [],
   proposedSlots = [],
   draftCount = DEFAULT_DRAFT_COUNT,
+  source = null,
 }) => {
   const systemParts = [
     'You draft SMS replies for a small-business owner (often a sole-trader tradesperson) replying to a customer who messaged them.',
@@ -69,6 +120,11 @@ const buildPrompt = ({
     );
   } else {
     systemParts.push('Write in a warm, natural, casual human voice — never stiff or corporate.');
+  }
+
+  const learnedPreferences = deriveLearnedPreferences(pickedSamples);
+  if (learnedPreferences) {
+    systemParts.push(learnedPreferences);
   }
 
   if (businessBrainText) {
@@ -90,10 +146,17 @@ const buildPrompt = ({
     `Respond with ONLY a JSON object of the form {"drafts": ["reply 1", "reply 2", ...]} containing EXACTLY ${draftCount} distinct reply options. No other keys, no prose, no markdown.`
   );
 
-  const userText = [
-    'The customer sent the following (it may arrive in fragments — treat it as one conversation):',
-    messages.map((m) => `- ${m}`).join('\n'),
-  ].join('\n');
+  // Screenshot captures contain the whole visible conversation (both sides + app
+  // chrome); clipboard captures are just the customer's copied message(s).
+  const userText = source === 'screenshot'
+    ? [
+        "This is the text Flynn read from a screenshot of the conversation — it may include BOTH the customer's messages and the owner's own earlier replies, plus app chrome like names and timestamps. Focus on the latest customer message and draft the owner's next reply:",
+        messages.join('\n'),
+      ].join('\n')
+    : [
+        'The customer sent the following (it may arrive in fragments — treat it as one conversation):',
+        messages.map((m) => `- ${m}`).join('\n'),
+      ].join('\n');
 
   return {
     system: systemParts.join('\n\n'),
@@ -137,9 +200,11 @@ const parseDrafts = (content, draftCount) => {
 const generateDrafts = async ({
   profileRow = {},
   toneSamples = [],
+  pickedSamples = [],
   messages = [],
   proposedSlots = [],
   draftCount = DEFAULT_DRAFT_COUNT,
+  source = null,
 } = {}) => {
   const cleanedMessages = (messages || [])
     .map((m) => (typeof m === 'string' ? m.trim() : ''))
@@ -153,9 +218,11 @@ const generateDrafts = async ({
   const { system, user } = buildPrompt({
     businessBrainText,
     toneSamples,
+    pickedSamples,
     messages: cleanedMessages,
     proposedSlots,
     draftCount,
+    source,
   });
 
   const client = getLLMClient('compatible');
@@ -179,6 +246,7 @@ const generateDrafts = async ({
 module.exports = {
   DEFAULT_DRAFT_COUNT,
   profileRowToContext,
+  deriveLearnedPreferences,
   buildPrompt,
   parseDrafts,
   generateDrafts,

@@ -455,13 +455,13 @@ struct ConnectCalendarStepView: View {
 // MARK: - Install keyboard (the one-off ask, value already shown)
 
 struct InstallKeyboardStepView: View {
-    let onFinish: () -> Void
+    let onContinue: () -> Void
 
     var body: some View {
         OnboardingScaffold(variant: 2) {
             HStack(alignment: .top) {
                 OnboardingHeadline(
-                    eyebrow: "Last step",
+                    eyebrow: "Almost there",
                     title: "Add the",
                     accentTitle: "Flynn keyboard",
                     subtitle: "This is how Flynn drafts replies right inside Messages. One-time setup — copy a message, switch to the Flynn keyboard, tap a reply."
@@ -474,7 +474,7 @@ struct InstallKeyboardStepView: View {
             instructionRow("3", "Tap Flynn and turn on “Allow Full Access” so it can draft from your copied message.")
         } footer: {
             RetroButton(title: "Open Settings", action: openSettings)
-            RetroButton(title: "I've added it — finish", variant: .secondary, action: onFinish)
+            RetroButton(title: "I've added it — next", variant: .secondary, action: onContinue)
         }
     }
 
