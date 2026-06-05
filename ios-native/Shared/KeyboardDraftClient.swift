@@ -1,8 +1,10 @@
 import Foundation
 
-/// Network client used by the keyboard extension. Calls the backend with the
+/// Network client for the drafting endpoints. Calls the backend with the
 /// long-lived keyboard JWT (minted by the main app, read from the shared
-/// keychain). Kept tiny and dependency-free to respect the keyboard's memory cap.
+/// keychain). Lives in `Shared/` so BOTH the keyboard extension and the
+/// app-process `ScreenshotDraftIntent` can reuse it. Kept tiny and
+/// dependency-free to respect the keyboard's memory cap.
 enum KeyboardDraftClient {
     enum ClientError: Error {
         case notConfigured        // missing API base URL or token
@@ -17,7 +19,7 @@ enum KeyboardDraftClient {
     }
 
     /// Fetch reply drafts for the accumulated customer messages.
-    static func fetchDrafts(messages: [String]) async throws -> [String] {
+    static func fetchDrafts(messages: [String], source: String? = nil) async throws -> [String] {
         guard let base = baseURL(), let token = SharedSecureStore.keyboardToken else {
             throw ClientError.notConfigured
         }
@@ -27,7 +29,7 @@ enum KeyboardDraftClient {
         req.timeoutInterval = 8
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONEncoder().encode(DraftRequest(messages: messages))
+        req.httpBody = try JSONEncoder().encode(DraftRequest(messages: messages, source: source))
 
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw ClientError.server(-1) }
@@ -39,16 +41,31 @@ enum KeyboardDraftClient {
         return decoded.drafts
     }
 
-    /// Best-effort: tell the backend which draft the user accepted (learning loop).
+    /// Best-effort: tell the backend which draft the user accepted, with the full
+    /// candidate set + pick index + source so it can learn voice AND substance.
     /// Fire-and-forget; never throws into the UI.
-    static func recordAccepted(text: String) {
+    static func recordAccepted(
+        text: String,
+        source: String = "clipboard",
+        candidates: [String]? = nil,
+        pickedIndex: Int? = nil,
+        messages: [String]? = nil
+    ) {
         guard let base = baseURL(), let token = SharedSecureStore.keyboardToken else { return }
         var req = URLRequest(url: base.appendingPathComponent("api/keyboard/accept-draft"))
         req.httpMethod = "POST"
         req.timeoutInterval = 6
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONEncoder().encode(AcceptDraftRequest(text: text))
+        req.httpBody = try? JSONEncoder().encode(
+            AcceptDraftRequest(
+                text: text,
+                candidates: candidates,
+                pickedIndex: pickedIndex,
+                source: source,
+                messages: messages
+            )
+        )
         let task = URLSession.shared.dataTask(with: req)
         task.resume()
     }

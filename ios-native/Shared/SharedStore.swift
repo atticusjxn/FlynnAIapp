@@ -89,4 +89,49 @@ enum SharedStore {
         defaults?.removeObject(forKey: FlynnShared.DefaultsKey.threadMessages)
         defaults?.removeObject(forKey: FlynnShared.DefaultsKey.threadUpdatedAt)
     }
+
+    // MARK: Staged screenshot capture (App Intent → keyboard)
+
+    private static var stagedEncoder: JSONEncoder {
+        let e = JSONEncoder()
+        e.dateEncodingStrategy = .secondsSince1970
+        return e
+    }
+
+    private static var stagedDecoder: JSONDecoder {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .secondsSince1970
+        return d
+    }
+
+    /// Called by the screenshot App Intent to hand a capture to the keyboard.
+    static func stageScreenshotDraft(_ staged: StagedScreenshotDraft) {
+        guard let data = try? stagedEncoder.encode(staged) else { return }
+        defaults?.set(data, forKey: FlynnShared.DefaultsKey.stagedScreenshot)
+    }
+
+    /// The keyboard reads this on appear. Returns `nil` if there's nothing staged,
+    /// it's already been consumed, or it's older than the freshness window — so a
+    /// stale capture never overrides a fresh clipboard copy.
+    static func freshStagedScreenshotDraft() -> StagedScreenshotDraft? {
+        guard
+            let data = defaults?.data(forKey: FlynnShared.DefaultsKey.stagedScreenshot),
+            let staged = try? stagedDecoder.decode(StagedScreenshotDraft.self, from: data),
+            !staged.consumed,
+            Date().timeIntervalSince(staged.capturedAt) <= FlynnShared.stagedDraftFreshnessSeconds
+        else { return nil }
+        return staged
+    }
+
+    /// Mark the staged capture consumed so a keyboard re-appear doesn't replay it.
+    static func markStagedScreenshotConsumed() {
+        guard
+            let data = defaults?.data(forKey: FlynnShared.DefaultsKey.stagedScreenshot),
+            var staged = try? stagedDecoder.decode(StagedScreenshotDraft.self, from: data)
+        else { return }
+        staged.consumed = true
+        if let updated = try? stagedEncoder.encode(staged) {
+            defaults?.set(updated, forKey: FlynnShared.DefaultsKey.stagedScreenshot)
+        }
+    }
 }
