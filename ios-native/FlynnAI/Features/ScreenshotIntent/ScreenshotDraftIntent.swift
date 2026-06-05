@@ -22,8 +22,15 @@ struct ScreenshotDraftIntent: AppIntent {
     /// to the messaging app + keyboard.
     static let openAppWhenRun: Bool = false
 
-    @Parameter(title: "Screenshot", supportedContentTypes: [.image])
+    @Parameter(title: "Screenshot", description: "The screenshot to read.", supportedContentTypes: [.image])
     var screenshot: IntentFile
+
+    /// Renders `screenshot` as an inline placeholder in the Shortcuts editor so the
+    /// "Take Screenshot" action's output attaches as a magic variable — instead of
+    /// the bare file-picker "Choose" row you get with no summary.
+    static var parameterSummary: some ParameterSummary {
+        Summary("Draft a reply from \(\.$screenshot)")
+    }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
