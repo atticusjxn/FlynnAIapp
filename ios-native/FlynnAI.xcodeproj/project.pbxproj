@@ -28,6 +28,7 @@
 		31130B90AF2753D91BCAAA65 /* Mascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73949382C66FC320D63EDD36 /* Mascot.swift */; };
 		32879064D29CECA25A15E73A /* FlynnAI.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 14B58A0B22E7C3521530EDF1 /* FlynnAI.storekit */; };
 		3371C0B1B372325415B7C3C1 /* CallDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5395FEB668E1F948BA680091 /* CallDTO.swift */; };
+		351BC9D8C28E6C159D5B4298 /* PendingEventConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE12DA202C0770EE614B722 /* PendingEventConfirmView.swift */; };
 		35322A42150BF7C820F99A23 /* UsageRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690A992D6B1C2C271410CB44 /* UsageRepository.swift */; };
 		357CA4F504506B42133B3438 /* ScreenshotDraftIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60FF0E26F3934DE5131F811 /* ScreenshotDraftIntent.swift */; };
 		363BB0BFE4B93673F3F11E41 /* DrawerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808796E92F5458FA568F07FE /* DrawerView.swift */; };
@@ -35,6 +36,7 @@
 		3C4320DA7438A0403F5D2398 /* SharedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC95E1BB05DA267B68B1DAD5 /* SharedStore.swift */; };
 		3D70FA356070B8560F81FF28 /* SpaceGrotesk-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5C078DD7E5E6C3554E646290 /* SpaceGrotesk-SemiBold.ttf */; };
 		3F58426588B07DA3FB97736F /* CallDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26C53E5CA46F41099460726B /* CallDetailView.swift */; };
+		3F7A17FD7D3225A07F618DED /* PendingCalendarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B09A107D9FBD1D4038C67BE /* PendingCalendarStore.swift */; };
 		4301FB2CA9ACF8980198A79A /* FlashStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25FBFFC60F4146F8AE78C8B5 /* FlashStore.swift */; };
 		442F2BA2799BAFF9802E2F8C /* BrainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A60D93CD111903C0EAFAD24 /* BrainView.swift */; };
 		448307DC9CB4933F427C2153 /* SharedConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABB28896A42577F09658262C /* SharedConstants.swift */; };
@@ -64,6 +66,7 @@
 		60FF9CB2AA1547798A6CCC15 /* EventsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFD6A2A8D7571AC1BEFB4AF1 /* EventsRepository.swift */; };
 		61078AEAAB55B8808B011011 /* ClientRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B5682766FA50AA8B174C31 /* ClientRow.swift */; };
 		6273ED6DD7F14DEC6AC7712D /* ClientPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE2BDFE38039E1174A2028B /* ClientPickerSheet.swift */; };
+		637F7A8AB48D8A7CDD0976EF /* PendingCalendarEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B17438BE2C2653EA3675C9D /* PendingCalendarEvent.swift */; };
 		63C1A2856B22C9D68039449B /* ClientsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6947106A91B0B5B184CF75 /* ClientsListView.swift */; };
 		63EB7578A083FF536A647620 /* ScreenshotOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766975A5FBA5BDF7513C1EA2 /* ScreenshotOCR.swift */; };
 		675C304A45A248BFF2A61E07 /* PlanDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = B21C19CE5158405CB7902797 /* PlanDTO.swift */; };
@@ -138,6 +141,7 @@
 		D5A8C3376081E4AE0496C82F /* UsageBarCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8F8558954CA2340B538CB /* UsageBarCard.swift */; };
 		D6D64D4469B779958EDAED8E /* BusinessProfileDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E8AC6AF62FDF61D781DBDB /* BusinessProfileDTO.swift */; };
 		D730594479780D35F9B16E02 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18C1E534FA43BCF2637F6D9 /* Formatters.swift */; };
+		D9A2D4FDA0CBFB8652D534DC /* PendingCalendarEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B17438BE2C2653EA3675C9D /* PendingCalendarEvent.swift */; };
 		D9F4FA64EA40CFF74D62DB9A /* FlynnAIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D87686ACB6D633F1CF99BE /* FlynnAIApp.swift */; };
 		D9F5F3A4A81303CCF14DCF6C /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA409EDDF926CF207552AD6 /* Colors.swift */; };
 		DA734377FE0D2D2A38F651B8 /* LiveVoiceDemoStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6673B7DF2B564FE8C6B99437 /* LiveVoiceDemoStepView.swift */; };
@@ -190,6 +194,7 @@
 		07EDAE8D0C9CB337EDB02056 /* FlynnConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnConfig.swift; sourceTree = "<group>"; };
 		0829D3CACDD97BDB38157014 /* CallEventDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallEventDTO.swift; sourceTree = "<group>"; };
 		0A2C5F76185652A2EEE2D215 /* MoneyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyView.swift; sourceTree = "<group>"; };
+		0B17438BE2C2653EA3675C9D /* PendingCalendarEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingCalendarEvent.swift; sourceTree = "<group>"; };
 		0CCEDCDCAB1BF1758AA2EAE9 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		0CEB4D6AAD7FCFB4C8B64C21 /* UsageDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageDTO.swift; sourceTree = "<group>"; };
 		0CFD85ED27485A69E3CFCA2E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -235,6 +240,7 @@
 		53B9618064A5C0D28813B101 /* InvoicesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoicesListView.swift; sourceTree = "<group>"; };
 		545C1E1D9D2F3CCA25B34FEA /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		55082F9D63C7592F82108439 /* IVRScriptEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IVRScriptEditorView.swift; sourceTree = "<group>"; };
+		5B09A107D9FBD1D4038C67BE /* PendingCalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingCalendarStore.swift; sourceTree = "<group>"; };
 		5B631D8E090A0080FF26C503 /* EventDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDTO.swift; sourceTree = "<group>"; };
 		5C078DD7E5E6C3554E646290 /* SpaceGrotesk-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-SemiBold.ttf"; sourceTree = "<group>"; };
 		5E446D97E823204462E933AF /* SubscriptionsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionsRepository.swift; sourceTree = "<group>"; };
@@ -296,6 +302,7 @@
 		B54C39B65DBF9E93D1203057 /* OrgResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrgResolver.swift; sourceTree = "<group>"; };
 		B60FF0E26F3934DE5131F811 /* ScreenshotDraftIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotDraftIntent.swift; sourceTree = "<group>"; };
 		BA28BBD8B5084C5D11AA4E89 /* BusinessProfileInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessProfileInput.swift; sourceTree = "<group>"; };
+		BAE12DA202C0770EE614B722 /* PendingEventConfirmView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingEventConfirmView.swift; sourceTree = "<group>"; };
 		BC95E1BB05DA267B68B1DAD5 /* SharedStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStore.swift; sourceTree = "<group>"; };
 		BCB6CEB71C56CE019A3560D0 /* LineItemEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItemEditorView.swift; sourceTree = "<group>"; };
 		BE85A28684327AFB0D8F1C99 /* ClientInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientInput.swift; sourceTree = "<group>"; };
@@ -442,6 +449,15 @@
 			path = Brain;
 			sourceTree = "<group>";
 		};
+		37010D556BFF4B227FE47977 /* Calendar */ = {
+			isa = PBXGroup;
+			children = (
+				5B09A107D9FBD1D4038C67BE /* PendingCalendarStore.swift */,
+				BAE12DA202C0770EE614B722 /* PendingEventConfirmView.swift */,
+			);
+			path = Calendar;
+			sourceTree = "<group>";
+		};
 		38C1550773F9D78125E44C0E /* Config */ = {
 			isa = PBXGroup;
 			children = (
@@ -506,6 +522,7 @@
 			children = (
 				960E6882A935C2F92BE6EE7E /* Auth */,
 				2DDCD6CDB49ED03D834DBCE9 /* Brain */,
+				37010D556BFF4B227FE47977 /* Calendar */,
 				89BAC3AAB3EF3A3748636E25 /* Calls */,
 				1C6995E18F519BDDF63ACE8B /* Clients */,
 				D66CB5E6A87BABE752059E39 /* Dashboard */,
@@ -618,6 +635,7 @@
 			children = (
 				0F8344EF26D2743F88999101 /* DraftModels.swift */,
 				9E8C35B740660515C2D64307 /* KeyboardDraftClient.swift */,
+				0B17438BE2C2653EA3675C9D /* PendingCalendarEvent.swift */,
 				ABB28896A42577F09658262C /* SharedConstants.swift */,
 				D3C4F692F0524AEF257F4E0C /* SharedSecureStore.swift */,
 				BC95E1BB05DA267B68B1DAD5 /* SharedStore.swift */,
@@ -1002,6 +1020,9 @@
 				CA2894DCCF6F54051BD3F325 /* OrgResolver.swift in Sources */,
 				D129C788573531EE371ED44F /* PaywallPresentation.swift in Sources */,
 				C4976F243BEFEBE86223AFAA /* PaywallStepView.swift in Sources */,
+				D9A2D4FDA0CBFB8652D534DC /* PendingCalendarEvent.swift in Sources */,
+				3F7A17FD7D3225A07F618DED /* PendingCalendarStore.swift in Sources */,
+				351BC9D8C28E6C159D5B4298 /* PendingEventConfirmView.swift in Sources */,
 				0010FD43252E8987FB37DF32 /* PhoneNumberStepView.swift in Sources */,
 				675C304A45A248BFF2A61E07 /* PlanDTO.swift in Sources */,
 				947A87D34D330F32CDE7A93B /* PlansRepository.swift in Sources */,
@@ -1052,6 +1073,7 @@
 				7DB180B73D673E2DCB68CE91 /* DraftModels.swift in Sources */,
 				69352FAC0C7BC063FCCE3483 /* KeyboardDraftClient.swift in Sources */,
 				21203002F5D8C79621DC08B4 /* KeyboardViewController.swift in Sources */,
+				637F7A8AB48D8A7CDD0976EF /* PendingCalendarEvent.swift in Sources */,
 				448307DC9CB4933F427C2153 /* SharedConstants.swift in Sources */,
 				995D34F16EA959D13BC13742 /* SharedSecureStore.swift in Sources */,
 				3C4320DA7438A0403F5D2398 /* SharedStore.swift in Sources */,
@@ -1077,7 +1099,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 94;
+				CURRENT_PROJECT_VERSION = 92;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1099,7 +1121,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FlynnKeyboard/FlynnKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 94;
+				CURRENT_PROJECT_VERSION = 92;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				INFOPLIST_FILE = FlynnKeyboard/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1122,7 +1144,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 94;
+				CURRENT_PROJECT_VERSION = 92;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1204,7 +1226,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FlynnKeyboard/FlynnKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 94;
+				CURRENT_PROJECT_VERSION = 92;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				INFOPLIST_FILE = FlynnKeyboard/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

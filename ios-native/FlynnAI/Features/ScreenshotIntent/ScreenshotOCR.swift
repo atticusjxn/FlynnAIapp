@@ -3,40 +3,52 @@ import Vision
 import UIKit
 import ImageIO
 
-/// On-device OCR for a captured screenshot. Uses the modern Vision Swift API
-/// (`RecognizeTextRequest`, iOS 18+) at the accurate level with language
-/// correction. Fully offline, no permissions — the image arrives as bytes from
-/// the Shortcut's "Take Screenshot" action via an `IntentFile`.
+/// On-device OCR for a captured screenshot. Uses the battle-tested
+/// VNRecognizeTextRequest + VNImageRequestHandler API (available iOS 13+)
+/// rather than the newer Vision Swift concurrency API, which can fail silently
+/// in background App Intent contexts. Fully offline, no permissions needed.
 enum ScreenshotOCR {
 
-    enum OCRError: Error { case badImage }
+    enum OCRError: Error { case badImage; case visionFailed(Error) }
 
     /// Recognize text in the screenshot data and return it as a single
-    /// conversation string (lines joined top-to-bottom). Empty string if nothing
-    /// readable was found.
+    /// conversation string (lines joined top-to-bottom).
     static func recognizeText(from data: Data) async throws -> String {
-        guard let cgImage = makeCGImage(from: data) else { throw OCRError.badImage }
+        guard let cgImage = makeCGImage(from: data) else {
+            throw OCRError.badImage
+        }
 
-        var request = RecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
-
-        let observations = try await request.perform(on: cgImage)
-
-        // Reconstruct reading order: top-to-bottom (Vision's normalized origin is
-        // bottom-left, so higher y = higher on screen), then left-to-right.
-        let lines: [String] = observations
-            .sorted { lhs, rhs in
-                let l = lhs.boundingBox.cgRect
-                let r = rhs.boundingBox.cgRect
-                if abs(l.midY - r.midY) > 0.02 { return l.midY > r.midY }
-                return l.minX < r.minX
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = VNRecognizeTextRequest { request, error in
+                if let error {
+                    continuation.resume(throwing: OCRError.visionFailed(error))
+                    return
+                }
+                let observations = request.results as? [VNRecognizedTextObservation] ?? []
+                // Reconstruct reading order: top-to-bottom (Vision's normalized origin
+                // is bottom-left, so higher y = higher on screen), then left-to-right.
+                let lines: [String] = observations
+                    .sorted { lhs, rhs in
+                        if abs(lhs.boundingBox.midY - rhs.boundingBox.midY) > 0.02 {
+                            return lhs.boundingBox.midY > rhs.boundingBox.midY
+                        }
+                        return lhs.boundingBox.minX < rhs.boundingBox.minX
+                    }
+                    .compactMap { $0.topCandidates(1).first?.string }
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                continuation.resume(returning: lines.joined(separator: "\n"))
             }
-            .compactMap { $0.topCandidates(1).first?.string }
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
 
-        return lines.joined(separator: "\n")
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(throwing: OCRError.visionFailed(error))
+            }
+        }
     }
 
     /// Screenshots are PNG and decode via `UIImage`; keep a `CGImageSource`

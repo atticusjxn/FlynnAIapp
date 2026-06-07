@@ -30,7 +30,6 @@ struct ScreenshotDraftIntent: AppIntent {
         Summary("Draft a reply from \(\.$screenshot)")
     }
 
-    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         // Tell the keyboard a capture is in flight *immediately*, before any work — so
         // if the user switches to it before OCR/drafting finishes (the fast path), it
