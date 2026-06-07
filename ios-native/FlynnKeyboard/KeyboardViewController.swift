@@ -6,11 +6,12 @@ import UIKit
 /// card left/right to move through the options, tap the card to insert, switch
 /// back to send.
 ///
-/// Surface: the background is the native translucent keyboard material
-/// (`.systemChromeMaterial`) so it adapts light/dark and feels like part of the
-/// system keyboard — the branded draft cards carry the Flynn look, not a flat
-/// cream fill. Paging is an interactive `UIScrollView`, so a draft tracks the
-/// finger and snaps to the next card rather than flicking on a swipe gesture.
+/// Surface: the background is the real system keyboard surface via a
+/// `UIInputView(inputViewStyle: .keyboard)` backdrop — the OS draws its own
+/// translucent keyboard material, so Flynn matches the native keyboard exactly
+/// (not an approximated blur) and adapts to light/dark. The branded draft cards
+/// carry the Flynn look, not a flat cream fill. Paging is an interactive
+/// `UIScrollView`, so a draft tracks the finger and snaps to the next card.
 ///
 /// Constraints honoured here:
 ///  - UIKit code-only, minimal allocations (keyboard extensions are ~30-60MB capped).
@@ -19,7 +20,11 @@ import UIKit
 ///    banner per copied message, never on idle re-appears).
 final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate {
 
-    private let backdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
+    // The real system keyboard surface. `UIInputView` with `.keyboard` style is the
+    // documented way to get the actual translucent keyboard background the OS draws
+    // for its own keyboards — not an approximated blur — so Flynn matches the native
+    // keyboard exactly and adapts to light/dark automatically.
+    private let backdrop = UIInputView(frame: .zero, inputViewStyle: .keyboard)
     private let container = UIStackView()
     private let titleLabel = UILabel()
     private let redraftButton = UIButton(type: .system)
@@ -40,6 +45,9 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     private var index = 0
     private var lastChangeCount = -1
     private var isDrafting = false
+    /// Watches briefly for a capture that the throttled Action Button intent stages a
+    /// moment after the keyboard already appeared.
+    private var latePoll: Task<Void, Never>?
     private var heightConstraint: NSLayoutConstraint?
 
     // Where the currently-shown drafts came from ("clipboard" or "screenshot") and
@@ -90,7 +98,7 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         nextKeyboardButton.isHidden = !needsInputModeSwitchKey
-        titleLabel.text = SharedStore.businessName.map { "Flynn · \($0)" } ?? "Flynn"
+        titleLabel.text = "Flynn"   // no business/industry suffix — it's noise in the keyboard
         maybeAutoDraft()
     }
 
@@ -131,7 +139,7 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     // MARK: UI
 
     private func buildUI() {
-        // Native translucent keyboard material — adapts to light/dark automatically.
+        // Clear root; the UIInputView backdrop below paints the real keyboard surface.
         view.backgroundColor = .clear
         backdrop.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(backdrop)
@@ -178,7 +186,11 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         scrollView.isPagingEnabled = true
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.alwaysBounceHorizontal = true
-        scrollView.delaysContentTouches = false       // tap-to-insert stays snappy
+        // Delay touches to the card so the scroll view can claim a horizontal pan
+        // first — otherwise a swipe to change drafts registers as a tap and inserts.
+        // A real tap still inserts after the brief (imperceptible) pan-detection window.
+        scrollView.delaysContentTouches = true
+        scrollView.canCancelContentTouches = true
         scrollView.delegate = self
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.setContentHuggingPriority(.defaultLow, for: .vertical)
@@ -232,7 +244,6 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
             // Page container provides the gutter + room for the brutalist offset shadow.
             let page = UIView()
             page.translatesAutoresizingMaskIntoConstraints = false
-            page.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor).isActive = true
 
             let card = UIControl()
             card.backgroundColor = Self.cardBG
@@ -281,6 +292,10 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
             ])
 
             pagesStack.addArrangedSubview(page)
+            // Activate page-width ONLY after `page` is in the scroll view's hierarchy —
+            // before that, `page` and `scrollView.frameLayoutGuide` share no common
+            // ancestor and `setActive` throws an NSException (SIGABRT → keyboard crash).
+            page.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor).isActive = true
             cardViews.append(card)
         }
 
@@ -370,20 +385,50 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
             return
         }
         if isDrafting { return }
+        latePoll?.cancel()
 
         // Recommended flow: a screenshot capture staged by the App Intent takes
         // priority over the clipboard. Returns nil when there's nothing fresh, so
         // the clipboard path below is untouched in the copy→keyboard case.
         if let staged = SharedStore.freshStagedScreenshotDraft() {
-            consumeStaged(staged)
+            if staged.capturing {
+                awaitCapture()        // capture in flight — show "reading…" and poll for it
+            } else {
+                consumeStaged(staged)
+            }
             return
         }
 
         let cc = UIPasteboard.general.changeCount
-        if cc == lastChangeCount && !drafts.isEmpty {
-            showResults(); renderCard(); return     // nothing new copied — keep current drafts
+        if cc != lastChangeCount {
+            draftFromClipboard()                     // genuinely new copy — draft it now
+            return
         }
+        if !drafts.isEmpty {
+            showResults(); renderCard(); return      // nothing new — keep current drafts
+        }
+        // Nothing staged yet and nothing new copied. The Action Button intent can lag
+        // a few seconds in the background, so show the idle prompt but keep watching —
+        // if a capture lands shortly after, switch to it without needing a re-open.
         draftFromClipboard()
+        watchForLateCapture()
+    }
+
+    /// Poll briefly for a capture the throttled background intent stages just after the
+    /// keyboard appeared, so the user doesn't have to toggle the keyboard to pick it up.
+    private func watchForLateCapture() {
+        latePoll?.cancel()
+        latePoll = Task { @MainActor in
+            let deadline = Date().addingTimeInterval(10)
+            while Date() < deadline {
+                try? await Task.sleep(for: .milliseconds(300))
+                if Task.isCancelled || isDrafting || !drafts.isEmpty { return }
+                if let staged = SharedStore.freshStagedScreenshotDraft() {
+                    if staged.capturing { awaitCapture() } else { consumeStaged(staged) }
+                    return
+                }
+            }
+        }
     }
 
     /// Show drafts a screenshot capture staged for us. Marks the capture consumed
@@ -393,6 +438,7 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         lastChangeCount = UIPasteboard.general.changeCount   // ignore the clipboard for this turn
         currentSource = staged.source
         sourceMessages = staged.messages
+        drafts = []   // always clear stale drafts so old results never bleed through
 
         if !staged.drafts.isEmpty {
             drafts = staged.drafts
@@ -401,8 +447,36 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
             showResults()                                    // finished drafts — no network
         } else if staged.limitReached {
             showStatus("You're out of free drafts today — open Flynn to go unlimited.")
-        } else {
+        } else if !staged.messages.isEmpty {
             runDraft(messages: staged.messages)              // needsDraft — generate now
+        } else {
+            showStatus("Couldn't read that screen — copy the message and tap ↻ Redraft.")
+        }
+    }
+
+    /// A capture is in flight (Action Button just fired, OCR/draft still running in the
+    /// app). Show a reading state and poll the App Group until the intent stages the
+    /// terminal result, then render it. Falls back to the clipboard path on timeout.
+    private func awaitCapture() {
+        if isDrafting { return }
+        isDrafting = true
+        showStatus("Reading your screen…")
+        spinner.startAnimating()
+
+        Task { @MainActor in
+            let deadline = Date().addingTimeInterval(8)
+            while Date() < deadline {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let staged = SharedStore.freshStagedScreenshotDraft() else { break }
+                if !staged.capturing {                       // intent finished — render it
+                    spinner.stopAnimating(); isDrafting = false
+                    consumeStaged(staged)
+                    return
+                }
+            }
+            // Timed out or the marker vanished — fall back to the clipboard/idle path.
+            spinner.stopAnimating(); isDrafting = false
+            draftFromClipboard()
         }
     }
 

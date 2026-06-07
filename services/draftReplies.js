@@ -105,6 +105,7 @@ const buildPrompt = ({
   pickedSamples = [],
   messages = [],
   proposedSlots = [],
+  availabilityNote = '',
   draftCount = DEFAULT_DRAFT_COUNT,
   source = null,
 }) => {
@@ -114,9 +115,9 @@ const buildPrompt = ({
 
   if (toneSamples.length > 0) {
     systemParts.push(
-      "Match the owner's writing voice. These are examples of the owner's OWN past texts — study their slang, casing, punctuation, emoji use and vibe:",
+      "Match the owner's writing voice — their slang, casing, punctuation, emoji use and overall vibe. These are examples of the owner's OWN past texts, written in reply to DIFFERENT, unrelated conversations:",
       toneSamples.map((s, i) => `${i + 1}. "${s}"`).join('\n'),
-      'IMPORTANT: the examples above are STYLE references only. Never copy or reuse them. Every draft must directly respond to THIS customer.'
+      'Use these ONLY to copy the writing STYLE. Never reuse their words, phrases or questions — they answered other messages, not this one. For example, if a sample asks "what time?" but THIS customer already gave a time, do not ask "what time?". Each draft must answer what THIS customer actually said.'
     );
   } else {
     systemParts.push('Write in a warm, natural, casual human voice — never stiff or corporate.');
@@ -137,21 +138,35 @@ const buildPrompt = ({
     );
   }
 
+  // A concrete verdict on the exact time the customer named, checked against the
+  // owner's real calendar. Authoritative — overrides the generic time rule below.
+  if (availabilityNote) {
+    systemParts.push(availabilityNote);
+  }
+
   systemParts.push(
     'Rules:',
+    "- First work out what the customer's latest message actually needs: are they confirming or proposing a specific time, asking a question, or asking to be booked in? Reply to THAT.",
+    '- If there is a CALENDAR CHECK line above, follow it exactly — it reflects the owner\'s real availability and overrides everything else about timing.',
+    '- If the customer proposes or asks about a specific time (e.g. "does 10am suit?") and there is no CALENDAR CHECK, treat it as yes/no: confirm that time, or if it genuinely doesn\'t work suggest another. Never ask "what time?" when they already named one.',
+    '- Never ask for information the customer has already given.',
     '- Sound like a real person texting. Keep each reply to 1-2 short sentences.',
     '- Be helpful and move toward booking the job, but never pushy.',
     '- Only use pricing/services/hours from the business info above. Never invent prices or promises.',
     '- Do not include placeholders like [name]; write a complete, send-ready message.',
-    `Respond with ONLY a JSON object of the form {"drafts": ["reply 1", "reply 2", ...]} containing EXACTLY ${draftCount} distinct reply options. No other keys, no prose, no markdown.`
+    `First, in a "read" field, state in a few words what the customer's latest message needs (e.g. "confirming 10am", "asking for a quote"). Then give the replies. Respond with ONLY a JSON object of the form {"read": "...", "drafts": ["reply 1", "reply 2", ...]} containing EXACTLY ${draftCount} distinct reply options. No other keys beyond "read" and "drafts", no prose, no markdown.`
   );
 
   // Screenshot captures contain the whole visible conversation (both sides + app
   // chrome); clipboard captures are just the customer's copied message(s).
   const userText = source === 'screenshot'
     ? [
-        "This is the text Flynn read from a screenshot of the conversation — it may include BOTH the customer's messages and the owner's own earlier replies, plus app chrome like names and timestamps. Focus on the latest customer message and draft the owner's next reply:",
+        'The following is raw OCR text from a screenshot of a messaging app. It includes the full visible conversation — use it all as context so the reply doesn\'t repeat things already covered.',
+        'Ignore UI chrome (phone status bar, app navigation bar, contact name header, timestamps, "iMessage"/"Send" labels — anything that isn\'t a spoken message).',
+        'The conversation has two participants: the CUSTOMER and the OWNER (you are drafting the owner\'s reply). The owner\'s messages may be prefixed with "Me:" or appear on the right. Reply to the LATEST customer message, informed by the full conversation above it.',
+        '---',
         messages.join('\n'),
+        '---',
       ].join('\n')
     : [
         'The customer sent the following (it may arrive in fragments — treat it as one conversation):',
@@ -203,6 +218,7 @@ const generateDrafts = async ({
   pickedSamples = [],
   messages = [],
   proposedSlots = [],
+  availabilityNote = '',
   draftCount = DEFAULT_DRAFT_COUNT,
   source = null,
 } = {}) => {
@@ -221,6 +237,7 @@ const generateDrafts = async ({
     pickedSamples,
     messages: cleanedMessages,
     proposedSlots,
+    availabilityNote,
     draftCount,
     source,
   });

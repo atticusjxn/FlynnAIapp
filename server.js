@@ -25,7 +25,7 @@ const jwt = require('jsonwebtoken');
 const { generateDrafts } = require('./services/draftReplies');
 const { understandBusiness, FALLBACK_PROMPTS } = require('./services/onboarding');
 const googleCalendar = require('./services/googleCalendar');
-const { findOpenSlots } = require('./services/slotProposer');
+const { findOpenSlots, parseProposedTime, checkProposedTime, findNearestOpenSlot } = require('./services/slotProposer');
 
 const {
   upsertCallRecord,
@@ -2273,9 +2273,9 @@ async function draftsUsedToday(userId) {
  */
 async function computeGoogleSlots(userId, businessHours, { days = 7, durationMins = 60, maxSlots = 3 } = {}) {
   try {
-    if (!supabaseStorageClient) return { slots: [], timeZone: 'Australia/Sydney', connected: false };
+    if (!supabaseStorageClient) return { slots: [], busy: [], timeZone: 'Australia/Sydney', connected: false };
     const { connection } = await googleCalendar.getConnectionForUser(supabaseStorageClient, userId);
-    if (!connection) return { slots: [], timeZone: 'Australia/Sydney', connected: false };
+    if (!connection) return { slots: [], busy: [], timeZone: 'Australia/Sydney', connected: false };
 
     const timeZone = connection?.metadata?.timeZone || 'Australia/Sydney';
     const accessToken = await googleCalendar.ensureFreshAccessToken(supabaseStorageClient, connection);
@@ -2295,11 +2295,51 @@ async function computeGoogleSlots(userId, businessHours, { days = 7, durationMin
       days,
       maxSlots,
     });
-    return { slots, timeZone, connected: true, calendarId: connection.account_id || 'primary' };
+    // Return `busy` too so callers can check a specific customer-proposed time
+    // without a second free/busy round-trip.
+    return { slots, busy, timeZone, connected: true, calendarId: connection.account_id || 'primary' };
   } catch (error) {
     console.warn('[Keyboard] computeGoogleSlots failed (non-fatal):', error?.status || '', error?.message);
-    return { slots: [], timeZone: 'Australia/Sydney', connected: false };
+    return { slots: [], busy: [], timeZone: 'Australia/Sydney', connected: false };
   }
+}
+
+/**
+ * If the customer named a concrete time, check it against the user's real
+ * calendar and return a directive for the drafting model: confirm it when free,
+ * or counter-offer the nearest open slot when it's booked / out of hours.
+ * Returns '' when there's no Google connection, no parseable time, or on any
+ * failure — drafting then falls back to the generic "confirm a named time" rule.
+ */
+function buildAvailabilityNote({ latestMessage, businessHours, busy, timeZone, connected }) {
+  if (!connected || !latestMessage) return '';
+  const now = new Date();
+  const proposed = parseProposedTime(latestMessage, { now, timeZone });
+  if (!proposed) return '';
+
+  const status = checkProposedTime({
+    start: proposed.start,
+    end: proposed.end,
+    businessHours: businessHours || {},
+    busy: busy || [],
+    timeZone,
+  });
+
+  if (status === 'free') {
+    return `CALENDAR CHECK: the customer is asking about ${proposed.label}. That time is genuinely free in the owner's calendar — confirm it as booked in.`;
+  }
+
+  const alt = findNearestOpenSlot({
+    desired: proposed.start,
+    businessHours: businessHours || {},
+    busy: busy || [],
+    timeZone,
+    from: now,
+  });
+  const reason = status === 'closed' ? "that's outside the owner's working hours" : "the owner is already booked then";
+  return alt
+    ? `CALENDAR CHECK: the customer is asking about ${proposed.label}, but ${reason}. Do NOT accept that time. Apologise briefly and offer ${alt.label} instead.`
+    : `CALENDAR CHECK: the customer is asking about ${proposed.label}, but ${reason}. Do NOT accept that time. Apologise briefly and offer to find another time.`;
 }
 
 /**
@@ -2312,6 +2352,7 @@ async function computeGoogleSlots(userId, businessHours, { days = 7, durationMin
 app.post('/api/keyboard/provision-token', authenticateJwt, async (req, res) => {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  console.log('[Keyboard] provision-token for user', userId);
 
   const secret = process.env.SUPABASE_JWT_SECRET || process.env.SUPABASE_ANON_JWT_SECRET;
   if (!secret) return res.status(500).json({ error: 'Authentication not configured' });
@@ -2360,6 +2401,12 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
   // (copy→keyboard). Tweaks the prompt framing; defaults to clipboard.
   const source = req.body?.source === 'screenshot' ? 'screenshot' : 'clipboard';
 
+  console.log('[Keyboard] draft-replies request', {
+    source,
+    messageCount: messages.length,
+    messagePreview: messages.map((m) => m.slice(0, 120)).join(' | '),
+  });
+
   try {
     // Free-tier gate: unlimited for entitled users; capped per day otherwise.
     const entitled = await isUserEntitled(userId);
@@ -2381,9 +2428,20 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
       .eq('user_id', userId)
       .maybeSingle();
 
+    // Calendar awareness: when the user has Google connected, fetch their real
+    // free/busy once and use it both to (a) propose open slots and (b) check any
+    // specific time the customer named in their latest message.
+    let availabilityNote = '';
     if (proposedSlots.length === 0) {
-      const { slots } = await computeGoogleSlots(userId, profileRow?.hours_json);
+      const { slots, busy, timeZone, connected } = await computeGoogleSlots(userId, profileRow?.hours_json);
       proposedSlots = slots.map((s) => s.label);
+      availabilityNote = buildAvailabilityNote({
+        latestMessage: messages[messages.length - 1],
+        businessHours: profileRow?.hours_json,
+        busy,
+        timeZone,
+        connected,
+      });
     }
 
     // Tone samples: all onboarding samples + the most recent accepted ones
@@ -2412,6 +2470,7 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
       pickedSamples: accepted,
       messages,
       proposedSlots,
+      availabilityNote,
       draftCount,
       source,
     });
@@ -2488,6 +2547,127 @@ app.post('/api/keyboard/accept-draft', authenticateJwt, async (req, res) => {
     res.status(500).json({ error: 'Failed to record accepted draft' });
   }
 });
+
+/**
+ * Desktop: return the user's next N free 1-hour calendar slots for the draft
+ * popup's slot-proposal feature.
+ * POST /api/calendar/free-busy
+ * Body: { windowDays?: number, timezone?: string }
+ * Returns: { slots: string[] }  — e.g. ["Thursday 2pm", "Friday 10am", ...]
+ */
+app.post('/api/calendar/free-busy', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const windowDays = Math.min(Math.max(1, parseInt(req.body?.windowDays) || 7), 30);
+  const timezone = typeof req.body?.timezone === 'string' ? req.body.timezone : 'UTC';
+
+  try {
+    const { getConnectionForUser, ensureFreshAccessToken, queryFreeBusy } = require('./services/googleCalendar');
+    const { connection } = await getConnectionForUser(supabaseStorageClient, userId);
+    if (!connection) {
+      return res.json({ slots: [] });
+    }
+
+    const accessToken = await ensureFreshAccessToken(supabaseStorageClient, connection);
+
+    // Query busy intervals for the next windowDays
+    const now = new Date();
+    const until = new Date(now.getTime() + windowDays * 24 * 3600 * 1000);
+    const busyIntervals = await queryFreeBusy(accessToken, {
+      timeMin: now.toISOString(),
+      timeMax: until.toISOString(),
+    });
+
+    // Build free slots: walk working hours (8am–6pm local) in 1h steps
+    const WORK_START = 8;
+    const WORK_END = 18;
+    const SLOT_HOURS = 1;
+    const MAX_SLOTS = 5;
+
+    const slots = [];
+    let cursor = roundUpToNextHour(now);
+
+    while (slots.length < MAX_SLOTS && cursor < until) {
+      const localHour = getLocalHour(cursor, timezone);
+      if (localHour < WORK_START || localHour + SLOT_HOURS > WORK_END) {
+        cursor = advanceToNextWorkdayStart(cursor, timezone, WORK_START);
+        continue;
+      }
+      const slotEnd = new Date(cursor.getTime() + SLOT_HOURS * 3600 * 1000);
+      const busy = busyIntervals.some((b) => {
+        const bs = new Date(b.start);
+        const be = new Date(b.end);
+        return cursor < be && slotEnd > bs;
+      });
+      if (!busy) {
+        slots.push(formatSlot(cursor, timezone));
+      }
+      cursor = new Date(cursor.getTime() + 3600 * 1000);
+    }
+
+    return res.json({ slots });
+  } catch (err) {
+    console.error('[calendar/free-busy]', err.message);
+    return res.json({ slots: [] }); // non-fatal: desktop will fall back to EventKit
+  }
+});
+
+function roundUpToNextHour(date) {
+  const d = new Date(date);
+  d.setMinutes(0, 0, 0);
+  d.setHours(d.getHours() + 1);
+  return d;
+}
+
+function getLocalHour(date, timezone) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: timezone }).formatToParts(date);
+    return parseInt(parts.find((p) => p.type === 'hour')?.value ?? '0', 10);
+  } catch {
+    return date.getUTCHours();
+  }
+}
+
+function advanceToNextWorkdayStart(date, timezone, startHour) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + 1);
+  // Set to startHour in the given timezone by using a temp formatter
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      timeZone: timezone,
+    });
+    const parts = formatter.formatToParts(d);
+    const year = parts.find((p) => p.type === 'year')?.value;
+    const month = parts.find((p) => p.type === 'month')?.value;
+    const day = parts.find((p) => p.type === 'day')?.value;
+    const dateStr = `${year}-${month}-${day}T${String(startHour).padStart(2, '0')}:00:00`;
+    return new Date(dateStr + 'Z'); // approximation; good enough for slot listing
+  } catch {
+    d.setUTCHours(startHour, 0, 0, 0);
+    return d;
+  }
+}
+
+function formatSlot(date, timezone) {
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const dayFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: timezone });
+  const timeFormatter = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone,
+  });
+
+  const isToday = date.toDateString() === now.toDateString();
+  const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+  const dayLabel = isToday ? 'today' : isTomorrow ? 'tomorrow' : dayFormatter.format(date);
+  const timeLabel = timeFormatter.format(date).replace(':00', '').toLowerCase();
+  return `${dayLabel} ${timeLabel}`;
+}
 
 /**
  * Onboarding: turn a one-line "what do you do" (+ optional scraped website data)
@@ -5203,21 +5383,73 @@ app.get('/api/reminders/stats', authenticateJwt, async (req, res) => {
 // Integration OAuth Callbacks
 // ============================================================================
 
+// Google Calendar OAuth — connect initiation.
+// The app calls this (authed) to get the Google consent URL, then opens it in an
+// ASWebAuthenticationSession. `state` carries the org_id so the callback can
+// store the tokens against the right org. Scopes are minimal: read free/busy +
+// write the events the user confirms.
+const GOOGLE_CAL_SCOPES = [
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar.events',
+].join(' ');
+
+app.get('/api/integrations/google-calendar/connect', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const clientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+  const redirectUri = process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI;
+  if (!clientId || !redirectUri) {
+    return res.status(500).json({ error: 'Google Calendar OAuth is not configured on the server' });
+  }
+
+  const orgId = await resolveOrgIdForUser(userId);
+  if (!orgId) return res.status(400).json({ error: 'No organization found for user' });
+
+  const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: GOOGLE_CAL_SCOPES,
+    access_type: 'offline',     // get a refresh_token
+    prompt: 'consent',          // force refresh_token even on re-consent
+    include_granted_scopes: 'true',
+    state: String(orgId),
+  }).toString();
+
+  res.json({ authUrl });
+});
+
+// Renders the OAuth callback landing page. It bounces straight back into the
+// Flynn app via the `flynnai://` scheme — ASWebAuthenticationSession intercepts
+// that navigation and closes the sheet — with a visible fallback link for any
+// other browser.
+const calendarCallbackPage = ({ ok, title, message }) => {
+  const deepLink = `flynnai://calendar-connected?status=${ok ? 'success' : 'error'}`;
+  return `<!doctype html>
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<script>setTimeout(function(){ window.location.href = ${JSON.stringify(deepLink)}; }, 50);</script>
+</head>
+<body style="font-family: system-ui; padding: 40px; text-align: center;">
+  <div style="max-width: 480px; margin: 0 auto;">
+    <h1 style="color:#1e293b; margin-bottom:12px;">${title}</h1>
+    <p style="color:#64748b; font-size:16px; line-height:1.5;">${message}</p>
+    <p style="margin-top:24px;"><a href="${deepLink}" style="color:#2563EB; font-weight:600;">Return to Flynn</a></p>
+  </div>
+</body></html>`;
+};
+
 // Google Calendar OAuth Callback
 app.get('/api/integrations/google-calendar/callback', async (req, res) => {
   const { code, state, error } = req.query;
 
   if (error) {
     console.error('[GoogleCalendar] OAuth error:', error);
-    return res.status(400).send(`
-      <html>
-        <body style="font-family: system-ui; padding: 40px; text-align: center;">
-          <h1>Authorization Failed</h1>
-          <p>Failed to connect Google Calendar: ${error}</p>
-          <p>You can close this window and try again.</p>
-        </body>
-      </html>
-    `);
+    return res.status(400).send(calendarCallbackPage({
+      ok: false,
+      title: 'Authorization Failed',
+      message: 'Google Calendar wasn’t connected. You can close this window and try again.',
+    }));
   }
 
   if (!code) {
@@ -5337,41 +5569,19 @@ app.get('/api/integrations/google-calendar/callback', async (req, res) => {
       calendarName: calendarInfo.summary,
     });
 
-    // Success page
-    res.send(`
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-        </head>
-        <body style="font-family: system-ui; padding: 40px; text-align: center;">
-          <div style="max-width: 500px; margin: 0 auto;">
-            <div style="width: 64px; height: 64px; margin: 0 auto 24px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <h1 style="color: #1e293b; margin-bottom: 12px;">Calendar Connected!</h1>
-            <p style="color: #64748b; font-size: 16px; line-height: 1.5;">
-              Your Google Calendar "${calendarInfo.summary}" has been connected successfully.
-            </p>
-            <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
-              You can close this window and return to the app.
-            </p>
-          </div>
-        </body>
-      </html>
-    `);
+    // Success — bounce back into the app.
+    res.send(calendarCallbackPage({
+      ok: true,
+      title: 'Calendar Connected!',
+      message: `Your Google Calendar “${calendarInfo.summary}” is connected. Returning to Flynn…`,
+    }));
   } catch (error) {
     console.error('[GoogleCalendar] OAuth callback error:', error);
-    res.status(500).send(`
-      <html>
-        <body style="font-family: system-ui; padding: 40px; text-align: center;">
-          <h1>Connection Failed</h1>
-          <p>Failed to connect Google Calendar: ${error.message}</p>
-          <p>You can close this window and try again.</p>
-        </body>
-      </html>
-    `);
+    res.status(500).send(calendarCallbackPage({
+      ok: false,
+      title: 'Connection Failed',
+      message: 'Something went wrong connecting Google Calendar. You can close this window and try again.',
+    }));
   }
 });
 

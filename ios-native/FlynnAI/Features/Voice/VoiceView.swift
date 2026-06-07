@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Voice tab — manage the tone samples that make Flynn's drafts sound like you,
 /// and preview your current voice.
@@ -158,7 +159,18 @@ struct EditSampleSheet: View {
             .background(FlynnColor.background)
             .navigationTitle("Edit reply")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.resignFirstResponder),
+                            to: nil, from: nil, for: nil
+                        )
+                    }
+                }
+            }
         }
     }
 }

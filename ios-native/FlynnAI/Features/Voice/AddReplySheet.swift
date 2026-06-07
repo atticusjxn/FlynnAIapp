@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Quick sheet to add a reply in the user's voice (feeds tone samples). Shared by
 /// Home and the Voice tab.
@@ -27,7 +28,18 @@ struct AddReplySheet: View {
             .background(FlynnColor.background)
             .navigationTitle("Add a reply")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.resignFirstResponder),
+                            to: nil, from: nil, for: nil
+                        )
+                    }
+                }
+            }
         }
     }
 

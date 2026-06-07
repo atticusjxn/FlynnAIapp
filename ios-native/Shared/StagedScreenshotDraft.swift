@@ -21,6 +21,11 @@ struct StagedScreenshotDraft: Codable, Sendable {
     let needsDraft: Bool
     /// The free-tier daily cap was hit (HTTP 402); the keyboard shows the limit copy.
     let limitReached: Bool
+    /// The capture is still running in the app (OCR/draft in flight). Staged the
+    /// instant the Action Button fires so a fast switch to the keyboard shows a brief
+    /// "reading…" state and polls for the real result, instead of falling through to
+    /// the empty clipboard state. Replaced by the terminal result when done.
+    let capturing: Bool
 
     init(
         messages: [String],
@@ -29,7 +34,8 @@ struct StagedScreenshotDraft: Codable, Sendable {
         capturedAt: Date = Date(),
         consumed: Bool = false,
         needsDraft: Bool = false,
-        limitReached: Bool = false
+        limitReached: Bool = false,
+        capturing: Bool = false
     ) {
         self.messages = messages
         self.drafts = drafts
@@ -38,5 +44,12 @@ struct StagedScreenshotDraft: Codable, Sendable {
         self.consumed = consumed
         self.needsDraft = needsDraft
         self.limitReached = limitReached
+        self.capturing = capturing
     }
+
+    /// Marker staged the moment a capture begins, so the keyboard waits for it.
+    static var inFlight: StagedScreenshotDraft { StagedScreenshotDraft(messages: [], capturing: true) }
+    /// Terminal marker when OCR found nothing — the keyboard stops waiting and tells
+    /// the user to copy instead, rather than spinning forever.
+    static var unreadable: StagedScreenshotDraft { StagedScreenshotDraft(messages: []) }
 }

@@ -18,8 +18,6 @@ struct ScreenshotDraftIntent: AppIntent {
         "Reads the message on your screen and gets replies ready in the Flynn keyboard."
     )
 
-    /// Run silently in the background — no app launch, latency hides in the switch
-    /// to the messaging app + keyboard.
     static let openAppWhenRun: Bool = false
 
     @Parameter(title: "Screenshot", description: "The screenshot to read.", supportedContentTypes: [.image])
@@ -34,40 +32,36 @@ struct ScreenshotDraftIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // Tell the keyboard a capture is in flight *immediately*, before any work — so
+        // if the user switches to it before OCR/drafting finishes (the fast path), it
+        // shows "reading…" and waits instead of falling through to the empty state.
+        SharedStore.stageScreenshotDraft(.inFlight)
+
         // 1. OCR the screenshot on-device.
         let text: String
         do {
             text = try await ScreenshotOCR.recognizeText(from: screenshot.data)
         } catch {
+            SharedStore.stageScreenshotDraft(.unreadable)
             return .result(dialog: "Couldn't read that screenshot — try copying the message instead.")
         }
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
+            SharedStore.stageScreenshotDraft(.unreadable)
             return .result(dialog: "No message text found in that screenshot.")
         }
         let messages = [trimmed]
 
-        // 2. Generate drafts now if we can; otherwise stage the messages so the
-        //    keyboard drafts them. Either way the keyboard has work to show.
-        do {
-            let drafts = try await KeyboardDraftClient.fetchDrafts(messages: messages, source: "screenshot")
-            SharedStore.stageScreenshotDraft(
-                StagedScreenshotDraft(messages: messages, drafts: drafts)
-            )
-            return .result(dialog: "Replies are ready — open the Flynn keyboard.")
-        } catch KeyboardDraftClient.ClientError.limitReached {
-            SharedStore.stageScreenshotDraft(
-                StagedScreenshotDraft(messages: messages, limitReached: true)
-            )
-            return .result(dialog: "You're out of free drafts today — open Flynn to go unlimited.")
-        } catch {
-            // Missing token / network / decode — let the keyboard finish the draft.
-            SharedStore.stageScreenshotDraft(
-                StagedScreenshotDraft(messages: messages, needsDraft: true)
-            )
-            return .result(dialog: "Captured — open the Flynn keyboard to see your replies.")
-        }
+        // 2. Hand the OCR'd messages to the keyboard and let IT make the draft call.
+        //    Doing the network request here — in iOS's throttled background-intent
+        //    context — is what made replies land "heaps later." OCR is fast on-device,
+        //    so we stage the messages immediately (sub-second) and the keyboard drafts
+        //    them in the foreground at full speed the moment it appears.
+        SharedStore.stageScreenshotDraft(
+            StagedScreenshotDraft(messages: messages, needsDraft: true)
+        )
+        return .result(dialog: "Captured — open the Flynn keyboard.")
     }
 }
 

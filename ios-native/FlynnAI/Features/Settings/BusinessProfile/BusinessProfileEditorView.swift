@@ -35,6 +35,12 @@ struct BusinessProfileEditorView: View {
         .background(FlynnColor.background)
         .navigationTitle("Business profile")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focusedField = nil }
+            }
+        }
         .task { await store.load() }
     }
 

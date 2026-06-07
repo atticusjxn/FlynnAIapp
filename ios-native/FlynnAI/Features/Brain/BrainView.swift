@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Brain tab — the business knowledge Flynn cites in drafts. Saves in the shape
 /// the backend draft formatter consumes (see BrainStore).
@@ -99,6 +100,7 @@ struct BrainView: View {
             }
         }
         .navigationTitle("Brain")
+        .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Save") {
@@ -108,6 +110,15 @@ struct BrainView: View {
                     }
                 }
                 .disabled(store.saving)
+            }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil
+                    )
+                }
             }
         }
         .task { await store.load() }
