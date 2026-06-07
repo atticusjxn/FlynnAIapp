@@ -1099,7 +1099,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 92;
+				CURRENT_PROJECT_VERSION = 96;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1121,7 +1121,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FlynnKeyboard/FlynnKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 92;
+				CURRENT_PROJECT_VERSION = 96;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				INFOPLIST_FILE = FlynnKeyboard/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1144,7 +1144,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 92;
+				CURRENT_PROJECT_VERSION = 96;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1226,7 +1226,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FlynnKeyboard/FlynnKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 92;
+				CURRENT_PROJECT_VERSION = 96;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				INFOPLIST_FILE = FlynnKeyboard/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
