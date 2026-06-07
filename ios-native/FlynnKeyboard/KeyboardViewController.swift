@@ -450,7 +450,8 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         } else if !staged.messages.isEmpty {
             runDraft(messages: staged.messages)              // needsDraft — generate now
         } else {
-            showStatus("Couldn't read that screen — copy the message and tap ↻ Redraft.")
+            let dbg = SharedStore.ocrDebugLog.map { " [\($0)]" } ?? ""
+            showStatus("Couldn't read that screen\(dbg) — copy the message and tap ↻ Redraft.")
         }
     }
 

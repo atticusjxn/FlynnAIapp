@@ -105,9 +105,14 @@ enum SharedStore {
     }
 
     /// Called by the screenshot App Intent to hand a capture to the keyboard.
+    /// The intent is a short-lived background process that iOS suspends/kills the
+    /// instant `perform()` returns — so `set` alone often loses the write before it
+    /// flushes. `synchronize()` forces it to disk immediately so the keyboard reliably
+    /// sees the capture (this is the difference between "hit or miss" and "works").
     static func stageScreenshotDraft(_ staged: StagedScreenshotDraft) {
         guard let data = try? stagedEncoder.encode(staged) else { return }
         defaults?.set(data, forKey: FlynnShared.DefaultsKey.stagedScreenshot)
+        defaults?.synchronize()
     }
 
     /// The keyboard reads this on appear. Returns `nil` if there's nothing staged,
@@ -123,6 +128,13 @@ enum SharedStore {
         return staged
     }
 
+    // MARK: OCR debug log (intent → keyboard, cleared on each new capture)
+
+    static var ocrDebugLog: String? {
+        get { defaults?.string(forKey: "flynn.debug.ocrLog") }
+        set { defaults?.set(newValue, forKey: "flynn.debug.ocrLog"); defaults?.synchronize() }
+    }
+
     /// Mark the staged capture consumed so a keyboard re-appear doesn't replay it.
     static func markStagedScreenshotConsumed() {
         guard
@@ -132,6 +144,7 @@ enum SharedStore {
         staged.consumed = true
         if let updated = try? stagedEncoder.encode(staged) {
             defaults?.set(updated, forKey: FlynnShared.DefaultsKey.stagedScreenshot)
+            defaults?.synchronize()
         }
     }
 }

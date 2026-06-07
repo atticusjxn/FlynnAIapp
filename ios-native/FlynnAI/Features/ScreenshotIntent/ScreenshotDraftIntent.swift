@@ -38,16 +38,20 @@ struct ScreenshotDraftIntent: AppIntent {
         SharedStore.stageScreenshotDraft(.inFlight)
 
         // 1. OCR the screenshot on-device.
+        let dataSize = screenshot.data.count
         let text: String
         do {
             text = try await ScreenshotOCR.recognizeText(from: screenshot.data)
+            SharedStore.ocrDebugLog = "data:\(dataSize)b chars:\(text.count)"
         } catch {
+            SharedStore.ocrDebugLog = "throw:\(error) data:\(dataSize)b"
             SharedStore.stageScreenshotDraft(.unreadable)
             return .result(dialog: "Couldn't read that screenshot — try copying the message instead.")
         }
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
+            SharedStore.ocrDebugLog = "emptyTrim data:\(dataSize)b raw:\(text.count)chars"
             SharedStore.stageScreenshotDraft(.unreadable)
             return .result(dialog: "No message text found in that screenshot.")
         }
