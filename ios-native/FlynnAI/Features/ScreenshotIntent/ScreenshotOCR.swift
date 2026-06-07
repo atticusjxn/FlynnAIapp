@@ -18,35 +18,40 @@ enum ScreenshotOCR {
             throw OCRError.badImage
         }
 
+        // Run Vision on a background thread — calling handler.perform() blocks the
+        // calling thread, and doing that on @MainActor can deadlock if Vision
+        // internally dispatches completions back to the main queue.
         return try await withCheckedThrowingContinuation { continuation in
-            let request = VNRecognizeTextRequest { request, error in
-                if let error {
-                    continuation.resume(throwing: OCRError.visionFailed(error))
-                    return
-                }
-                let observations = request.results as? [VNRecognizedTextObservation] ?? []
-                // Reconstruct reading order: top-to-bottom (Vision's normalized origin
-                // is bottom-left, so higher y = higher on screen), then left-to-right.
-                let lines: [String] = observations
-                    .sorted { lhs, rhs in
-                        if abs(lhs.boundingBox.midY - rhs.boundingBox.midY) > 0.02 {
-                            return lhs.boundingBox.midY > rhs.boundingBox.midY
-                        }
-                        return lhs.boundingBox.minX < rhs.boundingBox.minX
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = VNRecognizeTextRequest { request, error in
+                    if let error {
+                        continuation.resume(throwing: OCRError.visionFailed(error))
+                        return
                     }
-                    .compactMap { $0.topCandidates(1).first?.string }
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
-                continuation.resume(returning: lines.joined(separator: "\n"))
-            }
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
+                    let observations = request.results as? [VNRecognizedTextObservation] ?? []
+                    // Reconstruct reading order: top-to-bottom (Vision's normalized origin
+                    // is bottom-left, so higher y = higher on screen), then left-to-right.
+                    let lines: [String] = observations
+                        .sorted { lhs, rhs in
+                            if abs(lhs.boundingBox.midY - rhs.boundingBox.midY) > 0.02 {
+                                return lhs.boundingBox.midY > rhs.boundingBox.midY
+                            }
+                            return lhs.boundingBox.minX < rhs.boundingBox.minX
+                        }
+                        .compactMap { $0.topCandidates(1).first?.string }
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                    continuation.resume(returning: lines.joined(separator: "\n"))
+                }
+                request.recognitionLevel = .accurate
+                request.usesLanguageCorrection = true
 
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                continuation.resume(throwing: OCRError.visionFailed(error))
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                do {
+                    try handler.perform([request])
+                } catch {
+                    continuation.resume(throwing: OCRError.visionFailed(error))
+                }
             }
         }
     }

@@ -30,6 +30,7 @@ struct ScreenshotDraftIntent: AppIntent {
         Summary("Draft a reply from \(\.$screenshot)")
     }
 
+    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         // Tell the keyboard a capture is in flight *immediately*, before any work — so
         // if the user switches to it before OCR/drafting finishes (the fast path), it
@@ -37,10 +38,13 @@ struct ScreenshotDraftIntent: AppIntent {
         SharedStore.stageScreenshotDraft(.inFlight)
 
         // 1. OCR the screenshot on-device.
-        let dataSize = screenshot.data.count
+        // Read .data ONCE — IntentFile is file-backed; accessing it twice can
+        // give empty bytes on the second read if the temp file is consumed.
+        let imageData = screenshot.data
+        let dataSize = imageData.count
         let text: String
         do {
-            text = try await ScreenshotOCR.recognizeText(from: screenshot.data)
+            text = try await ScreenshotOCR.recognizeText(from: imageData)
             SharedStore.ocrDebugLog = "data:\(dataSize)b chars:\(text.count)"
         } catch {
             SharedStore.ocrDebugLog = "throw:\(error) data:\(dataSize)b"
