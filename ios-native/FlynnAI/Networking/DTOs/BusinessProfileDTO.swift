@@ -7,7 +7,7 @@ import Foundation
 /// `aiFollowupQuestions`) are decoded into typed domain structs below. Each has a
 /// forgiving decoder so shape drift doesn't crash older clients.
 struct BusinessProfileDTO: Codable, Hashable, Sendable {
-    let userId: UUID
+    let userId: UUID?      // null on org-scoped rows (created by the signup trigger)
     let orgId: UUID?
     let businessName: String?
     let industry: String?
@@ -71,7 +71,7 @@ struct BusinessProfileDTO: Codable, Hashable, Sendable {
     /// screens (IVR editor, BusinessProfile editor).
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.userId = try c.decode(UUID.self, forKey: .userId)
+        self.userId = try c.decodeIfPresent(UUID.self, forKey: .userId)
         self.orgId = try c.decodeIfPresent(UUID.self, forKey: .orgId)
         self.businessName = try c.decodeIfPresent(String.self, forKey: .businessName)
         self.industry = try c.decodeIfPresent(String.self, forKey: .industry)

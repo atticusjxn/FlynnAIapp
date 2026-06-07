@@ -147,4 +147,42 @@ enum SharedStore {
             defaults?.synchronize()
         }
     }
+
+    // MARK: Staged calendar booking (keyboard → main app)
+
+    /// Called by the keyboard when the backend flags an agreed, genuinely-free
+    /// time. The main app picks this up on its next foreground and offers the user
+    /// a one-tap confirm. `synchronize()` for the same cross-process reason as the
+    /// screenshot hand-off.
+    static func stagePendingCalendarEvent(_ event: PendingCalendarEvent) {
+        guard let data = try? stagedEncoder.encode(event) else { return }
+        defaults?.set(data, forKey: FlynnShared.DefaultsKey.stagedCalendarEvent)
+        defaults?.synchronize()
+    }
+
+    /// The app reads this on foreground. Returns nil if there's nothing staged,
+    /// it's been consumed, or it's older than the freshness window.
+    static func freshPendingCalendarEvent() -> PendingCalendarEvent? {
+        guard
+            let data = defaults?.data(forKey: FlynnShared.DefaultsKey.stagedCalendarEvent),
+            let event = try? stagedDecoder.decode(PendingCalendarEvent.self, from: data),
+            !event.consumed,
+            Date().timeIntervalSince(event.createdAt) <= FlynnShared.stagedCalendarEventFreshnessSeconds
+        else { return nil }
+        return event
+    }
+
+    /// Mark the staged booking consumed (after the user confirms or dismisses) so a
+    /// re-foreground doesn't offer it again.
+    static func markPendingCalendarEventConsumed() {
+        guard
+            let data = defaults?.data(forKey: FlynnShared.DefaultsKey.stagedCalendarEvent),
+            var event = try? stagedDecoder.decode(PendingCalendarEvent.self, from: data)
+        else { return }
+        event.consumed = true
+        if let updated = try? stagedEncoder.encode(event) {
+            defaults?.set(updated, forKey: FlynnShared.DefaultsKey.stagedCalendarEvent)
+            defaults?.synchronize()
+        }
+    }
 }

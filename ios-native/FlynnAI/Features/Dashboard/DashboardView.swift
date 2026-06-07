@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Home for the text co-pilot: leads with setup status (keyboard + calendar),
 /// quick access to the Business Brain & voice, and recent bookings + replies.
@@ -108,10 +109,15 @@ struct DashboardView: View {
             setupStep(
                 icon: "keyboard",
                 title: "Add the Flynn keyboard",
-                subtitle: "Draft replies right inside Messages",
+                subtitle: "Enable Flynn + turn on Full Access, then open it once",
                 done: store.keyboardAdded
             ) {
-                showingPractice = true
+                // Open Flynn's Settings page — tap Keyboards there to enable the
+                // keyboard + Full Access. (iOS has no deeper link to the add-keyboard
+                // pane.) Practice still lives in the "How Flynn works" card below.
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
             }
 
             setupStep(

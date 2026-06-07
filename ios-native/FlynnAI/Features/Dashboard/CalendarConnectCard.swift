@@ -79,6 +79,13 @@ final class CalendarPromptStore {
         appleConnected = true
     }
 
+    /// Launch the Google OAuth flow. The backend persists the connection and
+    /// flips `google_calendar_connected`; reflect it locally so the card hides.
+    func connectGoogleCalendar() async throws {
+        try await GoogleCalendarConnect.connect(client: client)
+        googleConnected = true
+    }
+
     func dismiss() async {
         struct Patch: Encodable { let calendar_prompt_dismissed_at: Date }
         do {
@@ -99,6 +106,7 @@ struct CalendarConnectCard: View {
     @Environment(FlashStore.self) private var flash
     @State private var store = CalendarPromptStore()
     @State private var isConnectingApple = false
+    @State private var isConnectingGoogle = false
 
     var body: some View {
         Group {
@@ -137,9 +145,10 @@ struct CalendarConnectCard: View {
                 )
                 FlynnButton(
                     title: "Google Calendar",
-                    action: { flash.info("Open Settings → Connected apps to link Google Calendar") },
+                    action: connectGoogle,
                     variant: .secondary,
-                    fullWidth: true
+                    fullWidth: true,
+                    isLoading: isConnectingGoogle
                 )
             }
 
@@ -167,6 +176,21 @@ struct CalendarConnectCard: View {
                 flash.error(error.localizedDescription)
             }
             isConnectingApple = false
+        }
+    }
+
+    private func connectGoogle() {
+        isConnectingGoogle = true
+        Task {
+            do {
+                try await store.connectGoogleCalendar()
+                flash.success("Google Calendar connected")
+            } catch GoogleCalendarConnect.ConnectError.cancelled {
+                // User backed out of the sheet — stay quiet.
+            } catch {
+                flash.error(error.localizedDescription)
+            }
+            isConnectingGoogle = false
         }
     }
 }

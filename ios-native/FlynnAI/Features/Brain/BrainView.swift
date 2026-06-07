@@ -77,6 +77,21 @@ struct BrainView: View {
             }
 
             Section {
+                NavigationLink {
+                    RememberedContextView()
+                } label: {
+                    Label("What Flynn remembers", systemImage: "sparkles")
+                }
+                NavigationLink {
+                    QuoteStyleView()
+                } label: {
+                    Label("Your quote style", systemImage: "doc.text.magnifyingglass")
+                }
+            } footer: {
+                Text("Facts Flynn has learned about your customers, and how you quote — woven into future replies and quotes.")
+            }
+
+            Section {
                 TextField("https://yourbusiness.com", text: $store.websiteURL)
                     .textContentType(.URL)
                     .autocapitalization(.none)

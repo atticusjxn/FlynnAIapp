@@ -48,10 +48,17 @@ final class AppleCalendarService: @unchecked Sendable {
         }
     }
 
-    /// Creates an event for the given booking. Returns the EKEvent identifier
-    /// — store this in `jobs.apple_calendar_event_id`.
+    /// Primitive: create an event from concrete fields. Returns the EKEvent
+    /// identifier — store this in `jobs.apple_calendar_event_id`. All other
+    /// `createEvent` overloads funnel through here.
     @discardableResult
-    func createEvent(for booking: BookingDTO, durationMinutes: Int = 60) async throws -> String {
+    func createEvent(
+        title: String,
+        start: Date,
+        durationMinutes: Int = 60,
+        location: String? = nil,
+        notes: String? = nil
+    ) async throws -> String {
         guard try await requestAccess() else { throw CalendarError.accessDenied }
         guard let calendar = store.defaultCalendarForNewEvents else {
             throw CalendarError.noEventCalendar
@@ -59,22 +66,35 @@ final class AppleCalendarService: @unchecked Sendable {
 
         let event = EKEvent(eventStore: store)
         event.calendar = calendar
-        event.title = booking.serviceType ?? "Flynn booking"
-        event.location = booking.location
-
-        let start = Self.composeDate(date: booking.requestedDate, time: booking.requestedTime) ?? Date()
+        event.title = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Flynn booking" : title
+        event.location = location
         event.startDate = start
         event.endDate = start.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        event.notes = notes
+
+        try store.save(event, span: .thisEvent, commit: true)
+        return event.eventIdentifier
+    }
+
+    /// Creates an event for the given booking. Returns the EKEvent identifier
+    /// — store this in `jobs.apple_calendar_event_id`.
+    @discardableResult
+    func createEvent(for booking: BookingDTO, durationMinutes: Int = 60) async throws -> String {
+        let start = Self.composeDate(date: booking.requestedDate, time: booking.requestedTime) ?? Date()
 
         var noteLines: [String] = []
         if let name = booking.callerName { noteLines.append("Client: \(name)") }
         if let phone = booking.callerPhone { noteLines.append("Phone: \(phone)") }
         if let email = booking.callerEmail { noteLines.append("Email: \(email)") }
         if let existing = booking.notes { noteLines.append(existing) }
-        event.notes = noteLines.joined(separator: "\n")
 
-        try store.save(event, span: .thisEvent, commit: true)
-        return event.eventIdentifier
+        return try await createEvent(
+            title: booking.serviceType ?? "Flynn booking",
+            start: start,
+            durationMinutes: durationMinutes,
+            location: booking.location,
+            notes: noteLines.isEmpty ? nil : noteLines.joined(separator: "\n")
+        )
     }
 
     func deleteEvent(identifier: String) async throws {

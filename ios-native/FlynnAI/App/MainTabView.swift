@@ -4,8 +4,16 @@ import SwiftUI
 /// push onto the correct stack without clobbering the others.
 struct MainTabView: View {
     @Environment(DeepLinkRouter.self) private var deepLink
+    @Environment(FlashStore.self) private var flash
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selection: FlynnTab = .dashboard
     @State private var drawer = DrawerController()
+    @State private var calendarStore = PendingCalendarStore()
+    @State private var voiceStore = VoiceCommandStore()
+    @State private var voiceQuote: IdentifiedQuote?
+
+    /// Identifiable wrapper so a created quote can drive a `.sheet(item:)`.
+    private struct IdentifiedQuote: Identifiable { let id: UUID }
 
     @State private var dashboardPath = NavigationPath()
     @State private var voicePath = NavigationPath()
@@ -17,6 +25,8 @@ struct MainTabView: View {
     @State private var moneyPath = NavigationPath()
 
     var body: some View {
+        @Bindable var calendarStore = calendarStore
+        @Bindable var voiceStore = voiceStore
         ZStack(alignment: .leading) {
             TabView(selection: $selection) {
                 tab(.dashboard, path: $dashboardPath) { DashboardView() }
@@ -36,12 +46,96 @@ struct MainTabView: View {
                     .ignoresSafeArea(edges: .bottom)
             }
         }
+        // App-wide hold-to-talk mic, floating above the tab bar (hidden behind the drawer).
+        .overlay(alignment: .bottomTrailing) {
+            if !drawer.isOpen {
+                FloatingMicButton(store: voiceStore)
+                    .padding(.trailing, FlynnSpacing.lg)
+                    .padding(.bottom, 92)
+            }
+        }
         .environment(drawer)
         .animation(.easeOut(duration: 0.25), value: drawer.isOpen)
         .onChange(of: deepLink.pending) { _, link in
             guard let link else { return }
             applyDeepLink(link)
             deepLink.pending = nil
+        }
+        // A booking the keyboard staged becomes a confirm card here — the foreground
+        // app is the only place that can write to the calendar. Picked up on launch,
+        // on every foreground, and when the calendar deep link pings.
+        .task { calendarStore.checkForPending() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { calendarStore.checkForPending() }
+        }
+        .onChange(of: deepLink.calendarPickupPing) { _, _ in
+            calendarStore.checkForPending()
+        }
+        .sheet(item: $calendarStore.pending, onDismiss: { calendarStore.handleSheetDismissed() }) { event in
+            PendingEventConfirmView(
+                event: event,
+                writeState: calendarStore.writeState,
+                onConfirm: { Task { await calendarStore.confirm() } },
+                onDismiss: { calendarStore.dismiss() }
+            )
+            .presentationDetents([.medium])
+            .interactiveDismissDisabled(calendarStore.writeState == .writing)
+        }
+        // Voice command results → the right surface for each intent.
+        .onChange(of: voiceStore.lastResult) { _, result in
+            guard let result else { return }
+            voiceStore.clearResult()
+            routeVoiceResult(result)
+        }
+        .onChange(of: voiceStore.errorMessage) { _, message in
+            guard let message else { return }
+            flash.show(message, kind: .error)
+            voiceStore.clearError()
+        }
+        .sheet(item: $voiceStore.replyDrafts) { item in
+            VoiceReplyDraftsView(
+                recipient: item.recipient,
+                drafts: item.drafts,
+                onClose: { voiceStore.replyDrafts = nil },
+                onCopied: { flash.show("Copied — paste it where you're messaging.", kind: .success) }
+            )
+        }
+        .sheet(item: $voiceQuote) { item in
+            NavigationStack { QuoteDetailView(quoteId: item.id) }
+        }
+    }
+
+    /// Dispatch a voice command result to the matching surface.
+    private func routeVoiceResult(_ result: VoiceCommandResult) {
+        switch result.intent {
+        case "calendar":
+            if let event = result.event {
+                calendarStore.present(event: PendingCalendarEvent(
+                    title: event.title,
+                    startISO: event.startISO,
+                    durationMin: event.durationMin,
+                    location: event.location,
+                    customer: event.customer
+                ))
+            } else {
+                flash.show("Got it — but I need a clear day and time. Try again.", kind: .info)
+            }
+        case "quote":
+            if let idString = result.quoteId, let id = UUID(uuidString: idString) {
+                voiceQuote = IdentifiedQuote(id: id)
+            } else {
+                flash.show("Drafted a quote but couldn't open it — check the Money area.", kind: .info)
+            }
+        case "reply":
+            voiceStore.replyDrafts = VoiceCommandStore.ReplyDrafts(
+                recipient: result.recipient,
+                drafts: result.drafts ?? []
+            )
+        case "note":
+            let about = result.subject.map { " about \($0)" } ?? ""
+            flash.show("Saved ✓ Flynn will remember that\(about).", kind: .success)
+        default:
+            flash.show(result.message ?? result.summary ?? "Didn't catch that — try again.", kind: .info)
         }
     }
 

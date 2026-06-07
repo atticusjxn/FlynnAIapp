@@ -22,10 +22,17 @@ const authenticateJwt = require('./middleware/authenticateJwt');
 const attachRealtimeServer = require('./telephony/realtimeServer');
 const { getLLMClient, PROVIDERS } = require('./llmClient');
 const jwt = require('jsonwebtoken');
-const { generateDrafts } = require('./services/draftReplies');
+const { generateDrafts, profileRowToContext } = require('./services/draftReplies');
 const { understandBusiness, FALLBACK_PROMPTS } = require('./services/onboarding');
 const googleCalendar = require('./services/googleCalendar');
-const { findOpenSlots, parseProposedTime, checkProposedTime, findNearestOpenSlot } = require('./services/slotProposer');
+const { findOpenSlots, parseProposedTime, checkProposedTime, findNearestOpenSlot, buildAgreedEvent } = require('./services/slotProposer');
+const { transcribeAudio } = require('./services/asrClient');
+const { classifyIntent } = require('./services/intentRouter');
+const { extractQuote } = require('./services/quoteExtractor');
+const { composeOutbound } = require('./services/voiceCompose');
+const { formatBusinessContext } = require('./services/businessContextFormatter');
+const { extractFacts, matchFactsToConversation, formatRememberedContext } = require('./services/contextMemory');
+const { extractQuoteStyle } = require('./services/quoteStyleExtractor');
 
 const {
   upsertCallRecord,
@@ -1302,7 +1309,7 @@ app.post('/api/auth/send-sms-hook', express.raw({ type: 'application/json' }), a
 });
 
 app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 
 app.post('/webhooks/appstore/verify', authenticateJwt, handleAppStoreVerify);
 
@@ -2311,11 +2318,20 @@ async function computeGoogleSlots(userId, businessHours, { days = 7, durationMin
  * Returns '' when there's no Google connection, no parseable time, or on any
  * failure — drafting then falls back to the generic "confirm a named time" rule.
  */
+// Returns { note, proposed, status }. `note` is the CALENDAR CHECK line for the
+// draft prompt; `proposed`/`status` are surfaced so the caller can offer a
+// one-tap calendar booking when (and only when) the named time is genuinely free.
 function buildAvailabilityNote({ latestMessage, businessHours, busy, timeZone, connected }) {
-  if (!connected || !latestMessage) return '';
+  const empty = { note: '', proposed: null, status: null };
+  if (!latestMessage) return empty;
   const now = new Date();
   const proposed = parseProposedTime(latestMessage, { now, timeZone });
-  if (!proposed) return '';
+  if (!proposed) return empty;
+
+  // No Google connected → we can't check free/busy, but we still parsed a concrete
+  // time. Surface it as 'unknown' so an Apple-only user can still book it (the
+  // endpoint only offers it when the model also signals a firm agreement).
+  if (!connected) return { note: '', proposed, status: 'unknown' };
 
   const status = checkProposedTime({
     start: proposed.start,
@@ -2326,7 +2342,11 @@ function buildAvailabilityNote({ latestMessage, businessHours, busy, timeZone, c
   });
 
   if (status === 'free') {
-    return `CALENDAR CHECK: the customer is asking about ${proposed.label}. That time is genuinely free in the owner's calendar — confirm it as booked in.`;
+    return {
+      note: `CALENDAR CHECK: the customer is asking about ${proposed.label}. That time is genuinely free in the owner's calendar — confirm it as booked in.`,
+      proposed,
+      status,
+    };
   }
 
   const alt = findNearestOpenSlot({
@@ -2337,9 +2357,10 @@ function buildAvailabilityNote({ latestMessage, businessHours, busy, timeZone, c
     from: now,
   });
   const reason = status === 'closed' ? "that's outside the owner's working hours" : "the owner is already booked then";
-  return alt
+  const note = alt
     ? `CALENDAR CHECK: the customer is asking about ${proposed.label}, but ${reason}. Do NOT accept that time. Apologise briefly and offer ${alt.label} instead.`
     : `CALENDAR CHECK: the customer is asking about ${proposed.label}, but ${reason}. Do NOT accept that time. Apologise briefly and offer to find another time.`;
+  return { note, proposed, status };
 }
 
 /**
@@ -2368,6 +2389,69 @@ app.post('/api/keyboard/provision-token', authenticateJwt, async (req, res) => {
     token,
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
   });
+});
+
+/**
+ * No-auth diagnostic ping from ScreenshotDraftIntent.perform() — tells us
+ * whether the App Intent process is executing at all.
+ * POST /api/intent-ping
+ */
+app.post('/api/intent-ping', (req, res) => {
+  console.log('[Intent] perform() executing — ping received');
+  res.sendStatus(200);
+});
+
+/**
+ * Extract conversation text from a screenshot using Qwen VL OCR.
+ * Called by the ScreenshotDraftIntent (App Intent) immediately after capture.
+ * Body: { imageBase64: string }  (PNG encoded as base64, up to ~10 MB)
+ * Returns: { text: string }
+ * POST /api/keyboard/ocr-screenshot
+ */
+app.post('/api/keyboard/ocr-screenshot', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const imageBase64 = req.body?.imageBase64;
+  if (!imageBase64 || typeof imageBase64 !== 'string' || imageBase64.length < 100) {
+    return res.status(400).json({ error: 'imageBase64 required' });
+  }
+
+  try {
+    const client = getLLMClient('compatible');
+    const ocrModel = process.env.OCR_VL_MODEL || 'qwen-vl-ocr';
+    const response = await client.chat.completions.create({
+      model: ocrModel,
+      max_tokens: 2000,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: { url: `data:image/png;base64,${imageBase64}` },
+            },
+            {
+              type: 'text',
+              text: 'This is a screenshot of a messaging app. Extract all the message text in the order it appears. Include messages from both sides of the conversation. For messages on the right side (sent by the owner), prefix with "Me: ". For messages on the left (from the customer), no prefix. Ignore all UI chrome: status bar, time, battery, signal strength, contact name/avatar, "iMessage"/"SMS"/"WhatsApp" labels, delivery/read receipts, timestamps, "Send" button. Return only the conversation text, one message per line.',
+            },
+          ],
+        },
+      ],
+    });
+
+    const text = (response?.choices?.[0]?.message?.content ?? '').trim();
+    if (!text) {
+      console.warn('[Keyboard] ocr-screenshot: empty response from model');
+      return res.status(422).json({ error: 'No text extracted from image' });
+    }
+
+    console.log('[Keyboard] ocr-screenshot extracted', text.length, 'chars for user', userId);
+    return res.json({ text });
+  } catch (err) {
+    console.error('[Keyboard] ocr-screenshot failed:', err?.message || err);
+    return res.status(500).json({ error: 'OCR failed' });
+  }
 });
 
 /**
@@ -2432,16 +2516,23 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
     // free/busy once and use it both to (a) propose open slots and (b) check any
     // specific time the customer named in their latest message.
     let availabilityNote = '';
+    // When the customer named a time that's genuinely free, these let us offer a
+    // one-tap calendar booking (the time is taken from here, never the LLM).
+    let agreedProposed = null;
+    let agreedStatus = null;
     if (proposedSlots.length === 0) {
       const { slots, busy, timeZone, connected } = await computeGoogleSlots(userId, profileRow?.hours_json);
       proposedSlots = slots.map((s) => s.label);
-      availabilityNote = buildAvailabilityNote({
+      const availability = buildAvailabilityNote({
         latestMessage: messages[messages.length - 1],
         businessHours: profileRow?.hours_json,
         busy,
         timeZone,
         connected,
       });
+      availabilityNote = availability.note;
+      agreedProposed = availability.proposed;
+      agreedStatus = availability.status;
     }
 
     // Tone samples: all onboarding samples + the most recent accepted ones
@@ -2462,7 +2553,20 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
     }
     const toneSamples = [...onboarding, ...accepted.slice(0, MAX_ACCEPTED_TONE_SAMPLES)];
 
-    const { drafts, usage } = await generateDrafts({
+    // Remembered context: confirmed facts about this customer that clearly match the
+    // conversation. Best-effort — never break drafting if the table/query is absent.
+    let rememberedContext = '';
+    try {
+      const { data: factRows } = await supabaseStorageClient
+        .from('customer_context')
+        .select('fact, subject_handle, subject_label')
+        .eq('user_id', userId)
+        .eq('status', 'confirmed')
+        .limit(200);
+      rememberedContext = formatRememberedContext(matchFactsToConversation(factRows || [], messages));
+    } catch (_) { /* memory table not present yet / query failed — proceed without */ }
+
+    const { drafts, booking, usage } = await generateDrafts({
       profileRow: profileRow || {},
       toneSamples,
       // The accepted samples are exactly the replies the user has picked before —
@@ -2471,6 +2575,7 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
       messages,
       proposedSlots,
       availabilityNote,
+      rememberedContext,
       draftCount,
       source,
     });
@@ -2484,7 +2589,40 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
       try { await supabaseStorageClient.rpc('bump_draft_usage', { p_user_id: userId }); } catch (_) {}
     }
 
-    res.json({ drafts, usage });
+    // Offer a one-tap calendar booking when the customer's named time was validated
+    // as genuinely free (Google connected). For Apple-only users we can't check
+    // free/busy, so we offer it only when the model also detected a firm agreement
+    // (`booking` present) — the user still confirms before anything is written.
+    let agreedEvent = buildAgreedEvent({ proposed: agreedProposed, status: agreedStatus, booking });
+    if (!agreedEvent && agreedStatus === 'unknown' && agreedProposed && booking) {
+      agreedEvent = buildAgreedEvent({ proposed: agreedProposed, status: 'free', booking });
+    }
+
+    res.json({ drafts, usage, agreedEvent });
+
+    // Passive learning (after responding, never blocks the draft): pull durable facts
+    // from the FULL screenshot conversation and stage them as unconfirmed for the
+    // owner to keep/discard. Skipped for clipboard fragments (too little context).
+    // All best-effort — a missing customer_context table is a no-op.
+    if (source === 'screenshot') {
+      extractFacts({ messages })
+        .then(async ({ facts }) => {
+          for (const f of facts.slice(0, 5)) {
+            try {
+              await supabaseStorageClient.from('customer_context').insert({
+                user_id: userId,
+                subject_handle: f.subject ? f.subject.toLowerCase().replace(/\s+/g, ' ').trim() : null,
+                subject_label: f.subject || null,
+                fact: f.fact,
+                confidence: f.confidence,
+                status: 'unconfirmed',
+                source: 'screenshot',
+              });
+            } catch (_) { /* table not present yet — ignore */ }
+          }
+        })
+        .catch(() => {});
+    }
   } catch (error) {
     console.error('[Keyboard] draft-replies failed:', error?.status || '', error?.message);
     res.status(500).json({ error: 'Failed to generate drafts' });
@@ -5900,6 +6038,344 @@ app.post('/api/invoices/:id/send', authenticateJwt, async (req, res) => {
   } catch (err) {
     console.error('[Invoices] Send failed', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ---- Voice command surface ----
+// One universal endpoint behind the app's floating mic: transcribe → classify the
+// intent → do it. Vertical-agnostic (quote / calendar / reply / note). Reuses the
+// quote+PDF stack, the calendar slot parser, the draft model, and the memory store.
+const _voiceMulter = require('multer');
+const voiceAudioUpload = _voiceMulter({
+  storage: _voiceMulter.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 }, // a held mic clip is small; 12MB is generous
+});
+
+/**
+ * POST /api/voice/command  (multipart: field "audio")
+ * Returns { intent, transcript, summary, ...intent-specific fields }.
+ */
+app.post('/api/voice/command', authenticateJwt, voiceAudioUpload.single('audio'), async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+  const buffer = req.file?.buffer;
+  if (!buffer || !buffer.length) return res.status(400).json({ error: 'No audio provided' });
+  const mimeType = req.file.mimetype || 'audio/m4a';
+
+  try {
+    // Value-first gate: a shared daily free quota across Flynn's AI actions; Pro is
+    // unlimited. Reuses the same counter as keyboard drafts.
+    const entitled = await isUserEntitled(userId);
+    if (!entitled) {
+      const used = await draftsUsedToday(userId);
+      if (used >= FREE_DRAFTS_PER_DAY) {
+        return res.status(402).json({
+          limitReached: true,
+          error: 'Free daily limit reached',
+          freeDraftsPerDay: FREE_DRAFTS_PER_DAY,
+        });
+      }
+    }
+
+    const { data: profileRow } = await supabaseStorageClient
+      .from('business_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const businessName = profileRow?.business_name || null;
+    const timeZone = profileRow?.timezone || process.env.DEFAULT_TIMEZONE || 'Australia/Sydney';
+
+    // 1) Transcribe (Qwen3-ASR by default; business name biases recognition).
+    const { text: transcript } = await transcribeAudio({ buffer, mimeType, context: businessName });
+    if (!transcript) {
+      return res.json({ intent: 'unknown', transcript: '', summary: '', message: "Didn't catch that — try again." });
+    }
+
+    // 2) Classify the spoken command into one intent + fields.
+    const routed = await classifyIntent({ transcript, businessName });
+
+    // Count this command against the shared free quota (entitled users unlimited).
+    if (!entitled) {
+      try { await supabaseStorageClient.rpc('bump_draft_usage', { p_user_id: userId }); } catch (_) {}
+    }
+
+    const result = { intent: routed.intent, transcript, summary: routed.summary };
+
+    // 3) Dispatch.
+    if (routed.intent === 'calendar') {
+      const proposed = routed.datetimeText
+        ? parseProposedTime(routed.datetimeText, { now: new Date(), timeZone })
+        : null;
+      if (proposed) {
+        // Same shape the keyboard booking uses → the app reuses the confirm card.
+        result.event = {
+          title: routed.title || (routed.customer ? `Booking — ${routed.customer}` : 'Booking'),
+          startISO: proposed.start.toISOString(),
+          durationMin: 60,
+          location: null,
+          customer: routed.customer,
+        };
+      } else {
+        result.needsTime = true; // app asks the user to confirm/pick a time
+      }
+    } else if (routed.intent === 'quote') {
+      // The owner's learned quoting style (any vertical) shapes wording, units, tax
+      // and terms. Best-effort — absent table just means a generic quote.
+      let quoteStyle = null;
+      try {
+        const { data: tmpl } = await supabaseStorageClient
+          .from('quote_templates').select('style_json').eq('user_id', userId).maybeSingle();
+        quoteStyle = tmpl?.style_json || null;
+      } catch (_) { /* no style learned yet */ }
+
+      const pricingContext = formatBusinessContext(profileRowToContext(profileRow || {}));
+      const quote = await extractQuote({ transcript, pricingContext, defaultTaxRate: 10, quoteStyle });
+      const { orgId } = await resolveUserOrg(userId);
+      const { data: quoteNumber } = await supabaseStorageClient.rpc('generate_quote_number', { p_org_id: orgId });
+      const { data: inserted, error: insertErr } = await supabaseStorageClient
+        .from('quotes')
+        .insert({
+          org_id: orgId,
+          quote_number: quoteNumber,
+          title: quote.title,
+          client_name: quote.clientName,
+          line_items: quote.lineItems,
+          subtotal: quote.subtotal,
+          tax_rate: quote.taxRate,
+          tax_amount: quote.taxAmount,
+          total: quote.total,
+          notes: quote.notes || quoteStyle?.closing_notes || null,
+          terms: quoteStyle?.terms_text || null,
+          status: 'draft',
+          created_by: userId,
+        })
+        .select('*')
+        .single();
+      if (insertErr) throw insertErr;
+      result.quoteId = inserted.id;
+      result.quote = {
+        number: inserted.quote_number,
+        title: inserted.title,
+        clientName: inserted.client_name,
+        lineItems: inserted.line_items,
+        total: Number(inserted.total),
+      };
+    } else if (routed.intent === 'reply') {
+      const businessContext = formatBusinessContext(profileRowToContext(profileRow || {}));
+      const { data: sampleRows } = await supabaseStorageClient
+        .from('tone_samples')
+        .select('sample_text')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      const toneSamples = (sampleRows || []).map((r) => r.sample_text).filter(Boolean);
+      const { drafts } = await composeOutbound({
+        instruction: transcript,
+        recipient: routed.recipient,
+        businessContext,
+        toneSamples,
+      });
+      result.drafts = drafts;
+      result.recipient = routed.recipient;
+    } else if (routed.intent === 'note') {
+      const fact = routed.note || transcript;
+      const subjectLabel = routed.customer;
+      const subjectHandle = subjectLabel ? subjectLabel.toLowerCase().replace(/\s+/g, ' ').trim() : null;
+      const { data: noteRow } = await supabaseStorageClient
+        .from('customer_context')
+        .insert({
+          user_id: userId,
+          subject_handle: subjectHandle,
+          subject_label: subjectLabel,
+          fact,
+          confidence: 0.9,
+          status: 'confirmed', // the owner spoke it deliberately
+          source: 'voice',
+        })
+        .select('id')
+        .single();
+      result.noteId = noteRow?.id || null;
+      result.note = fact;
+      result.subject = subjectLabel;
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('[Voice] command failed:', error?.status || '', error?.message);
+    res.status(500).json({ error: 'Voice command failed' });
+  }
+});
+
+// ---- "What Flynn remembers" (customer_context) ----
+
+/** GET /api/memory — the owner's remembered facts, newest first. */
+app.get('/api/memory', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+  try {
+    const { data, error } = await supabaseStorageClient
+      .from('customer_context')
+      .select('id, subject_handle, subject_label, fact, confidence, status, source, created_at')
+      .eq('user_id', userId)
+      .neq('status', 'dismissed')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    res.json({ facts: data || [] });
+  } catch (error) {
+    console.error('[Memory] list failed:', error?.message);
+    res.status(500).json({ error: 'Failed to load memory' });
+  }
+});
+
+/** POST /api/memory — add a fact (manual) or edit an existing one. */
+app.post('/api/memory', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+  const fact = typeof req.body?.fact === 'string' ? req.body.fact.trim().slice(0, 300) : '';
+  if (!fact) return res.status(400).json({ error: 'A fact is required' });
+  const subjectLabel = typeof req.body?.subject === 'string' && req.body.subject.trim()
+    ? req.body.subject.trim().slice(0, 120) : null;
+  const subjectHandle = subjectLabel ? subjectLabel.toLowerCase().replace(/\s+/g, ' ').trim() : null;
+  const id = typeof req.body?.id === 'string' ? req.body.id : null;
+  try {
+    if (id) {
+      const { data, error } = await supabaseStorageClient
+        .from('customer_context')
+        .update({ fact, subject_label: subjectLabel, subject_handle: subjectHandle, updated_at: new Date().toISOString() })
+        .eq('id', id).eq('user_id', userId)
+        .select('id').single();
+      if (error) throw error;
+      return res.json({ id: data?.id, updated: true });
+    }
+    const { data, error } = await supabaseStorageClient
+      .from('customer_context')
+      .insert({ user_id: userId, fact, subject_label: subjectLabel, subject_handle: subjectHandle, confidence: 1, status: 'confirmed', source: 'manual' })
+      .select('id').single();
+    if (error) throw error;
+    res.json({ id: data?.id, created: true });
+  } catch (error) {
+    console.error('[Memory] upsert failed:', error?.message);
+    res.status(500).json({ error: 'Failed to save fact' });
+  }
+});
+
+/** POST /api/memory/:id/status — keep ('confirmed') or discard ('dismissed') a fact. */
+app.post('/api/memory/:id/status', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+  const status = req.body?.status === 'confirmed' ? 'confirmed'
+    : req.body?.status === 'dismissed' ? 'dismissed' : null;
+  if (!status) return res.status(400).json({ error: 'status must be confirmed or dismissed' });
+  try {
+    const { error } = await supabaseStorageClient
+      .from('customer_context')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id).eq('user_id', userId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('[Memory] status failed:', error?.message);
+    res.status(500).json({ error: 'Failed to update fact' });
+  }
+});
+
+/** DELETE /api/memory/:id */
+app.delete('/api/memory/:id', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+  try {
+    const { error } = await supabaseStorageClient
+      .from('customer_context')
+      .delete().eq('id', req.params.id).eq('user_id', userId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('[Memory] delete failed:', error?.message);
+    res.status(500).json({ error: 'Failed to delete fact' });
+  }
+});
+
+// ---- Quote-style ingestion (learn how the owner quotes — any vertical) ----
+
+/** POST /api/quote-style — Body: { text: string, source?: string }. Learns from a
+ *  captured quote/invoice/proposal and merges into the owner's style. */
+app.post('/api/quote-style', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+  const ocrText = typeof req.body?.text === 'string' ? req.body.text : '';
+  if (!ocrText.trim()) return res.status(400).json({ error: 'No document text provided' });
+  try {
+    // Free-but-capped agentic action (shared daily quota).
+    const entitled = await isUserEntitled(userId);
+    if (!entitled) {
+      const used = await draftsUsedToday(userId);
+      if (used >= FREE_DRAFTS_PER_DAY) {
+        return res.status(402).json({ limitReached: true, error: 'Free daily limit reached', freeDraftsPerDay: FREE_DRAFTS_PER_DAY });
+      }
+    }
+
+    let existing = null;
+    let sampleCount = 0;
+    try {
+      const { data } = await supabaseStorageClient
+        .from('quote_templates').select('style_json, sample_count').eq('user_id', userId).maybeSingle();
+      existing = data?.style_json || null;
+      sampleCount = data?.sample_count || 0;
+    } catch (_) { /* table may be absent */ }
+
+    const style = await extractQuoteStyle({ ocrText, existingStyle: existing });
+
+    try {
+      await supabaseStorageClient.from('quote_templates').upsert({
+        user_id: userId,
+        style_json: style,
+        sample_count: sampleCount + 1,
+        source: typeof req.body?.source === 'string' ? req.body.source : 'screenshot',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+    } catch (e) {
+      console.error('[QuoteStyle] upsert failed (table missing?):', e?.message);
+    }
+
+    if (!entitled) { try { await supabaseStorageClient.rpc('bump_draft_usage', { p_user_id: userId }); } catch (_) {} }
+    res.json({ style, sampleCount: sampleCount + 1 });
+  } catch (error) {
+    console.error('[QuoteStyle] ingest failed:', error?.message);
+    res.status(500).json({ error: 'Failed to learn quote style' });
+  }
+});
+
+/** GET /api/quote-style — the owner's current learned style. */
+app.get('/api/quote-style', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+  try {
+    const { data } = await supabaseStorageClient
+      .from('quote_templates').select('style_json, sample_count').eq('user_id', userId).maybeSingle();
+    res.json({ style: data?.style_json || null, sampleCount: data?.sample_count || 0 });
+  } catch (_) {
+    res.json({ style: null, sampleCount: 0 });
+  }
+});
+
+/** DELETE /api/quote-style — forget the learned style. */
+app.delete('/api/quote-style', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+  try {
+    await supabaseStorageClient.from('quote_templates').delete().eq('user_id', userId);
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to reset quote style' });
   }
 });
 

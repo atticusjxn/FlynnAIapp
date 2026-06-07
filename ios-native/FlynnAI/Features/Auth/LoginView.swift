@@ -3,17 +3,14 @@ import SwiftUI
 struct LoginView: View {
     enum Mode {
         case landing
-        case phoneSignup    // phone entry framed as "Sign up with your phone number"
-        case phoneLogin     // phone entry framed as "Welcome back" (pre-fills phone)
-        case phoneVerify    // SMS OTP entry
-        case emailPicker    // small chooser between email code / email password
-        case emailPassword
-        case emailCode
-        case signup         // email + password signup
+        case emailPicker    // login: choose code vs password
+        case emailPassword  // login with password
+        case emailCode      // login with email OTP
+        case signup         // new account
     }
 
     enum Field: Hashable {
-        case email, password, code, businessName, phone, phoneCode
+        case email, password, code, businessName
     }
 
     @Environment(AuthStore.self) private var auth
@@ -23,24 +20,18 @@ struct LoginView: View {
     @State private var password = ""
     @State private var code = ""
     @State private var businessName = ""
-    @State private var phone = ""
     @State private var codeSent = false
     @FocusState private var focusedField: Field?
-
-    private static let lastPhoneKey = "flynn.lastLoginPhone"
 
     var body: some View {
         ScrollView {
             VStack(spacing: FlynnSpacing.xl) {
                 switch mode {
-                case .landing:        landingBody
-                case .phoneSignup:    phoneEntryBody(variant: .signup)
-                case .phoneLogin:     phoneEntryBody(variant: .login)
-                case .phoneVerify:    phoneVerifyBody
-                case .emailPicker:    emailPickerBody
-                case .emailPassword:  emailPasswordBody
-                case .emailCode:      emailCodeBody
-                case .signup:         signupBody
+                case .landing:       landingBody
+                case .emailPicker:   emailPickerBody
+                case .emailPassword: emailPasswordBody
+                case .emailCode:     emailCodeBody
+                case .signup:        signupBody
                 }
 
                 if let message = auth.errorMessage {
@@ -69,12 +60,15 @@ struct LoginView: View {
         .background(FlynnColor.background)
     }
 
-    // MARK: - Landing (hero + phone CTA + Login link + tertiary buttons)
+    // MARK: - Landing
 
     private var landingBody: some View {
         VStack(spacing: FlynnSpacing.lg) {
-            // Hero — fills empty top space
-            VStack(spacing: FlynnSpacing.md) {
+            Spacer(minLength: FlynnSpacing.xl)
+
+            Mascot(.wave, size: 96)
+
+            VStack(spacing: FlynnSpacing.sm) {
                 HStack(spacing: 0) {
                     Text("Flynn")
                         .flynnType(FlynnTypography.displayLarge)
@@ -93,143 +87,43 @@ struct LoginView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, FlynnSpacing.md)
             }
-            .padding(.top, FlynnSpacing.xl)
-            .padding(.bottom, FlynnSpacing.lg)
 
-            // Big primary CTA
+            Spacer(minLength: FlynnSpacing.xl)
+
             FlynnButton(
-                title: "Sign up with your phone number",
-                action: { mode = .phoneSignup; phone = "" },
+                title: "Create account",
+                action: { mode = .signup },
                 fullWidth: true
             )
 
-            // Smaller "Login" link
-            Button(action: { mode = .phoneLogin; loadStoredPhone() }) {
+            Button(action: { mode = .emailPicker }) {
                 HStack(spacing: 4) {
                     Text("Already have an account?")
                         .flynnType(FlynnTypography.bodyMedium)
                         .foregroundColor(FlynnColor.textSecondary)
-                    Text("Login")
+                    Text("Log in")
                         .flynnType(FlynnTypography.bodyMedium)
                         .foregroundColor(FlynnColor.primary)
                         .fontWeight(.bold)
                 }
             }
 
-            // Divider
-            HStack(spacing: FlynnSpacing.sm) {
-                Rectangle().fill(FlynnColor.border).frame(height: 1)
-                Text("OR")
-                    .flynnType(FlynnTypography.bodySmall)
-                    .foregroundColor(FlynnColor.textTertiary)
-                Rectangle().fill(FlynnColor.border).frame(height: 1)
-            }
-            .padding(.horizontal, FlynnSpacing.sm)
-
-            // Tertiary: Email + (Google placeholder — not yet implemented in Swift app)
-            HStack(spacing: FlynnSpacing.sm) {
-                FlynnButton(
-                    title: "Email",
-                    action: { mode = .emailPicker },
-                    variant: .secondary,
-                    fullWidth: true
-                )
-            }
-
-            // Terms
             Text("By continuing, you accept our Terms & Privacy Policy.")
                 .flynnType(FlynnTypography.caption)
                 .foregroundColor(FlynnColor.textTertiary)
                 .multilineTextAlignment(.center)
-                .padding(.top, FlynnSpacing.md)
+                .padding(.top, FlynnSpacing.xs)
         }
     }
 
-    // MARK: - Phone entry
-
-    private enum PhoneEntryVariant { case signup, login }
-
-    private func phoneEntryBody(variant: PhoneEntryVariant) -> some View {
-        VStack(spacing: FlynnSpacing.md) {
-            backRow
-            VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-                Text(variant == .signup ? "Sign up with your phone number" : "Welcome back")
-                    .flynnType(FlynnTypography.displayMedium)
-                    .foregroundColor(FlynnColor.textPrimary)
-                Text("We'll text you a 6-digit code to verify it's you.")
-                    .flynnType(FlynnTypography.bodyLarge)
-                    .foregroundColor(FlynnColor.textSecondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            FlynnTextField(
-                label: "Mobile number",
-                text: $phone,
-                placeholder: "+61 412 345 678",
-                keyboardType: .phonePad,
-                textContentType: .telephoneNumber,
-                submitLabel: .send,
-                onSubmit: submitSendPhoneCode
-            )
-            .focused($focusedField, equals: .phone)
-
-            FlynnButton(
-                title: "Send code",
-                action: submitSendPhoneCode,
-                fullWidth: true,
-                isLoading: auth.isSubmitting
-            )
-        }
-    }
-
-    // MARK: - Phone verify (OTP)
-
-    private var phoneVerifyBody: some View {
-        VStack(spacing: FlynnSpacing.md) {
-            backRow
-            VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-                Text("Enter your code")
-                    .flynnType(FlynnTypography.displayMedium)
-                    .foregroundColor(FlynnColor.textPrimary)
-                Text("Sent to \(phone)")
-                    .flynnType(FlynnTypography.bodyLarge)
-                    .foregroundColor(FlynnColor.textSecondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            FlynnTextField(
-                label: "6-digit code",
-                text: $code,
-                placeholder: "000000",
-                keyboardType: .numberPad,
-                textContentType: .oneTimeCode,
-                submitLabel: .done,
-                onSubmit: submitVerifyPhoneCode
-            )
-            .focused($focusedField, equals: .phoneCode)
-
-            FlynnButton(
-                title: "Verify",
-                action: submitVerifyPhoneCode,
-                fullWidth: true,
-                isLoading: auth.isSubmitting
-            )
-
-            Button("Use a different number") {
-                mode = .phoneSignup
-                code = ""
-            }
-            .flynnType(FlynnTypography.bodyMedium)
-            .foregroundColor(FlynnColor.primary)
-        }
-    }
-
-    // MARK: - Email picker
+    // MARK: - Email picker (login options)
 
     private var emailPickerBody: some View {
         VStack(spacing: FlynnSpacing.md) {
             backRow
-            Text("Continue with email")
+            Mascot(.peek, size: 72)
+                .padding(.bottom, FlynnSpacing.xs)
+            Text("Welcome back")
                 .flynnType(FlynnTypography.displayMedium)
                 .foregroundColor(FlynnColor.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -239,7 +133,7 @@ struct LoginView: View {
                 Text("New here?")
                     .flynnType(FlynnTypography.bodyMedium)
                     .foregroundColor(FlynnColor.textSecondary)
-                Button("Sign up with email") { mode = .signup }
+                Button("Create an account") { mode = .signup }
                     .flynnType(FlynnTypography.bodyMedium)
                     .foregroundColor(FlynnColor.primary)
                     .fontWeight(.bold)
@@ -248,11 +142,13 @@ struct LoginView: View {
         }
     }
 
-    // MARK: - Email + password (existing)
+    // MARK: - Email + password (login)
 
     private var emailPasswordBody: some View {
         VStack(spacing: FlynnSpacing.md) {
             backRow
+            Mascot(.peek, size: 72)
+                .padding(.bottom, FlynnSpacing.xs)
             Text("Log in")
                 .flynnType(FlynnTypography.displayMedium)
                 .foregroundColor(FlynnColor.textPrimary)
@@ -283,11 +179,13 @@ struct LoginView: View {
         }
     }
 
-    // MARK: - Email code (OTP)
+    // MARK: - Email OTP (login)
 
     private var emailCodeBody: some View {
         VStack(spacing: FlynnSpacing.md) {
             backRow
+            Mascot(.thinking, size: 72)
+                .padding(.bottom, FlynnSpacing.xs)
             Text("Log in with email code")
                 .flynnType(FlynnTypography.displayMedium)
                 .foregroundColor(FlynnColor.textPrimary)
@@ -333,7 +231,9 @@ struct LoginView: View {
     private var signupBody: some View {
         VStack(spacing: FlynnSpacing.md) {
             backRow
-            Text("Sign up with email")
+            Mascot(.thumbsup, size: 72)
+                .padding(.bottom, FlynnSpacing.xs)
+            Text("Create account")
                 .flynnType(FlynnTypography.displayMedium)
                 .foregroundColor(FlynnColor.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -372,7 +272,7 @@ struct LoginView: View {
         }
     }
 
-    // MARK: - Shared back row
+    // MARK: - Back row
 
     private var backRow: some View {
         HStack {
@@ -409,48 +309,5 @@ struct LoginView: View {
     private func submitVerifyEmailCode() {
         focusedField = nil
         Task { await auth.verifyOTP(email: email, token: code) }
-    }
-
-    private func submitSendPhoneCode() {
-        focusedField = nil
-        let formatted = formatPhone(phone)
-        guard formatted.count >= 8 else {
-            auth.errorMessage = "Please enter a valid mobile number."
-            return
-        }
-        phone = formatted
-        Task {
-            await auth.signInWithPhone(phone: formatted)
-            if auth.errorMessage == nil {
-                mode = .phoneVerify
-                code = ""
-            }
-        }
-    }
-
-    private func submitVerifyPhoneCode() {
-        focusedField = nil
-        Task {
-            await auth.verifyPhoneOTP(phone: phone, token: code)
-            if auth.errorMessage == nil {
-                // Persist for "Login" mode pre-fill on next visit.
-                try? FlynnKeychain.set(phone, for: Self.lastPhoneKey)
-            }
-        }
-    }
-
-    private func loadStoredPhone() {
-        if let stored = FlynnKeychain.string(for: Self.lastPhoneKey) {
-            phone = stored
-        }
-    }
-
-    private func formatPhone(_ raw: String) -> String {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: " ", with: "")
-        if trimmed.isEmpty { return "" }
-        if trimmed.hasPrefix("+") { return trimmed }
-        // Default to AU country code for local numbers
-        let stripped = trimmed.hasPrefix("0") ? String(trimmed.dropFirst()) : trimmed
-        return "+61\(stripped)"
     }
 }

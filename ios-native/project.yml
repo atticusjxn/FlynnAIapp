@@ -82,8 +82,8 @@ targets:
           NSAllowsArbitraryLoads: false
         ITSAppUsesNonExemptEncryption: false
         NSCalendarsFullAccessUsageDescription: "Flynn adds your confirmed bookings to your calendar so you never miss a job."
-        NSUserNotificationUsageDescription: "Flynn notifies you when a missed call is captured or you're running low on AI minutes."
-        NSMicrophoneUsageDescription: "Flynn needs your microphone to let you hear and talk to the AI receptionist demo."
+        NSUserNotificationUsageDescription: "Flynn notifies you when a booking is added to your calendar or a draft is ready."
+        NSMicrophoneUsageDescription: "Flynn uses your microphone for voice commands — hold the mic to create quotes, bookings, notes and replies by talking."
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)

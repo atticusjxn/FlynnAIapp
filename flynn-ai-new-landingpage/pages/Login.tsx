@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { signInWithEmail, signInWithGoogle, getSession } from '../services/auth';
 
 const Login = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const nextPath = searchParams.get('next') ?? '/dashboard';
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -16,11 +18,11 @@ const Login = () => {
         const checkSession = async () => {
             const session = await getSession();
             if (session) {
-                navigate('/dashboard');
+                navigate(nextPath);
             }
         };
         checkSession();
-    }, [navigate]);
+    }, [navigate, nextPath]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,7 +31,7 @@ const Login = () => {
 
         try {
             await signInWithEmail(email, password);
-            navigate('/dashboard');
+            navigate(nextPath);
         } catch (err: any) {
             setError(err.message || 'Failed to sign in');
         } finally {

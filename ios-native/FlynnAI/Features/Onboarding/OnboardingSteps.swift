@@ -362,7 +362,9 @@ struct SoundsLikeYouStepView: View {
 struct ConnectCalendarStepView: View {
     @Environment(FlashStore.self) private var flash
     @State private var appleConnected = false
+    @State private var googleConnected = false
     @State private var connecting = false
+    @State private var connectingGoogle = false
     let onContinue: () -> Void
 
     private struct AppleFlagPatch: Encodable { let apple_calendar_connected: Bool }
@@ -386,10 +388,10 @@ struct ConnectCalendarStepView: View {
             connectRow(
                 icon: "globe",
                 title: "Google Calendar",
-                subtitle: "Connect later in Settings",
-                connected: false,
-                disabled: true
-            ) {}
+                subtitle: googleConnected ? "Connected" : "Sign in to sync your real availability",
+                connected: googleConnected,
+                disabled: connectingGoogle || googleConnected
+            ) { connectGoogle() }
         } footer: {
             RetroButton(title: "Continue", action: onContinue)
         }
@@ -448,6 +450,22 @@ struct ConnectCalendarStepView: View {
             } catch {
                 await MainActor.run { connecting = false; flash.error("Couldn't connect calendar") }
             }
+        }
+    }
+
+    private func connectGoogle() {
+        connectingGoogle = true
+        Task {
+            do {
+                try await GoogleCalendarConnect.connect()
+                googleConnected = true
+                flash.success("Google Calendar connected")
+            } catch GoogleCalendarConnect.ConnectError.cancelled {
+                // User backed out of the sheet — stay quiet.
+            } catch {
+                flash.error(error.localizedDescription)
+            }
+            connectingGoogle = false
         }
     }
 }

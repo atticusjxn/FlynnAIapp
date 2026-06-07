@@ -20,6 +20,9 @@ import DashboardLayout from './components/DashboardLayout';
 
 import Features from './components/Features';
 import InstagramAd from './components/InstagramAd';
+import SettingsPage from './pages/app/SettingsPage';
+import AppLayout from './components/AppLayout';
+import { Navigate } from 'react-router-dom';
 
 // Component to handle external scripts like Analytics
 const Analytics = () => {
@@ -62,6 +65,12 @@ function App() {
 
           {/* Demo runs outside the main layout if needed, or inside. Keeping outside as it might have its own chrome */}
           <Route path="/demo" element={<DemoContainer />} />
+
+          {/* In-app settings — no marketing chrome, SSO token handoff from Mac app */}
+          <Route element={<SettingsPage />}>
+            <Route path="/app/settings" element={<Navigate to="/app/settings/business-brain" replace />} />
+            <Route path="/app/settings/:section" element={<AppLayout />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </HelmetProvider >

@@ -18,8 +18,9 @@ enum KeyboardDraftClient {
         return url
     }
 
-    /// Fetch reply drafts for the accumulated customer messages.
-    static func fetchDrafts(messages: [String], source: String? = nil) async throws -> [String] {
+    /// Fetch reply drafts (and any calendar-verified agreed booking) for the
+    /// accumulated customer messages.
+    static func fetchDrafts(messages: [String], source: String? = nil) async throws -> DraftResult {
         guard let base = baseURL(), let token = SharedSecureStore.keyboardToken else {
             throw ClientError.notConfigured
         }
@@ -38,7 +39,34 @@ enum KeyboardDraftClient {
         guard let decoded = try? JSONDecoder().decode(DraftResponse.self, from: data) else {
             throw ClientError.decode
         }
-        return decoded.drafts
+        return DraftResult(drafts: decoded.drafts, agreedEvent: decoded.agreedEvent)
+    }
+
+    // MARK: - Screenshot OCR
+
+    private struct OCRRequest: Encodable { let imageBase64: String }
+    private struct OCRResponse: Decodable { let text: String }
+
+    /// Send a screenshot to the server for Qwen VL OCR.
+    /// Returns the extracted conversation text, or throws on network/auth/decode failure.
+    static func ocrScreenshot(imageData: Data) async throws -> String {
+        guard let base = baseURL(), let token = SharedSecureStore.keyboardToken else {
+            throw ClientError.notConfigured
+        }
+        var req = URLRequest(url: base.appendingPathComponent("api/keyboard/ocr-screenshot"))
+        req.httpMethod = "POST"
+        req.timeoutInterval = 25
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(OCRRequest(imageBase64: imageData.base64EncodedString()))
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw ClientError.server(-1) }
+        if http.statusCode == 402 { throw ClientError.limitReached }
+        guard (200...299).contains(http.statusCode) else { throw ClientError.server(http.statusCode) }
+        guard let decoded = try? JSONDecoder().decode(OCRResponse.self, from: data) else {
+            throw ClientError.decode
+        }
+        return decoded.text
     }
 
     /// Best-effort: tell the backend which draft the user accepted, with the full

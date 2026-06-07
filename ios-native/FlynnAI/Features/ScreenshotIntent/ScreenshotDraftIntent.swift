@@ -32,41 +32,45 @@ struct ScreenshotDraftIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        // Tell the keyboard a capture is in flight *immediately*, before any work — so
-        // if the user switches to it before OCR/drafting finishes (the fast path), it
-        // shows "reading…" and waits instead of falling through to the empty state.
+        // Diagnostic ping — tells us if perform() is being called at all (no auth needed).
+        let pingBase = SharedStore.apiBaseURL ?? "https://flynnai-telephony.fly.dev"
+        if let pingURL = URL(string: "\(pingBase)/api/intent-ping") {
+            var pingReq = URLRequest(url: pingURL)
+            pingReq.httpMethod = "POST"
+            pingReq.timeoutInterval = 4
+            _ = try? await URLSession.shared.data(for: pingReq)
+        }
+
+        // Signal immediately so the keyboard shows "Reading your screen…" while we wait.
         SharedStore.stageScreenshotDraft(.inFlight)
 
-        // 1. OCR the screenshot on-device.
-        // Read .data ONCE — IntentFile is file-backed; accessing it twice can
-        // give empty bytes on the second read if the temp file is consumed.
+        // Read .data once — IntentFile is file-backed; a second read can return empty bytes.
         let imageData = screenshot.data
-        let dataSize = imageData.count
+        guard imageData.count > 1000 else {
+            SharedStore.ocrDebugLog = "empty-data:\(imageData.count)b"
+            SharedStore.stageScreenshotDraft(.unreadable)
+            return .result(dialog: "Couldn't read that screenshot — try copying the message instead.")
+        }
+
         let text: String
         do {
-            text = try await ScreenshotOCR.recognizeText(from: imageData)
-            SharedStore.ocrDebugLog = "data:\(dataSize)b chars:\(text.count)"
+            text = try await KeyboardDraftClient.ocrScreenshot(imageData: imageData)
         } catch {
-            SharedStore.ocrDebugLog = "throw:\(error) data:\(dataSize)b"
+            SharedStore.ocrDebugLog = "ocr-error:\(error)"
             SharedStore.stageScreenshotDraft(.unreadable)
             return .result(dialog: "Couldn't read that screenshot — try copying the message instead.")
         }
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            SharedStore.ocrDebugLog = "emptyTrim data:\(dataSize)b raw:\(text.count)chars"
+            SharedStore.ocrDebugLog = "ocr-empty"
             SharedStore.stageScreenshotDraft(.unreadable)
             return .result(dialog: "No message text found in that screenshot.")
         }
-        let messages = [trimmed]
 
-        // 2. Hand the OCR'd messages to the keyboard and let IT make the draft call.
-        //    Doing the network request here — in iOS's throttled background-intent
-        //    context — is what made replies land "heaps later." OCR is fast on-device,
-        //    so we stage the messages immediately (sub-second) and the keyboard drafts
-        //    them in the foreground at full speed the moment it appears.
+        SharedStore.ocrDebugLog = "ok:\(trimmed.count)c"
         SharedStore.stageScreenshotDraft(
-            StagedScreenshotDraft(messages: messages, needsDraft: true)
+            StagedScreenshotDraft(messages: [trimmed], needsDraft: true)
         )
         return .result(dialog: "Captured — open the Flynn keyboard.")
     }

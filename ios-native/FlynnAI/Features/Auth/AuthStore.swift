@@ -41,9 +41,16 @@ final class AuthStore {
                 group.cancelAll()
                 return result
             }
+            // A keychain-restored session is trusted by the SDK without any server
+            // check, so a deleted/revoked user whose access token hasn't expired yet
+            // stays "signed in" indefinitely (and never sees the login screen).
+            // Validate it against the server before trusting it.
+            try await validateRestoredSession()
             setSignedIn(session: session)
         } catch {
-            FlynnLog.auth.info("No active session on launch")
+            FlynnLog.auth.info("No valid session on launch: \(error.localizedDescription, privacy: .public)")
+            // Clear any stale keychain session locally so the user lands on login.
+            try? await client.auth.signOut(scope: .local)
             state = .signedOut
         }
 
@@ -69,6 +76,31 @@ final class AuthStore {
 
     private func setSignedIn(session: Session) {
         state = .signedIn(userID: session.user.id, email: session.user.email)
+    }
+
+    /// Confirms the restored session still maps to a live user server-side by
+    /// fetching `/auth/v1/user`. Throws on a genuine auth rejection (user deleted
+    /// or token revoked) so the caller signs out; swallows transient/offline
+    /// failures so a flaky-network launch keeps the cached session.
+    private func validateRestoredSession() async throws {
+        do {
+            _ = try await withThrowingTaskGroup(of: User.self) { group in
+                group.addTask { try await self.client.auth.user() }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(6))
+                    throw CancellationError()
+                }
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
+        } catch is CancellationError {
+            return                              // validation timed out — trust cached session
+        } catch let error as URLError {
+            FlynnLog.auth.info("Session validation offline (\(error.code.rawValue, privacy: .public)); keeping cached session")
+            return                              // offline — don't kick the user
+        }
+        // Any other error (user not found / token revoked) propagates → sign out.
     }
 
     // MARK: - Public actions

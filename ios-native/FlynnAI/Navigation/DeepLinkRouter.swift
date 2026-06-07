@@ -16,6 +16,11 @@ final class DeepLinkRouter {
     /// Pending link set by the OS. The root view clears it after consuming.
     var pending: PendingLink?
 
+    /// Bumped when a `flynnai://calendar/add` link arrives (e.g. the keyboard's
+    /// "add to calendar" chip). Observed by the tab shell to re-check for a staged
+    /// booking even if the app was already foregrounded.
+    var calendarPickupPing: Int = 0
+
     struct PendingLink: Hashable, Sendable {
         let tab: FlynnTab
         let route: Route?
@@ -74,6 +79,11 @@ final class DeepLinkRouter {
             } else {
                 pending = PendingLink(tab: .money, route: nil)
             }
+        case "calendar":
+            // flynnai://calendar/add?id=<uuid> — the keyboard staged a booking and
+            // asked us to foreground and offer it. The actual event lives in the App
+            // Group; just ping the tab shell to pick it up. No tab change.
+            calendarPickupPing &+= 1
         case "settings":
             // Settings is no longer a tab — it lives inside the Dashboard stack.
             // Push Route.settingsSection (or settingsRoot when no sub-section is

@@ -30,6 +30,12 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     private let redraftButton = UIButton(type: .system)
     private let nextKeyboardButton = UIButton(type: .system)
 
+    // One-tap "add to your calendar" chip + the booking it represents. Shown only
+    // when the backend confirms the customer named a time that's genuinely free.
+    private let bookButton = UIButton(type: .system)
+    private let bookRow = UIStackView()
+    private var pendingEvent: AgreedEvent?
+
     // Results: a horizontally-paging scroll view of single-reply cards. Each draft
     // is one full-width page; the card tracks the finger and snaps between options.
     private let scrollView = UIScrollView()
@@ -182,6 +188,31 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         header.isLayoutMarginsRelativeArrangement = true
         container.addArrangedSubview(header)
 
+        // One-tap calendar chip, centred. Hidden unless the backend surfaces an
+        // agreed, genuinely-free time. Tapping hands the booking to the main app
+        // (the keyboard sandbox cannot write to EventKit itself).
+        var chipConfig = UIButton.Configuration.tinted()
+        chipConfig.cornerStyle = .capsule
+        chipConfig.baseForegroundColor = Self.flynnOrange
+        chipConfig.baseBackgroundColor = Self.flynnOrange
+        chipConfig.image = UIImage(systemName: "calendar.badge.plus")
+        chipConfig.imagePadding = 6
+        chipConfig.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 14, bottom: 6, trailing: 14)
+        bookButton.configuration = chipConfig
+        bookButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        bookButton.addTarget(self, action: #selector(onBookTap), for: .touchUpInside)
+
+        let leadSpace = UIView()
+        let trailSpace = UIView()
+        bookRow.axis = .horizontal
+        bookRow.alignment = .center
+        bookRow.addArrangedSubview(leadSpace)
+        bookRow.addArrangedSubview(bookButton)
+        bookRow.addArrangedSubview(trailSpace)
+        leadSpace.widthAnchor.constraint(equalTo: trailSpace.widthAnchor).isActive = true
+        bookRow.isHidden = true
+        container.addArrangedSubview(bookRow)
+
         // Interactive paging scroll view: one card per draft, full-width pages.
         scrollView.isPagingEnabled = true
         scrollView.showsHorizontalScrollIndicator = false
@@ -327,6 +358,62 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         statusLabel.isHidden = false
         scrollView.isHidden = true
         pageControl.isHidden = true
+        bookRow.isHidden = true        // never show a booking chip over a non-results state
+    }
+
+    // MARK: Calendar booking chip
+
+    /// Show (or hide) the one-tap booking chip for an agreed, calendar-verified time.
+    private func showBookingChip(for event: AgreedEvent?) {
+        pendingEvent = event
+        guard let event, let date = PendingCalendarEvent.parseISO(event.startISO) else {
+            bookRow.isHidden = true
+            return
+        }
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("EEE h:mm a")
+        bookButton.configuration?.title = "Add \(formatter.string(from: date))"
+        bookButton.isEnabled = true
+        bookRow.isHidden = false
+    }
+
+    private func hideBookingChip() {
+        pendingEvent = nil
+        bookRow.isHidden = true
+    }
+
+    @objc private func onBookTap() {
+        guard let event = pendingEvent else { return }
+        let staged = PendingCalendarEvent(
+            title: event.title,
+            startISO: event.startISO,
+            durationMin: event.durationMin,
+            location: event.location,
+            customer: event.customer
+        )
+        SharedStore.stagePendingCalendarEvent(staged)
+        bookButton.configuration?.title = "Opening Flynn…"
+        bookButton.isEnabled = false
+        // Hand off to the main app — only the foreground app can write to the
+        // calendar. Keyboard extensions can't touch UIApplication.shared, so walk
+        // the responder chain for an object that implements `openURL:`.
+        openHostURL(URL(string: "flynnai://calendar/add?id=\(staged.id.uuidString)"))
+    }
+
+    @discardableResult
+    private func openHostURL(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        let selector = sel_registerName("openURL:")
+        var responder: UIResponder? = self
+        while let r = responder {
+            if r.responds(to: selector) {
+                r.perform(selector, with: url)
+                return true
+            }
+            responder = r.next
+        }
+        return false
     }
 
     /// Rebuild the pages for the current `drafts` and snap to `index`.
@@ -445,6 +532,7 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
             index = 0
             renderCard()
             showResults()                                    // finished drafts — no network
+            hideBookingChip()                                // pre-made drafts carry no booking
         } else if staged.limitReached {
             showStatus("You're out of free drafts today — open Flynn to go unlimited.")
         } else if !staged.messages.isEmpty {
@@ -510,13 +598,14 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
             defer { spinner.stopAnimating(); isDrafting = false }
             do {
                 let result = try await KeyboardDraftClient.fetchDrafts(messages: messages, source: currentSource)
-                if result.isEmpty {
+                if result.drafts.isEmpty {
                     showStatus("Couldn't draft anything — tap ↻ Redraft to try again.")
                 } else {
-                    drafts = result
+                    drafts = result.drafts
                     index = 0
                     renderCard()
                     showResults()
+                    showBookingChip(for: result.agreedEvent)
                 }
             } catch KeyboardDraftClient.ClientError.notConfigured {
                 showStatus("Open the Flynn app once to finish setup.")
@@ -532,6 +621,7 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
 
     @objc private func onRedraft() {
         drafts = []
+        hideBookingChip()
         draftFromClipboard()
     }
 
@@ -552,6 +642,7 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         drafts = []
         currentSource = "clipboard"
         sourceMessages = []
+        hideBookingChip()
         showStatus("Inserted ✓  — switch back to send.")
     }
 }

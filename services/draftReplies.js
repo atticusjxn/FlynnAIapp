@@ -101,6 +101,7 @@ const deriveLearnedPreferences = (pickedSamples = []) => {
  */
 const buildPrompt = ({
   businessBrainText = '',
+  rememberedContext = '',
   toneSamples = [],
   pickedSamples = [],
   messages = [],
@@ -132,6 +133,11 @@ const buildPrompt = ({
     systemParts.push(businessBrainText);
   }
 
+  // Facts Flynn has remembered about THIS customer from past interactions.
+  if (rememberedContext) {
+    systemParts.push(rememberedContext);
+  }
+
   if (proposedSlots.length > 0) {
     systemParts.push(
       `These calendar times are genuinely free — you may offer one if the customer is trying to book or asking when you can come: ${proposedSlots.join(', ')}.`
@@ -154,7 +160,9 @@ const buildPrompt = ({
     '- Be helpful and move toward booking the job, but never pushy.',
     '- Only use pricing/services/hours from the business info above. Never invent prices or promises.',
     '- Do not include placeholders like [name]; write a complete, send-ready message.',
-    `First, in a "read" field, state in a few words what the customer's latest message needs (e.g. "confirming 10am", "asking for a quote"). Then give the replies. Respond with ONLY a JSON object of the form {"read": "...", "drafts": ["reply 1", "reply 2", ...]} containing EXACTLY ${draftCount} distinct reply options. No other keys beyond "read" and "drafts", no prose, no markdown.`
+    `First, in a "read" field, state in a few words what the customer's latest message needs (e.g. "confirming 10am", "asking for a quote"). Then give the replies.`,
+    'If — and ONLY if — the conversation shows a specific appointment time has actually been AGREED (the customer named a concrete day+time and the reply is confirming it), also include a "booking" object describing the job for a calendar entry: {"customer": who the job is for if clearly named, "service": what the job is in a few words if clear, "location": the address if clearly stated}. Omit any field you are unsure about, and omit "booking" entirely if no firm time was agreed. Never invent a name, service or address. (The time itself is taken from the calendar, not from you.)',
+    `Respond with ONLY a JSON object of the form {"read": "...", "drafts": ["reply 1", ...], "booking": {...}} where "drafts" contains EXACTLY ${draftCount} distinct reply options and "booking" is optional. No other keys, no prose, no markdown.`
   );
 
   // Screenshot captures contain the whole visible conversation (both sides + app
@@ -205,6 +213,31 @@ const parseDrafts = (content, draftCount) => {
 };
 
 /**
+ * Pull the optional "booking" metadata out of the model's JSON response. Purely
+ * descriptive enrichment for a calendar entry (customer/service/location) — the
+ * agreed TIME is never taken from here. Returns null when absent/garbage.
+ */
+const parseBooking = (content) => {
+  if (typeof content !== 'string') return null;
+  let obj;
+  try {
+    obj = JSON.parse(content);
+  } catch (_) {
+    const match = content.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try { obj = JSON.parse(match[0]); } catch (_) { return null; }
+  }
+  const b = obj?.booking;
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return null;
+  const str = (v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 120) : undefined);
+  const out = {};
+  if (str(b.customer)) out.customer = str(b.customer);
+  if (str(b.service)) out.service = str(b.service);
+  if (str(b.location)) out.location = str(b.location);
+  return Object.keys(out).length ? out : null;
+};
+
+/**
  * Generate reply drafts. Pure async function — no DB access here so it can be
  * unit-tested and reused. Caller supplies the profile row, tone samples, the
  * accumulated customer messages, and any proposed slots.
@@ -219,6 +252,7 @@ const generateDrafts = async ({
   messages = [],
   proposedSlots = [],
   availabilityNote = '',
+  rememberedContext = '',
   draftCount = DEFAULT_DRAFT_COUNT,
   source = null,
 } = {}) => {
@@ -233,6 +267,7 @@ const generateDrafts = async ({
   const businessBrainText = formatBusinessContext(profileRowToContext(profileRow));
   const { system, user } = buildPrompt({
     businessBrainText,
+    rememberedContext,
     toneSamples,
     pickedSamples,
     messages: cleanedMessages,
@@ -257,7 +292,8 @@ const generateDrafts = async ({
 
   const content = response?.choices?.[0]?.message?.content ?? '';
   const drafts = parseDrafts(content, draftCount);
-  return { drafts, usage: response?.usage ?? null };
+  const booking = parseBooking(content);
+  return { drafts, booking, usage: response?.usage ?? null };
 };
 
 module.exports = {
@@ -266,5 +302,6 @@ module.exports = {
   deriveLearnedPreferences,
   buildPrompt,
   parseDrafts,
+  parseBooking,
   generateDrafts,
 };
