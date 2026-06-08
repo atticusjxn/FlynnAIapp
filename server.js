@@ -2278,6 +2278,16 @@ async function draftsUsedToday(userId) {
  * user has no Google connection or anything fails — Apple-only users propose
  * from business hours on-device instead.
  */
+const DEFAULT_BUSINESS_HOURS = {
+  monday:    { open: '8:00am', close: '6:00pm' },
+  tuesday:   { open: '8:00am', close: '6:00pm' },
+  wednesday: { open: '8:00am', close: '6:00pm' },
+  thursday:  { open: '8:00am', close: '6:00pm' },
+  friday:    { open: '8:00am', close: '6:00pm' },
+  saturday:  { closed: true },
+  sunday:    { closed: true },
+};
+
 async function computeGoogleSlots(userId, businessHours, { days = 7, durationMins = 60, maxSlots = 5 } = {}) {
   try {
     if (!supabaseStorageClient) return { slots: [], busy: [], timeZone: 'Australia/Sydney', connected: false };
@@ -2293,8 +2303,9 @@ async function computeGoogleSlots(userId, businessHours, { days = 7, durationMin
       timeMax: timeMax.toISOString(),
       calendarId: connection.account_id || 'primary',
     });
+    const effectiveHours = (businessHours && Object.keys(businessHours).length > 0) ? businessHours : DEFAULT_BUSINESS_HOURS;
     const slots = findOpenSlots({
-      businessHours: businessHours || {},
+      businessHours: effectiveHours,
       busy,
       timeZone,
       durationMins,
@@ -2333,10 +2344,11 @@ function buildAvailabilityNote({ latestMessage, businessHours, busy, timeZone, c
   // endpoint only offers it when the model also signals a firm agreement).
   if (!connected) return { note: '', proposed, status: 'unknown' };
 
+  const effectiveHours = (businessHours && Object.keys(businessHours).length > 0) ? businessHours : DEFAULT_BUSINESS_HOURS;
   const status = checkProposedTime({
     start: proposed.start,
     end: proposed.end,
-    businessHours: businessHours || {},
+    businessHours: effectiveHours,
     busy: busy || [],
     timeZone,
   });
@@ -2351,7 +2363,7 @@ function buildAvailabilityNote({ latestMessage, businessHours, busy, timeZone, c
 
   const alt = findNearestOpenSlot({
     desired: proposed.start,
-    businessHours: businessHours || {},
+    businessHours: effectiveHours,
     busy: busy || [],
     timeZone,
     from: now,
@@ -2722,6 +2734,51 @@ app.post('/api/keyboard/accept-draft', authenticateJwt, async (req, res) => {
   } catch (error) {
     console.error('[Keyboard] accept-draft failed:', error?.message);
     res.status(500).json({ error: 'Failed to record accepted draft' });
+  }
+});
+
+/**
+ * Add a calendar event directly to the user's Google Calendar from the keyboard
+ * extension. The keyboard can't open the main app, so it calls this instead.
+ * POST /api/keyboard/add-calendar-event
+ * Body: { title, startISO, durationMin, location?, customer? }
+ */
+app.post('/api/keyboard/add-calendar-event', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const { title, startISO, durationMin, location, customer } = req.body || {};
+  if (!title || !startISO) return res.status(400).json({ error: 'title and startISO required' });
+
+  try {
+    const { connection } = await googleCalendar.getConnectionForUser(supabaseStorageClient, userId);
+    if (!connection) {
+      return res.status(404).json({ error: 'Google Calendar not connected', code: 'not_connected' });
+    }
+
+    const accessToken = await googleCalendar.ensureFreshAccessToken(supabaseStorageClient, connection);
+    const timeZone = connection?.metadata?.timeZone || 'Australia/Sydney';
+    const durationMs = (parseInt(durationMin, 10) || 60) * 60 * 1000;
+    const startDate = new Date(startISO);
+    const endISO = new Date(startDate.getTime() + durationMs).toISOString();
+    const summary = customer ? `${title} — ${customer}` : title;
+
+    const result = await googleCalendar.insertEvent(accessToken, {
+      calendarId: connection.account_id || 'primary',
+      summary,
+      description: customer ? `Customer: ${customer}` : '',
+      startISO,
+      endISO,
+      timeZone,
+      location: location || undefined,
+    });
+
+    console.log('[Keyboard] add-calendar-event inserted for user', userId, result.id);
+    res.json({ success: true, eventId: result.id, htmlLink: result.htmlLink });
+  } catch (error) {
+    console.error('[Keyboard] add-calendar-event failed:', error?.status || '', error?.message);
+    res.status(500).json({ error: 'Failed to add event to Google Calendar' });
   }
 });
 

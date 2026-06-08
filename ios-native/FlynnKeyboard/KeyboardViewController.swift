@@ -30,8 +30,8 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     private let redraftButton = UIButton(type: .system)
     private let nextKeyboardButton = UIButton(type: .system)
 
-    // One-tap "add to your calendar" chip + the booking it represents. Shown only
-    // when the backend confirms the customer named a time that's genuinely free.
+    // Post-insert "Add to Google Calendar" chip. Appears below "Inserted ✓" after
+    // the user taps a card — not before, so it doesn't crowd the draft view.
     private let bookButton = UIButton(type: .system)
     private let bookRow = UIStackView()
     private var pendingEvent: AgreedEvent?
@@ -43,9 +43,13 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     private let pageControl = UIPageControl()
     private var cardViews: [UIControl] = []
 
-    // Non-results states
+    // Non-results states — statusContainer takes the flex slot scrollView occupies
+    // so content stays vertically centred instead of anchored to the bottom.
+    private let statusContainer = UIView()
     private let statusLabel = UILabel()
-    private let spinner = UIActivityIndicatorView(style: .medium)
+    private let loadingTrack = UIView()
+    private let loadingFill = UIView()
+    private var fillWidthConstraint: NSLayoutConstraint?
 
     private var drafts: [String] = []
     private var index = 0
@@ -188,16 +192,14 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         header.isLayoutMarginsRelativeArrangement = true
         container.addArrangedSubview(header)
 
-        // One-tap calendar chip, centred. Hidden unless the backend surfaces an
-        // agreed, genuinely-free time. Tapping hands the booking to the main app
-        // (the keyboard sandbox cannot write to EventKit itself).
+        // Post-insert "Add to Google Calendar" chip — appears below "Inserted ✓".
         var chipConfig = UIButton.Configuration.tinted()
         chipConfig.cornerStyle = .capsule
-        chipConfig.baseForegroundColor = Self.flynnOrange
-        chipConfig.baseBackgroundColor = Self.flynnOrange
-        chipConfig.image = UIImage(systemName: "calendar.badge.plus")
-        chipConfig.imagePadding = 6
-        chipConfig.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 14, bottom: 6, trailing: 14)
+        chipConfig.baseForegroundColor = UIColor(red: 0.102, green: 0.451, blue: 0.910, alpha: 1) // Google blue #1a73e8
+        chipConfig.baseBackgroundColor = UIColor(red: 0.102, green: 0.451, blue: 0.910, alpha: 1)
+        chipConfig.image = Self.googleCalendarIcon(size: 18)
+        chipConfig.imagePadding = 8
+        chipConfig.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
         bookButton.configuration = chipConfig
         bookButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
         bookButton.addTarget(self, action: #selector(onBookTap), for: .touchUpInside)
@@ -211,7 +213,6 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         bookRow.addArrangedSubview(trailSpace)
         leadSpace.widthAnchor.constraint(equalTo: trailSpace.widthAnchor).isActive = true
         bookRow.isHidden = true
-        container.addArrangedSubview(bookRow)
 
         // Interactive paging scroll view: one card per draft, full-width pages.
         scrollView.isPagingEnabled = true
@@ -253,16 +254,53 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         pageControl.addTarget(self, action: #selector(onPageControl), for: .valueChanged)
         container.addArrangedSubview(pageControl)
 
-        // Status + spinner (loading / access / empty states)
-        statusLabel.font = .systemFont(ofSize: 15)
-        statusLabel.textColor = .secondaryLabel
+        // Status/loading container — sits in the same flex slot as scrollView so
+        // when it's visible it fills the available space and can centre its content.
+        statusContainer.setContentHuggingPriority(.defaultLow, for: .vertical)
+        statusContainer.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        statusContainer.isHidden = true
+
+        statusLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        statusLabel.textColor = Self.cardText
         statusLabel.numberOfLines = 0
         statusLabel.textAlignment = .center
-        container.addArrangedSubview(statusLabel)
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        statusContainer.addSubview(statusLabel)
 
-        spinner.hidesWhenStopped = true
-        spinner.color = Self.flynnOrange
-        container.addArrangedSubview(spinner)
+        loadingTrack.backgroundColor = UIColor(red: 0.957, green: 0.902, blue: 0.808, alpha: 1)
+        loadingTrack.layer.cornerRadius = 3
+        loadingTrack.clipsToBounds = true
+        loadingTrack.isHidden = true
+        loadingTrack.translatesAutoresizingMaskIntoConstraints = false
+        statusContainer.addSubview(loadingTrack)
+
+        loadingFill.backgroundColor = Self.flynnOrange
+        loadingFill.translatesAutoresizingMaskIntoConstraints = false
+        loadingTrack.addSubview(loadingFill)
+
+        NSLayoutConstraint.activate([
+            // Label: padded, centred slightly above vertical middle so the bar sits below
+            statusLabel.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor, constant: 16),
+            statusLabel.trailingAnchor.constraint(equalTo: statusContainer.trailingAnchor, constant: -16),
+            statusLabel.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor, constant: -10),
+
+            // Bar: just below the label
+            loadingTrack.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 14),
+            loadingTrack.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor, constant: 16),
+            loadingTrack.trailingAnchor.constraint(equalTo: statusContainer.trailingAnchor, constant: -16),
+            loadingTrack.heightAnchor.constraint(equalToConstant: 6),
+
+            // Fill inside the track
+            loadingFill.leadingAnchor.constraint(equalTo: loadingTrack.leadingAnchor),
+            loadingFill.topAnchor.constraint(equalTo: loadingTrack.topAnchor),
+            loadingFill.bottomAnchor.constraint(equalTo: loadingTrack.bottomAnchor),
+        ])
+        fillWidthConstraint = loadingFill.widthAnchor.constraint(equalToConstant: 0)
+        fillWidthConstraint?.isActive = true
+
+        container.addArrangedSubview(statusContainer)
+        // bookRow sits BELOW statusContainer so it appears under "Inserted ✓" post-insert.
+        container.addArrangedSubview(bookRow)
     }
 
     /// Build one branded card per draft as full-width pages inside the scroll view.
@@ -350,32 +388,46 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     private func showResults() {
         scrollView.isHidden = false
         pageControl.isHidden = drafts.count <= 1
-        statusLabel.isHidden = true
+        statusContainer.isHidden = true
     }
 
     private func showStatus(_ text: String) {
         statusLabel.text = text
-        statusLabel.isHidden = false
+        loadingTrack.isHidden = true
+        statusContainer.isHidden = false
         scrollView.isHidden = true
         pageControl.isHidden = true
-        bookRow.isHidden = true        // never show a booking chip over a non-results state
+        bookRow.isHidden = true
+    }
+
+    /// Show the branded loading bar with a status label. Animates the fill to ~80%
+    /// over 1.1 s; `showResults()` or `showStatus()` hide the container when done.
+    private func showDrafting(label: String) {
+        statusLabel.text = label
+        scrollView.isHidden = true
+        pageControl.isHidden = true
+        bookRow.isHidden = true
+
+        fillWidthConstraint?.constant = 0
+        loadingTrack.isHidden = false
+        statusContainer.isHidden = false
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let trackW = self.loadingTrack.bounds.width
+            let target = trackW > 1 ? trackW * 0.80 : (self.view.bounds.width - 32) * 0.80
+            self.fillWidthConstraint?.constant = target
+            UIView.animate(withDuration: 1.1, delay: 0, options: [.curveEaseOut]) {
+                self.loadingTrack.layoutIfNeeded()
+            }
+        }
     }
 
     // MARK: Calendar booking chip
 
-    /// Show (or hide) the one-tap booking chip for an agreed, calendar-verified time.
+    /// Save the agreed event quietly — the chip is only shown post-insert, below "Inserted ✓".
     private func showBookingChip(for event: AgreedEvent?) {
         pendingEvent = event
-        guard let event, let date = PendingCalendarEvent.parseISO(event.startISO) else {
-            bookRow.isHidden = true
-            return
-        }
-        let formatter = DateFormatter()
-        formatter.locale = .current
-        formatter.setLocalizedDateFormatFromTemplate("EEE h:mm a")
-        bookButton.configuration?.title = "Add \(formatter.string(from: date))"
-        bookButton.isEnabled = true
-        bookRow.isHidden = false
     }
 
     private func hideBookingChip() {
@@ -383,37 +435,96 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         bookRow.isHidden = true
     }
 
-    @objc private func onBookTap() {
-        guard let event = pendingEvent else { return }
-        let staged = PendingCalendarEvent(
-            title: event.title,
-            startISO: event.startISO,
-            durationMin: event.durationMin,
-            location: event.location,
-            customer: event.customer
-        )
-        SharedStore.stagePendingCalendarEvent(staged)
-        bookButton.configuration?.title = "Opening Flynn…"
-        bookButton.isEnabled = false
-        // Hand off to the main app — only the foreground app can write to the
-        // calendar. Keyboard extensions can't touch UIApplication.shared, so walk
-        // the responder chain for an object that implements `openURL:`.
-        openHostURL(URL(string: "flynnai://calendar/add?id=\(staged.id.uuidString)"))
+    /// Set the button title to "Add <time> to Google Calendar" and show the chip.
+    private func showPostInsertCalendarChip(for event: AgreedEvent) {
+        pendingEvent = event
+        guard let date = PendingCalendarEvent.parseISO(event.startISO) else { return }
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("EEE d MMM h:mm a")
+        var cfg = bookButton.configuration
+        cfg?.title = "Add \(formatter.string(from: date)) to Google Calendar"
+        cfg?.baseForegroundColor = UIColor(red: 0.102, green: 0.451, blue: 0.910, alpha: 1)
+        cfg?.baseBackgroundColor = UIColor(red: 0.102, green: 0.451, blue: 0.910, alpha: 1)
+        cfg?.image = Self.googleCalendarIcon(size: 18)
+        bookButton.configuration = cfg
+        bookButton.isEnabled = true
+        bookRow.isHidden = false
     }
 
-    @discardableResult
-    private func openHostURL(_ url: URL?) -> Bool {
-        guard let url else { return false }
-        let selector = sel_registerName("openURL:")
-        var responder: UIResponder? = self
-        while let r = responder {
-            if r.responds(to: selector) {
-                r.perform(selector, with: url)
-                return true
+    @objc private func onBookTap() {
+        guard let event = pendingEvent else { return }
+        var cfg = bookButton.configuration
+        cfg?.title = "Adding…"
+        cfg?.image = nil
+        bookButton.configuration = cfg
+        bookButton.isEnabled = false
+
+        Task { @MainActor in
+            do {
+                try await KeyboardDraftClient.addCalendarEvent(event)
+                var done = bookButton.configuration
+                done?.title = "Added to Google Calendar ✓"
+                done?.baseForegroundColor = .systemGreen
+                done?.baseBackgroundColor = .systemGreen
+                done?.image = UIImage(systemName: "checkmark")
+                bookButton.configuration = done
+                pendingEvent = nil
+            } catch {
+                // Restore so user can retry
+                var retry = bookButton.configuration
+                retry?.title = "Add to Google Calendar"
+                retry?.image = Self.googleCalendarIcon(size: 18)
+                bookButton.configuration = retry
+                bookButton.isEnabled = true
             }
-            responder = r.next
         }
-        return false
+    }
+
+    // MARK: Google Calendar icon
+
+    /// Programmatic Google Calendar logo: white body, blue header bar, blue "31".
+    private static func googleCalendarIcon(size: CGFloat) -> UIImage {
+        let sz = CGSize(width: size, height: size)
+        let renderer = UIGraphicsImageRenderer(size: sz)
+        return renderer.image { _ in
+            let googleBlue = UIColor(red: 0.102, green: 0.451, blue: 0.910, alpha: 1)
+            let corner = size * 0.15
+            let rect = CGRect(origin: .zero, size: sz)
+
+            // White background
+            UIColor.white.setFill()
+            UIBezierPath(roundedRect: rect, cornerRadius: corner).fill()
+
+            // Blue header (top 30%)
+            let hh = size * 0.30
+            let headerPath = UIBezierPath(
+                roundedRect: CGRect(x: 0, y: 0, width: size, height: hh + corner),
+                cornerRadius: corner
+            )
+            googleBlue.setFill()
+            headerPath.fill()
+            // Square off the bottom of the header
+            UIBezierPath(rect: CGRect(x: 0, y: corner, width: size, height: hh)).fill()
+
+            // Blue border
+            googleBlue.setStroke()
+            let border = UIBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerRadius: corner)
+            border.lineWidth = 1
+            border.stroke()
+
+            // "31" number in body
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: size * 0.40, weight: .bold),
+                .foregroundColor: googleBlue,
+            ]
+            let str = NSAttributedString(string: "31", attributes: attrs)
+            let ss = str.size()
+            str.draw(at: CGPoint(
+                x: (size - ss.width) / 2,
+                y: hh + (size - hh - ss.height) / 2
+            ))
+        }
     }
 
     /// Rebuild the pages for the current `drafts` and snap to `index`.
@@ -549,22 +660,20 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     private func awaitCapture() {
         if isDrafting { return }
         isDrafting = true
-        showStatus("Reading your screen…")
-        spinner.startAnimating()
+        showDrafting(label: "Reading your screen…")
 
         Task { @MainActor in
             let deadline = Date().addingTimeInterval(8)
             while Date() < deadline {
                 try? await Task.sleep(for: .milliseconds(250))
                 guard let staged = SharedStore.freshStagedScreenshotDraft() else { break }
-                if !staged.capturing {                       // intent finished — render it
-                    spinner.stopAnimating(); isDrafting = false
+                if !staged.capturing {
+                    isDrafting = false
                     consumeStaged(staged)
                     return
                 }
             }
-            // Timed out or the marker vanished — fall back to the clipboard/idle path.
-            spinner.stopAnimating(); isDrafting = false
+            isDrafting = false
             draftFromClipboard()
         }
     }
@@ -591,11 +700,10 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     private func runDraft(messages: [String]) {
         isDrafting = true
         sourceMessages = messages
-        showStatus("Drafting in your voice…")
-        spinner.startAnimating()
+        showDrafting(label: "Drafting in your voice…")
 
         Task { @MainActor in
-            defer { spinner.stopAnimating(); isDrafting = false }
+            defer { isDrafting = false }
             do {
                 let result = try await KeyboardDraftClient.fetchDrafts(messages: messages, source: currentSource)
                 if result.drafts.isEmpty {
@@ -629,8 +737,6 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         guard drafts.indices.contains(index) else { return }
         let draft = drafts[index]
         textDocumentProxy.insertText(draft)
-        // Log the pick WITH the candidate set + index + source so the backend learns
-        // which option the user preferred (substance), not just the chosen text (voice).
         KeyboardDraftClient.recordAccepted(
             text: draft,
             source: currentSource,
@@ -642,7 +748,13 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         drafts = []
         currentSource = "clipboard"
         sourceMessages = []
+        // Save the event before hideBookingChip clears it.
+        let calEvent = pendingEvent
         hideBookingChip()
         showStatus("Inserted ✓  — switch back to send.")
+        // Show the "Add to Google Calendar" chip below the status if we have a booking.
+        if let event = calEvent {
+            showPostInsertCalendarChip(for: event)
+        }
     }
 }

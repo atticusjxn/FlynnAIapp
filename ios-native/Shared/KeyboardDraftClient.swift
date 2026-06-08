@@ -69,6 +69,40 @@ enum KeyboardDraftClient {
         return decoded.text
     }
 
+    // MARK: - Calendar
+
+    private struct CalendarEventRequest: Encodable {
+        let title: String
+        let startISO: String
+        let durationMin: Int
+        let location: String?
+        let customer: String?
+    }
+
+    /// Add an agreed event directly to the user's Google Calendar via the backend.
+    /// Throws `ClientError.notConfigured` when no token/URL, or `ClientError.server`
+    /// on HTTP error (including 404 when Google Calendar is not connected).
+    static func addCalendarEvent(_ event: AgreedEvent) async throws {
+        guard let base = baseURL(), let token = SharedSecureStore.keyboardToken else {
+            throw ClientError.notConfigured
+        }
+        var req = URLRequest(url: base.appendingPathComponent("api/keyboard/add-calendar-event"))
+        req.httpMethod = "POST"
+        req.timeoutInterval = 10
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(CalendarEventRequest(
+            title: event.title,
+            startISO: event.startISO,
+            durationMin: event.durationMin,
+            location: event.location,
+            customer: event.customer
+        ))
+        let (_, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw ClientError.server(-1) }
+        guard (200...299).contains(http.statusCode) else { throw ClientError.server(http.statusCode) }
+    }
+
     /// Best-effort: tell the backend which draft the user accepted, with the full
     /// candidate set + pick index + source so it can learn voice AND substance.
     /// Fire-and-forget; never throws into the UI.
