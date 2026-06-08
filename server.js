@@ -2278,7 +2278,7 @@ async function draftsUsedToday(userId) {
  * user has no Google connection or anything fails — Apple-only users propose
  * from business hours on-device instead.
  */
-async function computeGoogleSlots(userId, businessHours, { days = 7, durationMins = 60, maxSlots = 3 } = {}) {
+async function computeGoogleSlots(userId, businessHours, { days = 7, durationMins = 60, maxSlots = 5 } = {}) {
   try {
     if (!supabaseStorageClient) return { slots: [], busy: [], timeZone: 'Australia/Sydney', connected: false };
     const { connection } = await googleCalendar.getConnectionForUser(supabaseStorageClient, userId);
@@ -2447,7 +2447,46 @@ app.post('/api/keyboard/ocr-screenshot', authenticateJwt, async (req, res) => {
     }
 
     console.log('[Keyboard] ocr-screenshot extracted', text.length, 'chars for user', userId);
-    return res.json({ text });
+    res.json({ text });
+
+    // Fire-and-forget: save capture to screenshots table + extract confirmed facts.
+    (async () => {
+      try {
+        const summaryClient = getLLMClient('compatible');
+        const summaryResp = await summaryClient.chat.completions.create({
+          enable_thinking: false,
+          max_tokens: 50,
+          messages: [
+            { role: 'system', content: 'Summarise this message conversation in one short sentence (12 words max). Focus on what the customer wants.' },
+            { role: 'user', content: text.slice(0, 1500) },
+          ],
+        });
+        const summary = summaryResp?.choices?.[0]?.message?.content?.trim() || null;
+        await supabaseStorageClient.from('screenshots').insert({
+          user_id: userId,
+          extracted_text: text.slice(0, 8000),
+          summary,
+        });
+      } catch (_) { /* best-effort */ }
+
+      extractFacts({ messages: [text] })
+        .then(async ({ facts }) => {
+          for (const f of (facts || []).slice(0, 5)) {
+            try {
+              await supabaseStorageClient.from('customer_context').insert({
+                user_id: userId,
+                subject_handle: f.subject ? f.subject.toLowerCase().replace(/\s+/g, ' ').trim() : null,
+                subject_label: f.subject || null,
+                fact: f.fact,
+                confidence: f.confidence,
+                status: 'confirmed',
+                source: 'screenshot',
+              });
+            } catch (_) {}
+          }
+        })
+        .catch(() => {});
+    })();
   } catch (err) {
     console.error('[Keyboard] ocr-screenshot failed:', err?.message || err);
     return res.status(500).json({ error: 'OCR failed' });
@@ -2615,7 +2654,7 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
                 subject_label: f.subject || null,
                 fact: f.fact,
                 confidence: f.confidence,
-                status: 'unconfirmed',
+                status: 'confirmed',
                 source: 'screenshot',
               });
             } catch (_) { /* table not present yet — ignore */ }
@@ -6062,6 +6101,8 @@ app.post('/api/voice/command', authenticateJwt, voiceAudioUpload.single('audio')
   const buffer = req.file?.buffer;
   if (!buffer || !buffer.length) return res.status(400).json({ error: 'No audio provided' });
   const mimeType = req.file.mimetype || 'audio/m4a';
+  // Text field set by the iOS client when this is a follow-up to a needsInfo response.
+  const priorContext = req.body?.context?.trim() || null;
 
   try {
     // Value-first gate: a shared daily free quota across Flynn's AI actions; Pro is
@@ -6093,7 +6134,9 @@ app.post('/api/voice/command', authenticateJwt, voiceAudioUpload.single('audio')
     }
 
     // 2) Classify the spoken command into one intent + fields.
-    const routed = await classifyIntent({ transcript, businessName });
+    // For follow-up commands, prepend the prior turn so the model has full context.
+    const fullContext = priorContext ? `${priorContext}\n${transcript}` : transcript;
+    const routed = await classifyIntent({ transcript: fullContext, businessName });
 
     // Count this command against the shared free quota (entitled users unlimited).
     if (!entitled) {
@@ -6130,7 +6173,18 @@ app.post('/api/voice/command', authenticateJwt, voiceAudioUpload.single('audio')
       } catch (_) { /* no style learned yet */ }
 
       const pricingContext = formatBusinessContext(profileRowToContext(profileRow || {}));
-      const quote = await extractQuote({ transcript, pricingContext, defaultTaxRate: 10, quoteStyle });
+      const quote = await extractQuote({ transcript: fullContext, pricingContext, defaultTaxRate: 10, quoteStyle });
+      // If every line item is a $0 placeholder the command was too sparse — ask one focused question.
+      const allPlaceholder = !quote || quote.lineItems.length === 0 ||
+        quote.lineItems.every((li) => li.description?.startsWith('[set price]'));
+      if (allPlaceholder) {
+        const who = routed.customer ? ` for ${routed.customer}` : '';
+        return res.json({
+          intent: 'needsInfo',
+          transcript,
+          question: `What's the job${who}? E.g. "3hrs at $60/hr" or "full clean, flat rate $200"`,
+        });
+      }
       const { orgId } = await resolveUserOrg(userId);
       const { data: quoteNumber } = await supabaseStorageClient.rpc('generate_quote_number', { p_org_id: orgId });
       const { data: inserted, error: insertErr } = await supabaseStorageClient
@@ -6298,6 +6352,28 @@ app.delete('/api/memory/:id', authenticateJwt, async (req, res) => {
   } catch (error) {
     console.error('[Memory] delete failed:', error?.message);
     res.status(500).json({ error: 'Failed to delete fact' });
+  }
+});
+
+// ---- Screenshot capture history ----
+
+/** GET /api/brain/captures — screenshot captures for the Brain > Captures feed. */
+app.get('/api/brain/captures', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+  try {
+    const { data, error } = await supabaseStorageClient
+      .from('screenshots')
+      .select('id, created_at, summary, extracted_text')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    res.json({ captures: data || [] });
+  } catch (err) {
+    console.error('[Brain] captures list failed:', err?.message);
+    res.status(500).json({ error: 'Failed to load captures' });
   }
 });
 

@@ -140,7 +140,7 @@ const buildPrompt = ({
 
   if (proposedSlots.length > 0) {
     systemParts.push(
-      `These calendar times are genuinely free — you may offer one if the customer is trying to book or asking when you can come: ${proposedSlots.join(', ')}.`
+      `These calendar times are genuinely free and checked against the owner's real calendar: ${proposedSlots.join(', ')}. If the customer is asking about availability, when you can come, or wants to book in, you MUST include at least two of these specific times in your reply (e.g. "I've got Wednesday 8am–10am free, or Thursday arvo around 2pm if that works better"). Never give a vague "I can fit you in" without naming real times.`
     );
   }
 
@@ -156,7 +156,8 @@ const buildPrompt = ({
     '- If there is a CALENDAR CHECK line above, follow it exactly — it reflects the owner\'s real availability and overrides everything else about timing.',
     '- If the customer proposes or asks about a specific time (e.g. "does 10am suit?") and there is no CALENDAR CHECK, treat it as yes/no: confirm that time, or if it genuinely doesn\'t work suggest another. Never ask "what time?" when they already named one.',
     '- Never ask for information the customer has already given.',
-    '- Sound like a real person texting. Keep each reply to 1-2 short sentences.',
+    '- Reply length MUST match the substance of what the customer asked. A simple yes/no confirmation can be 1-2 sentences. But for anything more — availability questions, scheduling, quote requests, questions about services, or any message where the customer needs real information — write 2-4 sentences minimum. Include specifics: real times from the calendar, relevant service details, next steps, or a friendly follow-up question. One-liners like "Sure thing" or "I can do that" are NEVER acceptable when the customer asked a substantive question.',
+    '- Sound like a real person texting — warm, natural, slightly chatty. Use the occasional casual filler ("yeah", "for sure", "no worries") but always deliver actual information. Never stiff or corporate.',
     '- Be helpful and move toward booking the job, but never pushy.',
     '- Only use pricing/services/hours from the business info above. Never invent prices or promises.',
     '- Do not include placeholders like [name]; write a complete, send-ready message.',
@@ -282,7 +283,7 @@ const generateDrafts = async ({
     // Validated defaults for the drafting task (see flynn_draft_model memory).
     enable_thinking: false,
     temperature: 0.8,
-    max_tokens: 500,
+    max_tokens: 800,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
