@@ -64,7 +64,7 @@ export default function CalendarSection() {
               <span className="text-2xl">🍎</span>
               <div>
                 <p className="font-semibold text-sm">Apple Calendar</p>
-                <p className="text-xs text-gray-500">Granted via the Mac app — no action needed here.</p>
+                <p className="text-xs text-gray-500">Granted via the Mac app, no action needed here.</p>
               </div>
             </div>
             <span className="text-xs font-medium text-green-700 bg-green-100 border border-green-200 rounded-full px-2.5 py-0.5">

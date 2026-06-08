@@ -52,7 +52,7 @@ export default function VoiceToneSection() {
       <h1 className="text-2xl font-bold mb-1">Voice & Tone</h1>
       <p className="text-sm text-gray-500 mb-8">
         Flynn learns your voice from the drafts you accept. Use these settings to steer it
-        faster — especially useful in the first week.
+        faster, especially useful in the first week.
       </p>
 
       <section className="mb-8">
@@ -86,7 +86,7 @@ export default function VoiceToneSection() {
       </section>
 
       <p className="text-xs text-gray-400 mb-6">
-        Flynn also learns passively from the drafts you choose to insert — no extra work needed.
+        Flynn also learns passively from the drafts you choose to insert, no extra work needed.
       </p>
 
       <button

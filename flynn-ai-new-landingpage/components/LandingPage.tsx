@@ -120,19 +120,21 @@ const PhoneHero = () => (
       <div className="bg-[#F2F2F7] px-3.5 pt-2.5 pb-3.5">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[12px] font-medium text-gray-500">Flynn · Coastal Painting</span>
-          <span className="flex items-center gap-2 text-[12px] font-medium text-[#007AFF]">New <span className="text-gray-400">🌐</span></span>
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-[#FB5B1E] bg-[#FB5B1E]/10 rounded-full px-2 py-0.5">✦ Read your screen</span>
         </div>
-        <button className="w-full rounded-2xl bg-[#FB5B1E] text-white font-semibold py-3 text-[15px] shadow-[0_4px_0_0_#C5532B]">✍️ Draft a reply</button>
-        <p className="text-center text-[11px] text-gray-400 my-2">Tap a reply to insert it.</p>
+        <p className="text-center text-[11px] text-gray-400 mb-2">3 replies ready · tap one to insert.</p>
         <div className="space-y-2">
           {[
-            "Yeah for sure! A 3-bed's usually $3.5–4.5k. Could swing by Thurs to quote — what time suits?",
+            "Yeah for sure! A 3-bed's usually $3.5–4.5k. Could swing by Thurs to quote, what time suits?",
             "Happy to help 🙌 Ballpark's about $4k depending on prep. Free Saturday morning?",
             "Definitely do quotes! When's good for a quick look this week?",
           ].map((t, i) => (
             <div key={i} className="bg-[#E2E2E8] text-[#1c1c1e] text-[13px] leading-snug rounded-xl px-3 py-2.5">{t}</div>
           ))}
         </div>
+        <button className="mt-2.5 w-full flex items-center justify-center gap-2 rounded-xl bg-[#FB5B1E] text-white font-semibold py-2.5 text-[13px] shadow-[0_3px_0_0_#C5532B]">
+          <span>📅</span> Add Thu 2:00 PM to calendar
+        </button>
       </div>
     </div>
   </div>
@@ -148,24 +150,25 @@ const Card = ({ children, className = '' }: any) => (
 
 /* ===================== STEPS ===================== */
 const steps = [
-  { n: '1', pose: 'point', title: 'Capture the message', body: "Tap to grab a screenshot of the conversation — Flynn reads it in a second. Or just copy it like normal." },
-  { n: '2', pose: 'phone', title: 'Tap the Flynn keyboard', body: 'Switch to Flynn right inside Messages. It reads what you copied and drafts a few replies.' },
-  { n: '3', pose: 'thumbsup', title: 'Send one that’s already you', body: 'Tap the reply that sounds like you. Agreed a time? Flynn drops it in your calendar.' },
+  { n: '1', pose: 'point', title: 'Press the Action Button', body: "See a message worth a reply? Press your Action Button. Flynn reads what's on screen in a second, and nothing is saved to your camera roll." },
+  { n: '2', pose: 'phone', title: 'Replies are already waiting', body: "Open your keyboard and the drafts are there, in your voice, using your prices, hours and what's been going on lately. Tap the one that fits." },
+  { n: '3', pose: 'thumbsup', title: "Time agreed? It's booked", body: "Insert the reply and you're done. If a time was agreed, Flynn drops it straight into your calendar." },
 ];
 
 /* ===================== FEATURES ===================== */
 const features = [
-  { pose: 'write', tint: '#3C8A86', title: 'Sounds exactly like you', body: 'Flynn learns from your real replies — your slang, your casing, your sign-offs. Every draft reads like you actually wrote it.' },
-  { pose: 'phone', tint: '#E0A436', title: "Knows when you're free", body: "Connected to your Apple or Google Calendar — Flynn drafts around your real availability, not a guess. Agree on a time and it's booked automatically." },
+  { pose: 'write', tint: '#3C8A86', title: 'Sounds exactly like you', body: 'Flynn learns from your real replies: your slang, your casing, your sign-offs. Every draft reads like you actually wrote it.' },
+  { pose: 'phone', tint: '#E0A436', title: "Knows when you're free", body: "Connected to your Apple or Google Calendar, Flynn drafts around your real availability, not a guess. Agree on a time and it's booked automatically." },
   { pose: 'thinking', tint: '#C5532B', title: 'Knows your business', body: 'Your services, prices, hours and area live in Flynn’s brain, so quotes and answers are right every time.' },
 ];
 
 /* ===================== FAQ ===================== */
 const faqs = [
-  { q: 'How does Flynn work?', a: 'Flynn is a keyboard you add to your phone. Copy any message, switch to the Flynn keyboard inside Messages, and tap “Draft a reply.” It writes a few replies in your voice — you pick one and send. You’re always in control; nothing sends automatically.' },
-  { q: 'Is it only for tradies?', a: 'Not at all. Flynn works for anyone who texts to get things booked — freelancers, salons, real estate, side hustles, or just locking in a time with mates. If you reply to messages, Flynn helps.' },
-  { q: 'Does it read my private messages?', a: 'No. Flynn only ever sees the message you explicitly copy and the reply you’re drafting. It doesn’t read your conversations or contacts.' },
-  { q: 'How does it sound like me?', a: 'During setup you give Flynn a few replies you’d actually send. It matches that tone — and learns from the drafts you accept over time.' },
+  { q: 'How does Flynn work?', a: "On any message, press your Action Button (or just copy the text) and Flynn reads the screen and drafts a few replies in your voice. Open the Flynn keyboard, tap the one you like, and it's inserted. You're always in control; nothing sends on its own." },
+  { q: 'Do I need the Action Button?', a: 'No. The Action Button (iPhone 15 Pro and iPhone 16 and up) is the fastest way, but Back Tap works on any iPhone, just double-tap the back of your phone. And you can always copy and paste.' },
+  { q: 'Is it only for tradies?', a: 'Not at all. Flynn works for anyone who texts to get things booked: freelancers, salons, real estate, side hustles, or just locking in a time with mates. If you reply to messages, Flynn helps.' },
+  { q: 'Does it read my private messages?', a: 'No. Flynn only ever sees the screen you capture or the message you copy, and the reply you’re drafting. It doesn’t read your conversations or contacts, and screenshots are never saved to your camera roll.' },
+  { q: 'How does it sound like me?', a: 'During setup you give Flynn a few replies you’d actually send. It matches that tone and learns from the drafts you accept over time.' },
   { q: 'What does it cost?', a: 'Free to start with a few drafts a day. Pro is unlimited drafts, calendar booking and full voice tuning, with a 14-day free trial.' },
 ];
 
@@ -195,7 +198,7 @@ export default function LandingPage() {
               Reply in your <span className="text-[#FB5B1E]">voice.</span><br />Lock in the <span className="text-[#FB5B1E]">time.</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-[#5A4A3C] max-w-xl leading-relaxed">
-              Flynn drafts your texts so they sound exactly like you — then books the moment everyone agrees. Right inside Messages. For clients, side gigs, or just the group chat.
+              Press your Action Button on any message and Flynn reads the screen, then has replies in your voice waiting in your keyboard. It books the agreed time straight to your calendar. Works in any app.
             </p>
             <div className="mt-2"><StoreButtons /></div>
             <p className="mt-5 text-sm font-medium text-[#8C7B6A]">Free to start · No card needed · You approve every reply</p>
@@ -226,8 +229,8 @@ export default function LandingPage() {
       <section id="how" className="relative py-20 sm:py-28">
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
           <Reveal className="text-center max-w-2xl mx-auto mb-16">
-            <SectionLabel>Three taps, done</SectionLabel>
-            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">From “I’ll reply later” to <span className="text-[#FB5B1E]">sent</span> — in seconds</h2>
+            <SectionLabel>One press, replies ready</SectionLabel>
+            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">From “I’ll reply later” to <span className="text-[#FB5B1E]">sent</span>, in seconds</h2>
           </Reveal>
           <div className="grid md:grid-cols-3 gap-6">
             {steps.map((s, i) => (
@@ -241,6 +244,11 @@ export default function LandingPage() {
               </Reveal>
             ))}
           </div>
+          <Reveal delay={0.1}>
+            <p className="text-center text-[#8C7B6A] font-medium mt-8 max-w-xl mx-auto">
+              No Action Button? Back Tap works on any iPhone, just double-tap the back. Prefer copy and paste? That works too.
+            </p>
+          </Reveal>
         </div>
       </section>
 
@@ -249,7 +257,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
           <Reveal className="max-w-2xl mb-16">
             <SectionLabel>Why people love it</SectionLabel>
-            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">It actually sounds like you — and it remembers the details</h2>
+            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">It actually sounds like you, and it remembers the details</h2>
           </Reveal>
           <div className="grid md:grid-cols-3 gap-6">
             {features.map((f, i) => (
@@ -275,16 +283,16 @@ export default function LandingPage() {
             <SectionLabel>Calendar</SectionLabel>
             <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.4rem)] leading-tight">It knows when <span className="text-[#FB5B1E]">you’re free</span></h2>
             <p className="mt-6 text-lg text-[#5A4A3C] leading-relaxed max-w-lg">
-              Connect your calendar and Flynn drafts around your <span className="font-semibold text-[#2C2018]">real availability</span> — then writes the agreed time straight back in. No flicking between apps.
+              Connect your calendar and Flynn drafts around your <span className="font-semibold text-[#2C2018]">real availability</span>, then writes the agreed time straight back in. No flicking between apps.
             </p>
             <ul className="mt-7 space-y-4">
               <li className="flex items-start gap-3">
                 <span className="mt-0.5 text-xl">💬</span>
-                <span className="text-[#2C2018]"><span className="font-semibold">“You free Thursday at 2?”</span> — Flynn checks your calendar and replies <span className="font-semibold text-[#FB5B1E]">“Yeah, Thursday at 2 works!”</span></span>
+                <span className="text-[#2C2018]"><span className="font-semibold">“You free Thursday at 2?”</span> Flynn checks your calendar and replies <span className="font-semibold text-[#FB5B1E]">“Yeah, Thursday at 2 works!”</span></span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="mt-0.5 text-xl">📅</span>
-                <span className="text-[#2C2018]">Agree on a time and it’s <span className="font-semibold">booked into your calendar</span> automatically — no double-entry.</span>
+                <span className="text-[#2C2018]">Agree on a time and it’s <span className="font-semibold">booked into your calendar</span> automatically, no double-entry.</span>
               </li>
             </ul>
             <div className="mt-9 flex items-center gap-4 flex-wrap">
@@ -314,7 +322,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex-1">
                   <p className="font-display font-bold text-[15px] flex items-center gap-2"><span className="text-[#7CD992]">✓</span> Added to your calendar</p>
-                  <p className="text-sm text-[#F4E6CE]/70">Quote — Thu 12 Jun · 2:00 PM</p>
+                  <p className="text-sm text-[#F4E6CE]/70">Quote · Thu 12 Jun · 2:00 PM</p>
                 </div>
               </div>
             </div>
@@ -336,10 +344,10 @@ export default function LandingPage() {
             <SectionLabel>The whole thing</SectionLabel>
             <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.4rem)] leading-tight">Open Messages.<br />Tap Flynn. <span className="text-[#FB5B1E]">Done.</span></h2>
             <p className="mt-6 text-lg text-[#5A4A3C] leading-relaxed max-w-lg">
-              No new app to live in, no copy-pasting into a chatbot. Flynn is right there on your keyboard — on your phone or your Mac.
+              No new app to live in, no copy-pasting into a chatbot. Flynn is right there on your keyboard, on your phone or your Mac.
             </p>
             <ul className="mt-6 space-y-3">
-              {['Works in Messages, WhatsApp — on iPhone, Android and Mac', 'You read and tap — nothing sends on its own', 'Gets sharper every time you pick a reply'].map(t => (
+              {['Works in Messages, WhatsApp and any app, on iPhone and Mac', 'You read and tap, nothing sends on its own', 'Gets sharper every time you pick a reply'].map(t => (
                 <li key={t} className="flex items-start gap-3 text-[#2C2018] font-medium">
                   <span className="mt-1 w-5 h-5 rounded-full bg-[#FB5B1E] text-white grid place-items-center text-xs shrink-0">✓</span>{t}
                 </li>
@@ -410,7 +418,7 @@ export default function LandingPage() {
               Never leave a text on <span className="text-[#FB5B1E]">read</span> again
             </h2>
             <p className="mt-5 text-lg sm:text-xl text-[#5A4A3C] max-w-xl mx-auto">
-              Add Flynn to your keyboard and reply in seconds — in your voice.
+              Add Flynn to your keyboard and reply in seconds, in your voice.
             </p>
             <div className="mt-8 flex justify-center"><StoreButtons /></div>
           </Reveal>

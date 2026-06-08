@@ -26,7 +26,7 @@ export default function AccountSection() {
       <div className="bg-white border-2 border-black rounded divide-y-2 divide-black">
         <div className="flex items-center justify-between px-5 py-4">
           <span className="text-sm font-medium text-gray-600">Email</span>
-          <span className="text-sm text-gray-900">{email ?? '—'}</span>
+          <span className="text-sm text-gray-900">{email ?? '–'}</span>
         </div>
         <div className="flex items-center justify-between px-5 py-4">
           <span className="text-sm font-medium text-gray-600">Plan</span>

@@ -31,7 +31,7 @@ const Footer: React.FC = () => (
             <span className="font-display font-bold text-2xl text-[#2C2018]">Flynn</span>
           </div>
           <p className="text-[#5A4A3C] text-[15px] leading-relaxed font-medium max-w-xs">
-            Reply in your voice. Lock in the time. The keyboard that drafts your texts and books the job — right inside Messages.
+            Reply in your voice. Lock in the time. The keyboard that drafts your texts and books the job, right inside Messages.
           </p>
         </div>
         {col('Product', [
@@ -46,8 +46,8 @@ const Footer: React.FC = () => (
           { label: 'Account deletion', href: '/delete-account' },
         ])}
         {col('Get the app', [
-          { label: 'iOS — App Store', href: APP_STORE, external: true },
-          { label: 'Android — Google Play', href: PLAY_STORE, external: true },
+          { label: 'iOS · App Store', href: APP_STORE, external: true },
+          { label: 'Android · Google Play', href: PLAY_STORE, external: true },
         ])}
       </div>
       <div className="border-t-2 border-[#2C2018]/10 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">

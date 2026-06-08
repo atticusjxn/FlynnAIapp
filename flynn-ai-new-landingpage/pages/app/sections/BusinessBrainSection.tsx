@@ -62,7 +62,7 @@ export default function BusinessBrainSection() {
     <div>
       <h1 className="text-2xl font-bold mb-1">Business Brain</h1>
       <p className="text-sm text-gray-500 mb-8">
-        Flynn uses this context in every draft — pricing, services, and your service area
+        Flynn uses this context in every draft, pricing, services, and your service area
         make replies sound specific to your business.
       </p>
 

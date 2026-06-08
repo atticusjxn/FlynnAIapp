@@ -34,7 +34,7 @@ interface SmartStoreCTAProps {
 
 const SmartStoreCTA: React.FC<SmartStoreCTAProps> = ({
     headline = 'Ready to Stop Missing Calls?',
-    body = 'Flynn answers every missed call and instantly texts callers a booking or quote link. Set up in 5 minutes — no new number needed.',
+    body = 'Flynn answers every missed call and instantly texts callers a booking or quote link. Set up in 5 minutes, no new number needed.',
     forceDevice,
 }) => {
     const device = useMemo(() => forceDevice ?? detectDevice(), [forceDevice]);

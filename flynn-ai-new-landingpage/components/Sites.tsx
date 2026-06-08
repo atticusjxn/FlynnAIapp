@@ -27,7 +27,7 @@ const Sites = () => {
                             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                         >
                             <div className="inline-block bg-black text-white px-4 py-1.5 text-sm font-bold uppercase tracking-widest mb-8 transform -rotate-2">
-                                Flynn Sites — New
+                                Flynn Sites · New
                             </div>
 
                             <h1 className="text-6xl lg:text-[6rem] leading-[0.9] font-bold text-black font-display mb-8 tracking-tighter">
@@ -36,7 +36,7 @@ const Sites = () => {
                             </h1>
 
                             <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto font-medium leading-relaxed">
-                                Paste your Instagram handle and Flynn builds a modern, SEO-ready website in seconds — with your photos, services, brand colors, and copy.
+                                Paste your Instagram handle and Flynn builds a modern, SEO-ready website in seconds, with your photos, services, brand colors, and copy.
                             </p>
 
                             {/* Input Mockup */}
@@ -92,7 +92,7 @@ const Sites = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                     <div className="mb-16">
                         <h2 className="text-5xl md:text-6xl font-display font-bold mb-6 leading-tight">
-                            A Full Website — <br />
+                            A Full Website, <br />
                             <span className="text-brand-500">Built Instantly.</span>
                         </h2>
                     </div>

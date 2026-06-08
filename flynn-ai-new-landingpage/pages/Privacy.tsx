@@ -86,14 +86,14 @@ export default function Privacy() {
               the data only to provide their service to Flynn:
             </p>
             <ul className="list-disc list-inside text-gray-700 leading-relaxed space-y-1">
-              <li><strong>Supabase</strong> — database, authentication, storage</li>
-              <li><strong>Twilio</strong> — telephony (call forwarding, SMS)</li>
-              <li><strong>Stripe</strong> — web subscription billing</li>
-              <li><strong>Apple App Store, Google Play Billing</strong> — in-app subscriptions</li>
-              <li><strong>OpenAI, Google Gemini, Deepgram, Cartesia, ElevenLabs</strong> — AI transcription, language understanding, voice synthesis</li>
-              <li><strong>Meta Platforms</strong> — ad attribution, app-install measurement</li>
-              <li><strong>Cloudflare, Vercel, Fly.io</strong> — hosting and content delivery</li>
-              <li><strong>Sentry</strong> — crash and error monitoring (if/when enabled)</li>
+              <li><strong>Supabase</strong>: database, authentication, storage</li>
+              <li><strong>Twilio</strong>: telephony (call forwarding, SMS)</li>
+              <li><strong>Stripe</strong>: web subscription billing</li>
+              <li><strong>Apple App Store, Google Play Billing</strong>: in-app subscriptions</li>
+              <li><strong>OpenAI, Google Gemini, Deepgram, Cartesia, ElevenLabs</strong>: AI transcription, language understanding, voice synthesis</li>
+              <li><strong>Meta Platforms</strong>: ad attribution, app-install measurement</li>
+              <li><strong>Cloudflare, Vercel, Fly.io</strong>: hosting and content delivery</li>
+              <li><strong>Sentry</strong>: crash and error monitoring (if/when enabled)</li>
             </ul>
             <p className="text-gray-700 leading-relaxed mt-3">
               We do not sell your personal information.
@@ -127,11 +127,11 @@ export default function Privacy() {
               You can:
             </p>
             <ul className="list-disc list-inside text-gray-700 leading-relaxed space-y-2">
-              <li><strong>Access or export</strong> your data — email us at the address below.</li>
-              <li><strong>Correct</strong> account details — directly in the app's settings.</li>
-              <li><strong>Delete</strong> your account — from the app's settings, or by emailing us. Deletion is permanent.</li>
-              <li><strong>Opt out</strong> of ad tracking — disable App Tracking Transparency on iOS or "Limit Ad Tracking" on Android.</li>
-              <li><strong>Refuse marketing emails</strong> — every marketing email contains an unsubscribe link.</li>
+              <li><strong>Access or export</strong> your data, email us at the address below.</li>
+              <li><strong>Correct</strong> account details, directly in the app's settings.</li>
+              <li><strong>Delete</strong> your account, from the app's settings, or by emailing us. Deletion is permanent.</li>
+              <li><strong>Opt out</strong> of ad tracking, disable App Tracking Transparency on iOS or "Limit Ad Tracking" on Android.</li>
+              <li><strong>Refuse marketing emails</strong>: every marketing email contains an unsubscribe link.</li>
             </ul>
             <p className="text-gray-700 leading-relaxed mt-3">
               Depending on where you live (e.g. EU/UK, California, Australia)
@@ -166,7 +166,7 @@ export default function Privacy() {
             <p className="text-gray-700 leading-relaxed">
               We use industry-standard security: TLS in transit, encryption at
               rest, scoped access tokens, and row-level security in Supabase.
-              No system is perfectly secure — if we ever discover a breach
+              No system is perfectly secure, if we ever discover a breach
               affecting your data we will notify you as required by law.
             </p>
           </section>
