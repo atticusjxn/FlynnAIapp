@@ -2,79 +2,104 @@
 
 ## What Flynn Is
 
-Flynn is an **assistive AI** that drafts message replies in the user's own voice and books the agreed time into their calendar — living where the user already messages. The user always reviews and inserts; nothing ever sends on its own.
+Flynn is a **text-based business agent** that lives in iMessage. Service operators text Flynn like a smart mate who knows their business — and Flynn handles the admin: drafting replies, booking jobs, creating invoices, ordering parts. Flynn texts back, executes actions, and learns the business over time.
 
-**One promise everywhere:** "Replies that know your business and your calendar."
+**One promise:** "Run your business from iMessage."
+
+The iOS keyboard extension is a secondary surface — useful once the user is set up, but not the onboarding gate. The primary funnel is: land on flynnai.app → tap Message Flynn → start texting.
 
 ## Who It's For
 
-Service operators and professionals who run their business from their messages and book jobs/appointments: tradies, removalists, cleaners, PTs, salons, real estate agents, freelancers, agencies. Vertical-agnostic; these are go-to-market lenses, not hard constraints.
+Service operators who run their business from their phone: tradies, removalists, cleaners, PTs, salons, real estate agents, freelancers. Vertical-agnostic — Flynn adapts its questions and suggestions to whatever industry it detects. Go-to-market focus is AU/NZ tradies.
 
-## Core Principles — Non-Negotiable
+## Core Principles
 
-- **Assistive, never autonomous.** User taps to insert/send. Flynn never sends anything on its own.
-- **Low trust-ask is the moat.** Capture is scoped and only on-invoke; minimum permissions, clearly explained. No always-on harvesting.
-- **Lead on differentiated context** — business brain (services, prices, hours, area) + real calendar availability + the user's own voice — never on generic "AI drafting." The first real draft must visibly use their pricing and calendar.
-- **Calendar-aware proposal is the standout.** Propose real open slots when no time is given, then write the agreed event to the calendar.
-- **Context deepens passively.** Learn from the replies the user picks (voice + substance) plus a one-time business-brain setup. No proactive notification interrogation, no manual "capture to add context" habits.
-- **Mobile is primary.** Desktop is an expansion/retention lever.
+- **Text is the interface.** Flynn lives in iMessage. No app required to get value.
+- **Brain-first.** Every response uses the user's actual pricing, availability, and client context. Generic responses are a bug.
+- **Conversational onboarding.** Brain setup happens over SMS — Flynn asks questions naturally, never uses the word "setup" or "profile".
+- **Proactive but not pushy.** Flynn re-engages users who go quiet, sends reminders, flags important messages. But stops after 3 attempts and never nags.
+- **Context accumulates passively.** Flynn learns from every exchange — if the user mentions a new rate or client, it's saved. Never asks the same question twice.
+- **Confirm before executing.** For anything irreversible (sending an invoice, placing an order), Flynn sends a confirmation message first. User replies "yeah" to proceed.
+- **Mobile is primary.** Dashboard and app are secondary surfaces for power users.
 
-## Surfaces — Capability Ladder
+## Primary Architecture
 
-### Recommended capture (iOS)
-Quick-capture gesture → screenshot of the current screen via the Shortcuts **Take Screenshot** action (NOT saved to camera roll) → on-device OCR → drafts staged → Flynn keyboard auto-loads them → tap to insert.
+```
+Landing page (flynnai.app)
+  → "Message Flynn" CTA → opens iMessage to Flynn's number
+  → User texts Flynn → BlueBubbles relay on Mac → Flynn backend
+  → Flynn replies via iMessage (blue bubbles)
 
-Preferred because OCR is sub-second (latency hides in the gesture→keyboard switch) AND it never reads the clipboard, so it avoids iOS's "pasting from…" banner.
+Flynn number: dedicated eSIM (amaysim AU, Optus network)
+Relay: BlueBubbles server on Mac (Private API — read receipts + typing indicators)
+Backend: Node.js/Express on Fly.io (flynnai-telephony.fly.dev)
+Brain: Supabase (zvfeafmmtfplzpnocyjw, ap-southeast-2)
+LLM: Qwen3.5-flash via DashScope (fast, cheap, natural tone)
+```
 
-**Gesture options:**
-- **Action Button** on capable phones (iPhone 15 Pro / 15 Pro Max and all iPhone 16+). Auto-detect and offer guided setup. Investigate double-press binding so single-press can stay the user's camera default — if reliable double-press isn't achievable, fall back to single-press or Back Tap. Never assume the button; the user assigns it.
-- **Back Tap (triple-tap)** on all other iPhones.
+## Surfaces
 
-### Fallback capture (universal, must always work)
-Copy a message → Flynn keyboard auto-shows drafts → tap to insert. Offered as the second onboarding option and the baseline for any device or app where the gesture isn't set up.
+### 1. iMessage (primary — where users live)
+- Conversational onboarding, brain building, action execution
+- Re-engagement messages for inactive users
+- Confirmation flows for invoices, bookings, orders
+- See `plans/conversational-onboarding.md`
 
-### Insertion
-Always via the keyboard extension (direct insert, no paste).
+### 2. Web dashboard (flynnai.app/dashboard)
+- Integration management (Google Calendar, Xero, Gmail etc)
+- Brain viewer/editor
+- Upcoming jobs, open quotes, flagged leads
+- OAuth flows for all integrations
+- See `plans/dashboard.md` and `plans/integrations.md`
 
-### Desktop
-Global hotkey → read the focused conversation (including off-screen) via OS accessibility layer. Browser companion for web chats → popup, arrow + Enter to insert, inline add-to-calendar. Scoped, on-invoke only.
-
-### Opt-in power lane (desktop only)
-Mac + iMessage, read-only local read behind Full Disk Access, pre-draft threads. Flag the Mac-always-on limitation — do not promise cross-device "drafts already on the phone."
+### 3. iOS app (secondary — power users)
+- Keyboard extension: screenshot → OCR → draft → tap to insert
+- Integrations tab (same as web)
+- Brain tab (same as web)
+- Dashboard tab
+- Onboarding stripped to 3 steps — brain setup is SMS-based
+- See `plans/ios-app.md`
 
 ## Non-Goals — Do Not Build
 
-- Always-on harvester
-- Continuous OCR or screen-recording
-- Multi-screenshot scrolling or shrinking text to capture whole threads (not feasible/janky — the visible screen + business brain is enough)
-- Autonomous sending of any kind
-- Proactive question-asking notifications
-- iMessage relay or credential custody
+- Voice training or voice cloning
+- Always-on screen recording or clipboard harvesting
+- Autonomous sending without confirmation (invoices, orders always confirm first)
 - Any UX or marketing leading with "AI"
-- Marketing a platform before the app ships
+- Multi-user / team features (solo operators only for now)
+- Desktop app or browser extension (not in current scope)
+
+## Message Tone — Non-Negotiable
+
+Flynn's SMS replies must read like a real person texted them, not a product.
+
+- Start messages lowercase where natural ("hey", "got it", "done")
+- Never use em dashes (—) — use commas or short sentences
+- No bullet points in SMS — prose only
+- No filler openers: never "Great!", "Sure!", "Absolutely!"
+- Contractions always: I'll, you've, can't
+- Short sentences. Two short ones beat one long one.
+- Currency: infer from phone prefix (+61 → AUD, +64 → NZD, +1 → USD)
+
+All outbound messages pass through `sanitiseReply()` which strips em dashes and other AI tells before sending.
 
 ## The Priority
 
-Launch and measure **week-4 retention** with real target users. All build work serves that.
+Validate with real users. Measure **week-4 retention**. Everything else is secondary.
 
 ---
 
-## ⚠️ Reconciliation Notes — Conflicts with Prior Version
+## ⚠️ Reconciliation Notes
 
-The prior CLAUDE.md described Flynn as an "Inbound Revenue OS" built around a missed-call IVR + SMS-link system (Twilio, Deepgram Voice Agent, voicemail transcription). That telephony-first product definition is **superseded**. The following sections from the prior version are now **obsolete**:
-
-| Prior section | Status |
+| Prior version | Status |
 |---|---|
-| "About Flynn AI" / "Inbound Revenue OS" positioning | **Replaced** by "What Flynn Is" above |
-| Core Features — Call Handling Modes A / B / C | **Retired** — strip telephony, keep brand/payments/db/Swift+Kotlin |
-| Product Roadmap (4 phases: IVR MVP → AI Receptionist) | **Superseded** — priority is keyboard + calendar draft loop |
-| Call Handling System (full technical section) | **Retired** — IVR, TwiML, DTMF, Deepgram, voicemail pipeline |
-| App Navigation — "Calls" tab | **Obsolete** — tab structure will change |
-| iOS Shortcuts — "job creation" framing | **Updated** — screenshots now feed reply drafts via keyboard, not job forms |
-| Language/Copy — voicemail, IVR, forwarding terminology | **Obsolete** — see updated copy guidelines below |
-| Key UI Patterns — Voicemail Cards, Transcript Display, Call Analytics | **Obsolete** |
+| Keyboard-first product ("assistive AI that drafts replies") | **Superseded** — iMessage agent is primary surface |
+| "Flynn never sends anything on its own" | **Updated** — Flynn sends proactively (re-engagement, confirmations) but always confirms before irreversible actions |
+| Screenshot capture / OCR / keyboard insert as core loop | **Secondary** — still built, but not the onboarding path |
+| IVR, telephony, voicemail pipeline | **Retired** |
+| "Inbound Revenue OS" positioning | **Retired** |
 
-**What is kept:** brand identity, mascot, design system (colors, typography, spacing, components), accounting integration (roadmap), development rules.
+**What is kept:** brand identity, mascot, design system (colors, typography, spacing, components), Supabase schema, Twilio for SMS fallback, development rules.
 
 ---
 
