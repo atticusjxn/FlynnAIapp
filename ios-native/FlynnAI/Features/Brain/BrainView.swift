@@ -18,13 +18,19 @@ struct BrainView: View {
 
             Section {
                 ForEach($store.services) { $svc in
-                    HStack {
-                        TextField("Service", text: $svc.name)
-                        TextField("Price", text: $svc.priceRange)
-                            .keyboardType(.numbersAndPunctuation)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 120)
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Service name", text: $svc.name)
+                        HStack(spacing: 8) {
+                            TextField("Price", text: $svc.priceRange)
+                                .keyboardType(.numbersAndPunctuation)
+                            Text("·")
+                                .foregroundColor(FlynnColor.textTertiary)
+                            TextField("Duration (e.g. 1-2 hrs)", text: $svc.typicalDuration)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(FlynnColor.textSecondary)
                     }
+                    .padding(.vertical, 2)
                 }
                 .onDelete { store.services.remove(atOffsets: $0) }
                 Button {
@@ -87,8 +93,13 @@ struct BrainView: View {
                 } label: {
                     Label("Your quote style", systemImage: "doc.text.magnifyingglass")
                 }
+                NavigationLink {
+                    CaptureHistoryView()
+                } label: {
+                    Label("Screenshot captures", systemImage: "camera.viewfinder")
+                }
             } footer: {
-                Text("Facts Flynn has learned about your customers, and how you quote — woven into future replies and quotes.")
+                Text("Facts Flynn has learned about your customers, how you quote, and your screenshot capture history — woven into future replies and quotes.")
             }
 
             Section {
@@ -115,10 +126,14 @@ struct BrainView: View {
             }
         }
         .navigationTitle("Brain")
-        .scrollDismissesKeyboard(.interactively)
+        .scrollDismissesKeyboard(.immediately)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Save") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil
+                    )
                     Task {
                         await store.save()
                         flash.success("Saved")

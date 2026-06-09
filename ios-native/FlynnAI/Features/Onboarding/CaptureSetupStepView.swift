@@ -26,14 +26,14 @@ struct CaptureSetupStepView: View {
                 eyebrow: "One last thing",
                 title: "Pick how you",
                 accentTitle: "capture messages",
-                subtitle: "Both work great and you can use either anytime. We recommend the screenshot way — it's one tap and never touches your clipboard."
+                subtitle: "Both work great and you can use either anytime. We recommend the screenshot way, it's one tap and never touches your clipboard."
             )
 
             captureCard(
                 badge: "RECOMMENDED",
                 icon: "text.viewfinder",
                 title: "Screenshot capture",
-                description: "Tap your gesture over any message — Flynn reads the screen and your replies are waiting in the keyboard. Nothing is saved to your camera roll.",
+                description: "Tap your gesture over any message, Flynn reads the screen and your replies are waiting in the keyboard. Nothing is saved to your camera roll.",
                 buttonTitle: "Set up screenshot capture",
                 variant: .primary
             ) { withAnimation { mode = .screenshot } }
@@ -104,7 +104,7 @@ struct CaptureSetupStepView: View {
             // Step 1 — add the shortcut.
             sectionTitle("1  Add the Flynn shortcut")
             if FlynnConfig.captureShortcutURL != nil {
-                stepText("Adds a one-tap \"\(FlynnConfig.captureIntentName)\" shortcut that screenshots your screen and gets replies ready — without saving to your camera roll.")
+                stepText("Adds a one-tap \"\(FlynnConfig.captureIntentName)\" shortcut that screenshots your screen and gets replies ready, without saving to your camera roll.")
                 RetroButton(title: "Add the Flynn shortcut", action: addShortcut)
             } else {
                 manualShortcutSteps
@@ -119,13 +119,13 @@ struct CaptureSetupStepView: View {
             sectionTitle("2  Set up your gesture")
             gestureCard
 
-            Text("Tip: press your gesture while looking at a real message — not inside the Shortcuts app, which would just screenshot Shortcuts itself.")
+            Text("Tip: press your gesture while looking at a real message, not inside the Shortcuts app, which would just screenshot Shortcuts itself.")
                 .font(.custom(FlynnFontName.interRegular, size: 13))
                 .foregroundColor(OB.inkFaint)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 2)
         } footer: {
-            RetroButton(title: "Done — finish setup", action: onFinish)
+            RetroButton(title: "Done, finish setup", action: onFinish)
             RetroTextButton(title: "Back", action: { withAnimation { mode = .choose } })
         }
     }

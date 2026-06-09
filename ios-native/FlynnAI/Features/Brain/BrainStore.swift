@@ -22,7 +22,7 @@ final class BrainStore {
     var faqs: [EditFAQ] = []
     var days: [EditDay] = EditDay.week()
 
-    struct EditService: Identifiable, Equatable { let id = UUID(); var name: String; var priceRange: String }
+    struct EditService: Identifiable, Equatable { let id = UUID(); var name: String; var priceRange: String; var typicalDuration: String = "" }
     struct EditFAQ: Identifiable, Equatable { let id = UUID(); var question: String; var answer: String }
     struct EditDay: Identifiable, Equatable {
         let id = UUID(); let key: String; let label: String
@@ -39,7 +39,7 @@ final class BrainStore {
 
     func load() async {
         state = .loading
-        struct Svc: Decodable { let name: String?; let price_range: String? }
+        struct Svc: Decodable { let name: String?; let price_range: String?; let typical_duration: String? }
         struct Faq: Decodable { let question: String?; let answer: String? }
         struct Row: Decodable {
             let business_type: String?
@@ -68,7 +68,7 @@ final class BrainStore {
                 websiteURL = row.website_url ?? ""
                 services = (row.services ?? []).compactMap { s in
                     guard let n = s.name, !n.isEmpty else { return nil }
-                    return EditService(name: n, priceRange: s.price_range ?? "")
+                    return EditService(name: n, priceRange: s.price_range ?? "", typicalDuration: s.typical_duration ?? "")
                 }
                 faqs = (row.faqs ?? []).compactMap { f in
                     guard let q = f.question, let a = f.answer, !q.isEmpty else { return nil }
@@ -102,7 +102,7 @@ final class BrainStore {
     // MARK: Save
 
     func save() async {
-        struct SvcOut: Encodable { let name: String; let price_range: String? }
+        struct SvcOut: Encodable { let name: String; let price_range: String?; let typical_duration: String? }
         struct FaqOut: Encodable { let question: String; let answer: String }
         struct DayOut: Encodable { let open: String; let close: String }
         struct Patch: Encodable {
@@ -118,7 +118,7 @@ final class BrainStore {
 
         let svc = services
             .filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
-            .map { SvcOut(name: $0.name, price_range: $0.priceRange.isEmpty ? nil : $0.priceRange) }
+            .map { SvcOut(name: $0.name, price_range: $0.priceRange.isEmpty ? nil : $0.priceRange, typical_duration: $0.typicalDuration.isEmpty ? nil : $0.typicalDuration) }
         let fq = faqs
             .filter { !$0.question.trimmingCharacters(in: .whitespaces).isEmpty && !$0.answer.trimmingCharacters(in: .whitespaces).isEmpty }
             .map { FaqOut(question: $0.question, answer: $0.answer) }

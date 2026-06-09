@@ -9,16 +9,11 @@ struct MainTabView: View {
     @State private var selection: FlynnTab = .dashboard
     @State private var drawer = DrawerController()
     @State private var calendarStore = PendingCalendarStore()
-    @State private var voiceStore = VoiceCommandStore()
-    @State private var voiceQuote: IdentifiedQuote?
-
-    /// Identifiable wrapper so a created quote can drive a `.sheet(item:)`.
-    private struct IdentifiedQuote: Identifiable { let id: UUID }
 
     @State private var dashboardPath = NavigationPath()
-    @State private var voicePath = NavigationPath()
     @State private var brainPath = NavigationPath()
     @State private var eventsPath = NavigationPath()
+    @State private var connectedPath = NavigationPath()
     // Parked tabs — paths retained so deep links to their detail routes still work.
     @State private var callsPath = NavigationPath()
     @State private var clientsPath = NavigationPath()
@@ -26,13 +21,12 @@ struct MainTabView: View {
 
     var body: some View {
         @Bindable var calendarStore = calendarStore
-        @Bindable var voiceStore = voiceStore
         ZStack(alignment: .leading) {
             TabView(selection: $selection) {
                 tab(.dashboard, path: $dashboardPath) { DashboardView() }
-                tab(.voice, path: $voicePath) { VoiceView() }
                 tab(.brain, path: $brainPath) { BrainView() }
                 tab(.events, path: $eventsPath) { EventsListView() }
+                tab(.connected, path: $connectedPath) { IntegrationsView() }
             }
 
             if drawer.isOpen {
@@ -44,14 +38,6 @@ struct MainTabView: View {
                     .frame(maxWidth: 320, maxHeight: .infinity)
                     .transition(.move(edge: .leading))
                     .ignoresSafeArea(edges: .bottom)
-            }
-        }
-        // App-wide hold-to-talk mic, floating above the tab bar (hidden behind the drawer).
-        .overlay(alignment: .bottomTrailing) {
-            if !drawer.isOpen {
-                FloatingMicButton(store: voiceStore)
-                    .padding(.trailing, FlynnSpacing.lg)
-                    .padding(.bottom, 92)
             }
         }
         .environment(drawer)
@@ -80,62 +66,6 @@ struct MainTabView: View {
             )
             .presentationDetents([.medium])
             .interactiveDismissDisabled(calendarStore.writeState == .writing)
-        }
-        // Voice command results → the right surface for each intent.
-        .onChange(of: voiceStore.lastResult) { _, result in
-            guard let result else { return }
-            voiceStore.clearResult()
-            routeVoiceResult(result)
-        }
-        .onChange(of: voiceStore.errorMessage) { _, message in
-            guard let message else { return }
-            flash.show(message, kind: .error)
-            voiceStore.clearError()
-        }
-        .sheet(item: $voiceStore.replyDrafts) { item in
-            VoiceReplyDraftsView(
-                recipient: item.recipient,
-                drafts: item.drafts,
-                onClose: { voiceStore.replyDrafts = nil },
-                onCopied: { flash.show("Copied — paste it where you're messaging.", kind: .success) }
-            )
-        }
-        .sheet(item: $voiceQuote) { item in
-            NavigationStack { QuoteDetailView(quoteId: item.id) }
-        }
-    }
-
-    /// Dispatch a voice command result to the matching surface.
-    private func routeVoiceResult(_ result: VoiceCommandResult) {
-        switch result.intent {
-        case "calendar":
-            if let event = result.event {
-                calendarStore.present(event: PendingCalendarEvent(
-                    title: event.title,
-                    startISO: event.startISO,
-                    durationMin: event.durationMin,
-                    location: event.location,
-                    customer: event.customer
-                ))
-            } else {
-                flash.show("Got it — but I need a clear day and time. Try again.", kind: .info)
-            }
-        case "quote":
-            if let idString = result.quoteId, let id = UUID(uuidString: idString) {
-                voiceQuote = IdentifiedQuote(id: id)
-            } else {
-                flash.show("Drafted a quote but couldn't open it — check the Money area.", kind: .info)
-            }
-        case "reply":
-            voiceStore.replyDrafts = VoiceCommandStore.ReplyDrafts(
-                recipient: result.recipient,
-                drafts: result.drafts ?? []
-            )
-        case "note":
-            let about = result.subject.map { " about \($0)" } ?? ""
-            flash.show("Saved ✓ Flynn will remember that\(about).", kind: .success)
-        default:
-            flash.show(result.message ?? result.summary ?? "Didn't catch that — try again.", kind: .info)
         }
     }
 
@@ -179,8 +109,8 @@ struct MainTabView: View {
         switch section {
         case .businessProfile:
             BusinessProfileEditorView()
-        case .callForwarding:
-            ForwardingSetupView()
+        case .keyboard:
+            KeyboardSetupFlow()
         case .billing:
             SubscriptionDetailView()
         case .integrations:
@@ -203,7 +133,7 @@ struct MainTabView: View {
         case .calls: callsPath.append(route)
         case .clients: clientsPath.append(route)
         case .money: moneyPath.append(route)
-        case .voice: voicePath.append(route)
+        case .connected: connectedPath.append(route)
         case .brain: brainPath.append(route)
         }
     }

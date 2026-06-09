@@ -91,17 +91,17 @@ struct IntegrationsView: View {
             .padding(FlynnSpacing.lg)
         }
         .background(FlynnColor.background)
-        .navigationTitle("Calendar & Keyboard")
+        .navigationTitle("Connected")
         .navigationBarTitleDisplayMode(.large)
         .task { await store.load() }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-            Text("Setup")
+            Text("Your apps")
                 .flynnType(FlynnTypography.overline)
                 .foregroundColor(FlynnColor.textTertiary)
-            Text("Keep Flynn connected to your calendar and keyboard")
+            Text("Connect the apps Flynn works with. Add more as you need them.")
                 .flynnType(FlynnTypography.h3)
                 .foregroundColor(FlynnColor.textPrimary)
         }
@@ -110,7 +110,7 @@ struct IntegrationsView: View {
     @ViewBuilder
     private var rows: some View {
         integrationRow(
-            icon: "calendar",
+            brand: .appleCalendar,
             title: "Apple Calendar",
             subtitle: store.appleCalendarConnected ? "Connected" : "Create events for confirmed bookings",
             toggle: Binding(
@@ -144,10 +144,7 @@ struct IntegrationsView: View {
             }
         } label: {
             HStack(alignment: .top, spacing: FlynnSpacing.sm) {
-                Image(systemName: "globe")
-                    .font(.system(size: 22))
-                    .foregroundColor(store.googleCalendarConnected ? FlynnColor.success : FlynnColor.primary)
-                    .frame(width: 32)
+                IntegrationLogoView(brand: .googleCalendar)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Google Calendar")
                         .flynnType(FlynnTypography.h4)
@@ -179,17 +176,14 @@ struct IntegrationsView: View {
     }
 
     private func integrationRow(
-        icon: String,
+        brand: IntegrationBrand,
         title: String,
         subtitle: String,
         toggle: Binding<Bool>,
         disabled: Bool = false
     ) -> some View {
         HStack(alignment: .top, spacing: FlynnSpacing.sm) {
-            Image(systemName: icon)
-                .font(.system(size: 22))
-                .foregroundColor(disabled ? FlynnColor.textTertiary : FlynnColor.primary)
-                .frame(width: 32)
+            IntegrationLogoView(brand: brand)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .flynnType(FlynnTypography.h4)
@@ -220,10 +214,7 @@ struct IntegrationsView: View {
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
         } label: {
             HStack(alignment: .top, spacing: FlynnSpacing.sm) {
-                Image(systemName: "keyboard")
-                    .font(.system(size: 22))
-                    .foregroundColor(keyboardAdded ? FlynnColor.success : FlynnColor.primary)
-                    .frame(width: 32)
+                IntegrationLogoView(brand: .flynnKeyboard)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Flynn keyboard")
                         .flynnType(FlynnTypography.h4)

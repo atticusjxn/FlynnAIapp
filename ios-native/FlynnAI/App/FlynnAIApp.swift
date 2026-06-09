@@ -25,6 +25,7 @@ struct FlynnAIApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .tint(FlynnColor.primary)
                 .environment(auth)
                 .environment(deepLink)
                 .environment(flash)

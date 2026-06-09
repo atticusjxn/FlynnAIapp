@@ -56,6 +56,7 @@ const formatBusinessContext = (contextData) => {
         let line = `- ${s.name}`;
         if (s.description) line += `: ${s.description}`;
         if (s.price_range) line += ` (${s.price_range})`;
+        if (s.typical_duration) line += ` - typically ${s.typical_duration}`;
         return line;
       })
       .join('\n');

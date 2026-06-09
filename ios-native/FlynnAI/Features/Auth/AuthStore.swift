@@ -166,15 +166,46 @@ final class AuthStore {
         }
     }
 
-    /// Called when the OS delivers `flynnai://auth/callback?code=...` (email
-    /// confirmation, magic link, password reset). Exchanges the URL for a
-    /// Supabase session.
+    /// Called when the OS delivers `flynnai://auth/callback?...`. Handles two flows:
+    ///  - Frictionless app sign-in: a `token_hash` magic link texted to the user by
+    ///    Flynn (no OTP typed) → exchanged via `verifyOTP(tokenHash:)`.
+    ///  - Legacy implicit flow (email confirmation / password reset) carrying a
+    ///    `code`/fragment → exchanged via `session(from:)`.
+    /// On success the auth state listener transitions the store to `.signedIn`.
     func handleAuthCallback(url: URL) async {
         guard url.absoluteString.hasPrefix("flynnai://auth/callback") else { return }
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let tokenHash = components?.queryItems?.first(where: { $0.name == "token_hash" })?.value
+
         await run {
-            try await self.client.auth.session(from: url)
+            if let tokenHash, !tokenHash.isEmpty {
+                _ = try await self.client.auth.verifyOTP(tokenHash: tokenHash, type: .magiclink)
+            } else {
+                try await self.client.auth.session(from: url)
+            }
             self.awaitingEmailConfirmation = false
         }
+    }
+
+    /// Asks the backend to text a single-use sign-in link to `phone`. Used by the
+    /// entry screen's "text me a link" path. No OTP — receipt of the link on that
+    /// phone is the proof of identity.
+    func requestAppLink(phone: String) async -> Bool {
+        var ok = false
+        await run {
+            let url = FlynnEnv.flynnAPIBaseURL.appendingPathComponent("api/auth/app-link")
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["phone": phone])
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
+                throw NSError(domain: "FlynnAuth", code: 1, userInfo: [NSLocalizedDescriptionKey: msg ?? "Couldn't send the link. Try again."])
+            }
+            ok = true
+        }
+        return ok
     }
 
     // MARK: - Helper

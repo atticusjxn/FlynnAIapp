@@ -20,36 +20,29 @@ struct ScreenshotDraftIntent: AppIntent {
 
     static let openAppWhenRun: Bool = false
 
-    @Parameter(title: "Screenshot", description: "The screenshot to read.", supportedContentTypes: [.image])
-    var screenshot: IntentFile
+    @Parameter(title: "Image Data", description: "Base64-encoded screenshot from the 'Base64 Encode' Shortcuts action.")
+    var imageBase64: String
 
-    /// Renders `screenshot` as an inline placeholder in the Shortcuts editor so the
-    /// "Take Screenshot" action's output attaches as a magic variable — instead of
-    /// the bare file-picker "Choose" row you get with no summary.
     static var parameterSummary: some ParameterSummary {
-        Summary("Draft a reply from \(\.$screenshot)")
+        Summary("Draft a reply from \(\.$imageBase64)")
     }
 
-    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        // Diagnostic ping — tells us if perform() is being called at all (no auth needed).
-        let pingBase = SharedStore.apiBaseURL ?? "https://flynnai-telephony.fly.dev"
-        if let pingURL = URL(string: "\(pingBase)/api/intent-ping") {
+        // Diagnostic ping — zero dependencies.
+        if let pingURL = URL(string: "https://flynnai-telephony.fly.dev/api/intent-ping") {
             var pingReq = URLRequest(url: pingURL)
             pingReq.httpMethod = "POST"
             pingReq.timeoutInterval = 4
             _ = try? await URLSession.shared.data(for: pingReq)
         }
 
-        // Signal immediately so the keyboard shows "Reading your screen…" while we wait.
         SharedStore.stageScreenshotDraft(.inFlight)
 
-        // Read .data once — IntentFile is file-backed; a second read can return empty bytes.
-        let imageData = screenshot.data
-        guard imageData.count > 1000 else {
-            SharedStore.ocrDebugLog = "empty-data:\(imageData.count)b"
+        guard let imageData = Data(base64Encoded: imageBase64, options: .ignoreUnknownCharacters),
+              imageData.count > 1000 else {
+            SharedStore.ocrDebugLog = "bad-base64:\(imageBase64.count)chars"
             SharedStore.stageScreenshotDraft(.unreadable)
-            return .result(dialog: "Couldn't read that screenshot — try copying the message instead.")
+            return .result(dialog: "Couldn't read that screenshot — try again.")
         }
 
         let text: String

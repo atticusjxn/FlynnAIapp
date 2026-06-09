@@ -38,7 +38,7 @@ enum FlynnShared {
     /// A staged screenshot capture older than this is ignored by the keyboard, so a
     /// stale capture never overrides a fresh clipboard copy. Sized to comfortably
     /// cover the gesture → app-switch → open-keyboard hop.
-    static let stagedDraftFreshnessSeconds: TimeInterval = 90
+    static let stagedDraftFreshnessSeconds: TimeInterval = 300
 
     /// A staged calendar booking older than this is ignored by the app. Longer
     /// than the draft window because the user may tap the chip, then take a while

@@ -16,7 +16,7 @@ struct PracticeStepView: View {
     private let customerMessage = "Hey, are you free Saturday to take a look?"
     private let drafts = [
         "Yeah I'm free Saturday! What time suits you?",
-        "Saturday works — morning or arvo better for you?",
+        "Saturday works, morning or arvo better for you?",
         "Sure, can do Saturday. Whereabouts are you?"
     ]
 
@@ -38,7 +38,7 @@ struct PracticeStepView: View {
             eyebrow: "Try it",
             title: "Send your first",
             accentTitle: "reply with Flynn",
-            subtitle: "A quick practice run — this is exactly how it works in Messages."
+            subtitle: "A quick practice run, this is exactly how it works in Messages."
         )
         .padding(.horizontal, 24)
         .padding(.top, 8)
@@ -51,7 +51,7 @@ struct PracticeStepView: View {
         case .switchKeyboard: return "2. Switch to the Flynn keyboard"
         case .tapReply:       return "3. Tap the reply that sounds like you"
         case .send:           return "4. Send it 🎉"
-        case .done:           return "That's it — you're ready"
+        case .done:           return "That's it, you're ready"
         }
     }
 

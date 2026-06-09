@@ -3,25 +3,26 @@ import Foundation
 /// Tab identifier for the root TabView. Value-based so deep links can select a tab.
 enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
     // Rendered tabs (case names kept stable so deep links + parked code compile;
-    // `dashboard` is displayed as "Home", `events` as "Bookings").
+    // `dashboard` is displayed as "Home", `events` as "Bookings", `connected` as
+    // the integrations grid).
     case dashboard
-    case voice
     case brain
     case events
+    case connected
     // Parked (not rendered as tabs; kept for deep links + future upsell).
     case calls
     case clients
     case money
 
     /// The four tabs actually shown in the bar, in order.
-    static let visibleTabs: [FlynnTab] = [.dashboard, .voice, .brain, .events]
+    static let visibleTabs: [FlynnTab] = [.dashboard, .brain, .events, .connected]
 
     var title: String {
         switch self {
         case .dashboard: return "Home"
-        case .voice: return "Voice"
         case .brain: return "Brain"
         case .events: return "Bookings"
+        case .connected: return "Connected"
         case .calls: return "Calls"
         case .clients: return "Clients"
         case .money: return "Money"
@@ -33,9 +34,9 @@ enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
     var systemImage: String {
         switch self {
         case .dashboard: return "house"
-        case .voice: return "waveform"
         case .brain: return "brain.head.profile"
         case .events: return "calendar"
+        case .connected: return "square.stack.3d.up"
         case .calls: return "phone"
         case .clients: return "person.2"
         case .money: return "dollarsign.circle"
@@ -60,7 +61,7 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
     case bookingPage
     case billing
     case businessType
-    case callForwarding
+    case keyboard
     case integrations
     case notifications
     case appearance
@@ -74,7 +75,7 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
         case .bookingPage: return "Booking Page"
         case .billing: return "Billing & Plans"
         case .businessType: return "Business Type"
-        case .callForwarding: return "Call Forwarding"
+        case .keyboard: return "Flynn Keyboard"
         case .integrations: return "Connected Apps"
         case .notifications: return "Notifications"
         case .appearance: return "Appearance"
@@ -90,7 +91,7 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
         case .bookingPage: return "calendar.badge.plus"
         case .billing: return "creditcard"
         case .businessType: return "tag"
-        case .callForwarding: return "phone.arrow.up.right"
+        case .keyboard: return "keyboard"
         case .integrations: return "square.stack.3d.up"
         case .notifications: return "bell"
         case .appearance: return "paintbrush"

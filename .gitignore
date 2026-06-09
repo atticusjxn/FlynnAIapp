@@ -74,3 +74,7 @@ deploy-multiline-secrets.sh
 
 # Wrangler build cache
 .wrangler/
+
+# Xcode build artifacts
+ios-native/archive.xcarchive/
+ios-native/export/

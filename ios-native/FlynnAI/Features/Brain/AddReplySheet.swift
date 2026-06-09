@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// Quick sheet to add a reply in the user's voice (feeds tone samples). Shared by
-/// Home and the Voice tab.
+/// Quick sheet to add a reply in the user's voice (feeds tone samples). A manual
+/// backup for teaching Flynn your style — reachable from Home and the Brain tab.
 struct AddReplySheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(FlashStore.self) private var flash

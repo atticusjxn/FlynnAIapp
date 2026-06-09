@@ -1318,6 +1318,90 @@ app.post('/webhooks/playbilling/verify', authenticateJwt, handlePlayVerify);
 app.post('/webhooks/playbilling/rtdn', handlePlayRtdn);
 
 // ========================================
+// Web Sign-up (phone number → welcome SMS + vCard MMS, no OTP)
+// ========================================
+const webSignupRoutes = require('./routes/webSignup');
+app.use('/api/signup', webSignupRoutes);
+
+// ========================================
+// Inbound SMS from Flynn number (+61480891471)
+// ========================================
+const smsInboundRoutes = require('./routes/smsInbound');
+app.use('/webhooks/sms', smsInboundRoutes);
+
+const iMessageInboundRoutes = require('./routes/iMessageInbound');
+app.use('/webhooks/imessage', iMessageInboundRoutes);
+
+// ========================================
+// Frictionless app sign-in (no OTP) — text the user a single-use magic deep link
+// that opens the app already signed in. See services/authLink.js.
+// ========================================
+const { generateAppLink: mintAppLink } = require('./services/authLink');
+
+// POST /api/auth/app-link  { phone }
+// Mints + texts a sign-in link to the given number. Like an OTP request, the only
+// way to use the link is to receive it on that phone, so this is intentionally open.
+app.post('/api/auth/app-link', async (req, res) => {
+  const rawPhone = (req.body?.phone || '').trim();
+  if (!rawPhone) return res.status(400).json({ error: 'Phone number required' });
+
+  try {
+    const link = await mintAppLink(rawPhone);
+    if (link?.error || !link?.url) {
+      return res.status(400).json({ error: link?.error || 'Could not create sign-in link' });
+    }
+
+    const body = `tap to open Flynn, you're already signed in: ${link.url}`;
+    let delivered = false;
+
+    // Prefer iMessage (Flynn's home turf); fall back to SMS.
+    try {
+      const bb = require('./services/blueBubbles');
+      await bb.sendMessage(link.phone, body);
+      delivered = true;
+    } catch (bbErr) {
+      console.warn('[AppLink] BlueBubbles send failed, trying SMS:', bbErr?.message);
+    }
+
+    if (!delivered && twilioMessagingClient) {
+      const fromNumber = process.env.TWILIO_FLYNN_NUMBER || twilioSmsFromNumber || '+61480891471';
+      await twilioMessagingClient.messages.create({ to: link.phone, from: fromNumber, body });
+      delivered = true;
+    }
+
+    if (!delivered) return res.status(500).json({ error: 'No messaging channel configured' });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[AppLink] Error:', err?.message || err);
+    return res.status(500).json({ error: 'Failed to send sign-in link' });
+  }
+});
+
+// GET /app/open?token_hash=...&type=magiclink
+// HTTPS bounce for cold links (texted before the app is installed): opens the
+// custom scheme and falls back to the App Store.
+app.get('/app/open', (req, res) => {
+  const tokenHash = (req.query.token_hash || '').toString();
+  const type = (req.query.type || 'magiclink').toString();
+  const scheme = `flynnai://auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(type)}`;
+  const appStore = process.env.FLYNN_APP_STORE_URL || 'https://apps.apple.com/app/flynn';
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opening Flynn…</title>
+<script>
+  window.location.replace(${JSON.stringify(scheme)});
+  setTimeout(function(){ window.location.href = ${JSON.stringify(appStore)}; }, 1500);
+</script></head>
+<body style="font-family:-apple-system,system-ui,sans-serif;text-align:center;padding:48px;color:#1A1A1A;background:#F4E6CE">
+  <p>Opening Flynn…</p>
+  <p><a href="${scheme}">Tap here if it doesn't open automatically</a></p>
+</body></html>`);
+});
+
+// Serve public/ directory (contact card, etc.)
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// ========================================
 // Booking Page Routes (Public API)
 // ========================================
 const bookingRoutes = require('./routes/bookingRoutes');
@@ -2376,6 +2460,67 @@ function buildAvailabilityNote({ latestMessage, businessHours, busy, timeZone, c
 }
 
 /**
+ * Dashboard activity feed for the iOS Home tab.
+ *
+ * iMessage-side data (sms_messages, pending_actions) is keyed by user_phone while
+ * the app authenticates by auth.uid(). We resolve req.user.id -> users.phone here
+ * with the service-role client so the app never has to reconcile the two keyings.
+ * GET /api/dashboard/activity
+ */
+app.get('/api/dashboard/activity', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  try {
+    const { data: userRow } = await supabaseStorageClient
+      .from('users')
+      .select('phone')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const phone = userRow?.phone;
+    if (!phone) {
+      return res.json({ recentReplies: [], awaitingConfirmation: [] });
+    }
+
+    const [repliesRes, pendingRes] = await Promise.all([
+      supabaseStorageClient
+        .from('sms_messages')
+        .select('body, channel, created_at')
+        .eq('user_phone', phone)
+        .eq('direction', 'out')
+        .order('created_at', { ascending: false })
+        .limit(8),
+      supabaseStorageClient
+        .from('pending_actions')
+        .select('action_type, confirmation_message, created_at, expires_at')
+        .eq('user_phone', phone)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ]);
+
+    const recentReplies = (repliesRes.data || []).map((r) => ({
+      body: r.body,
+      channel: r.channel || 'imessage',
+      createdAt: r.created_at,
+    }));
+
+    const awaitingConfirmation = (pendingRes.data || []).map((p) => ({
+      actionType: p.action_type,
+      message: p.confirmation_message,
+      createdAt: p.created_at,
+    }));
+
+    return res.json({ recentReplies, awaitingConfirmation });
+  } catch (err) {
+    console.error('[DashboardActivity] Error:', err?.message || err);
+    return res.status(500).json({ error: 'Failed to load activity' });
+  }
+});
+
+/**
  * Mint a long-lived JWT the sandboxed keyboard extension can use to call the
  * backend (it can't run the Supabase SDK / refresh short-lived tokens). Signed
  * with SUPABASE_JWT_SECRET so authenticateJwt verifies it unchanged. Called by
@@ -2445,7 +2590,7 @@ app.post('/api/keyboard/ocr-screenshot', authenticateJwt, async (req, res) => {
             },
             {
               type: 'text',
-              text: 'This is a screenshot of a messaging app. Extract all the message text in the order it appears. Include messages from both sides of the conversation. For messages on the right side (sent by the owner), prefix with "Me: ". For messages on the left (from the customer), no prefix. Ignore all UI chrome: status bar, time, battery, signal strength, contact name/avatar, "iMessage"/"SMS"/"WhatsApp" labels, delivery/read receipts, timestamps, "Send" button. Return only the conversation text, one message per line.',
+              text: 'This is a screenshot of a messaging app. Extract the full conversation in order.\n\nRules:\n- Messages on the RIGHT (sent by the owner): prefix with "Me: "\n- Messages on the LEFT (from the customer): no prefix\n- Photos, images, or media ATTACHED to a message: describe what they show on a separate line tagged with who sent it — e.g. "[Customer sent photo: Evolve Half Rack (TALL) gym equipment, full unit visible — this is the item they mentioned]" or "[Me sent photo: quote document]"\n- Link previews or product cards embedded in a message: describe them in square brackets — e.g. "[Customer shared product link: Evolve Half Rack (TALL) from evolvefitness.com.au — this appears to be the equipment they are asking about]"\n- Ignore UI chrome: status bar, battery, signal strength, time, contact name/avatar, app labels (iMessage/SMS/WhatsApp), delivery/read receipts, Send button\n\nReturn only the conversation content, one message or attachment per line. Be specific about what photos and product cards show — this context is critical so the reply does not ask for information already given.',
             },
           ],
         },
@@ -5858,12 +6003,15 @@ if (require.main === module) {
   // ============================================================================
 
   const bookingReminderScheduler = require('./services/bookingReminderScheduler');
+  const reengagementScheduler = require('./services/reengagementScheduler');
 
   // Process reminders every minute
   setInterval(async () => {
     try {
       await reminderScheduler.processPendingReminders();
       await bookingReminderScheduler.processPendingBookingReminders();
+      // Re-engage stalled signups (internally throttled to ~10 min between sweeps).
+      await reengagementScheduler.processReengagement();
     } catch (error) {
       console.error('[Cron] Reminder processor error:', error);
     }

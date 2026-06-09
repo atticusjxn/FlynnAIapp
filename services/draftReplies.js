@@ -162,6 +162,7 @@ const buildPrompt = ({
     '- Be helpful and move toward booking the job, but never pushy.',
     '- Only use pricing/services/hours from the business info above. Never invent prices or promises.',
     '- Do not include placeholders like [name]; write a complete, send-ready message.',
+    `When the customer is asking about a service, job, booking, or availability, make the ${draftCount} drafts meaningfully different in what they lead with and include:\n- Draft 1 (availability-led): open with 2-3 real specific times you can do it (from the calendar slots above if provided), then briefly confirm the job\n- Draft 2 (pricing-led): open with the likely cost or price range from your business info, then mention you're available\n- Draft 3 (full detail): the complete reply with specific times + price/service details + acknowledge the exact job they described. This should be the longest draft (3-5 sentences).\n- Draft 4 (brief): short and warm, just confirm you can help with one key anchor (either a time OR a price, whichever is more useful, not both)\nFor simple confirmations or non-service messages, vary by length and warmth instead of content.`,
     `First, in a "read" field, state in a few words what the customer's latest message needs (e.g. "confirming 10am", "asking for a quote"). Then give the replies.`,
     'If — and ONLY if — the conversation shows a specific appointment time has actually been AGREED (the customer named a concrete day+time and the reply is confirming it), also include a "booking" object describing the job for a calendar entry: {"customer": who the job is for if clearly named, "service": what the job is in a few words if clear, "location": the address if clearly stated}. Omit any field you are unsure about, and omit "booking" entirely if no firm time was agreed. Never invent a name, service or address. (The time itself is taken from the calendar, not from you.)',
     `Respond with ONLY a JSON object of the form {"read": "...", "drafts": ["reply 1", ...], "booking": {...}} where "drafts" contains EXACTLY ${draftCount} distinct reply options and "booking" is optional. No other keys, no prose, no markdown.`
@@ -284,7 +285,7 @@ const generateDrafts = async ({
     // Validated defaults for the drafting task (see flynn_draft_model memory).
     enable_thinking: false,
     temperature: 0.8,
-    max_tokens: 800,
+    max_tokens: 1200,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
