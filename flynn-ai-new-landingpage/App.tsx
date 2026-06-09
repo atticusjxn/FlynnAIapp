@@ -13,6 +13,7 @@ import Contact from './pages/Contact';
 import Trial from './pages/Trial';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Integrations from './pages/Integrations';
 import Setup from './pages/Setup';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
@@ -60,6 +61,7 @@ function App() {
           <Route path="/instagram-ad" element={<InstagramAd />} />
 
           <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/integrations" element={<DashboardLayout><Integrations /></DashboardLayout>} />
           <Route path="/dashboard/setup" element={<DashboardLayout><Setup /></DashboardLayout>} />
           <Route path="/dashboard/*" element={<DashboardLayout><Dashboard /></DashboardLayout>} /> {/* Fallback for other dashboard items */}
 
