@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlynnAI Screenshots v5</title>
+    <title>FlynnAI Screenshots v6 — iMessage Agent</title>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -522,20 +522,189 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* =========================================
+           iMessage UI inside device mockup
+           Scaled for 1100px device width
+        ========================================= */
+
+        .imsg-status {
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 56px;
+            background: #fff;
+            position: relative;
+            z-index: 2;
+        }
+        .imsg-status .t {
+            font-family: 'Inter';
+            font-weight: 600;
+            font-size: 36px;
+            color: #111;
+        }
+        .imsg-status .r {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 32px;
+        }
+
+        .imsg-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 44px 20px;
+            border-bottom: 2px solid #EFEFEF;
+            background: #fff;
+            position: relative;
+            z-index: 2;
+        }
+        .imsg-nav .chev {
+            color: #007AFF;
+            font-size: 52px;
+            font-weight: 600;
+            width: 70px;
+        }
+        .imsg-nav .info {
+            color: #007AFF;
+            font-size: 42px;
+            width: 70px;
+            text-align: right;
+        }
+        .imsg-nav .who {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .imsg-nav .av {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #FB5B1E;
+        }
+        .imsg-nav .av img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .imsg-nav .nm {
+            font-family: 'Inter';
+            font-weight: 500;
+            font-size: 34px;
+            color: #111;
+        }
+
+        .imsg-thread {
+            padding: 28px 44px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            flex: 1;
+            justify-content: flex-end;
+        }
+
+        .imsg-bub {
+            font-family: 'Inter';
+            font-size: 50px;
+            line-height: 1.3;
+            padding: 28px 36px;
+            border-radius: 40px;
+            max-width: 80%;
+            word-break: break-word;
+        }
+        .imsg-bub.out {
+            background: #007AFF;
+            color: #fff;
+            border-bottom-right-radius: 10px;
+            align-self: flex-end;
+        }
+        .imsg-bub.in {
+            background: #E9E9EB;
+            color: #111;
+            border-bottom-left-radius: 10px;
+            align-self: flex-start;
+        }
+
+        .imsg-composer {
+            padding: 20px 36px;
+            border-top: 2px solid #ECECEC;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            background: #fff;
+        }
+        .imsg-field {
+            flex: 1;
+            min-height: 80px;
+            border: 2px solid #E2E2E5;
+            border-radius: 40px;
+            padding: 18px 30px;
+            font-family: 'Inter';
+            font-size: 44px;
+            color: #aaa;
+            line-height: 1.3;
+            word-break: break-word;
+        }
+        .imsg-send {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #007AFF;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 46px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .imsg-send.gray {
+            background: #D7D7DC;
+        }
+
+        /* brain rows for slide 4 */
+        .brain-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 36px 44px;
+            border-bottom: 4px solid #f0f0f0;
+        }
+        .brain-row:last-child {
+            border-bottom: none;
+        }
+        .brain-key {
+            font-family: 'Inter';
+            font-size: 40px;
+            color: #666;
+        }
+        .brain-val {
+            font-family: 'Space Grotesk';
+            font-size: 42px;
+            font-weight: 700;
+            color: #111;
+            text-align: right;
+        }
+
     </style>
 </head>
 
 <body>
 
     <div class="controls">
-        <h2 style="font-family: 'Space Grotesk'; text-transform: uppercase;">FlynnAI Generator v5</h2>
+        <h2 style="font-family: 'Space Grotesk'; text-transform: uppercase;">FlynnAI Generator v6 — iMessage Agent</h2>
         <button onclick="downloadAll()">Download All (ZIP)</button>
         <span id="status" style="margin-left: 20px; color: #aaa;"></span>
     </div>
 
     <div class="container">
 
-        <!-- ===== SLIDE 1: Never Miss a Lead ===== -->
+        <!-- ===== SLIDE 1: Hero — Text Flynn. Get It Done. ===== -->
         <div class="screenshot-wrapper">
             <div class="screenshot" id="slide1">
                 <div class="grid-bg"></div>
@@ -547,104 +716,64 @@
 
                 <div class="slide-header">
                     <div class="step-indicator">01</div>
-                    <div class="slide-title">NEVER MISS <br><span class="highlight-inverse">A LEAD</span></div>
-                    <div class="slide-subtitle">Flynn captures every missed call and texts them back instantly.</div>
+                    <div class="slide-title">TEXT FLYNN.<br><span class="highlight-inverse">GET IT DONE.</span></div>
+                    <div class="slide-subtitle">Your iMessage business brain. Orders, invoices, quotes, bookings — all from a text.</div>
                 </div>
+
+                <!-- Float tag top-right of device area -->
+                <div class="float-tag" style="top: 680px; right: 40px; transform: rotate(4deg); font-size: 36px; padding: 18px 36px;">NEW</div>
 
                 <div class="device-mockup">
                     <div class="device-notch"></div>
-                    <div class="app-content">
-                        <div class="app-header">
-                            <div class="app-title">Live Feed</div>
-                            <div class="icon-box">
-                                <svg class="icon-svg" viewBox="0 0 24 24">
-                                    <path d="M4 12V2H2v10c0 1.1.9 2 2 2h10v-2H4zm16 6h-2v-4H8v4H6v2h12v-2zm-2-6h-2v-2h-2v2H8v-2H6v2H4c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-6c0-1.1-.9-2-2-2z"/>
-                                </svg>
-                            </div>
+
+                    <!-- iMessage fills device — no app-content padding -->
+                    <div style="display:flex; flex-direction:column; height:100%; background:#fff;">
+
+                        <!-- Status bar -->
+                        <div class="imsg-status">
+                            <span class="t">9:41</span>
+                            <span class="r">▶ 🔋</span>
                         </div>
 
-                        <div style="display: flex; flex-direction: column; position: relative; padding: 20px 0;">
-                            <!-- Connecting vertical line -->
-                            <div style="position: absolute; left: 52px; top: 60px; bottom: 180px; width: 6px; background: var(--black); z-index: 0;"></div>
-
-                            <!-- Step 1: Missed Call -->
-                            <div class="card" style="margin-bottom: 30px; position: relative; z-index: 1;">
-                                <div style="display:flex; gap: 30px; align-items: center;">
-                                    <div style="background: var(--primary); width: 60px; height: 60px; border: 4px solid black; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                        <svg style="width: 32px; height: 32px; fill: white;" viewBox="0 0 24 24">
-                                            <path d="M19.59 7L12 14.59 6.41 9H11V7H3v8h2v-4.59l7 7 9-9z"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm" style="color: #888; margin-bottom: 5px;">10:42 AM — Incoming</div>
-                                        <div class="text-lg">Missed Call Detected</div>
-                                    </div>
+                        <!-- Nav bar -->
+                        <div class="imsg-nav">
+                            <span class="chev">‹</span>
+                            <div class="who">
+                                <div class="av">
+                                    <img src="assets/flynn-icon.png" alt="Flynn" onerror="this.style.display='none';this.parentNode.style.background='#FB5B1E';">
                                 </div>
+                                <span class="nm">Flynn</span>
                             </div>
-
-                            <!-- Step 2: Processing -->
-                            <div class="card" style="margin-bottom: 30px; position: relative; z-index: 1; margin-left: 20px;">
-                                <div style="display:flex; gap: 30px; align-items: center;">
-                                    <div style="background: white; width: 60px; height: 60px; border: 4px solid black; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                        <svg style="width: 32px; height: 32px; fill: black;" viewBox="0 0 24 24">
-                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm" style="color: #888; margin-bottom: 5px;">Processing</div>
-                                        <div class="text-lg">Sending SMS Reply...</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Step 3: Booking Link Sent -->
-                            <div class="card" style="margin-bottom: 30px; position: relative; z-index: 1;">
-                                <div style="display:flex; gap: 30px; align-items: center;">
-                                    <div style="background: var(--black); width: 60px; height: 60px; border: 4px solid black; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                        <svg style="width: 32px; height: 32px; fill: white;" viewBox="0 0 24 24">
-                                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm" style="color: #888; margin-bottom: 5px;">10:42 AM — Sent</div>
-                                        <div class="text-lg">Booking Link Sent</div>
-                                    </div>
-                                </div>
-                                <div style="background: var(--gray-100); padding: 25px; margin-top: 20px; border-left: 6px solid var(--black); font-size: 24px; font-family: 'Inter'; font-weight: 500; color: var(--black);">
-                                    "Hi! Click here to book: <span style="text-decoration: underline; color: var(--primary);">flynn.ai/b/88</span>"
-                                </div>
-                            </div>
+                            <span class="info">ⓘ</span>
                         </div>
 
-                        <div class="card card-primary" style="margin-top: 20px;">
-                            <div class="text-sm" style="color: white; margin-bottom: 15px; opacity: 0.9;">Potential Revenue Captured</div>
-                            <div style="font-family: 'Space Grotesk'; font-size: 100px; font-weight: 700; line-height: 0.9; color: white;">$4,250</div>
+                        <!-- Thread -->
+                        <div class="imsg-thread">
+                            <div class="imsg-bub out">invoice dave mckenzie for today, 2hrs + $120 parts</div>
+                            <div class="imsg-bub in">Invoice created, $340 inc GST. Sending to dave@mckenzie.com.au. Good to go?</div>
+                            <div class="imsg-bub out">yeah send it</div>
+                            <div class="imsg-bub in">Sent. Dave's got it.</div>
                         </div>
 
-                        <div class="nav-bar">
-                            <div class="nav-item active">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                            </div>
+                        <!-- Composer -->
+                        <div class="imsg-composer">
+                            <div class="imsg-field">iMessage</div>
+                            <div class="imsg-send gray">↑</div>
                         </div>
-                    </div>
 
-                    <div class="float-tag" style="bottom: 200px; right: -40px; transform: rotate(-8deg);">
-                        Auto-Text Back
                     </div>
                 </div>
+
+                <!-- Bottom stat strip -->
+                <div class="stat-strip" style="margin-top: 40px;">
+                    <div class="stat-number">0</div>
+                    <div class="stat-label">Things that<br>send without you</div>
+                </div>
+
             </div>
         </div>
 
-        <!-- ===== SLIDE 2: Instant SMS Reply (IVR menu) ===== -->
+        <!-- ===== SLIDE 2: Order Parts. One Text. ===== -->
         <div class="screenshot-wrapper">
             <div class="screenshot" id="slide2">
                 <div class="grid-bg"></div>
@@ -654,250 +783,181 @@
 
                 <div class="slide-header">
                     <div class="step-indicator">02</div>
-                    <div class="slide-title">INSTANT <br><span class="highlight">SMS REPLY</span></div>
-                    <div class="slide-subtitle">Caller presses 1 — booking link sent in 2 seconds. No voicemail.</div>
+                    <div class="slide-title">ORDER PARTS.<br><span class="highlight">ONE TEXT.</span></div>
+                    <div class="slide-subtitle">Flynn's logged into your trade accounts. Text what you need. It handles the order.</div>
                 </div>
 
                 <div class="device-mockup">
                     <div class="device-notch"></div>
-                    <div class="app-content">
-                        <div class="app-header">
-                            <div class="app-title">Calls</div>
-                            <div style="background: #10B981; color: white; font-family: 'Space Grotesk'; font-size: 28px; font-weight: 700; padding: 12px 30px; border: 4px solid var(--black); text-transform: uppercase;">LIVE</div>
+
+                    <div style="display:flex; flex-direction:column; height:100%; background:#fff;">
+
+                        <div class="imsg-status">
+                            <span class="t">9:41</span>
+                            <span class="r">▶ 🔋</span>
                         </div>
 
-                        <!-- Greeting played -->
-                        <div style="margin-bottom: 25px;">
-                            <div class="text-sm" style="margin-bottom: 15px; color: #888;">Greeting Played</div>
-                            <div style="background: var(--gray-100); padding: 30px; border-left: 6px solid var(--black); font-family: 'Inter'; font-size: 30px; line-height: 1.4; color: var(--black);">
-                                "Hi, I'm with Flynn Plumbing. Press <strong>1</strong> to book, <strong>2</strong> for a quote."
+                        <div class="imsg-nav">
+                            <span class="chev">‹</span>
+                            <div class="who">
+                                <div class="av">
+                                    <img src="assets/flynn-icon.png" alt="Flynn" onerror="this.style.display='none';this.parentNode.style.background='#FB5B1E';">
+                                </div>
+                                <span class="nm">Flynn</span>
                             </div>
+                            <span class="info">ⓘ</span>
                         </div>
 
-                        <!-- IVR Menu options -->
-                        <div class="text-sm" style="margin-bottom: 20px;">Caller Options</div>
-
-                        <div class="ivr-option selected">
-                            <div class="ivr-key">1</div>
-                            <div>
-                                <div class="ivr-label">Book Appointment</div>
-                                <div style="font-family: 'Inter'; font-size: 26px; color: rgba(255,255,255,0.8); margin-top: 6px;">Send booking link via SMS</div>
-                            </div>
-                            <div style="margin-left: auto; background: white; color: var(--primary); font-family: 'Space Grotesk'; font-weight: 700; font-size: 26px; padding: 10px 24px; border: 4px solid white;">PRESSED</div>
+                        <div class="imsg-thread">
+                            <div class="imsg-bub out">need 20 copper fittings from Reece asap</div>
+                            <div class="imsg-bub in">Added to your Reece cart, $47.80. Check out?</div>
+                            <div class="imsg-bub out">yeah</div>
+                            <div class="imsg-bub in">Done. Order #R-4821. Pickup at Reece Balmain in 2 hrs.</div>
                         </div>
 
-                        <div class="ivr-option">
-                            <div class="ivr-key">2</div>
-                            <div>
-                                <div class="ivr-label">Get a Quote</div>
-                                <div style="font-family: 'Inter'; font-size: 26px; color: #666; margin-top: 6px;">Send quote form via SMS</div>
-                            </div>
+                        <div class="imsg-composer">
+                            <div class="imsg-field">iMessage</div>
+                            <div class="imsg-send gray">↑</div>
                         </div>
 
-                        <div class="ivr-option">
-                            <div class="ivr-key">3</div>
-                            <div>
-                                <div class="ivr-label">Leave Voicemail</div>
-                                <div style="font-family: 'Inter'; font-size: 26px; color: #666; margin-top: 6px;">Optional fallback</div>
-                            </div>
-                        </div>
-
-                        <!-- SMS sent confirmation -->
-                        <div style="background: #D1FAE5; border: 6px solid #10B981; padding: 35px 40px; margin-top: 10px; display: flex; align-items: center; gap: 30px; box-shadow: 8px 8px 0px 0px var(--black);">
-                            <svg style="width: 50px; height: 50px; fill: #10B981; flex-shrink: 0;" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                            <div>
-                                <div style="font-family: 'Space Grotesk'; font-size: 38px; font-weight: 700; color: #065F46; text-transform: uppercase;">SMS Sent</div>
-                                <div style="font-family: 'Inter'; font-size: 26px; color: #065F46;">Booking link → 0412 345 678</div>
-                            </div>
-                        </div>
-
-                        <div class="nav-bar">
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-                            </div>
-                            <div class="nav-item active">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
+                <!-- Float tag -->
+                <div class="float-tag" style="bottom: 160px; right: 40px; transform: rotate(-4deg); font-size: 30px; padding: 16px 32px;">Reece · Bunnings · Any supplier</div>
+
                 <!-- Bottom stat strip -->
                 <div class="stat-strip" style="margin-top: 40px;">
-                    <div class="stat-number">2s</div>
-                    <div class="stat-label">From missed call<br>to SMS in pocket</div>
+                    <div class="stat-number">2</div>
+                    <div class="stat-label">Minutes from<br>text to order</div>
                 </div>
+
             </div>
         </div>
 
-        <!-- ===== SLIDE 3: Instant Follow-Up (booking SMS) ===== -->
+        <!-- ===== SLIDE 3: Invoice From a Text ===== -->
         <div class="screenshot-wrapper">
             <div class="screenshot" id="slide3">
                 <div class="grid-bg"></div>
 
+                <div class="deco-cross" style="top: 40px; left: 40px;"></div>
+                <div class="deco-cross" style="top: 40px; right: 40px;"></div>
+
                 <div class="slide-header">
                     <div class="step-indicator">03</div>
-                    <div class="slide-title">INSTANT <br><span class="highlight">FOLLOW-UP</span></div>
-                    <div class="slide-subtitle">Booking & quote links delivered before they hang up.</div>
+                    <div class="slide-title">INVOICE<br><span class="highlight-inverse">FROM A TEXT.</span></div>
+                    <div class="slide-subtitle">Tell Flynn what you did and who for. Invoice hits Xero and the client's inbox in seconds.</div>
                 </div>
 
                 <div class="device-mockup">
                     <div class="device-notch"></div>
-                    <div class="app-content">
-                        <div class="app-header">
-                            <div class="app-title">Message</div>
+
+                    <div style="display:flex; flex-direction:column; height:100%; background:#fff;">
+
+                        <div class="imsg-status">
+                            <span class="t">9:41</span>
+                            <span class="r">▶ 🔋</span>
                         </div>
 
-                        <div class="card">
-                            <div class="text-sm" style="margin-bottom: 25px;">Sending to 0412 345 678</div>
-                            <div style="background: var(--gray-100); padding: 40px; border: 4px solid black; margin-bottom: 40px; box-shadow: inset 4px 4px 0px 0px rgba(0,0,0,0.1);">
-                                <div class="text-md" style="font-family: 'Inter'; line-height: 1.5;">
-                                    "Hi! Thanks for calling Flynn Plumbing. I'm tied up right now, but click here to book a time:"
+                        <div class="imsg-nav">
+                            <span class="chev">‹</span>
+                            <div class="who">
+                                <div class="av">
+                                    <img src="assets/flynn-icon.png" alt="Flynn" onerror="this.style.display='none';this.parentNode.style.background='#FB5B1E';">
                                 </div>
-                                <div style="margin-top: 20px; color: var(--primary); text-decoration: underline; font-weight: bold; font-family: 'Space Grotesk'; font-size: 32px;">
-                                    flynn.ai/book/job-123
-                                </div>
+                                <span class="nm">Flynn</span>
                             </div>
-
-                            <div style="display: flex; gap: 30px;">
-                                <div class="btn-app btn-secondary" style="flex: 1; margin-top: 0;">Edit</div>
-                                <div class="btn-app" style="flex: 1; margin-top: 0;">Send Now</div>
-                            </div>
+                            <span class="info">ⓘ</span>
                         </div>
 
-                        <!-- Quote option -->
-                        <div class="card" style="background: var(--gray-100);">
-                            <div class="text-sm" style="margin-bottom: 15px;">Or send quote request</div>
-                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
-                                <div style="font-family: 'Space Grotesk'; font-size: 36px; font-weight: 600; color: var(--black);">Share your project details + photos</div>
-                                <div style="font-family: 'Space Grotesk'; font-size: 28px; color: var(--primary); text-decoration: underline; white-space: nowrap;">flynn.ai/q/88</div>
-                            </div>
+                        <div class="imsg-thread">
+                            <div class="imsg-bub out">invoice dave for today's job, 2hrs labour plus $120 parts</div>
+                            <div class="imsg-bub in">Invoice created, $340 inc GST. Sending to dave@mckenzie.com.au. Good to go?</div>
+                            <div class="imsg-bub out">yeah send it</div>
+                            <div class="imsg-bub in">Sent. Dave's got it.</div>
                         </div>
 
-                        <div class="nav-bar">
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                            </div>
-                            <div class="nav-item active">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                            </div>
+                        <div class="imsg-composer">
+                            <div class="imsg-field">iMessage</div>
+                            <div class="imsg-send gray">↑</div>
                         </div>
+
                     </div>
                 </div>
 
                 <!-- Bottom stat strip -->
                 <div class="stat-strip" style="margin-top: 40px;">
-                    <div class="stat-number">78%</div>
-                    <div class="stat-label">Of callers tap the<br>booking link</div>
+                    <div class="stat-number" style="font-size:60px;">XERO</div>
+                    <div class="stat-label">Invoices sync<br>automatically</div>
                 </div>
+
             </div>
         </div>
 
-        <!-- ===== SLIDE 4: Call Analytics Dashboard ===== -->
+        <!-- ===== SLIDE 4: Knows Your Business ===== -->
         <div class="screenshot-wrapper">
             <div class="screenshot" id="slide4">
                 <div class="grid-bg"></div>
 
+                <div class="deco-cross" style="top: 40px; left: 40px;"></div>
+                <div class="deco-cross" style="top: 40px; right: 40px;"></div>
+
                 <div class="slide-header">
                     <div class="step-indicator">04</div>
-                    <div class="slide-title">TRACK EVERY <br><span class="highlight">LEAD</span></div>
-                    <div class="slide-subtitle">See every call, every SMS sent, every booking made.</div>
+                    <div class="slide-title">KNOWS YOUR<br><span class="highlight">BUSINESS.</span></div>
+                    <div class="slide-subtitle">Your prices, clients, suppliers, and services live in Flynn's brain. Every text comes out right.</div>
                 </div>
+
+                <!-- Float tag -->
+                <div class="float-tag" style="top: 720px; right: 40px; transform: rotate(3deg); font-size: 32px; padding: 16px 30px;">Learns as you use it</div>
 
                 <div class="device-mockup">
                     <div class="device-notch"></div>
-                    <div class="app-content">
+
+                    <!-- Brain card — uses app-content with padding -->
+                    <div class="app-content" style="padding: 60px 50px;">
+
                         <div class="app-header">
-                            <div class="app-title">Dashboard</div>
-                            <div class="text-sm" style="color: #888;">This Week</div>
+                            <div class="app-title">Your Business</div>
                         </div>
 
-                        <!-- Stats grid -->
-                        <div class="stat-card">
-                            <div class="stat-card-number">18</div>
-                            <div>
-                                <div class="stat-card-label">Calls Captured</div>
-                                <div class="stat-card-sub">While you were busy</div>
+                        <!-- Brain rows in a white bordered area -->
+                        <div style="border: 6px solid var(--black); border-radius: 16px; overflow: hidden; box-shadow: 16px 16px 0px 0px var(--black); background: white; flex: 1;">
+                            <div class="brain-row">
+                                <span class="brain-key">3-bed repaint</span>
+                                <span class="brain-val">$3.5–4.5k</span>
+                            </div>
+                            <div class="brain-row">
+                                <span class="brain-key">Reece account</span>
+                                <span class="brain-val" style="color:#10B981;">Logged in</span>
+                            </div>
+                            <div class="brain-row">
+                                <span class="brain-key">Invoicing</span>
+                                <span class="brain-val">Xero</span>
+                            </div>
+                            <div class="brain-row">
+                                <span class="brain-key">Service area</span>
+                                <span class="brain-val">Surf Coast</span>
+                            </div>
+                            <div class="brain-row">
+                                <span class="brain-key">Clients</span>
+                                <span class="brain-val">Dave, Sarah, +14</span>
                             </div>
                         </div>
 
-                        <div class="stat-card">
-                            <div class="stat-card-number">14</div>
-                            <div>
-                                <div class="stat-card-label">SMS Links Sent</div>
-                                <div class="stat-card-sub">Booking + quote requests</div>
-                            </div>
-                        </div>
-
-                        <div class="stat-card" style="background: var(--primary); border-color: var(--black);">
-                            <div class="stat-card-number" style="color: white;">$6,400</div>
-                            <div>
-                                <div class="stat-card-label" style="color: white;">Revenue Pipeline</div>
-                                <div class="stat-card-sub" style="color: rgba(255,255,255,0.8);">From captured leads</div>
-                            </div>
-                        </div>
-
-                        <!-- Recent calls list -->
-                        <div class="text-sm" style="margin-bottom: 20px; margin-top: 10px;">Recent Calls</div>
-
-                        <div style="border: 4px solid var(--black); padding: 25px 30px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; background: white; box-shadow: 6px 6px 0px 0px var(--black);">
-                            <div>
-                                <div style="font-family: 'Space Grotesk'; font-size: 36px; font-weight: 600;">0412 345 678</div>
-                                <div class="text-sm" style="color: #888; margin-top: 5px;">Today 10:42 AM</div>
-                            </div>
-                            <div class="badge badge-success" style="font-size: 24px; padding: 10px 20px; box-shadow: none;">Booked</div>
-                        </div>
-
-                        <div style="border: 4px solid var(--black); padding: 25px 30px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; background: white; box-shadow: 6px 6px 0px 0px var(--black);">
-                            <div>
-                                <div style="font-family: 'Space Grotesk'; font-size: 36px; font-weight: 600;">0431 987 654</div>
-                                <div class="text-sm" style="color: #888; margin-top: 5px;">Today 9:15 AM</div>
-                            </div>
-                            <div class="badge badge-warning" style="font-size: 24px; padding: 10px 20px; box-shadow: none;">Quote Sent</div>
-                        </div>
-
-                        <div class="nav-bar">
-                            <div class="nav-item active">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="float-tag" style="top: 500px; left: -40px; transform: rotate(4deg);">
-                        24/7
                     </div>
                 </div>
 
                 <!-- Bottom stat strip -->
                 <div class="stat-strip" style="margin-top: 40px;">
-                    <div class="stat-number">0</div>
-                    <div class="stat-label">Leads lost to<br>voicemail jail</div>
+                    <div class="stat-number">1</div>
+                    <div class="stat-label">Setup. Flynn learns<br>the rest.</div>
                 </div>
+
             </div>
         </div>
 
-        <!-- ===== SLIDE 5: Set Up in Minutes ===== -->
+        <!-- ===== SLIDE 5: You Confirm. Always. ===== -->
         <div class="screenshot-wrapper">
             <div class="screenshot" id="slide5">
                 <div class="grid-bg"></div>
@@ -907,84 +967,61 @@
 
                 <div class="slide-header">
                     <div class="step-indicator">05</div>
-                    <div class="slide-title">SET UP IN <br><span class="highlight-inverse">MINUTES</span></div>
-                    <div class="slide-subtitle">Forward your missed calls to Flynn. No hardware. No IT.</div>
+                    <div class="slide-title">YOU CONFIRM.<br><span class="highlight-inverse">ALWAYS.</span></div>
+                    <div class="slide-subtitle">Nothing sends, orders, or books on its own. Flynn drafts and checks with you first.</div>
                 </div>
+
+                <!-- Float tag -->
+                <div class="float-tag" style="top: 700px; left: 40px; transform: rotate(-3deg); font-size: 32px; padding: 16px 28px;">Your business. Your control.</div>
 
                 <div class="device-mockup">
                     <div class="device-notch"></div>
-                    <div class="app-content">
-                        <div class="app-header">
-                            <div class="app-title">Setup</div>
+
+                    <div style="display:flex; flex-direction:column; height:100%; background:#fff;">
+
+                        <div class="imsg-status">
+                            <span class="t">9:41</span>
+                            <span class="r">▶ 🔋</span>
                         </div>
 
-                        <!-- Setup steps -->
-                        <div style="border: 6px solid var(--black); padding: 40px; margin-bottom: 30px; background: white; box-shadow: 12px 12px 0px 0px var(--black);">
-
-                            <!-- Step 1 done -->
-                            <div style="display: flex; align-items: center; gap: 30px; padding-bottom: 35px; border-bottom: 4px solid var(--gray-200); margin-bottom: 35px;">
-                                <div style="width: 70px; height: 70px; background: #10B981; border: 4px solid var(--black); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                    <svg style="width: 38px; height: 38px; fill: white;" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                        <div class="imsg-nav">
+                            <span class="chev">‹</span>
+                            <div class="who">
+                                <div class="av">
+                                    <img src="assets/flynn-icon.png" alt="Flynn" onerror="this.style.display='none';this.parentNode.style.background='#FB5B1E';">
                                 </div>
-                                <div>
-                                    <div class="text-sm" style="color: #10B981; margin-bottom: 6px;">Done</div>
-                                    <div class="text-lg" style="font-size: 40px;">Your Flynn number</div>
-                                    <div style="font-family: 'Space Grotesk'; font-size: 34px; color: var(--primary); font-weight: 700;">+61 2 9876 5432</div>
-                                </div>
+                                <span class="nm">Flynn</span>
                             </div>
+                            <span class="info">ⓘ</span>
+                        </div>
 
-                            <!-- Step 2 done -->
-                            <div style="display: flex; align-items: center; gap: 30px; padding-bottom: 35px; border-bottom: 4px solid var(--gray-200); margin-bottom: 35px;">
-                                <div style="width: 70px; height: 70px; background: #10B981; border: 4px solid var(--black); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                    <svg style="width: 38px; height: 38px; fill: white;" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                                </div>
-                                <div>
-                                    <div class="text-sm" style="color: #10B981; margin-bottom: 6px;">Done</div>
-                                    <div class="text-lg" style="font-size: 40px;">Set your greeting</div>
-                                    <div style="font-family: 'Inter'; font-size: 28px; color: #666;">Booking + quote options ready</div>
-                                </div>
-                            </div>
+                        <div class="imsg-thread" style="justify-content:flex-start; padding-top: 40px;">
+                            <div class="imsg-bub in">Order ready: 20x copper fittings 1/2in — $47.80. Reply YES to confirm.</div>
+                        </div>
 
-                            <!-- Step 3 active -->
-                            <div style="display: flex; align-items: center; gap: 30px;">
-                                <div style="width: 70px; height: 70px; background: var(--primary); border: 4px solid var(--black); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                    <div style="font-family: 'Space Grotesk'; font-size: 42px; font-weight: 800; color: white;">3</div>
-                                </div>
-                                <div style="flex: 1;">
-                                    <div class="text-sm" style="color: var(--primary); margin-bottom: 6px;">Next</div>
-                                    <div class="text-lg" style="font-size: 40px;">Forward your calls</div>
-                                    <div style="font-family: 'Inter'; font-size: 28px; color: #666;">Dial *004*+61298765432# on your phone</div>
-                                </div>
+                        <!-- Confirmation card inside device below thread -->
+                        <div style="margin: 20px 44px 20px; background:#E9F7EF; border:6px solid #1f7a4d; border-radius:20px; padding:36px; display:flex; align-items:center; gap:24px; box-shadow:8px 8px 0 0 #1f7a4d; flex-shrink:0;">
+                            <span style="font-size:60px;">✓</span>
+                            <div>
+                                <div style="font-family:'Space Grotesk';font-size:42px;font-weight:700;color:#1f7a4d;">You confirm first</div>
+                                <div style="font-family:'Inter';font-size:34px;color:#2d6a4f;margin-top:8px;">Nothing moves without your say-so</div>
                             </div>
                         </div>
 
-                        <!-- CTA button -->
-                        <div class="btn-app">
-                            Set Up Forwarding
+                        <div class="imsg-composer" style="margin-top:auto;">
+                            <div class="imsg-field">iMessage</div>
+                            <div class="imsg-send gray">↑</div>
                         </div>
 
-                        <div class="nav-bar">
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                            </div>
-                            <div class="nav-item">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-                            </div>
-                            <div class="nav-item active">
-                                <svg class="icon-svg" viewBox="0 0 24 24" style="width: 40px; height: 40px; margin: 11px;"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
                 <!-- Bottom stat strip -->
                 <div class="stat-strip" style="margin-top: 40px;">
-                    <div class="stat-number">3</div>
-                    <div class="stat-label">Steps to go live.<br>No hardware needed.</div>
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Actions confirmed<br>before they happen</div>
                 </div>
+
             </div>
         </div>
 
@@ -1030,7 +1067,7 @@
 
             status.innerText = "Zipping...";
             const content = await zip.generateAsync({ type: "blob" });
-            saveAs(content, "flynn-screenshots-v5.zip");
+            saveAs(content, "flynn-screenshots-v6.zip");
             status.innerText = "Done! Download started.";
         }
     </script>
