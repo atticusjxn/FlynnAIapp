@@ -78,3 +78,6 @@ deploy-multiline-secrets.sh
 # Xcode build artifacts
 ios-native/archive.xcarchive/
 ios-native/export/
+
+# Instagram seed content (207MB, regenerable — node_modules + generated media)
+instagram_content/
