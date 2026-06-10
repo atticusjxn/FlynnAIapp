@@ -1333,6 +1333,16 @@ const iMessageInboundRoutes = require('./routes/iMessageInbound');
 app.use('/webhooks/imessage', iMessageInboundRoutes);
 
 // ========================================
+// Integrations via Nango Cloud (OAuth backbone for the iMessage agent).
+// Env-flagged: without NANGO_SECRET_KEY these routes don't exist.
+// Registers /connect/:provider (textable connect links) and /webhooks/nango.
+// ========================================
+if ((process.env.NANGO_SECRET_KEY || '').trim()) {
+  const integrationsNangoRoutes = require('./routes/integrationsNango');
+  app.use('/', integrationsNangoRoutes);
+}
+
+// ========================================
 // Frictionless app sign-in (no OTP) — text the user a single-use magic deep link
 // that opens the app already signed in. See services/authLink.js.
 // ========================================

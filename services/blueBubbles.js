@@ -87,6 +87,23 @@ async function sendAttachment(to, fileUrl, name = 'file') {
 }
 
 /**
+ * Download an inbound attachment's bytes by its GUID (from the webhook's
+ * data.attachments array). Returns a Buffer.
+ * Endpoint: GET /api/v1/attachment/:guid/download
+ */
+async function downloadAttachment(guid) {
+  if (!BB_URL || !BB_PASSWORD) {
+    throw new Error('BLUEBUBBLES_URL and BLUEBUBBLES_PASSWORD are required');
+  }
+  const res = await fetch(bbUrl(`/api/v1/attachment/${encodeURIComponent(guid)}/download`));
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`BlueBubbles downloadAttachment failed (${res.status}): ${body.slice(0, 200)}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/**
  * Check if BlueBubbles server is reachable.
  */
 async function ping() {
@@ -137,4 +154,4 @@ async function markRead(to) {
   }
 }
 
-module.exports = { sendMessage, sendAttachment, setTyping, markRead, ping };
+module.exports = { sendMessage, sendAttachment, downloadAttachment, setTyping, markRead, ping };

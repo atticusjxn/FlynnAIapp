@@ -209,7 +209,7 @@ async function reeceOrder(credentials, items) {
 async function run(url, goal, credentials = {}, maxSteps = 12) {
   const { sessionId, browser, page } = await createSession();
   const client = getLLMClient('compatible');
-  const QWEN_MODEL = process.env.SMS_LLM_MODEL || 'qwen3.6-flash';
+  const QWEN_MODEL = process.env.SMS_LLM_MODEL || process.env.DRAFT_LLM_MODEL || 'qwen3.5-flash';
 
   try {
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
@@ -286,5 +286,37 @@ What is the single next action to take? Respond with JSON only:
 }
 
 // ---------------------------------------------------------------------------
+// Supplier dispatch — Reece has a scripted flow; everything else goes through
+// the AI-guided generic runner. (flynnSMS/toolRegistry call this; it was
+// previously referenced but never existed, so confirmed orders crashed.)
+// ---------------------------------------------------------------------------
 
-module.exports = { createSession, xeroInvoice, reeceOrder, run };
+const SUPPLIER_LOGIN_URLS = {
+  bunnings: 'https://www.bunnings.com.au/login',
+  tradelink: 'https://www.tradelink.com.au/login',
+  nhp: 'https://www.nhp.com.au/login',
+  middy: 'https://www.middys.com.au/login',
+  rsea: 'https://www.rsea.com.au/login',
+  neco: 'https://www.neco.com.au/login',
+  amazon: 'https://www.amazon.com.au/ap/signin',
+};
+
+/**
+ * slug:        supplier id, e.g. 'reece' | 'bunnings' | 'tradelink' | ...
+ * credentials: { email, password }
+ * items:       [{ name, qty, productCode? }]
+ */
+async function supplierOrder(slug, credentials, items) {
+  if (slug === 'reece') return reeceOrder(credentials, items);
+
+  const loginUrl = SUPPLIER_LOGIN_URLS[slug];
+  if (!loginUrl) {
+    throw new Error(`No automation available for supplier "${slug}"`);
+  }
+
+  const list = items.map((i) => `${i.qty || 1}x ${i.productCode || i.name}`).join(', ');
+  const goal = `Log in with email "${credentials.email}" and password "${credentials.password}". Then search for and add these items to the cart: ${list}. Stop at the cart page once everything is added.`;
+  return run(loginUrl, goal, credentials, 24);
+}
+
+module.exports = { createSession, xeroInvoice, reeceOrder, supplierOrder, run };

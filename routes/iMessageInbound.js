@@ -21,7 +21,7 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const { processMessage } = require('../services/flynnSMS');
-const { sendMessage: bbSend, sendAttachment, setTyping, markRead } = require('../services/blueBubbles');
+const { sendMessage: bbSend, sendAttachment, downloadAttachment, setTyping, markRead } = require('../services/blueBubbles');
 const { sendToUser } = require('../services/flynnOutbound');
 const { sanitiseReply } = require('../services/flynnTone');
 const { ensureAuthUser, generateAppLink } = require('../services/authLink');
@@ -90,7 +90,13 @@ router.post('/inbound', async (req, res) => {
   const from = rawAddress.startsWith('+') ? rawAddress : `+${rawAddress.replace(/\D/g, '')}`;
   const body = (msg?.text || '').trim();
 
-  if (!from || !body) return;
+  // Image attachments (receipts etc.) are processed even with no text.
+  const attachments = Array.isArray(msg?.attachments) ? msg.attachments : [];
+  const imageAttachments = attachments.filter(
+    (a) => a?.guid && String(a?.mimeType || '').startsWith('image/')
+  );
+
+  if (!from || (!body && !imageAttachments.length)) return;
 
   // Deduplicate: ignore if we've processed this message GUID in the last 60s
   const msgGuid = msg?.guid || '';
@@ -130,13 +136,13 @@ router.post('/inbound', async (req, res) => {
             .from('users')
             .update({ phone: from, signup_source: 'imessage', onboarding_step: 'brain_pending' })
             .eq('id', ensured.id)
-            .catch(() => {});
+            .then(() => {}, () => {});
         } else {
           // Fallback: phone-only row so messaging never breaks (no app handoff).
           await supabase
             .from('users')
             .insert({ phone: from, signup_source: 'imessage', onboarding_step: 'brain_pending' })
-            .catch(() => {});
+            .then(() => {}, () => {});
         }
         const { data: created } = await supabase
           .from('users')
@@ -164,7 +170,7 @@ router.post('/inbound', async (req, res) => {
     // Honour an explicit opt-out (carrier STOP convention). A standalone "stop"
     // turns off proactive re-engagement; we confirm once and don't run the brain.
     if (supabase && /^\s*(stop|stop all|unsubscribe|opt out)\s*$/i.test(body)) {
-      await supabase.from('users').update({ reengagement_opted_out: true }).eq('phone', from).catch(() => {});
+      await supabase.from('users').update({ reengagement_opted_out: true }).eq('phone', from).then(() => {}, () => {});
       await sendToUser(from, "all good, i won't message you unless you text me first.", { channel: 'imessage', supabase });
       console.log('[iMessageInbound] Opt-out recorded', { from });
       return;
@@ -172,14 +178,15 @@ router.post('/inbound', async (req, res) => {
 
     // Remember we can reach this user on iMessage (where they just texted from).
     if (supabase && user?.preferred_channel !== 'imessage') {
-      await supabase.from('users').update({ preferred_channel: 'imessage' }).eq('phone', from).catch(() => {});
+      await supabase.from('users').update({ preferred_channel: 'imessage' }).eq('phone', from).then(() => {}, () => {});
     }
 
-    // Load unexpired pending action + integrations in parallel
+    // Load unexpired pending action + integrations + connections in parallel
     let pendingAction = null;
     let userIntegrations = {};
+    let connections = new Map();
     if (supabase) {
-      const [pendingRes, integrationsRes] = await Promise.all([
+      const [pendingRes, integrationsRes, connectionsRes] = await Promise.all([
         supabase
           .from('pending_actions')
           .select('*')
@@ -192,12 +199,19 @@ router.post('/inbound', async (req, res) => {
           .from('user_integrations')
           .select('integration_type, credentials_encrypted')
           .eq('user_phone', from),
+        supabase
+          .from('user_connections')
+          .select('*')
+          .eq('user_phone', from),
       ]);
 
       pendingAction = pendingRes.data || null;
 
       for (const row of (integrationsRes.data || [])) {
         userIntegrations[row.integration_type] = row.credentials_encrypted || {};
+      }
+      for (const row of (connectionsRes.data || [])) {
+        connections.set(row.provider, row);
       }
     }
 
@@ -206,19 +220,49 @@ router.post('/inbound', async (req, res) => {
       await supabase.from('sms_messages').insert({
         user_phone: from,
         direction: 'in',
-        body,
+        body: body || '[photo]',
         channel: 'imessage',
-      }).catch(() => {});
+      }).then(() => {}, () => {});
+    }
+
+    // Image attachments: download from BlueBubbles, run receipt extraction,
+    // and hand the agent loop a structured note (never the raw image — parked
+    // tool args after a connect gate must stay JSON).
+    let imageNote = null;
+    if (imageAttachments.length) {
+      try {
+        const dataUrls = [];
+        for (const att of imageAttachments.slice(0, 2)) {
+          if (att.totalBytes && att.totalBytes > 8 * 1024 * 1024) continue;
+          const buf = await downloadAttachment(att.guid);
+          dataUrls.push(`data:${att.mimeType};base64,${buf.toString('base64')}`);
+        }
+        if (dataUrls.length) {
+          const { extractReceipt } = require('../services/receiptExtractor');
+          const extraction = await extractReceipt(dataUrls);
+          if (extraction?.is_receipt) {
+            imageNote = `The user just sent a photo of a receipt. Extraction: ${JSON.stringify(extraction)}. If they sent it without comment or want it logged, call sheets_log_expense with these values (don't re-ask for amounts you have).`;
+          } else if (extraction) {
+            imageNote = `The user just sent a photo (not a receipt): ${extraction.image_summary || 'no detail extracted'}.`;
+          }
+        }
+      } catch (err) {
+        console.warn('[iMessageInbound] attachment processing failed:', err?.message);
+      }
     }
 
     // Process with Flynn brain
     const result = await processMessage({
       phone: from,
-      message: body,
+      message: body || 'sent a photo',
       businessBrain: user?.business_brain || null,
       onboardingStep: user?.onboarding_step || 'brain_pending',
       pendingAction,
       userIntegrations,
+      user,
+      supabase,
+      connections,
+      imageNote,
     });
 
     // Update business brain if onboarding produced one
@@ -230,23 +274,48 @@ router.post('/inbound', async (req, res) => {
           onboarding_step: result.updatedStep || user.onboarding_step,
         })
         .eq('id', user.id)
-        .catch(() => {});
+        .then(() => {}, () => {});
     }
 
-    // Save newly collected integration credentials
+    // Save newly collected integration credentials (mirrored into
+    // user_connections so the tool registry sees them as connected), then
+    // resume any action that was parked waiting on this provider.
     if (result.newCredential && supabase) {
       const { integration_type, email, password } = result.newCredential;
       if (integration_type && email) {
+        const now = new Date().toISOString();
         await supabase
           .from('user_integrations')
           .upsert({
             user_phone: from,
             integration_type,
             credentials_encrypted: { email, password: password || null },
-            connected_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            connected_at: now,
+            updated_at: now,
           }, { onConflict: 'user_phone,integration_type' })
-          .catch(() => {});
+          .then(() => {}, () => {});
+        await supabase
+          .from('user_connections')
+          .upsert({
+            user_id: user?.id || null,
+            user_phone: from,
+            provider: integration_type,
+            auth_kind: 'credentials_browserbase',
+            status: 'connected',
+            connected_at: now,
+            updated_at: now,
+          }, { onConflict: 'user_phone,provider' })
+          .then(() => {}, () => {});
+
+        try {
+          const { resumeParkedAction } = require('../services/agent/agentLoop');
+          const resumed = await resumeParkedAction(from, integration_type, supabase);
+          if (resumed.handled && resumed.bubbles.length) {
+            await sendToUser(from, resumed.bubbles, { channel: 'imessage', supabase });
+          }
+        } catch (err) {
+          console.warn('[iMessageInbound] resume after credential save failed:', err?.message);
+        }
       }
     }
 
@@ -257,11 +326,12 @@ router.post('/inbound', async (req, res) => {
           .from('pending_actions')
           .delete()
           .eq('id', pendingAction.id)
-          .catch(() => {});
+          .then(() => {}, () => {});
       }
 
       if (result.pendingAction) {
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        const expiresAt = result.pendingAction.expires_at
+          || new Date(Date.now() + 30 * 60 * 1000).toISOString();
         await supabase
           .from('pending_actions')
           .upsert({
@@ -270,8 +340,13 @@ router.post('/inbound', async (req, res) => {
             action_data: result.pendingAction.action_data,
             confirmation_message: result.pendingAction.confirmation_message,
             expires_at: expiresAt,
+            // Tool-loop fields: how the action resumes (yes/no vs connect-then-run)
+            status: result.pendingAction.status || 'awaiting_confirmation',
+            required_provider: result.pendingAction.required_provider || null,
+            tool_name: result.pendingAction.tool_name || null,
+            tool_args: result.pendingAction.tool_args || null,
           }, { onConflict: 'user_phone' })
-          .catch(() => {});
+          .then(() => {}, () => {});
       }
     }
 
