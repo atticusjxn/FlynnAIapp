@@ -77,19 +77,31 @@ router.get('/connect/:provider', async (req, res) => {
 // POST /webhooks/nango
 // ---------------------------------------------------------------------------
 
-function verifyNangoSignature(rawBody, signatureHeader) {
+function timingSafeHexEqual(expected, provided) {
+  if (!provided || provided.length !== expected.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided));
+}
+
+// Current scheme: X-Nango-Hmac-Sha256 = HMAC-SHA256(rawBody) keyed with the
+// webhook "Signing key" (Environment Settings -> Webhooks). Nango also sends a
+// legacy X-Nango-Signature = SHA256(secretKey + rawBody); accepted as fallback
+// when no signing key is configured.
+function verifyNangoSignature(rawBody, headers) {
+  const signingKey = (process.env.NANGO_WEBHOOK_SECRET || '').trim();
+  if (signingKey) {
+    const expected = crypto.createHmac('sha256', signingKey).update(rawBody).digest('hex');
+    return timingSafeHexEqual(expected, String(headers['x-nango-hmac-sha256'] || ''));
+  }
   const secret = (process.env.NANGO_SECRET_KEY || '').trim();
   if (!secret) return false;
   const expected = crypto.createHash('sha256').update(`${secret}${rawBody}`).digest('hex');
-  const provided = String(signatureHeader || '');
-  if (provided.length !== expected.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(provided));
+  return timingSafeHexEqual(expected, String(headers['x-nango-signature'] || ''));
 }
 
 router.post('/webhooks/nango', express.raw({ type: 'application/json' }), async (req, res) => {
   const rawBody = req.body instanceof Buffer ? req.body.toString('utf8') : JSON.stringify(req.body || {});
 
-  if (!verifyNangoSignature(rawBody, req.headers['x-nango-signature'])) {
+  if (!verifyNangoSignature(rawBody, req.headers)) {
     console.warn('[NangoWebhook] Invalid signature — ignoring');
     return res.sendStatus(401);
   }
@@ -109,7 +121,8 @@ router.post('/webhooks/nango', express.raw({ type: 'application/json' }), async 
 
   const provider = payload.providerConfigKey;
   const connectionId = payload.connectionId;
-  const endUserId = payload.endUser?.endUserId || payload.endUser?.id || null;
+  // Current payloads carry the end user under tags; older shapes used endUser.
+  const endUserId = payload.tags?.end_user_id || payload.endUser?.endUserId || payload.endUser?.id || null;
 
   try {
     // Resolve the user: end_user.id is set to users.id when the session is minted.
@@ -137,7 +150,7 @@ router.post('/webhooks/nango', express.raw({ type: 'application/json' }), async 
         auth_kind: 'nango_oauth',
         status: 'connected',
         nango_connection_id: connectionId,
-        account_label: payload.endUser?.email || null,
+        account_label: payload.tags?.end_user_email || payload.endUser?.email || null,
         connected_at: now,
         updated_at: now,
       }, { onConflict: 'user_phone,provider' });
