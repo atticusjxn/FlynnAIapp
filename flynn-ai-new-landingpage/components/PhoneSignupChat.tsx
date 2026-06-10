@@ -8,8 +8,8 @@ const DEMO = [
   { out: false, text: "Invoice ready — $340 inc GST. Sending to Dave. Good?" },
 ];
 
-const FLYNN_NUMBER = '+61497779071';
-const FLYNN_NUMBER_DISPLAY = '+61 497 779 071';
+const FLYNN_NUMBER = '+61495023092';
+const FLYNN_NUMBER_DISPLAY = '+61 495 023 092';
 const SMS_LINK = `sms:${FLYNN_NUMBER}&body=${encodeURIComponent('Hi Flynn')}`;
 
 function IMessageIcon({ size = 28 }: { size?: number }) {
