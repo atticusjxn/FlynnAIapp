@@ -264,6 +264,27 @@ describe('tool registry', () => {
     expect(calendarTool.function.description).toContain('NOT connected');
   });
 
+  test('remember merges facts into the brain and persists, blocking internal keys', async () => {
+    const supabase = fakeSupabase();
+    const ctx = {
+      phone: PHONE, user: USER, supabase,
+      connections: new Map(), userIntegrations: {},
+      brain: { business_type: 'plumber' },
+    };
+    const entry = registry.findTool('remember');
+    const outcome = await entry.tool.executor(ctx, {
+      facts: { expense_destination: 'google_sheet', _connected_integrations: ['hacked'] },
+    });
+
+    expect(outcome.result).toContain('expense_destination');
+    expect(outcome.result).not.toContain('_connected_integrations');
+    expect(ctx.brain.expense_destination).toBe('google_sheet');
+    expect(ctx.brain._connected_integrations).toBeUndefined();
+    const update = supabase.calls.find((c) => c.table === 'users' && c.op === 'update');
+    expect(update.payload.business_brain.expense_destination).toBe('google_sheet');
+    expect(update.payload.business_brain._connected_integrations).toBeUndefined();
+  });
+
   test('resolveSupplier prefers explicit ask, then connected, then brain', () => {
     const base = { connections: new Map(), userIntegrations: {}, brain: {} };
     expect(registry.resolveSupplier(base, { supplier: 'bunnings' })).toBe('bunnings');

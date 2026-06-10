@@ -288,6 +288,29 @@ async function orderParts(ctx, args) {
 }
 
 // ---------------------------------------------------------------------------
+// Memory — passive context accumulation. The model saves any new fact or
+// preference the user states (rates, suppliers, where receipts go) so Flynn
+// never asks twice. Underscore-prefixed keys are internal bookkeeping and
+// can't be written from here.
+// ---------------------------------------------------------------------------
+
+async function rememberFacts(ctx, args) {
+  const facts = args.facts;
+  if (!facts || typeof facts !== 'object' || Array.isArray(facts)) {
+    throw new ToolArgError('facts must be an object of key/value pairs');
+  }
+  const clean = Object.fromEntries(
+    Object.entries(facts).filter(([k, v]) => !k.startsWith('_') && v !== null && v !== undefined && v !== '')
+  );
+  if (!Object.keys(clean).length) throw new ToolArgError('no valid facts to remember');
+
+  const merged = { ...ctx.brain, ...clean };
+  await ctx.supabase.from('users').update({ business_brain: merged }).eq('phone', ctx.phone);
+  Object.assign(ctx.brain, clean);
+  return { result: `remembered: ${Object.keys(clean).join(', ')}` };
+}
+
+// ---------------------------------------------------------------------------
 // Credential capture (always available — lets the model save supplier/Xero
 // logins the user texts, which also unblocks any parked action)
 // ---------------------------------------------------------------------------
@@ -498,6 +521,31 @@ const CAPABILITIES = [
           const list = (args.items || []).map((i) => `${i.qty || 1}x ${i.name}`).join(', ');
           return `ordering ${list}${args.supplier ? ` from ${args.supplier}` : ''}. good to go?`;
         },
+      },
+    ],
+  },
+  {
+    capability: 'memory',
+    provider: null,
+    auth_kind: 'none',
+    label: 'memory',
+    tools: [
+      {
+        name: 'remember',
+        confirm: false,
+        description: 'Save new facts or preferences the user just told you (rates, suppliers, client details, where they want expenses logged). Call this whenever you learn something about their business so you never ask twice.',
+        parameters: {
+          type: 'object',
+          properties: {
+            facts: {
+              type: 'object',
+              description: 'flat object of facts, e.g. {"expense_destination": "google_sheet", "hourly_rate_cents": 15000, "preferred_supplier": "reece"}',
+              additionalProperties: true,
+            },
+          },
+          required: ['facts'],
+        },
+        executor: rememberFacts,
       },
     ],
   },

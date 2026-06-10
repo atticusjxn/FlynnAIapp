@@ -241,7 +241,7 @@ router.post('/inbound', async (req, res) => {
           const { extractReceipt } = require('../services/receiptExtractor');
           const extraction = await extractReceipt(dataUrls);
           if (extraction?.is_receipt) {
-            imageNote = `The user just sent a photo of a receipt. Extraction: ${JSON.stringify(extraction)}. If they sent it without comment or want it logged, call sheets_log_expense with these values (don't re-ask for amounts you have).`;
+            imageNote = `The user just sent a photo of a receipt. Extraction: ${JSON.stringify(extraction)}. Where it goes depends on their preference: check their business details for expense_destination. If it's the google sheet (or they say so), call sheets_log_expense with these values, don't re-ask amounts you already have. If you DON'T know where they keep expenses yet, ask once: google sheet, or their accounting software (xero, myob, quickbooks)? Then call remember with expense_destination set to their answer. Be upfront that filing receipts into accounting software isn't hooked up yet, so if they pick that, remember the preference and offer to keep them in the sheet meanwhile.`;
           } else if (extraction) {
             imageNote = `The user just sent a photo (not a receipt): ${extraction.image_summary || 'no detail extracted'}.`;
           }
