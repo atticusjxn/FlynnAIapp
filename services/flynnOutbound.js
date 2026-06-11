@@ -45,19 +45,20 @@ async function logOutbound(supabase, phone, body, channel) {
     .catch(() => {});
 }
 
-async function persistChannel(supabase, phone, channel) {
-  if (!supabase) return;
-  await supabase
-    .from('users')
-    .update({ preferred_channel: channel })
-    .eq('phone', phone)
-    .then(() => {})
-    .catch(() => {});
-}
-
 async function sendOneSms(phone, text) {
   if (!twilioClient) throw new Error('Twilio not configured');
   await twilioClient.messages.create({ to: phone, from: FLYNN_NUMBER, body: text });
+}
+
+// iMessage sends can blip (BlueBubbles server/network); retry before we give up
+// and fall back to green SMS, so transient hiccups don't turn replies green.
+async function sendImessageWithRetry(phone, text, tries = 2) {
+  let lastErr;
+  for (let t = 0; t < tries; t++) {
+    try { await blueBubbles.sendMessage(phone, text); return; }
+    catch (err) { lastErr = err; if (t < tries - 1) await sleep(800); }
+  }
+  throw lastErr;
 }
 
 /**
@@ -85,14 +86,17 @@ async function sendToUser(phone, content, { channel, supabase } = {}) {
     if (activeChannel === 'imessage') {
       try {
         await blueBubbles.setTyping(phone, true);
-        await blueBubbles.sendMessage(phone, text);
+        await sendImessageWithRetry(phone, text);
         await blueBubbles.setTyping(phone, false);
       } catch (err) {
-        // iMessage not deliverable — fall back to SMS for this and remaining bubbles.
-        console.warn('[FlynnOutbound] iMessage send failed, falling back to SMS:', err?.message || err);
+        // iMessage send failed even after retries — fall back to SMS for the
+        // rest of THIS reply only. Deliberately NOT persisting preferred_channel
+        // = 'sms': a transient BlueBubbles blip shouldn't strand a real iMessage
+        // user on green forever. The inbound route re-affirms imessage on their
+        // next text, and we retry iMessage first on the next reply.
+        console.warn('[FlynnOutbound] iMessage send failed after retries, SMS fallback:', err?.message || err);
         await blueBubbles.setTyping(phone, false).catch(() => {});
         activeChannel = 'sms';
-        await persistChannel(supabase, phone, 'sms');
         await sendOneSms(phone, text);
       }
     } else {
