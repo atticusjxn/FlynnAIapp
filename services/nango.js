@@ -190,6 +190,17 @@ function verifyConnectLinkToken(token) {
   return jwt.verify(token, jwtSecret()); // throws on bad/expired
 }
 
+/**
+ * Link to the unified secure "connect your tools" page (/setup). Carries the
+ * user identity in a 7-day JWT; the page derives which tools to show from the
+ * user's brain + existing connections. Used for batched onboarding instead of
+ * texting credentials.
+ */
+function createSetupLink({ userId, phone }) {
+  const token = jwt.sign({ uid: userId, phone, kind: 'setup' }, jwtSecret(), { expiresIn: '7d' });
+  return `${SERVER_URL}/setup?t=${token}`;
+}
+
 function isConfigured() {
   return Boolean((process.env.NANGO_SECRET_KEY || '').trim());
 }
@@ -199,6 +210,7 @@ module.exports = {
   getToken,
   proxy,
   createTextableConnectLink,
+  createSetupLink,
   resolveConnectCode,
   findConnectionId,
   verifyConnectLinkToken,

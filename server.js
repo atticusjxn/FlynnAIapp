@@ -1340,6 +1340,10 @@ app.use('/webhooks/imessage', iMessageInboundRoutes);
 if ((process.env.NANGO_SECRET_KEY || '').trim()) {
   const integrationsNangoRoutes = require('./routes/integrationsNango');
   app.use('/', integrationsNangoRoutes);
+  // Unified secure "connect your tools" page (/setup) — OAuth buttons +
+  // encrypted credential forms, so logins are never entered over text.
+  const connectPageRoutes = require('./routes/connectPage');
+  app.use('/', connectPageRoutes);
 }
 
 // ========================================

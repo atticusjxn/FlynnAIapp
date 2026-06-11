@@ -366,6 +366,17 @@ async function saveLogin(ctx, args) {
   return { result: `${provider} login saved`, userFacing: `${provider} login saved`, connectedProvider: provider };
 }
 
+// One secure web page to connect several tools at once (OAuth buttons +
+// encrypted credential forms) instead of collecting logins over text.
+async function connectToolsLink(ctx) {
+  if (!ctx.user?.id) return { result: 'no user id yet, ask the user to text again in a moment' };
+  const link = ctx.nango.createSetupLink({ userId: ctx.user.id, phone: ctx.phone });
+  return {
+    result: `setup page link: ${link}`,
+    userFacing: `connect everything in one spot, takes a min: ${link}`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -568,6 +579,21 @@ const CAPABILITIES = [
           required: ['facts'],
         },
         executor: rememberFacts,
+      },
+    ],
+  },
+  {
+    capability: 'setup',
+    provider: null,
+    auth_kind: 'none',
+    label: 'setup',
+    tools: [
+      {
+        name: 'connect_tools',
+        confirm: false,
+        description: "Text the user one secure link to connect several tools/accounts at once on a web page (calendar, supplier logins, Xero, iCloud). Prefer this over collecting logins via text when the user wants to set up multiple things or asks to connect their accounts.",
+        parameters: { type: 'object', properties: {}, required: [] },
+        executor: connectToolsLink,
       },
     ],
   },
