@@ -153,8 +153,9 @@ router.post('/inbound', async (req, res) => {
       pendingAction = pendingRes.data || null;
 
       // Map integrations into { xero: {email, password}, reece: {...}, ... }
+      const { decryptCredentials } = require('../services/credentialCrypto');
       for (const row of (integrationsRes.data || [])) {
-        userIntegrations[row.integration_type] = row.credentials_encrypted || {};
+        userIntegrations[row.integration_type] = decryptCredentials(row.credentials_encrypted);
       }
     }
 
@@ -198,7 +199,7 @@ router.post('/inbound', async (req, res) => {
           .upsert({
             user_phone: from,
             integration_type,
-            credentials_encrypted: { email, password: password || null },
+            credentials_encrypted: require('../services/credentialCrypto').encryptCredentials({ email, password: password || null }),
             connected_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_phone,integration_type' })

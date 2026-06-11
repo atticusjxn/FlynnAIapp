@@ -114,6 +114,7 @@ Rules:
 - Resolve relative dates ("thursday", "tomorrow arvo") to real YYYY-MM-DD dates using today's date above before calling a tool. Morning ~08:00, midday 12:00, arvo ~14:00 unless they said a time.
 - If the user texts a login (email and password), call save_login with the right provider.
 - When the user tells you something new about their business (a rate, a supplier, a client, a preference like where receipts get logged), call remember to save it. Never ask for something twice.
+- Calendar can be Google or Apple/iCloud. If they say they use Apple Calendar or iCloud, call remember with calendar_provider set to "apple" before booking, so it goes to the right calendar. Otherwise assume Google.
 - When a task could go to more than one place (e.g. a receipt could go to a spreadsheet or their accounting software) and their business details don't say which, ask once what they'd prefer, then remember the answer.
 - If the user seems to be forwarding a customer message they received, draft the reply they should send, in their voice, using their real pricing.
 - Texting style: sound like a sharp mate. Casual, lowercase starts where natural, contractions always. One or two short sentences. Separate thoughts with a blank line to send as separate bubbles, max 3.
@@ -144,10 +145,14 @@ function parseArgs(toolCall) {
   }
 }
 
-function gatedLinkBubble(capability, ctx, provider) {
-  if (capability.auth_kind === 'nango_oauth') {
-    const link = nango.createTextableConnectLink({ userId: ctx.user.id, phone: ctx.phone, provider });
+async function gatedLinkBubble(capability, ctx, provider) {
+  const authKind = registry.authKindFor(provider, capability);
+  if (authKind === 'nango_oauth') {
+    const link = await nango.createTextableConnectLink({ userId: ctx.user.id, phone: ctx.phone, provider });
     return `to do that i need access to ${capability.connectBlurb}, takes 10 sec: ${link}`;
+  }
+  if (authKind === 'credentials_apple') {
+    return "to book into your apple calendar i need an icloud app-specific password (apple won't let me use your normal one). make one at appleid.apple.com under Sign-In and Security, then text me your icloud email and that password";
   }
   return `i can do that through ${capability.connectBlurb}. what's your ${provider} login? email then password works`;
 }
@@ -212,7 +217,7 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
           respond('tool error: no supplier known for this user, ask which supplier they order from');
           continue;
         }
-        const bubble = gatedLinkBubble(entry.capability, ctx, provider);
+        const bubble = await gatedLinkBubble(entry.capability, ctx, provider);
         return {
           reply: bubble,
           intent: 'AGENT_GATED',
@@ -335,7 +340,8 @@ async function resumeParkedAction(phone, provider, supabase) {
     .from('user_integrations')
     .select('integration_type, credentials_encrypted')
     .eq('user_phone', phone);
-  for (const row of integrations || []) userIntegrations[row.integration_type] = row.credentials_encrypted || {};
+  const { decryptCredentials } = require('../credentialCrypto');
+  for (const row of integrations || []) userIntegrations[row.integration_type] = decryptCredentials(row.credentials_encrypted);
 
   const ctx = buildCtx({
     user, phone, supabase, connections, userIntegrations,
@@ -364,4 +370,104 @@ async function resumeParkedAction(phone, provider, supabase) {
   return { handled: true, bubbles: [outcome.userFacing || outcome.result || 'done'] };
 }
 
-module.exports = { runAgentTurn, executePendingTool, resumeParkedAction, loadConnections };
+// Nango provider config keys → brain bookkeeping slugs + the line Flynn texts
+// once a provider is live. Shared by the webhook, the /connected landing page,
+// and the inbound poll-reconcile so all three announce a connection the same way.
+const PROVIDER_TO_BRAIN_SLUG = {
+  'google-calendar': 'google_calendar',
+  'google-mail': 'gmail',
+  'google-sheet': 'google_sheets',
+};
+const CONNECTED_BLURB = {
+  'google-calendar': "calendar's in. i can check your week and book jobs straight into it now",
+  'google-mail': "gmail's connected. i can find emails and send them for you now",
+  'google-sheet': "sheets is connected. text me receipts and i'll log them for you",
+};
+
+/**
+ * Record a freshly-authorised Nango connection: upsert user_connections,
+ * move the provider from pending → connected in the brain, resume whatever
+ * was parked on it, and return the bubbles to text. Idempotent — the upsert
+ * is keyed on (user_phone, provider) and resumeParkedAction deletes the parked
+ * row before running, so calling this twice doesn't double-announce or
+ * double-run. Shared by the webhook and the poll-reconcile path.
+ */
+async function recordNangoConnection({ supabase, user, provider, connectionId, accountLabel }) {
+  const now = new Date().toISOString();
+  await supabase
+    .from('user_connections')
+    .upsert({
+      user_id: user.id,
+      user_phone: user.phone,
+      provider,
+      auth_kind: 'nango_oauth',
+      status: 'connected',
+      nango_connection_id: connectionId,
+      account_label: accountLabel || null,
+      connected_at: now,
+      updated_at: now,
+    }, { onConflict: 'user_phone,provider' });
+
+  const slug = PROVIDER_TO_BRAIN_SLUG[provider] || provider;
+  const brain = user.business_brain || {};
+  const pending = (brain._pending_integrations || []).filter((s) => s !== slug);
+  const deferred = (brain._deferred_integrations || []).filter((s) => s !== slug);
+  const connected = brain._connected_integrations || [];
+  if (!connected.includes(slug)) connected.push(slug);
+  await supabase
+    .from('users')
+    .update({
+      business_brain: {
+        ...brain,
+        _pending_integrations: pending,
+        _connected_integrations: connected,
+        _deferred_integrations: deferred,
+      },
+    })
+    .eq('id', user.id);
+
+  const resumed = await resumeParkedAction(user.phone, provider, supabase);
+  const blurb = CONNECTED_BLURB[provider];
+  return resumed.handled && resumed.bubbles.length
+    ? [blurb ? `${blurb.split('.')[0]}.` : 'connected.', ...resumed.bubbles]
+    : [blurb || `${provider} is connected`];
+}
+
+/**
+ * Poll Nango to see whether `provider` is now connected for this user, and if
+ * so record it. This is how connect-completion works WITHOUT the Nango webhook
+ * (free self-hosted Nango has no webhooks): the /connected landing page calls
+ * it right after consent, and the inbound path calls it when the user has a
+ * parked awaiting_connection row. connection_id is always users.id.
+ * Returns { connected, bubbles }.
+ */
+async function reconcileNangoConnection({ supabase, user, provider }) {
+  if (!user?.id) return { connected: false, bubbles: [] };
+  // The connect-session flow auto-generates the connection_id, so resolve it by
+  // end user (= users.id) rather than assuming it equals users.id.
+  let connectionId = null;
+  try {
+    connectionId = await nango.findConnectionId(provider, user.id);
+  } catch {
+    connectionId = null;
+  }
+  if (!connectionId) return { connected: false, bubbles: [] };
+  try {
+    await nango.getToken(provider, connectionId); // confirm it's live
+  } catch {
+    return { connected: false, bubbles: [] };
+  }
+  const bubbles = await recordNangoConnection({ supabase, user, provider, connectionId });
+  return { connected: true, bubbles };
+}
+
+module.exports = {
+  runAgentTurn,
+  executePendingTool,
+  resumeParkedAction,
+  recordNangoConnection,
+  reconcileNangoConnection,
+  loadConnections,
+  PROVIDER_TO_BRAIN_SLUG,
+  CONNECTED_BLURB,
+};

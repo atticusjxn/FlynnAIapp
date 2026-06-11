@@ -1,0 +1,62 @@
+# Self-hosted Nango (free tier: Auth + Proxy) for Flynn.
+#
+# Purpose: own the OAuth callback domain so Google verification passes.
+# The OAuth callback Google verifies is https://connect.flynnai.app/oauth/callback
+# which is served by the Nango SERVER (port 3003). Redis is optional for
+# Auth+Proxy and is skipped. Postgres is the only datastore (attach a Fly
+# Managed Postgres and set NANGO_DATABASE_URL as a secret).
+#
+# Secrets (set via `fly secrets set`, never in this file):
+#   NANGO_ENCRYPTION_KEY      openssl rand -base64 32   (required, immutable once set)
+#   NANGO_DATABASE_URL        postgres://...            (from the attached Fly PG)
+#   NANGO_DASHBOARD_USERNAME  basic-auth for the dashboard
+#   NANGO_DASHBOARD_PASSWORD
+#
+# Connect UI (port 3009) reachability is finalised once the instance is up:
+# if the server's direct-OAuth redirect endpoint works we never expose 3009;
+# otherwise a small Caddy proxy app fronts both ports (see Caddyfile).
+
+app = 'flynn-nango'
+primary_region = 'syd'
+
+[build]
+  image = 'nangohq/nango-server:hosted'
+
+[env]
+  SERVER_PORT = '3003'
+  NANGO_SERVER_URL = 'https://connect.flynnai.app'
+  NANGO_PUBLIC_SERVER_URL = 'https://connect.flynnai.app'
+  NANGO_PUBLIC_CONNECT_URL = 'https://connect.flynnai.app'
+  NANGO_CONNECT_UI_PORT = '3009'
+  FLAG_SERVE_CONNECT_UI = 'true'
+  FLAG_AUTH_ENABLED = 'false'
+  NANGO_DB_SCHEMA = 'nango'
+  NANGO_DB_SSL = 'true'
+  CSP_REPORT_ONLY = 'true'
+  LOG_LEVEL = 'info'
+  TZ = 'UTC'
+
+[[services]]
+  internal_port = 3003
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+    force_https = true
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '1gb'

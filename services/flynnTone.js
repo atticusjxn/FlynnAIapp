@@ -13,6 +13,27 @@
 // Leading filler affirmations that read like a chatbot, not a mate.
 const FILLER_OPENER_RE = /^(great|sure|absolutely|of course|certainly|no problem)\s*[!,.]+\s*/i;
 
+// Texting acronyms spelled out in full — someone who's never used an agent
+// shouldn't have to decode "btw". Expansions are lowercase; a leading capital
+// (sentence-start "Btw") carries through to "By the way".
+const ABBREVIATIONS = {
+  btw: 'by the way',
+  tbh: 'to be honest',
+  tbf: 'to be fair',
+  imo: 'in my opinion',
+  imho: 'in my opinion',
+  idk: "i don't know",
+  fyi: 'just so you know',
+};
+const ABBREV_RE = new RegExp(`\\b(${Object.keys(ABBREVIATIONS).join('|')})\\b`, 'gi');
+
+function expandAbbreviations(text) {
+  return text.replace(ABBREV_RE, (match) => {
+    const full = ABBREVIATIONS[match.toLowerCase()];
+    return /^[A-Z]/.test(match) ? full.charAt(0).toUpperCase() + full.slice(1) : full;
+  });
+}
+
 /**
  * Strip the AI tells from a single message before it goes out.
  * @param {string} text
@@ -20,7 +41,7 @@ const FILLER_OPENER_RE = /^(great|sure|absolutely|of course|certainly|no problem
  */
 function sanitiseReply(text) {
   if (typeof text !== 'string') return '';
-  return text
+  return expandAbbreviations(text)
     .replace(/\s*[—–]\s+/g, ', ')  // spaced em/en dash → comma (no stray space)
     .replace(/—/g, ', ')           // any remaining em dash → comma
     .replace(/–/g, '-')            // remaining en dash → hyphen (keeps 8am-10am readable)

@@ -12,12 +12,17 @@ jest.mock('../services/nango', () => ({
   createTextableConnectLink: jest.fn(({ provider }) => `https://flynn.test/connect/${provider}?t=tok123`),
   verifyConnectLinkToken: jest.fn(),
   getToken: jest.fn(async () => 'fake-access-token'),
+  findConnectionId: jest.fn(async () => 'nc_resolved'),
   proxy: jest.fn(),
   createConnectSession: jest.fn(),
 }));
 jest.mock('../services/googleCalendar', () => ({
   queryFreeBusy: jest.fn(async () => []),
   insertEvent: jest.fn(async () => ({ id: 'evt_1' })),
+}));
+jest.mock('../services/appleCalendar', () => ({
+  queryFreeBusy: jest.fn(async () => []),
+  insertEvent: jest.fn(async () => ({ id: 'apple_evt_1' })),
 }));
 jest.mock('../services/browserbaseAgent', () => ({
   createSession: jest.fn(),
@@ -29,8 +34,10 @@ jest.mock('../services/browserbaseAgent', () => ({
 
 const { getLLMClient } = require('../llmClient');
 const googleCalendar = require('../services/googleCalendar');
+const appleCalendar = require('../services/appleCalendar');
 const browserbase = require('../services/browserbaseAgent');
-const { runAgentTurn, executePendingTool, resumeParkedAction } = require('../services/agent/agentLoop');
+const nango = require('../services/nango');
+const { runAgentTurn, executePendingTool, resumeParkedAction, reconcileNangoConnection } = require('../services/agent/agentLoop');
 const registry = require('../services/agent/toolRegistry');
 
 const PHONE = '+61400000000';
@@ -153,6 +160,33 @@ describe('runAgentTurn gating', () => {
     expect(result.pendingAction).toBeUndefined();
   });
 
+  test('books into Apple Calendar when the user is on iCloud (creds saved)', async () => {
+    fakeLLM([
+      toolCallResponse('calendar_book_event', { summary: 'Henderson', date: '2026-06-12', start_time: '14:00' }),
+      textResponse('done, booked into your apple calendar'),
+    ]);
+    const result = await runAgentTurn({
+      phone: PHONE, user: USER, message: 'book henderson thursday 2pm',
+      supabase: fakeSupabase(), connections: new Map(),
+      userIntegrations: { 'apple-calendar': { email: 'me@icloud.com', password: 'abcd-efgh-ijkl-mnop' } },
+    });
+    expect(appleCalendar.insertEvent).toHaveBeenCalledTimes(1);
+    expect(googleCalendar.insertEvent).not.toHaveBeenCalled();
+    expect(result.reply).toContain('apple');
+  });
+
+  test('apple-preference user with no creds gates for an iCloud app-specific password', async () => {
+    fakeLLM([toolCallResponse('calendar_book_event', { summary: 'X', date: '2026-06-12', start_time: '14:00' })]);
+    const result = await runAgentTurn({
+      phone: PHONE, user: { ...USER, business_brain: { calendar_provider: 'apple' } },
+      message: 'book it thursday 2pm', supabase: fakeSupabase(), connections: new Map(), userIntegrations: {},
+    });
+    expect(result.intent).toBe('AGENT_GATED');
+    expect(result.reply.toLowerCase()).toContain('app-specific');
+    expect(result.pendingAction.required_provider).toBe('apple-calendar');
+    expect(appleCalendar.insertEvent).not.toHaveBeenCalled();
+  });
+
   test('bad tool args are fed back, model recovers with text', async () => {
     fakeLLM([
       toolCallResponse('calendar_book_event', { summary: 'Henderson', date: 'thursday', start_time: '14:00' }),
@@ -249,6 +283,46 @@ describe('resumeParkedAction (after connect)', () => {
   test('nothing parked: handled=false', async () => {
     const { handled } = await resumeParkedAction(PHONE, 'google-calendar', fakeSupabase());
     expect(handled).toBe(false);
+  });
+});
+
+describe('reconcileNangoConnection (webhook-free completion)', () => {
+  const parkedBooking = {
+    id: 'pa_1', user_phone: PHONE, status: 'awaiting_connection',
+    required_provider: 'google-calendar', tool_name: 'calendar_book_event',
+    tool_args: { summary: 'Henderson', date: '2026-06-12', start_time: '14:00' },
+    confirmation_message: 'x',
+  };
+
+  test('Nango reports connected: records the connection and resumes', async () => {
+    nango.findConnectionId.mockResolvedValueOnce('nc_resolved');
+    nango.getToken.mockResolvedValueOnce('fake-access-token');
+    const supabase = fakeSupabase({ pending: parkedBooking });
+
+    const { connected, bubbles } = await reconcileNangoConnection({
+      supabase, user: USER, provider: 'google-calendar',
+    });
+
+    expect(connected).toBe(true);
+    // connection_id is resolved by end user, then the token confirmed with it
+    expect(nango.findConnectionId).toHaveBeenCalledWith('google-calendar', USER.id);
+    expect(nango.getToken).toHaveBeenCalledWith('google-calendar', 'nc_resolved');
+    expect(supabase.calls.some((c) => c.table === 'user_connections' && c.op === 'upsert')).toBe(true);
+    expect(googleCalendar.insertEvent).toHaveBeenCalledTimes(1);
+    expect(bubbles.join(' ')).toContain('booked');
+  });
+
+  test('Nango not connected yet: no-op', async () => {
+    nango.findConnectionId.mockResolvedValueOnce(null);
+    const supabase = fakeSupabase({ pending: parkedBooking });
+
+    const { connected, bubbles } = await reconcileNangoConnection({
+      supabase, user: USER, provider: 'google-calendar',
+    });
+
+    expect(connected).toBe(false);
+    expect(bubbles).toEqual([]);
+    expect(googleCalendar.insertEvent).not.toHaveBeenCalled();
   });
 });
 

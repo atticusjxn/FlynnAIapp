@@ -18,6 +18,7 @@
 
 const browserbase = require('../browserbaseAgent');
 const googleCalendar = require('../googleCalendar');
+const appleCalendar = require('../appleCalendar');
 
 const GMAIL_BASE = 'https://gmail.googleapis.com/gmail/v1';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4';
@@ -87,20 +88,43 @@ async function googleApi(token, url, { method = 'GET', body } = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Calendar
+// Calendar — dual provider: Google (OAuth) or Apple/iCloud (CalDAV)
 // ---------------------------------------------------------------------------
+
+// Which calendar this user is on. Connected wins; then a remembered preference
+// (brain.calendar_provider, set via the remember tool when they say they use
+// Apple/iCloud); else default to Google.
+function resolveCalendarProvider(ctx, args) {
+  const appleConnected = ctx.connections.get('apple-calendar')?.status === 'connected'
+    || Boolean(ctx.userIntegrations['apple-calendar']?.email);
+  if (appleConnected) return 'apple-calendar';
+  if (ctx.connections.get('google-calendar')?.status === 'connected') return 'google-calendar';
+  const pref = String(ctx.brain?.calendar_provider || '').toLowerCase();
+  if (pref === 'apple' || pref === 'apple-calendar' || pref === 'icloud') return 'apple-calendar';
+  return 'google-calendar';
+}
+
+// Auth kind keyed off the resolved provider (calendar mixes nango + creds), so
+// gating doesn't depend on a single per-capability auth_kind.
+function authKindFor(provider, capability) {
+  if (provider === 'apple-calendar') return 'credentials_apple';
+  if (typeof provider === 'string' && provider.startsWith('google-')) return 'nango_oauth';
+  return capability?.auth_kind || 'credentials_browserbase';
+}
 
 async function checkAvailability(ctx, args) {
   const date = assertDate(requireArg(args, 'date', 'YYYY-MM-DD'));
   const days = Math.min(Math.max(Number(args.days) || 1, 1), 7);
-  const token = await nangoToken(ctx, 'google-calendar');
 
   const timeMin = isoInTz(date, '00:00', ctx.tz);
   const end = new Date(`${date}T00:00:00Z`);
   end.setUTCDate(end.getUTCDate() + days);
   const timeMax = isoInTz(end.toISOString().slice(0, 10), '00:00', ctx.tz);
 
-  const busy = await googleCalendar.queryFreeBusy(token, { timeMin, timeMax });
+  const provider = resolveCalendarProvider(ctx, args);
+  const busy = provider === 'apple-calendar'
+    ? await appleCalendar.queryFreeBusy(ctx.userIntegrations['apple-calendar'], { timeMin, timeMax })
+    : await googleCalendar.queryFreeBusy(await nangoToken(ctx, 'google-calendar'), { timeMin, timeMax });
   if (!busy.length) return { result: `calendar is completely free ${date}${days > 1 ? ` for ${days} days` : ''}` };
   const lines = busy.map((b) => {
     const fmt = (iso) => new Date(iso).toLocaleString('en-AU', { timeZone: ctx.tz, weekday: 'short', hour: 'numeric', minute: '2-digit' });
@@ -119,16 +143,12 @@ async function bookEvent(ctx, args) {
   const endDate = new Date(startISO);
   endDate.setMinutes(endDate.getMinutes() + durationMins);
   const endISO = endDate.toISOString();
+  const description = [args.client_name && `Client: ${args.client_name}`, args.notes].filter(Boolean).join('\n');
 
-  const token = await nangoToken(ctx, 'google-calendar');
-  const event = await googleCalendar.insertEvent(token, {
-    summary,
-    description: [args.client_name && `Client: ${args.client_name}`, args.notes].filter(Boolean).join('\n'),
-    startISO,
-    endISO,
-    timeZone: ctx.tz,
-    location: args.location,
-  });
+  const provider = resolveCalendarProvider(ctx, args);
+  const event = provider === 'apple-calendar'
+    ? await appleCalendar.insertEvent(ctx.userIntegrations['apple-calendar'], { summary, description, startISO, endISO, location: args.location })
+    : await googleCalendar.insertEvent(await nangoToken(ctx, 'google-calendar'), { summary, description, startISO, endISO, timeZone: ctx.tz, location: args.location });
 
   const when = new Date(startISO).toLocaleString('en-AU', { timeZone: ctx.tz, weekday: 'long', hour: 'numeric', minute: '2-digit' });
   return {
@@ -319,14 +339,15 @@ async function saveLogin(ctx, args) {
   const provider = (requireArg(args, 'provider') || '').toLowerCase().trim();
   const email = requireArg(args, 'email');
   const password = requireArg(args, 'password');
-  const known = new Set(['xero', ...SUPPLIER_SLUGS]);
-  if (!known.has(provider)) throw new ToolArgError(`unknown provider "${provider}" — must be one of: xero, ${SUPPLIER_SLUGS.join(', ')}`);
+  const known = new Set(['xero', 'apple-calendar', ...SUPPLIER_SLUGS]);
+  if (!known.has(provider)) throw new ToolArgError(`unknown provider "${provider}" — must be one of: xero, apple-calendar, ${SUPPLIER_SLUGS.join(', ')}`);
+  const ak = authKindFor(provider);
 
   const now = new Date().toISOString();
   await ctx.supabase.from('user_integrations').upsert({
     user_phone: ctx.phone,
     integration_type: provider,
-    credentials_encrypted: { email, password },
+    credentials_encrypted: require('../credentialCrypto').encryptCredentials({ email, password }),
     connected_at: now,
     updated_at: now,
   }, { onConflict: 'user_phone,integration_type' });
@@ -334,14 +355,14 @@ async function saveLogin(ctx, args) {
     user_id: ctx.user?.id || null,
     user_phone: ctx.phone,
     provider,
-    auth_kind: 'credentials_browserbase',
+    auth_kind: ak,
     status: 'connected',
     connected_at: now,
     updated_at: now,
   }, { onConflict: 'user_phone,provider' });
 
   ctx.userIntegrations[provider] = { email, password };
-  ctx.connections.set(provider, { user_phone: ctx.phone, provider, auth_kind: 'credentials_browserbase', status: 'connected' });
+  ctx.connections.set(provider, { user_phone: ctx.phone, provider, auth_kind: ak, status: 'connected' });
   return { result: `${provider} login saved`, userFacing: `${provider} login saved`, connectedProvider: provider };
 }
 
@@ -352,15 +373,16 @@ async function saveLogin(ctx, args) {
 const CAPABILITIES = [
   {
     capability: 'calendar',
-    provider: 'google-calendar',
-    auth_kind: 'nango_oauth',
-    label: 'Google Calendar',
+    provider: null, // resolved per call: google-calendar (OAuth) or apple-calendar (iCloud CalDAV)
+    auth_kind: 'nango_oauth', // default; authKindFor() overrides for apple-calendar
+    dynamicProvider: resolveCalendarProvider,
+    label: 'Calendar',
     connectBlurb: 'your calendar',
     tools: [
       {
         name: 'calendar_check_availability',
         confirm: false,
-        description: "Check busy/free blocks on the user's Google Calendar from a date.",
+        description: "Check busy/free blocks on the user's calendar (Google or Apple/iCloud) from a date.",
         parameters: {
           type: 'object',
           properties: {
@@ -374,7 +396,7 @@ const CAPABILITIES = [
       {
         name: 'calendar_book_event',
         confirm: false,
-        description: "Book a job/appointment into the user's Google Calendar.",
+        description: "Book a job/appointment into the user's calendar (Google or Apple/iCloud, whichever they use).",
         parameters: {
           type: 'object',
           properties: {
@@ -558,13 +580,13 @@ const CAPABILITIES = [
       {
         name: 'save_login',
         confirm: false,
-        description: 'Save a login the user just texted (email + password) for xero or a supplier account. Call this whenever the user provides credentials.',
+        description: "Save a login the user just texted (email + password) for xero, a trade supplier account, or apple-calendar (iCloud email + app-specific password). Call this whenever the user provides credentials.",
         parameters: {
           type: 'object',
           properties: {
-            provider: { type: 'string', description: `one of: xero, ${SUPPLIER_SLUGS.join(', ')}` },
-            email: { type: 'string' },
-            password: { type: 'string' },
+            provider: { type: 'string', description: `one of: xero, apple-calendar, ${SUPPLIER_SLUGS.join(', ')}` },
+            email: { type: 'string', description: 'account email (or iCloud email for apple-calendar)' },
+            password: { type: 'string', description: 'password (an app-specific password for apple-calendar)' },
           },
           required: ['provider', 'email', 'password'],
         },
@@ -601,9 +623,11 @@ function connectionFor(capability, ctx, args) {
   if (!provider) return null;
   const row = ctx.connections.get(provider);
   if (row?.status === 'connected') return row;
-  // Browserbase creds saved before user_connections existed still count.
-  if (capability.auth_kind === 'credentials_browserbase' && ctx.userIntegrations[provider]?.email) {
-    return { provider, status: 'connected', auth_kind: 'credentials_browserbase' };
+  // Credential-based providers (browserbase suppliers/xero, apple-calendar):
+  // a saved login in user_integrations counts as connected.
+  const ak = authKindFor(provider, capability);
+  if (ak.startsWith('credentials') && ctx.userIntegrations[provider]?.email) {
+    return { provider, status: 'connected', auth_kind: ak };
   }
   return null;
 }
@@ -643,7 +667,9 @@ module.exports = {
   findTool,
   providerFor,
   connectionFor,
+  authKindFor,
   getOpenAITools,
   timezoneFromPhone,
   resolveSupplier,
+  resolveCalendarProvider,
 };

@@ -162,7 +162,7 @@ export const INTEGRATIONS: IntegrationMeta[] = [
   {
     provider: 'apple_calendar', connectSlug: 'apple-calendar', name: 'Apple Calendar',
     category: 'Calendar & scheduling', value: 'Same booking + availability for Apple users',
-    authType: 'eventkit', available: false, note: 'Connect from the Flynn iOS app',
+    authType: 'credentials', available: true, note: 'Connect with an iCloud app-specific password',
     accent: '#FF3B30', Icon: AppleCalendarIcon,
   },
 

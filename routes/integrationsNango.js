@@ -1,11 +1,15 @@
 /**
  * Nango OAuth backbone routes (mounted only when NANGO_SECRET_KEY is set).
  *
- *   GET  /connect/:provider?t=<jwt>   the link Flynn texts users. Verifies the
- *                                     7-day JWT, mints a fresh Nango connect
- *                                     session at click time (their session
- *                                     tokens only live ~30 min), 302s to the
- *                                     hosted Connect UI.
+ *   GET  /c/:code                     the short link Flynn texts users. Looks
+ *                                     up the code in connect_links, mints a
+ *                                     fresh Nango connect session at click time
+ *                                     (their session tokens only live ~30 min),
+ *                                     302s to the hosted Connect UI.
+ *   GET  /connect/:provider?t=<jwt>   legacy form of the same link (verifies a
+ *                                     7-day JWT instead of a short code); kept
+ *                                     so links texted before the short-code
+ *                                     switch still work.
  *   POST /webhooks/nango              auth webhook from Nango Cloud. Upserts
  *                                     user_connections, updates the brain's
  *                                     integration bookkeeping, resumes any
@@ -18,7 +22,7 @@ const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const nango = require('../services/nango');
 const { sendToUser } = require('../services/flynnOutbound');
-const { resumeParkedAction } = require('../services/agent/agentLoop');
+const { recordNangoConnection, reconcileNangoConnection } = require('../services/agent/agentLoop');
 
 const router = express.Router();
 
@@ -34,21 +38,39 @@ const supabase = supabaseUrl && supabaseServiceKey
     })
   : null;
 
-// Nango provider config keys → the slugs used in business_brain bookkeeping.
-const PROVIDER_TO_BRAIN_SLUG = {
-  'google-calendar': 'google_calendar',
-  'google-mail': 'gmail',
-  'google-sheet': 'google_sheets',
-};
+// PROVIDER_TO_BRAIN_SLUG / CONNECTED_BLURB and the connection-recording logic
+// now live in services/agent/agentLoop.js so the webhook, the /connected
+// landing page, and the inbound poll-reconcile all behave identically.
 
-const CONNECTED_BLURB = {
-  'google-calendar': "calendar's in. i can check your week and book jobs straight into it now",
-  'google-mail': "gmail's connected. i can find emails and send them for you now",
-  'google-sheet': "sheets is connected. text me receipts and i'll log them for you",
-};
+const SUCCESS_PAGE = (line) =>
+  `<html><body style="font-family:-apple-system,sans-serif;padding:40px;text-align:center"><h2>You're connected ✅</h2><p>${line}</p><p style="color:#888">Head back to Messages, Flynn's got it from here.</p></body></html>`;
+
+const EXPIRED_LINK_PAGE =
+  '<html><body style="font-family:-apple-system,sans-serif;padding:40px;text-align:center"><h2>This link has expired</h2><p>Text Flynn and ask to connect again, you\'ll get a fresh one.</p></body></html>';
 
 // ---------------------------------------------------------------------------
-// GET /connect/:provider?t=<jwt>
+// GET /c/:code  — short connect link
+// ---------------------------------------------------------------------------
+
+router.get('/c/:code', async (req, res) => {
+  try {
+    const claims = await nango.resolveConnectCode(String(req.params.code || ''));
+    if (!claims) throw new Error('unknown or expired code');
+
+    const { connectUrl } = await nango.createConnectSession({
+      userId: claims.uid,
+      phone: claims.phone,
+      provider: claims.provider,
+    });
+    return res.redirect(302, connectUrl);
+  } catch (err) {
+    console.warn('[NangoConnect] short link rejected:', err?.message);
+    return res.status(410).send(EXPIRED_LINK_PAGE);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /connect/:provider?t=<jwt>  — legacy connect link
 // ---------------------------------------------------------------------------
 
 router.get('/connect/:provider', async (req, res) => {
@@ -67,9 +89,7 @@ router.get('/connect/:provider', async (req, res) => {
     return res.redirect(302, connectUrl);
   } catch (err) {
     console.warn('[NangoConnect] connect link rejected:', err?.message);
-    return res
-      .status(410)
-      .send('<html><body style="font-family:-apple-system,sans-serif;padding:40px;text-align:center"><h2>This link has expired</h2><p>Text Flynn and ask to connect again, you\'ll get a fresh one.</p></body></html>');
+    return res.status(410).send(EXPIRED_LINK_PAGE);
   }
 });
 
@@ -140,50 +160,56 @@ router.post('/webhooks/nango', express.raw({ type: 'application/json' }), async 
       return;
     }
 
-    const now = new Date().toISOString();
-    await supabase
-      .from('user_connections')
-      .upsert({
-        user_id: user.id,
-        user_phone: user.phone,
-        provider,
-        auth_kind: 'nango_oauth',
-        status: 'connected',
-        nango_connection_id: connectionId,
-        account_label: payload.tags?.end_user_email || payload.endUser?.email || null,
-        connected_at: now,
-        updated_at: now,
-      }, { onConflict: 'user_phone,provider' });
-
-    // Brain bookkeeping: pending → connected, and clear any deferral.
-    const slug = PROVIDER_TO_BRAIN_SLUG[provider] || provider;
-    const brain = user.business_brain || {};
-    const pending = (brain._pending_integrations || []).filter((s) => s !== slug);
-    const deferred = (brain._deferred_integrations || []).filter((s) => s !== slug);
-    const connected = brain._connected_integrations || [];
-    if (!connected.includes(slug)) connected.push(slug);
-    await supabase
-      .from('users')
-      .update({
-        business_brain: {
-          ...brain,
-          _pending_integrations: pending,
-          _connected_integrations: connected,
-          _deferred_integrations: deferred,
-        },
-      })
-      .eq('id', user.id);
-
-    // Resume whatever was parked on this connection, otherwise just confirm.
-    const resumed = await resumeParkedAction(user.phone, provider, supabase);
-    const bubbles = resumed.handled && resumed.bubbles.length
-      ? [CONNECTED_BLURB[provider] ? `${CONNECTED_BLURB[provider].split('.')[0]}.` : 'connected.', ...resumed.bubbles]
-      : [CONNECTED_BLURB[provider] || `${provider} is connected`];
-
+    const accountLabel = payload.tags?.end_user_email || payload.endUser?.email || null;
+    const bubbles = await recordNangoConnection({ supabase, user, provider, connectionId, accountLabel });
     await sendToUser(user.phone, bubbles, { channel: user.preferred_channel || 'imessage', supabase });
-    console.log('[NangoWebhook] Connection stored + user notified', { provider, phone: user.phone, resumed: resumed.handled });
+    console.log('[NangoWebhook] Connection stored + user notified', { provider, phone: user.phone });
   } catch (err) {
     console.error('[NangoWebhook] Error handling auth webhook:', err?.message || err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /connected?c=<code>  — post-consent landing page
+//
+// The webhook-free completion path for self-hosted Nango (which has no
+// webhooks on the free tier). The Connect UI can redirect here after consent;
+// it can also be reached directly. We resolve the short code to the user +
+// provider, poll Nango to confirm the connection is live, record it, resume
+// any parked action, and show a friendly success page. The inbound
+// poll-reconcile (services flynnSMS path) is the backstop if the browser never
+// lands here.
+// ---------------------------------------------------------------------------
+
+router.get('/connected', async (req, res) => {
+  if (!supabase) return res.status(500).send(EXPIRED_LINK_PAGE);
+  try {
+    const claims = await nango.resolveConnectCode(String(req.query.c || ''));
+    if (!claims?.phone) throw new Error('unknown or expired code');
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, phone, business_brain, preferred_channel')
+      .eq('phone', claims.phone)
+      .maybeSingle();
+    if (!user?.id) throw new Error('user not found');
+
+    const { connected, bubbles } = await reconcileNangoConnection({
+      supabase, user, provider: claims.provider,
+    });
+    if (!connected) {
+      // Nango doesn't show the connection yet (user bailed at consent, or it's
+      // still settling). Don't fail loudly — the inbound poll will catch it.
+      return res.send(SUCCESS_PAGE("Almost there. If you just approved access, head back to Messages and Flynn will pick it up."));
+    }
+
+    if (bubbles.length) {
+      await sendToUser(user.phone, bubbles, { channel: user.preferred_channel || 'imessage', supabase });
+    }
+    return res.send(SUCCESS_PAGE("Flynn can use this now."));
+  } catch (err) {
+    console.warn('[NangoConnect] /connected rejected:', err?.message);
+    return res.status(410).send(EXPIRED_LINK_PAGE);
   }
 });
 

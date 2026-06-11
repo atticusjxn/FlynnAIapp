@@ -24,7 +24,7 @@ const { processMessage } = require('../services/flynnSMS');
 const { sendMessage: bbSend, sendAttachment, downloadAttachment, setTyping, markRead } = require('../services/blueBubbles');
 const { sendToUser } = require('../services/flynnOutbound');
 const { sanitiseReply } = require('../services/flynnTone');
-const { ensureAuthUser, generateAppLink } = require('../services/authLink');
+const { ensureAuthUser } = require('../services/authLink');
 
 const router = express.Router();
 
@@ -151,19 +151,14 @@ router.post('/inbound', async (req, res) => {
           .maybeSingle();
         user = created;
 
-        // Send vCard so they can save Flynn as a contact with the logo
+        // Send vCard so they can save Flynn as a contact with the logo. This is
+        // the one thing we push up front — "save me as a contact" reads as
+        // natural and is part of the wow. The app-handoff link is deliberately
+        // NOT sent here: a brand-new texter's first experience should be plain
+        // conversation (read receipt, typing, a real reply), not a big link.
+        // The app is a secondary surface; we offer it later once they're engaged.
         await sendAttachment(from, `${SERVER_URL}/api/signup/contact.vcf`, 'Flynn.vcf')
           .catch(err => console.warn('[iMessageInbound] vCard send failed:', err?.message));
-
-        // Offer the app handoff link (single-use; opens the app already signed in).
-        try {
-          const link = await generateAppLink(from);
-          if (link?.httpsUrl) {
-            await bbSend(from, `want the app too? open Flynn already signed in: ${link.httpsUrl}`);
-          }
-        } catch (err) {
-          console.warn('[iMessageInbound] app-link send failed:', err?.message);
-        }
       }
     }
 
@@ -207,8 +202,9 @@ router.post('/inbound', async (req, res) => {
 
       pendingAction = pendingRes.data || null;
 
+      const { decryptCredentials } = require('../services/credentialCrypto');
       for (const row of (integrationsRes.data || [])) {
-        userIntegrations[row.integration_type] = row.credentials_encrypted || {};
+        userIntegrations[row.integration_type] = decryptCredentials(row.credentials_encrypted);
       }
       for (const row of (connectionsRes.data || [])) {
         connections.set(row.provider, row);
@@ -251,6 +247,29 @@ router.post('/inbound', async (req, res) => {
       }
     }
 
+    // Connect-completion without webhooks (free self-hosted Nango has none):
+    // if we're parked waiting on a Nango OAuth connection, check whether it's
+    // gone live and, if so, record it + resume the parked action right now.
+    // Gated on the awaiting_connection row, so it only fires mid-connect and
+    // resumeParkedAction deletes the row, so it never double-announces.
+    const NANGO_OAUTH_PROVIDERS = ['google-calendar', 'google-mail', 'google-sheet'];
+    if (supabase && user?.id
+      && pendingAction?.status === 'awaiting_connection'
+      && NANGO_OAUTH_PROVIDERS.includes(pendingAction.required_provider)) {
+      try {
+        const { reconcileNangoConnection } = require('../services/agent/agentLoop');
+        const r = await reconcileNangoConnection({ supabase, user, provider: pendingAction.required_provider });
+        if (r.connected && r.bubbles.length) {
+          await setTyping(from, false);
+          await sendToUser(from, r.bubbles, { channel: 'imessage', supabase });
+          console.log('[iMessageInbound] Resumed via poll-reconcile', { from, provider: pendingAction.required_provider });
+          return;
+        }
+      } catch (err) {
+        console.warn('[iMessageInbound] poll-reconcile failed:', err?.message);
+      }
+    }
+
     // Process with Flynn brain
     const result = await processMessage({
       phone: from,
@@ -289,7 +308,7 @@ router.post('/inbound', async (req, res) => {
           .upsert({
             user_phone: from,
             integration_type,
-            credentials_encrypted: { email, password: password || null },
+            credentials_encrypted: require('../services/credentialCrypto').encryptCredentials({ email, password: password || null }),
             connected_at: now,
             updated_at: now,
           }, { onConflict: 'user_phone,integration_type' })

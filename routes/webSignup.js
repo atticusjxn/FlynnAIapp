@@ -23,16 +23,23 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
   : null;
 
 const FLYNN_NUMBER = process.env.TWILIO_FLYNN_NUMBER || '+61480891471';
+// The number Flynn actually answers iMessages on (the eSIM via BlueBubbles).
+// The contact card MUST carry this, not the Twilio SMS-fallback number, or the
+// user saves the wrong number and their next text goes to a dead inbox.
+const FLYNN_IMESSAGE_NUMBER = process.env.FLYNN_IMESSAGE_NUMBER || '+61495023092';
 const SERVER_URL = process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev';
 
-// Serve the Flynn contact card (VCF) — linked in welcome MMS
+// Serve the Flynn contact card (VCF) — sent on first iMessage so they can save
+// Flynn with the logo. iMessage users save the iMessage number; the SMS-only
+// signup path can override via ?channel=sms to surface the Twilio number.
 router.get('/contact.vcf', (req, res) => {
+  const tel = req.query.channel === 'sms' ? FLYNN_NUMBER : FLYNN_IMESSAGE_NUMBER;
   const vcf = [
     'BEGIN:VCARD',
     'VERSION:3.0',
     'FN:Flynn',
-    `TEL;TYPE=CELL:${FLYNN_NUMBER}`,
-    'PHOTO;MEDIATYPE=image/png:https://flynnai.app/apple-touch-icon.png',
+    `TEL;TYPE=CELL:${tel}`,
+    'PHOTO;VALUE=URI:https://flynnai.app/apple-touch-icon.png',
     'END:VCARD',
   ].join('\r\n');
 

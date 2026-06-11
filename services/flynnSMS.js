@@ -170,9 +170,16 @@ Only include a typed field (hourly_rate_cents, callout_fee_cents) when the user 
     if (pending.length > 0) {
       updatedBrain._pending_integrations = pending;
       updatedBrain._connected_integrations = updatedBrain._connected_integrations || [];
-      updatedStep = 'integrations_pending';
-    } else {
+    }
+    // With the tool loop on we DON'T herd people into a link-dumping setup phase.
+    // They go active and just talk to Flynn; a connect link only appears when
+    // they actually ask Flynn to do something that needs a tool (the gate in the
+    // agent loop). _pending_integrations stays as a soft hint for that. Legacy
+    // (tool loop off) keeps the explicit integration phase.
+    if (process.env.FLYNN_TOOL_LOOP === '1' || pending.length === 0) {
       updatedStep = 'active';
+    } else {
+      updatedStep = 'integrations_pending';
     }
   }
 
@@ -207,7 +214,11 @@ const DEMO_DECLINE_RE = /^\s*(no|nah|nope|not now|later|skip|maybe later|not yet
 
 async function handleDraftDemo(message, businessBrain) {
   const brain = businessBrain || {};
-  const nextStep = (Array.isArray(brain._pending_integrations) && brain._pending_integrations.length)
+  // Tool loop on: never route into the link-dumping integration phase — go
+  // active and let the agent surface a connect link only when a real request
+  // needs one. Legacy: keep the explicit phase when integrations are pending.
+  const nextStep = (process.env.FLYNN_TOOL_LOOP !== '1'
+    && Array.isArray(brain._pending_integrations) && brain._pending_integrations.length)
     ? 'integrations_pending'
     : 'active';
 
@@ -288,7 +299,7 @@ async function handleIntegrationSetup(message, phone, businessBrain, user) {
       for (const slug of suggestible) {
         const provider = NANGO_PROVIDER_BY_SLUG[slug];
         if (provider) {
-          oauthLinks[slug] = nango.createTextableConnectLink({ userId: user.id, phone, provider });
+          oauthLinks[slug] = await nango.createTextableConnectLink({ userId: user.id, phone, provider });
         }
       }
     }
@@ -535,8 +546,11 @@ async function processMessage({ phone, message, businessBrain, onboardingStep, p
     return handleBrainSetup(message, phone, businessBrain);
   }
 
-  // 2. Integration connection phase
-  if (onboardingStep === 'integrations_pending') {
+  // 2. Integration connection phase (legacy only). With the tool loop on, we
+  // skip the dedicated link-pitching phase entirely — these users fall through
+  // to the conversational agent loop below, which only surfaces a connect link
+  // when they actually ask for something that needs one.
+  if (onboardingStep === 'integrations_pending' && !toolLoopOn) {
     return handleIntegrationSetup(message, phone, businessBrain, user);
   }
 
