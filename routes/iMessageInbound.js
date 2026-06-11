@@ -227,20 +227,41 @@ router.post('/inbound', async (req, res) => {
     let imageNote = null;
     if (imageAttachments.length) {
       try {
-        const dataUrls = [];
-        for (const att of imageAttachments.slice(0, 2)) {
-          if (att.totalBytes && att.totalBytes > 8 * 1024 * 1024) continue;
-          const buf = await downloadAttachment(att.guid);
-          dataUrls.push(`data:${att.mimeType};base64,${buf.toString('base64')}`);
-        }
-        if (dataUrls.length) {
-          const { extractReceipt } = require('../services/receiptExtractor');
-          const extraction = await extractReceipt(dataUrls);
-          if (extraction?.is_receipt) {
-            imageNote = `The user just sent a photo of a receipt. Extraction: ${JSON.stringify(extraction)}. Where it goes depends on their preference: check their business details for expense_destination. If it's the google sheet (or they say so), call sheets_log_expense with these values, don't re-ask amounts you already have. If you DON'T know where they keep expenses yet, ask once: google sheet, or their accounting software (xero, myob, quickbooks)? Then call remember with expense_destination set to their answer. Be upfront that filing receipts into accounting software isn't hooked up yet, so if they pick that, remember the preference and offer to keep them in the sheet meanwhile.`;
-          } else if (extraction) {
-            imageNote = `The user just sent a photo (not a receipt): ${extraction.image_summary || 'no detail extracted'}.`;
+        const sharp = require('sharp');
+        const { extractReceipt } = require('../services/receiptExtractor');
+        const MAX_IMAGES = Number(process.env.FLYNN_MAX_IMAGES_PER_MSG || 12);
+        const receipts = [];
+        const others = [];
+
+        // Each photo is treated as its own receipt. Big iPhone/HEIC photos are
+        // downscaled + re-encoded to a small legible JPEG (no hard size cap —
+        // the old 8MB skip dropped real receipts), then read by the vision model.
+        for (const att of imageAttachments.slice(0, MAX_IMAGES)) {
+          let buf;
+          try { buf = await downloadAttachment(att.guid); } catch { continue; }
+          let dataUrl;
+          try {
+            const jpeg = await sharp(buf, { failOn: 'none' })
+              .rotate()
+              .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
+              .jpeg({ quality: 82 })
+              .toBuffer();
+            dataUrl = `data:image/jpeg;base64,${jpeg.toString('base64')}`;
+          } catch {
+            // Odd format sharp couldn't read — send raw unless absurdly large.
+            if (buf.length > 18 * 1024 * 1024) continue;
+            dataUrl = `data:${att.mimeType || 'image/jpeg'};base64,${buf.toString('base64')}`;
           }
+          const ex = await extractReceipt([dataUrl]);
+          if (ex?.is_receipt) receipts.push(ex);
+          else if (ex) others.push(ex.image_summary || 'a photo');
+        }
+
+        if (receipts.length) {
+          const plural = receipts.length > 1;
+          imageNote = `The user just sent ${receipts.length} receipt photo${plural ? 's' : ''}. Per-receipt extractions: ${JSON.stringify(receipts)}. Log EACH ONE to their expense destination: check their business details for expense_destination. If it's the google sheet (or they say so), call sheets_log_expense once per receipt with those values${plural ? ' (one tool call per receipt)' : ''}, and don't re-ask amounts you already have. If you DON'T know where they keep expenses yet, ask once: google sheet, or accounting software (xero, myob, quickbooks)? Then call remember with expense_destination. Be upfront that filing into accounting software isn't hooked up yet, so if they pick that, remember it and offer the sheet meanwhile.`;
+        } else if (others.length) {
+          imageNote = `The user just sent ${others.length} photo(s) (not receipts): ${others.join('; ')}.`;
         }
       } catch (err) {
         console.warn('[iMessageInbound] attachment processing failed:', err?.message);

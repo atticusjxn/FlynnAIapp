@@ -22,7 +22,7 @@ const nango = require('../nango');
 const registry = require('./toolRegistry');
 
 const QWEN_MODEL = process.env.SMS_LLM_MODEL || process.env.DRAFT_LLM_MODEL || 'qwen3.5-flash';
-const MAX_TOOL_ITERATIONS = 4;
+const MAX_TOOL_ITERATIONS = 6; // headroom to log a batch of receipts in one turn
 const HISTORY_LIMIT = 12;
 const GATED_ACTION_TTL_MS = 24 * 60 * 60 * 1000; // user may tap the connect link hours later
 const CONFIRM_ACTION_TTL_MS = 30 * 60 * 1000;
@@ -181,7 +181,7 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
       messages,
       tools: registry.getOpenAITools(ctx),
       tool_choice: 'auto',
-      parallel_tool_calls: false,
+      parallel_tool_calls: true, // lets the model log several receipts in one turn
       max_tokens: 700,
       enable_thinking: false,
     });
