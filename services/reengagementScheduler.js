@@ -11,16 +11,35 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { sendToUser, resolveChannel } = require('./flynnOutbound');
+const { sendAttachment } = require('./blueBubbles');
 
 const HOUR = 60 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 10 * 60 * 1000; // run the candidate query at most every 10 min
 
-// Value-first copy. Short, lowercase, no pressure. count 0 -> M1, 1 -> M2, 2 -> M3.
-const MESSAGES = [
-  'hey, what kind of work do you do? once i know your business i can start sorting the admin for you',
+const SERVER_URL = process.env.SERVER_URL || 'https://flynnai-telephony.fly.dev';
+const VCARD_URL = `${SERVER_URL}/api/signup/contact.vcf`;
+
+// iMessage gives us no signal for whether someone actually saved Flynn as a
+// contact, so we treat "signed up, never replied" as the proxy. The first nudge
+// re-sends the contact card with a "save me so you don't lose me" line, tailored
+// to whatever business context we have; the later two are value-first follow-ups.
+const FOLLOWUPS = [
   "still here whenever you're ready. tell me your trade and i'll start handling the boring stuff, invoices, parts, replies",
   "last one from me. text me anytime and i'll pick up where we left off",
 ];
+
+// First-touch contact nudge, personalised from the user's business context.
+function contactNudge(user) {
+  const biz = (user?.business_brain?.business_type || '').trim();
+  const lead = "hey, it's flynn. save me as a contact so you don't lose me, card's attached.";
+  if (biz) {
+    return `${lead}\n\nwhenever you're back to it i can sort the admin side of your ${biz} work, invoices, quotes, bookings, just text me`;
+  }
+  return `${lead}\n\ntell me what kind of work you do and i'll start handling the boring stuff for you, invoices, parts, replies`;
+}
+
+// One contact nudge (count 0) + the value-first follow-ups.
+const TOTAL_NUDGES = 1 + FOLLOWUPS.length;
 
 class ReengagementScheduler {
   constructor() {
@@ -51,10 +70,38 @@ class ReengagementScheduler {
     return (count || 0) > 0;
   }
 
+  // Send the right nudge for this user's current count, re-attaching the vCard
+  // on the first (contact) touch. Increments the count + stamps the time.
+  // Shared by the timed cron sweep and the immediate backfill.
+  async sendNudge(user, now) {
+    const count = user.reengagement_sent_count || 0;
+    const channel = resolveChannel(user); // iMessage-first; SMS fallback inside sendToUser
+    const message = count === 0 ? contactNudge(user) : FOLLOWUPS[count - 1];
+
+    await sendToUser(user.phone, message, { channel, supabase: this.supabase });
+
+    // The "save me as a contact" touch carries the card again. iMessage only —
+    // vCard MMS at signup already covered the SMS path.
+    if (count === 0 && channel === 'imessage') {
+      await sendAttachment(user.phone, VCARD_URL, 'Flynn.vcf')
+        .catch((err) => console.warn('[Reengagement] vCard re-send failed:', err?.message));
+    }
+
+    await this.supabase
+      .from('users')
+      .update({
+        reengagement_sent_count: count + 1,
+        last_reengagement_at: new Date(now).toISOString(),
+      })
+      .eq('id', user.id);
+
+    console.log('[Reengagement] Sent nudge', { phone: user.phone, step: count + 1, withVCard: count === 0 });
+  }
+
   // Is this candidate due for its next nudge, given how many we've sent?
   isDue(user, now) {
     const count = user.reengagement_sent_count || 0;
-    if (count >= MESSAGES.length) return false;
+    if (count >= TOTAL_NUDGES) return false;
 
     const createdMs = user.created_at ? new Date(user.created_at).getTime() : 0;
     const lastMs = user.last_reengagement_at ? new Date(user.last_reengagement_at).getTime() : 0;
@@ -79,10 +126,10 @@ class ReengagementScheduler {
 
     const { data: candidates, error } = await this.supabase
       .from('users')
-      .select('id, phone, created_at, reengagement_sent_count, last_reengagement_at, preferred_channel')
+      .select('id, phone, created_at, reengagement_sent_count, last_reengagement_at, preferred_channel, business_brain')
       .eq('onboarding_step', 'brain_pending')
       .eq('reengagement_opted_out', false)
-      .lt('reengagement_sent_count', MESSAGES.length)
+      .lt('reengagement_sent_count', TOTAL_NUDGES)
       .lt('created_at', twoHoursAgo)
       .not('phone', 'is', null)
       .limit(200);
@@ -97,23 +144,8 @@ class ReengagementScheduler {
       try {
         if (!this.isDue(user, now)) continue;
         if (await this.hasInbound(user.phone)) continue; // they engaged — stop
-
-        const count = user.reengagement_sent_count || 0;
-        const message = MESSAGES[count];
-        const channel = resolveChannel(user); // iMessage-first; SMS fallback inside sendToUser
-
-        await sendToUser(user.phone, message, { channel, supabase: this.supabase });
-
-        await this.supabase
-          .from('users')
-          .update({
-            reengagement_sent_count: count + 1,
-            last_reengagement_at: new Date(now).toISOString(),
-          })
-          .eq('id', user.id);
-
+        await this.sendNudge(user, now);
         sent++;
-        console.log('[Reengagement] Sent nudge', { phone: user.phone, step: count + 1 });
       } catch (err) {
         console.error('[Reengagement] Failed for', user.phone, err?.message || err);
       }
@@ -121,6 +153,54 @@ class ReengagementScheduler {
 
     if (sent > 0) console.log(`[Reengagement] Sweep complete, ${sent} nudge(s) sent`);
     return { sent };
+  }
+
+  /**
+   * One-time backfill: send the contact nudge NOW to everyone who signed up but
+   * never got it (still at count 0, never replied, not opted out), ignoring the
+   * usual ~2h spacing. Idempotent — once a user is bumped to count 1 they're no
+   * longer a candidate, so re-running won't double-send. Pass dryRun to preview.
+   */
+  async runImmediateContactSweep({ dryRun = false } = {}) {
+    if (!this.supabase) return { sent: 0, candidates: [] };
+    const now = Date.now();
+
+    const { data: rows, error } = await this.supabase
+      .from('users')
+      .select('id, phone, reengagement_sent_count, preferred_channel, business_brain')
+      .eq('onboarding_step', 'brain_pending')
+      .eq('reengagement_opted_out', false)
+      .eq('reengagement_sent_count', 0)
+      .not('phone', 'is', null)
+      .limit(500);
+
+    if (error) {
+      console.error('[Reengagement] Immediate sweep query failed:', error.message);
+      return { sent: 0, candidates: [] };
+    }
+
+    const eligible = [];
+    for (const user of rows || []) {
+      if (!user.phone || user.phone.replace(/\D/g, '').length < 8) continue; // skip junk numbers
+      if (await this.hasInbound(user.phone)) continue; // already engaged
+      eligible.push(user);
+    }
+
+    if (dryRun) {
+      return { sent: 0, dryRun: true, candidates: eligible.map((u) => ({ phone: u.phone, biz: u.business_brain?.business_type || null })) };
+    }
+
+    let sent = 0;
+    for (const user of eligible) {
+      try {
+        await this.sendNudge(user, now);
+        sent++;
+      } catch (err) {
+        console.error('[Reengagement] Immediate nudge failed for', user.phone, err?.message || err);
+      }
+    }
+    console.log(`[Reengagement] Immediate contact sweep complete, ${sent}/${eligible.length} sent`);
+    return { sent, eligible: eligible.length };
   }
 }
 
