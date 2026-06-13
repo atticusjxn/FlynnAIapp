@@ -57,6 +57,42 @@ async function sendMessage(to, text) {
 }
 
 /**
+ * Send an iMessage to a group chat, addressed by its chat GUID verbatim.
+ *
+ * Unlike sendMessage (which builds a 1:1 `iMessage;-;<phone>` GUID), a group has
+ * no single recipient phone — BlueBubbles routes by the group's own chat GUID
+ * (e.g. "iMessage;+;chat123..."). There is no SMS fallback for a group.
+ * @param {string} chatGuid Group chat GUID from the inbound webhook (data.chats[0].guid)
+ * @param {string} text     Message body
+ */
+async function sendToGroup(chatGuid, text) {
+  if (!BB_URL || !BB_PASSWORD) {
+    throw new Error('BLUEBUBBLES_URL and BLUEBUBBLES_PASSWORD are required');
+  }
+  if (!chatGuid) throw new Error('sendToGroup requires a chatGuid');
+
+  const res = await fetch(bbUrl('/api/v1/message/text'), {
+    method: 'POST',
+    headers: bbHeaders(),
+    body: JSON.stringify({
+      chatGuid, // group GUID, passed through unchanged
+      message: text,
+      method: 'private-api',
+      tempGuid: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`BlueBubbles sendToGroup failed (${res.status}): ${body}`);
+  }
+
+  const data = await res.json();
+  console.log('[BlueBubbles] Sent group iMessage', { chatGuid, guid: data?.data?.guid });
+  return data;
+}
+
+/**
  * Send an attachment (file URL) via iMessage.
  * @param {string} to      E.164 phone number
  * @param {string} fileUrl Publicly accessible URL of the file
@@ -154,4 +190,4 @@ async function markRead(to) {
   }
 }
 
-module.exports = { sendMessage, sendAttachment, downloadAttachment, setTyping, markRead, ping };
+module.exports = { sendMessage, sendToGroup, sendAttachment, downloadAttachment, setTyping, markRead, ping };

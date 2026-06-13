@@ -163,4 +163,31 @@ async function generateAppLink(rawPhone) {
   };
 }
 
-module.exports = { normalizePhone, syntheticEmail, ensureAuthUser, generateAppLink };
+/**
+ * Mint a single-use Supabase magic-link token for the WEB dashboard. Same
+ * mechanism as generateAppLink, but the token_hash is handed to the web client
+ * (flynnai.app/dashboard) which exchanges it via supabase.auth.verifyOtp to
+ * establish a browser session. Returns { url, phone } or { error }.
+ */
+async function generateDashboardLink(rawPhone) {
+  if (!admin) return { error: 'auth not configured' };
+  const phone = normalizePhone(rawPhone);
+  if (!phone) return { error: 'invalid phone' };
+
+  const ensured = await ensureAuthUser(phone);
+  if (!ensured?.id) return { error: 'could not provision user' };
+
+  const email = syntheticEmail(phone);
+  const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email });
+  if (error) return { error: error.message };
+
+  const tokenHash = data?.properties?.hashed_token;
+  if (!tokenHash) return { error: 'no token produced' };
+
+  const base = (process.env.DASHBOARD_URL || 'https://flynnai.app/dashboard').replace(/\/$/, '');
+  // The web app reads these from the URL hash and calls verifyOtp.
+  const url = `${base}/#token_hash=${encodeURIComponent(tokenHash)}&type=magiclink`;
+  return { url, phone };
+}
+
+module.exports = { normalizePhone, syntheticEmail, ensureAuthUser, generateAppLink, generateDashboardLink };

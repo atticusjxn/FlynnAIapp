@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flynn</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- iMessage-style chat (optional on-camera / screen-record overlay) -->
+  <div id="phone">
+    <div id="nav">
+      <div id="avatar">F</div>
+      <div id="navname">Flynn</div>
+    </div>
+    <div id="chat"></div>
+  </div>
+
+  <!-- Operator control panel (off-camera, on the Mac) -->
+  <div id="panel">
+    <div class="row">
+      <div id="state" class="state idle">IDLE</div>
+      <div id="heard" class="heard">tap <b>START</b> (or SPACE) — then just talk</div>
+    </div>
+
+    <div class="row controls">
+      <label>voice
+        <select id="voice"></select>
+      </label>
+      <label>think beat
+        <input id="think" type="range" min="0" max="3000" step="100" value="1500" />
+        <span id="thinkval">1.5s</span>
+      </label>
+      <label>mic delay
+        <input id="micdelay" type="range" min="0" max="1500" step="100" value="800" />
+        <span id="micdelayval">0.8s</span>
+      </label>
+      <label>pace
+        <input id="pace" type="range" min="0.9" max="1.4" step="0.05" value="1.1" />
+        <span id="paceval">1.1x</span>
+      </label>
+      <button id="warm">re-warm</button>
+      <button id="copytx">copy transcript</button>
+    </div>
+
+    <div class="row typedrow">
+      <input id="typed" type="text" placeholder="type or paste a line as you, hit Enter — Flynn types &amp; replies" />
+      <button id="send">send</button>
+    </div>
+
+    <div class="cues">
+      <div class="cueshdr">your lines (click to test without talking)</div>
+      <div id="cues"></div>
+    </div>
+
+    <div class="hint">
+      Mac output &rarr; car Bluetooth. Mac input &rarr; built-in mic. Keep this tab focused.
+      Hands-free: tap <b>START</b> (or press SPACE) once, then just talk — Flynn answers,
+      mutes the mic while it speaks, and re-opens it after the mic-delay. Tap again to stop.
+    </div>
+    <button id="ptt">START</button>
+  </div>
+
+  <audio id="player"></audio>
+  <script src="app.js"></script>
+</body>
+</html>

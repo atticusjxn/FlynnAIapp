@@ -292,6 +292,67 @@ async function logExpense(ctx, args) {
 }
 
 // ---------------------------------------------------------------------------
+// Timesheets (Google Sheets) — log a worker's hours. Same append pattern as
+// expenses, to a separate "Flynn timesheets" sheet. A common ask once Flynn is
+// watching a team group chat ("Jack worked 6h Friday").
+// ---------------------------------------------------------------------------
+
+async function logTimesheet(ctx, args) {
+  const worker = requireArg(args, 'worker', 'whose hours these are');
+  const hours = Number(requireArg(args, 'hours', 'hours worked, e.g. 6'));
+  if (!Number.isFinite(hours) || hours <= 0) throw new ToolArgError('hours must be a positive number');
+  const date = assertDate(args.date || new Date().toISOString().slice(0, 10));
+
+  const token = await nangoToken(ctx, 'google-sheet');
+  const conn = ctx.connections.get('google-sheet');
+  let spreadsheetId = conn?.metadata?.timesheets_spreadsheet_id;
+  let created = false;
+  let sheetUrl = conn?.metadata?.timesheets_spreadsheet_url;
+
+  if (!spreadsheetId) {
+    const sheet = await googleApi(token, `${SHEETS_BASE}/spreadsheets`, {
+      method: 'POST',
+      body: { properties: { title: 'Flynn timesheets' }, sheets: [{ properties: { title: 'Timesheets' } }] },
+    });
+    spreadsheetId = sheet.spreadsheetId;
+    sheetUrl = sheet.spreadsheetUrl;
+    created = true;
+    await googleApi(token, `${SHEETS_BASE}/spreadsheets/${spreadsheetId}/values/Timesheets!A1:E1?valueInputOption=USER_ENTERED`, {
+      method: 'PUT',
+      body: { values: [['Date', 'Worker', 'Hours', 'Job', 'Rate']] },
+    });
+    if (conn) {
+      const metadata = { ...(conn.metadata || {}), timesheets_spreadsheet_id: spreadsheetId, timesheets_spreadsheet_url: sheetUrl };
+      await ctx.supabase
+        .from('user_connections')
+        .update({ metadata, updated_at: new Date().toISOString() })
+        .eq('id', conn.id);
+      conn.metadata = metadata;
+    }
+  }
+
+  const rate = Number(args.rate_cents);
+  await googleApi(token, `${SHEETS_BASE}/spreadsheets/${spreadsheetId}/values/Timesheets!A:E:append?valueInputOption=USER_ENTERED`, {
+    method: 'POST',
+    body: {
+      values: [[
+        date,
+        worker,
+        hours,
+        args.job || '',
+        Number.isFinite(rate) && rate > 0 ? (rate / 100).toFixed(2) : '',
+      ]],
+    },
+  });
+
+  const tail = created && sheetUrl ? `. made you a timesheets sheet: ${sheetUrl}` : '';
+  return {
+    result: `timesheet logged: ${date} ${worker} ${hours}h${created ? ' (new spreadsheet created)' : ''}`,
+    userFacing: `logged ${hours}h for ${worker.toLowerCase()}${args.job ? ` on ${args.job}` : ''}${tail}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Browserbase-backed (Xero invoicing, supplier orders)
 // ---------------------------------------------------------------------------
 
@@ -586,6 +647,32 @@ const CAPABILITIES = [
           required: ['vendor', 'total_cents'],
         },
         executor: logExpense,
+      },
+    ],
+  },
+  {
+    capability: 'timesheets',
+    provider: 'google-sheet',
+    auth_kind: 'nango_oauth',
+    label: 'Google Sheets',
+    connectBlurb: 'a google sheet for timesheets',
+    tools: [
+      {
+        name: 'log_timesheet',
+        confirm: false,
+        description: "Log a worker's hours to the user's timesheets spreadsheet (created automatically the first time). Use when someone reports hours worked, e.g. \"Jack did 6h Friday\".",
+        parameters: {
+          type: 'object',
+          properties: {
+            worker: { type: 'string', description: 'who worked, e.g. Jack' },
+            hours: { type: 'number', description: 'hours worked, e.g. 6' },
+            date: { type: 'string', description: 'YYYY-MM-DD, default today' },
+            job: { type: 'string', description: 'job/site the hours were on, if known' },
+            rate_cents: { type: 'number', description: 'hourly rate in integer cents if known' },
+          },
+          required: ['worker', 'hours'],
+        },
+        executor: logTimesheet,
       },
     ],
   },

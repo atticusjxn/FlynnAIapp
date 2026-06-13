@@ -25,6 +25,8 @@ const { sendMessage: bbSend, sendAttachment, downloadAttachment, setTyping, mark
 const { sendToUser } = require('../services/flynnOutbound');
 const { sanitiseReply } = require('../services/flynnTone');
 const { ensureAuthUser } = require('../services/authLink');
+const generator = require('../services/dashboard/manifestGenerator');
+const { createDashboardLoginLink } = require('../services/dashboardLink');
 
 const router = express.Router();
 
@@ -75,6 +77,24 @@ router.post('/inbound', async (req, res) => {
   // that the sender address isn't Flynn's own number/iCloud account
   if (!msg) return;
   if (msg.isFromMe === true) return;
+
+  // Group chats route to the silent note-taker (groupRouter), never the 1:1
+  // brain. Detected from the chat GUID (a group is "iMessage;+;chat..."). Flynn
+  // stays quiet in the group and DMs the boss privately.
+  const { normalizeInbound } = require('../services/groupAgent/inboundEvent');
+  const event = normalizeInbound(payload);
+  if (event.isGroup) {
+    const g = event.messageGuid;
+    if (g && recentGuids.has(g)) return;
+    if (g) { recentGuids.add(g); setTimeout(() => recentGuids.delete(g), 60_000); }
+    try {
+      const { processGroupMessage } = require('../services/groupAgent/groupRouter');
+      await processGroupMessage(event, { supabase });
+    } catch (err) {
+      console.error('[iMessageInbound] group handler error:', err?.message || err);
+    }
+    return;
+  }
 
   // Normalise the sender address to E.164
   const rawAddress = msg?.handle?.address || '';
@@ -180,8 +200,9 @@ router.post('/inbound', async (req, res) => {
     let pendingAction = null;
     let userIntegrations = {};
     let connections = new Map();
+    let openActionItems = [];
     if (supabase) {
-      const [pendingRes, integrationsRes, connectionsRes] = await Promise.all([
+      const [pendingRes, integrationsRes, connectionsRes, openItemsRes] = await Promise.all([
         supabase
           .from('pending_actions')
           .select('*')
@@ -198,9 +219,19 @@ router.post('/inbound', async (req, res) => {
           .from('user_connections')
           .select('*')
           .eq('user_phone', from),
+        // Open suggestions Flynn raised from this user's team group chat(s), so a
+        // plain-language reply ("order the MDF") can action them in this turn.
+        supabase
+          .from('group_action_items')
+          .select('id, summary, category, suggested_tool, suggested_args, urgency')
+          .eq('owner_phone', from)
+          .in('status', ['new', 'sent'])
+          .order('created_at', { ascending: true })
+          .limit(20),
       ]);
 
       pendingAction = pendingRes.data || null;
+      openActionItems = openItemsRes.data || [];
 
       const { decryptCredentials } = require('../services/credentialCrypto');
       for (const row of (integrationsRes.data || [])) {
@@ -303,6 +334,7 @@ router.post('/inbound', async (req, res) => {
       supabase,
       connections,
       imageNote,
+      openActionItems,
     });
 
     // Update business brain if onboarding produced one
@@ -398,6 +430,34 @@ router.post('/inbound', async (req, res) => {
     }
 
     console.log('[iMessageInbound] Replied', { from, intent: result.intent });
+
+    // Once a user has used Flynn enough, build their custom dashboard and text
+    // the login link — once. Runs after the reply so it never delays it.
+    if (supabase && user?.id) {
+      const latestBrain = result.updatedBrain || user.business_brain || {};
+      if (!latestBrain._dashboard_announced_at) {
+        try {
+          const ready = await generator.isReadyForDashboard({ phone: from, supabase });
+          if (ready.ready) {
+            await generator.generateManifest({ phone: from, supabase, force: false });
+            const link = await createDashboardLoginLink({ userId: user.id, phone: from });
+            if (link) {
+              await sendToUser(from, [
+                'built you a little dashboard for the business, your invoices, jobs and the bits you use most all in one spot',
+                link,
+              ], { channel: 'imessage', supabase });
+              await supabase
+                .from('users')
+                .update({ business_brain: { ...latestBrain, _dashboard_announced_at: new Date().toISOString() } })
+                .eq('id', user.id)
+                .then(() => {}, () => {});
+            }
+          }
+        } catch (err) {
+          console.warn('[iMessageInbound] dashboard readiness check failed:', err?.message);
+        }
+      }
+    }
   } catch (err) {
     console.error('[iMessageInbound] Error:', err?.message || err);
 

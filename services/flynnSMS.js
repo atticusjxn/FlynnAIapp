@@ -533,7 +533,7 @@ async function executeConfirmed(pendingAction, userIntegrations = {}) {
 // Main export
 // ---------------------------------------------------------------------------
 
-async function processMessage({ phone, message, businessBrain, onboardingStep, pendingAction, userIntegrations, user, supabase, connections, imageNote }) {
+async function processMessage({ phone, message, businessBrain, onboardingStep, pendingAction, userIntegrations, user, supabase, connections, imageNote, openActionItems }) {
   const toolLoopOn = process.env.FLYNN_TOOL_LOOP === '1';
 
   // 0. Live demo armed after brain setup — next message is the magic moment.
@@ -574,7 +574,7 @@ async function processMessage({ phone, message, businessBrain, onboardingStep, p
   // 5. Active phase — tool-calling agent loop (flagged), legacy JSON routing otherwise
   if (toolLoopOn) {
     const { runAgentTurn } = require('./agent/agentLoop');
-    return runAgentTurn({ phone, user, message, supabase, connections, userIntegrations, pendingAction, imageNote });
+    return runAgentTurn({ phone, user, message, supabase, connections, userIntegrations, pendingAction, imageNote, openActionItems });
   }
   return routeIntent(message, businessBrain, pendingAction);
 }

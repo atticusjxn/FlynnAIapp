@@ -1424,6 +1424,11 @@ app.use('/api/booking', bookingRoutes);
 const appleSearchAdsAttributionRoutes = require('./routes/appleSearchAdsAttributionRoutes');
 app.use('/api/attribution', appleSearchAdsAttributionRoutes);
 
+// Customer-facing dashboard API + /d/<code> web login bounce. Routes declare
+// their own full paths (/api/dashboard/* and /d/:code), so mount at root.
+const dashboardRoutes = require('./routes/dashboard');
+app.use('/', dashboardRoutes);
+
 // ========================================
 // Payments Summary CSV (Mates Rates compatibility)
 // ========================================
@@ -6018,6 +6023,7 @@ if (require.main === module) {
 
   const bookingReminderScheduler = require('./services/bookingReminderScheduler');
   const reengagementScheduler = require('./services/reengagementScheduler');
+  const groupDigestScheduler = require('./services/groupAgent/digestScheduler');
 
   // Process reminders every minute
   setInterval(async () => {
@@ -6026,6 +6032,9 @@ if (require.main === module) {
       await bookingReminderScheduler.processPendingBookingReminders();
       // Re-engage stalled signups (internally throttled to ~10 min between sweeps).
       await reengagementScheduler.processReengagement();
+      // Group note-taker: batch-extract action items + send the daily boss digest
+      // (internally throttled to ~3 min between sweeps).
+      await groupDigestScheduler.processTick();
     } catch (error) {
       console.error('[Cron] Reminder processor error:', error);
     }

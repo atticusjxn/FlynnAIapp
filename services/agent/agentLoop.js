@@ -20,6 +20,7 @@
 const { getLLMClient } = require('../../llmClient');
 const nango = require('../nango');
 const registry = require('./toolRegistry');
+const { logToolEvent } = require('./toolEvents');
 
 const QWEN_MODEL = process.env.SMS_LLM_MODEL || process.env.DRAFT_LLM_MODEL || 'qwen3.5-flash';
 const MAX_TOOL_ITERATIONS = 6; // headroom to log a batch of receipts in one turn
@@ -95,7 +96,16 @@ function connectionSummary(ctx) {
   return bits.join('; ');
 }
 
-function buildSystemPrompt(ctx, imageNote) {
+function openItemsBlock(openActionItems) {
+  if (!Array.isArray(openActionItems) || !openActionItems.length) return '';
+  const lines = openActionItems
+    .map((it, i) => `${i + 1}. [${it.category || 'item'}] ${it.summary}`)
+    .join('\n');
+  return `\nFlynn has been watching this user's team group chat. Open items you picked up that they haven't actioned yet (they may refer to these by number, e.g. "do 1 and 3", or in plain words, e.g. "order the MDF"). When they ask, call the matching tool with the details from the item:
+${lines}\n`;
+}
+
+function buildSystemPrompt(ctx, imageNote, openActionItems) {
   const now = new Date();
   const today = now.toLocaleDateString('en-CA', { timeZone: ctx.tz }); // YYYY-MM-DD
   const weekday = now.toLocaleDateString('en-AU', { timeZone: ctx.tz, weekday: 'long' });
@@ -108,7 +118,7 @@ Their business (use these real details, never invent prices or contacts):
 ${JSON.stringify(ctx.brain, null, 2)}
 
 Tool connections right now: ${connectionSummary(ctx)}
-${imageNote ? `\n${imageNote}\n` : ''}
+${imageNote ? `\n${imageNote}\n` : ''}${openItemsBlock(openActionItems)}
 Rules:
 - Use the tools to actually do things. Don't describe what you could do, do it. If a tool's account isn't connected, call it anyway: the user gets a 10-second connect link and the action runs right after.
 - Resolve relative dates ("thursday", "tomorrow arvo") to real YYYY-MM-DD dates using today's date above before calling a tool. Morning ~08:00, midday 12:00, arvo ~14:00 unless they said a time.
@@ -128,14 +138,28 @@ Rules:
  */
 async function safeExecute(entry, ctx, args) {
   try {
-    return await entry.tool.executor(ctx, args);
+    const outcome = await entry.tool.executor(ctx, args);
+    return { ...outcome, ok: true };
   } catch (err) {
     if (err instanceof registry.ToolArgError) {
-      return { result: `tool error: ${err.message}` };
+      return { result: `tool error: ${err.message}`, ok: false };
     }
     console.error(`[AgentLoop] ${entry.tool.name} failed:`, err?.message || err);
-    return { result: `tool failed: ${String(err?.message || err).slice(0, 200)}. apologise briefly and suggest trying again` };
+    return { result: `tool failed: ${String(err?.message || err).slice(0, 200)}. apologise briefly and suggest trying again`, ok: false };
   }
+}
+
+/**
+ * Emit one tool_call_events row for an execution. Never throws.
+ */
+function recordToolEvent(entry, ctx, args, outcome, source) {
+  logToolEvent(ctx, {
+    toolName: entry.tool.name,
+    capability: entry.capability.capability,
+    provider: registry.providerFor(entry.capability, ctx, args),
+    success: outcome?.ok !== false,
+    source,
+  });
 }
 
 function parseArgs(toolCall) {
@@ -144,6 +168,32 @@ function parseArgs(toolCall) {
   } catch {
     return null;
   }
+}
+
+/**
+ * When the agent acts on a tool that matches an open group-chat item, mark that
+ * item actioned so it stops being suggested. Matching: same suggested_tool;
+ * if several share it, prefer the one whose suggested_args overlaps. Mutates
+ * openItems (removes the matched one). Fires on execute, confirm-park, or
+ * connect-park alike — once the boss engages an item it shouldn't re-nag.
+ */
+async function reconcileActionedItem(openItems, toolName, args, supabase) {
+  if (!openItems.length || !supabase) return;
+  const candidates = openItems.filter((it) => it.suggested_tool === toolName);
+  if (!candidates.length) return;
+
+  let match = candidates[0];
+  if (candidates.length > 1) {
+    const argVals = new Set(Object.values(args || {}).map((v) => String(v).toLowerCase()));
+    match = candidates.find((it) => Object.values(it.suggested_args || {}).some((v) => argVals.has(String(v).toLowerCase()))) || candidates[0];
+  }
+
+  openItems.splice(openItems.indexOf(match), 1);
+  await supabase
+    .from('group_action_items')
+    .update({ status: 'actioned', updated_at: new Date().toISOString() })
+    .eq('id', match.id)
+    .then(() => {}, () => {});
 }
 
 async function gatedLinkBubble(capability, ctx, provider) {
@@ -161,14 +211,18 @@ async function gatedLinkBubble(capability, ctx, provider) {
 /**
  * The main turn. Mirrors the legacy routeIntent contract.
  */
-async function runAgentTurn({ phone, user, message, supabase, connections, userIntegrations, pendingAction, imageNote }) {
+async function runAgentTurn({ phone, user, message, supabase, connections, userIntegrations, pendingAction, imageNote, openActionItems }) {
   const brain = user?.business_brain || {};
   const ctx = buildCtx({ user, phone, supabase, connections, userIntegrations, brain });
   const client = getLLMClient('compatible');
 
+  // Open group-chat items the boss may act on this turn. Mutated as items are
+  // matched so each is reconciled at most once.
+  const openItems = Array.isArray(openActionItems) ? [...openActionItems] : [];
+
   const history = await loadHistory(supabase, phone, message);
   const messages = [
-    { role: 'system', content: buildSystemPrompt(ctx, imageNote) },
+    { role: 'system', content: buildSystemPrompt(ctx, imageNote, openItems) },
     ...history,
     { role: 'user', content: message },
   ];
@@ -209,6 +263,10 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
         respond('tool error: arguments were not valid JSON, try again');
         continue;
       }
+
+      // Acting on a tool that matches an open group item retires it (whether it
+      // executes, parks for confirm, or parks for connect below).
+      await reconcileActionedItem(openItems, entry.tool.name, args, supabase);
 
       const provider = registry.providerFor(entry.capability, ctx, args);
 
@@ -257,6 +315,7 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
 
       // Execute.
       const outcome = await safeExecute(entry, ctx, args);
+      recordToolEvent(entry, ctx, args, outcome, 'llm');
       respond(outcome.result || 'done');
 
       // save_login can unblock a parked action in the same turn.
@@ -281,6 +340,7 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
           };
         } else if (parkedEntry) {
           const parkedOutcome = await safeExecute(parkedEntry, ctx, pendingAction.tool_args || {});
+          recordToolEvent(parkedEntry, ctx, pendingAction.tool_args || {}, parkedOutcome, 'resumed');
           respond(`parked action ran now the login is saved: ${parkedOutcome.result}`);
           parkedResult = { clearPending: true };
         }
@@ -303,6 +363,7 @@ async function executePendingTool({ pendingAction, phone, user, supabase, connec
     brain: user?.business_brain || {},
   });
   const outcome = await safeExecute(entry, ctx, pendingAction.tool_args || {});
+  recordToolEvent(entry, ctx, pendingAction.tool_args || {}, outcome, 'confirmed');
   return outcome.userFacing || outcome.result || 'done';
 }
 
@@ -368,6 +429,7 @@ async function resumeParkedAction(phone, provider, supabase) {
   // Delete before executing so a webhook retry can't double-run the action.
   await supabase.from('pending_actions').delete().eq('id', pending.id);
   const outcome = await safeExecute(entry, ctx, pending.tool_args || {});
+  recordToolEvent(entry, ctx, pending.tool_args || {}, outcome, 'resumed');
   return { handled: true, bubbles: [outcome.userFacing || outcome.result || 'done'] };
 }
 
@@ -469,6 +531,9 @@ module.exports = {
   recordNangoConnection,
   reconcileNangoConnection,
   loadConnections,
+  buildCtx,
+  safeExecute,
+  recordToolEvent,
   PROVIDER_TO_BRAIN_SLUG,
   CONNECTED_BLURB,
 };

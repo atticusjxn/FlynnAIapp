@@ -1,0 +1,13 @@
+name = "flynn-dashboard"
+compatibility_date = "2026-04-24"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+
+# Wire the custom route in the Cloudflare dashboard (or uncomment below) so this
+# worker serves flynnai.app/dashboard/*. The landing-page worker keeps the root.
+# routes = [
+#   { pattern = "flynnai.app/dashboard/*", zone_name = "flynnai.app" }
+# ]
