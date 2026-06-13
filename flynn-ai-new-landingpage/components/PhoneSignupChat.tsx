@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState } from 'react';
 
 const DEMO = [
   { out: false, text: "Hey! I'm Flynn, your business brain." },
@@ -25,14 +24,7 @@ function IMessageIcon({ size = 28 }: { size?: number }) {
 }
 
 export default function PhoneSignupChat() {
-  const [visibleCount, setVisibleCount] = useState(0);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const delays = [400, 1000, 1700, 2500];
-    const timers = delays.map((ms, i) => setTimeout(() => setVisibleCount(i + 1), ms));
-    return () => timers.forEach(clearTimeout);
-  }, []);
 
   async function copyNumber() {
     try {
@@ -45,7 +37,7 @@ export default function PhoneSignupChat() {
   return (
     <div className="flex flex-col items-center gap-5">
       {/* Phone mockup — decorative demo */}
-      <div className="relative w-[300px] sm:w-[330px] rounded-[46px] bg-[#1A1714] p-[11px] shadow-[0_8px_32px_-8px_rgba(44,32,24,0.45)]">
+      <div className="relative w-[300px] sm:w-[330px] rounded-[46px] bg-[#1A1714] p-[11px] shadow-[0_8px_32px_-8px_rgba(44,32,24,0.45)] order-2 lg:order-1">
         <div className="rounded-[36px] overflow-hidden bg-white">
           {/* Status bar */}
           <div className="flex items-center justify-between px-6 pt-3 pb-1 text-[#141416]">
@@ -72,24 +64,19 @@ export default function PhoneSignupChat() {
             <span className="w-6 h-6 rounded-full border-2 border-[#007AFF] text-[#007AFF] grid place-items-center text-xs font-bold">i</span>
           </div>
 
-          {/* Thread — fixed height so bubbles animate inside without pushing layout */}
+          {/* Thread — static, all bubbles shown at once */}
           <div className="px-3 pt-3 pb-2 space-y-2 h-[160px] overflow-hidden flex flex-col justify-end">
-            <AnimatePresence>
-              {DEMO.slice(0, visibleCount).map((b, i) => (
-                <motion.div key={i}
-                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.22 }}
-                  className={`max-w-[82%] text-[13px] leading-snug rounded-2xl px-3.5 py-2.5 ${
-                    b.out
-                      ? 'ml-auto bg-[#007AFF] text-white rounded-br-md'
-                      : 'bg-[#E9E9EB] text-[#141416] rounded-bl-md'
-                  }`}
-                >
-                  {b.text}
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            {DEMO.map((b, i) => (
+              <div key={i}
+                className={`max-w-[82%] text-[13px] leading-snug rounded-2xl px-3.5 py-2.5 ${
+                  b.out
+                    ? 'ml-auto bg-[#007AFF] text-white rounded-br-md'
+                    : 'bg-[#E9E9EB] text-[#141416] rounded-bl-md'
+                }`}
+              >
+                {b.text}
+              </div>
+            ))}
           </div>
 
           {/* Decorative compose bar */}
@@ -109,14 +96,14 @@ export default function PhoneSignupChat() {
       {/* Primary CTA — Series style: white pill, green iMessage icon */}
       <a
         href={SMS_LINK}
-        className="flex items-center gap-3 bg-white rounded-full px-5 py-3.5 shadow-[0_4px_20px_-4px_rgba(44,32,24,0.2)] border border-gray-100 hover:shadow-[0_6px_28px_-4px_rgba(44,32,24,0.3)] active:scale-95 transition-all"
+        className="flex items-center gap-3 bg-white rounded-full px-5 py-3.5 shadow-[0_4px_20px_-4px_rgba(44,32,24,0.2)] border border-gray-100 hover:shadow-[0_6px_28px_-4px_rgba(44,32,24,0.3)] active:scale-95 transition-all order-1 lg:order-2"
       >
         <IMessageIcon size={30} />
         <span className="text-[17px] font-semibold text-[#1A1A1A]">Message Flynn</span>
       </a>
 
       {/* Desktop fallback */}
-      <p className="text-sm text-[#8C7B6A] text-center -mt-1">
+      <p className="text-sm text-[#8C7B6A] text-center -mt-1 order-3">
         On desktop? Text{' '}
         <button
           onClick={copyNumber}
