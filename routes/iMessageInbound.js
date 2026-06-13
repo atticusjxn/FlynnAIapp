@@ -259,7 +259,7 @@ router.post('/inbound', async (req, res) => {
 
         if (receipts.length) {
           const plural = receipts.length > 1;
-          imageNote = `The user just sent ${receipts.length} receipt photo${plural ? 's' : ''}. Per-receipt extractions: ${JSON.stringify(receipts)}. Log EACH ONE to their expense destination: check their business details for expense_destination. If it's the google sheet (or they say so), call sheets_log_expense once per receipt with those values${plural ? ' (one tool call per receipt)' : ''}, and don't re-ask amounts you already have. If you DON'T know where they keep expenses yet, ask once: google sheet, or accounting software (xero, myob, quickbooks)? Then call remember with expense_destination. Be upfront that filing into accounting software isn't hooked up yet, so if they pick that, remember it and offer the sheet meanwhile.`;
+          imageNote = `The user just sent ${receipts.length} receipt photo${plural ? 's' : ''}. Per-receipt extractions: ${JSON.stringify(receipts)}. Log EACH ONE to their expense destination: check their business details for expense_destination. If it's "xero", call xero_log_expense once per receipt; if it's the google sheet (or they say so), call sheets_log_expense once per receipt${plural ? ' (one tool call per receipt either way)' : ''}, using those values and don't re-ask amounts you already have. If you DON'T know where they keep expenses yet, ask once: xero, or a google sheet? Then call remember with expense_destination. (quickbooks and myob aren't hooked up yet, so if they ask for those, remember it and offer xero or the sheet meanwhile.)`;
         } else if (others.length) {
           imageNote = `The user just sent ${others.length} photo(s) (not receipts): ${others.join('; ')}.`;
         }
@@ -273,7 +273,7 @@ router.post('/inbound', async (req, res) => {
     // gone live and, if so, record it + resume the parked action right now.
     // Gated on the awaiting_connection row, so it only fires mid-connect and
     // resumeParkedAction deletes the row, so it never double-announces.
-    const NANGO_OAUTH_PROVIDERS = ['google-calendar', 'google-mail', 'google-sheet'];
+    const NANGO_OAUTH_PROVIDERS = ['google-calendar', 'google-mail', 'google-sheet', 'xero'];
     if (supabase && user?.id
       && pendingAction?.status === 'awaiting_connection'
       && NANGO_OAUTH_PROVIDERS.includes(pendingAction.required_provider)) {

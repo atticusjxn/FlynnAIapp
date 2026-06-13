@@ -359,6 +359,47 @@ describe('tool registry', () => {
     expect(update.payload.business_brain._connected_integrations).toBeUndefined();
   });
 
+  test('xero_log_expense: oauth connection counts, a browserbase xero login does not', () => {
+    const cap = registry.findTool('xero_log_expense').capability;
+    // OAuth row satisfies the expense capability
+    const oauth = new Map([['xero', { id: 'x1', provider: 'xero', status: 'connected', auth_kind: 'nango_oauth', nango_connection_id: 'nc_x', metadata: {} }]]);
+    expect(registry.connectionFor(cap, { connections: oauth, userIntegrations: {} }, {})).toBeTruthy();
+    // A browserbase credential row under the same key must NOT satisfy it
+    const cred = new Map([['xero', { id: 'x2', provider: 'xero', status: 'connected', auth_kind: 'credentials_browserbase' }]]);
+    expect(registry.connectionFor(cap, { connections: cred, userIntegrations: { xero: { email: 'a@b.co' } } }, {})).toBeNull();
+  });
+
+  test('xero_log_expense posts a draft ACCPAY bill and caches the tenant id', async () => {
+    nango.getToken.mockResolvedValue('xero-access-token');
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ tenantId: 'tenant-123' }] }) // GET /connections
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ Invoices: [{ InvoiceID: 'inv-1' }] }) }); // POST /Invoices
+    const prevFetch = global.fetch;
+    global.fetch = fetchMock;
+    const supabase = fakeSupabase();
+    const conn = { id: 'x1', provider: 'xero', status: 'connected', auth_kind: 'nango_oauth', nango_connection_id: 'nc_x', metadata: {} };
+    const ctx = {
+      phone: PHONE, user: USER, supabase, nango,
+      connections: new Map([['xero', conn]]), userIntegrations: {},
+      brain: {}, currency: 'AUD',
+    };
+    try {
+      const outcome = await registry.findTool('xero_log_expense').tool.executor(ctx, {
+        vendor: 'Bunnings', total_cents: 4400, gst_cents: 400, category: 'materials', date: '2026-06-13',
+      });
+      expect(outcome.userFacing).toContain('xero');
+      const post = JSON.parse(fetchMock.mock.calls[1][1].body).Invoices[0];
+      expect(post.Type).toBe('ACCPAY');
+      expect(post.Status).toBe('DRAFT');
+      expect(post.LineItems[0].UnitAmount).toBe('44.00');
+      expect(fetchMock.mock.calls[1][1].headers['Xero-tenant-id']).toBe('tenant-123');
+      // tenant id cached back onto the connection row
+      expect(conn.metadata.xero_tenant_id).toBe('tenant-123');
+    } finally {
+      global.fetch = prevFetch;
+    }
+  });
+
   test('resolveSupplier prefers explicit ask, then connected, then brain', () => {
     const base = { connections: new Map(), userIntegrations: {}, brain: {} };
     expect(registry.resolveSupplier(base, { supplier: 'bunnings' })).toBe('bunnings');

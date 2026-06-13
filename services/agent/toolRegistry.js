@@ -87,6 +87,42 @@ async function googleApi(token, url, { method = 'GET', body } = {}) {
   return res.json();
 }
 
+// Xero accounting API. Mirrors googleApi (token from Nango via nangoToken), plus
+// the Xero-tenant-id header that scopes every call to one organisation.
+const XERO_API = 'https://api.xero.com/api.xro/2.0';
+
+async function xeroApi(token, url, { method = 'GET', body, tenantId } = {}) {
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(tenantId ? { 'Xero-tenant-id': tenantId } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(`Xero API ${method} ${url} failed (${res.status}): ${text.slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+// Receipt category -> Xero chart-of-accounts code. Defaults are the common
+// Xero demo-org expense codes; a wrong code just files under the fallback, it
+// never fails the call. Override the fallback with FLYNN_XERO_DEFAULT_ACCOUNT_CODE.
+const XERO_EXPENSE_ACCOUNTS = {
+  materials: '310', // Cost of Goods Sold
+  fuel: '449',
+  vehicle: '449',
+  tools: '711',
+  office: '453',
+  food: '420',
+};
+
 // ---------------------------------------------------------------------------
 // Calendar — dual provider: Google (OAuth) or Apple/iCloud (CalDAV)
 // ---------------------------------------------------------------------------
@@ -277,6 +313,68 @@ async function xeroSendInvoice(ctx, args) {
   return {
     result: `xero invoice for ${amount} sent to ${clientName}`,
     userFacing: `invoice for ${amount} is away to ${clientName.toLowerCase()}`,
+  };
+}
+
+// Record a receipt as a DRAFT bill (ACCPAY) in Xero via the API. Draft is the
+// safety gate: it lands in the user's Xero for review before it hits the books,
+// so this is confirm:false and batches cleanly across many receipts.
+async function xeroLogExpense(ctx, args) {
+  const vendor = requireArg(args, 'vendor', 'who was paid');
+  const totalCents = Number(requireArg(args, 'total_cents', 'integer cents'));
+  if (!Number.isFinite(totalCents) || totalCents <= 0) throw new ToolArgError('total_cents must be a positive integer');
+  const date = assertDate(args.date || new Date().toISOString().slice(0, 10));
+
+  const token = await nangoToken(ctx, 'xero');
+  const conn = ctx.connections.get('xero');
+
+  // Tenant id (which Xero org). Fetched once from the identity endpoint, then
+  // cached on the connection row so later receipts skip the round-trip.
+  let tenantId = conn?.metadata?.xero_tenant_id;
+  if (!tenantId) {
+    const orgs = await xeroApi(token, 'https://api.xero.com/connections');
+    tenantId = Array.isArray(orgs) ? orgs[0]?.tenantId : null;
+    if (!tenantId) throw new ToolArgError('no xero organisation found on this login');
+    if (conn && ctx.supabase) {
+      const metadata = { ...(conn.metadata || {}), xero_tenant_id: tenantId };
+      await ctx.supabase
+        .from('user_connections')
+        .update({ metadata, updated_at: new Date().toISOString() })
+        .eq('id', conn.id);
+      conn.metadata = metadata;
+    }
+  }
+
+  const gst = Number(args.gst_cents);
+  const accountCode = XERO_EXPENSE_ACCOUNTS[String(args.category || '').toLowerCase()]
+    || process.env.FLYNN_XERO_DEFAULT_ACCOUNT_CODE || '400';
+
+  const invoice = {
+    Type: 'ACCPAY', // a bill: money the user owes a supplier
+    Contact: { Name: vendor },
+    Date: date,
+    DueDate: date,
+    LineAmountTypes: 'Inclusive', // the total already includes GST
+    LineItems: [{
+      Description: args.description || args.category || 'Expense',
+      Quantity: 1,
+      UnitAmount: (totalCents / 100).toFixed(2),
+      AccountCode: accountCode,
+      ...(Number.isFinite(gst) && gst > 0 ? { TaxAmount: (gst / 100).toFixed(2) } : {}),
+    }],
+    Status: 'DRAFT',
+  };
+
+  const res = await xeroApi(token, `${XERO_API}/Invoices`, {
+    method: 'POST',
+    body: { Invoices: [invoice] },
+    tenantId,
+  });
+  const inv = res?.Invoices?.[0];
+  const amount = money(totalCents, ctx.currency);
+  return {
+    result: `xero draft bill ${inv?.InvoiceID || ''} created: ${date} ${vendor} ${amount}`,
+    userFacing: `filed ${amount} from ${vendor.toLowerCase()} into xero as a draft bill`,
   };
 }
 
@@ -519,6 +617,37 @@ const CAPABILITIES = [
     ],
   },
   {
+    // Accounting-side expenses via the Xero API (OAuth through Nango). Distinct
+    // from the browserbase `invoicing` capability above, which also uses the
+    // "xero" provider key but reads a saved login from user_integrations — the
+    // two never clash because they read different stores (connections vs creds).
+    capability: 'expenses-accounting',
+    provider: 'xero',
+    auth_kind: 'nango_oauth',
+    label: 'Xero',
+    connectBlurb: 'your xero account',
+    tools: [
+      {
+        name: 'xero_log_expense',
+        confirm: false, // lands as a DRAFT bill the user reviews in Xero, so no per-receipt SMS confirm
+        description: "Record a receipt/expense as a draft bill in the user's Xero (via the Xero API). Use this when their expense_destination is xero. One call per receipt.",
+        parameters: {
+          type: 'object',
+          properties: {
+            vendor: { type: 'string', description: 'who was paid, e.g. Bunnings' },
+            date: { type: 'string', description: 'YYYY-MM-DD, default today' },
+            total_cents: { type: 'number', description: 'total paid in integer cents' },
+            gst_cents: { type: 'number', description: 'GST portion in integer cents if known' },
+            category: { type: 'string', description: 'materials, fuel, tools, vehicle, office, food' },
+            description: { type: 'string' },
+          },
+          required: ['vendor', 'total_cents'],
+        },
+        executor: xeroLogExpense,
+      },
+    ],
+  },
+  {
     capability: 'supplies',
     provider: null, // resolved per-call from the user's supplier
     auth_kind: 'credentials_browserbase',
@@ -647,11 +776,20 @@ function connectionFor(capability, ctx, args) {
   if (capability.auth_kind === 'none') return { status: 'connected' };
   const provider = providerFor(capability, ctx, args);
   if (!provider) return null;
+  const ak = authKindFor(provider, capability);
   const row = ctx.connections.get(provider);
-  if (row?.status === 'connected') return row;
+  if (row?.status === 'connected') {
+    // "xero" is shared by two capabilities: OAuth expenses and browserbase
+    // invoicing. An OAuth capability must only accept an actual OAuth row, or a
+    // saved browserbase login would satisfy it and then fail with no token.
+    if (ak === 'nango_oauth') {
+      if (row.auth_kind === 'nango_oauth' || row.nango_connection_id) return row;
+    } else {
+      return row;
+    }
+  }
   // Credential-based providers (browserbase suppliers/xero, apple-calendar):
   // a saved login in user_integrations counts as connected.
-  const ak = authKindFor(provider, capability);
   if (ak.startsWith('credentials') && ctx.userIntegrations[provider]?.email) {
     return { provider, status: 'connected', auth_kind: ak };
   }
