@@ -196,6 +196,18 @@
     .blog-content > p.text-xl {
       font-size: 1.25rem;
     }
+    /* Don't let article typography invert text inside dark utility blocks
+       (the Message Flynn CTA, mascot hero). These opt out via .not-prose. */
+    .blog-content .not-prose h2,
+    .blog-content .not-prose h3,
+    .blog-content .not-prose h4 {
+      color: inherit;
+      margin-top: 0;
+    }
+    .blog-content .not-prose a {
+      color: inherit;
+      text-decoration: none;
+    }
   </style>
   <script type="importmap">
 {
