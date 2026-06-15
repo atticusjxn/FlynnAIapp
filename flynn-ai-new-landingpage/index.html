@@ -141,6 +141,61 @@
       background: #FB5B1E;
       color: #ffffff;
     }
+
+    /* Blog article content. Tailwind's preflight strips default heading
+       styles and the CDN build has no typography plugin, so style the
+       article body explicitly here. */
+    .blog-content {
+      font-size: 1.125rem;
+      line-height: 1.75;
+      color: #374151;
+    }
+    .blog-content > p {
+      margin-bottom: 1.5rem;
+    }
+    .blog-content h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.875rem;
+      line-height: 1.2;
+      color: #111111;
+      margin-top: 3rem;
+      margin-bottom: 1.25rem;
+    }
+    .blog-content h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.375rem;
+      line-height: 1.3;
+      color: #111111;
+      margin-top: 1.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .blog-content a {
+      color: #FB5B1E;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .blog-content a:hover {
+      color: #111111;
+    }
+    .blog-content strong {
+      color: #111111;
+      font-weight: 700;
+    }
+    .blog-content ul {
+      margin: 1.5rem 0;
+      padding-left: 1.5rem;
+      list-style: disc;
+    }
+    .blog-content li {
+      margin-bottom: 0.5rem;
+    }
+    /* The first lead paragraph is already sized via utility classes. */
+    .blog-content > p.text-xl {
+      font-size: 1.25rem;
+    }
   </style>
   <script type="importmap">
 {

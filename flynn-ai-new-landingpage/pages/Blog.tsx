@@ -32,16 +32,16 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
         content: (
             <>
                 <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    Think about where your business actually lives. Not in some dashboard you log into once a fortnight. It lives in your messages — the customer asking for a quote, the supplier confirming parts, your mate sending through a referral. You already run the whole thing from a thread. The problem has always been everything <em>around</em> the messages: the invoicing, the follow-ups, the bookings, the admin that piles up while you're on the tools.
+                    Think about where your business actually lives. Not in some dashboard you log into once a fortnight. It lives in your messages, the customer asking for a quote, the supplier confirming parts, your mate sending through a referral. You already run the whole thing from a thread. The problem has always been everything <em>around</em> the messages: the invoicing, the follow-ups, the bookings, the admin that piles up while you're on the tools.
                 </p>
 
                 <Hero pose="phone" />
 
-                <p>In 2026 that gap finally closed. You can now run the back office of your business straight from a text conversation — no app to learn, no new login, no "setup wizard". You text an assistant the same way you'd text a sharp office manager, and the admin just gets handled.</p>
+                <p>In 2026 that gap finally closed. You can now run the back office of your business straight from a text conversation, no app to learn, no new login, no "setup wizard". You text an assistant the same way you'd text a sharp office manager, and the admin just gets handled.</p>
 
                 <h2>Why text beats yet another app</h2>
                 <p>Service operators don't abandon apps because the apps are bad. They abandon them because opening an app is friction, and friction loses every time you're standing in someone's backyard with dirty hands. Text has none of that friction. It's already open. It's where you already are. The keyboard you already use.</p>
-                <p className="mt-4">There's a reason this shift is happening now. In June 2026, Apple approved the first AI agents to operate directly inside Messages for Business — a signal that texting an assistant is becoming a mainstream way to get things done, not a novelty. The behaviour was already there. The tooling finally caught up.</p>
+                <p className="mt-4">There's a reason this shift is happening now. In June 2026, Apple approved the first AI agents to operate directly inside Messages for Business, a signal that texting an assistant is becoming a mainstream way to get things done, not a novelty. The behaviour was already there. The tooling finally caught up.</p>
 
                 <h2>What "running your business from text" actually looks like</h2>
                 <p>Here's a normal Tuesday, handled entirely from your message thread:</p>
@@ -75,7 +75,7 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                     </table>
                 </div>
 
-                <p>No tabs. No forms. You describe what you want in plain English and it happens. That's the whole idea behind <Link to="/blog/best-ai-assistant-for-tradies-2026">a text-native business assistant</Link> — the interface is a conversation, not a screen full of buttons.</p>
+                <p>No tabs. No forms. You describe what you want in plain English and it happens. That's the whole idea behind <Link to="/blog/best-ai-assistant-for-tradies-2026">a text-first business assistant</Link>, the interface is a conversation, not a screen full of buttons.</p>
 
                 <h2>The four jobs it takes off your plate</h2>
 
@@ -83,7 +83,7 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                     <div className="bg-white border-2 border-black p-6">
                         <MessageSquare className="text-brand-500 mb-3" size={28} />
                         <h3 className="text-xl font-bold mb-2">Replying to leads</h3>
-                        <p className="text-gray-700">A new enquiry gets a fast, on-brand reply instead of sitting unread until 8pm. Speed is the whole game — <Link to="/blog/reply-to-leads-faster-speed-to-lead">replying first usually wins the job</Link>.</p>
+                        <p className="text-gray-700">A new enquiry gets a fast, on-brand reply instead of sitting unread until 8pm. Speed is the whole game, <Link to="/blog/reply-to-leads-faster-speed-to-lead">replying first usually wins the job</Link>.</p>
                     </div>
                     <div className="bg-white border-2 border-black p-6">
                         <Calendar className="text-brand-500 mb-3" size={28} />
@@ -103,20 +103,20 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                 </div>
 
                 <h2>"But will it text things on its own?"</h2>
-                <p>Fair question, and the answer matters. A good text assistant never fires off anything irreversible without checking. Sending an invoice, placing a parts order, confirming a booking — it drafts it, shows you, and waits for a "yeah" before it goes. You stay in control of anything that touches a customer or your money. Everything else, the boring internal admin, it just does.</p>
+                <p>Fair question, and the answer matters. A good text assistant never fires off anything irreversible without checking. Sending an invoice, placing a parts order, confirming a booking, it drafts it, shows you, and waits for a "yeah" before it goes. You stay in control of anything that touches a customer or your money. Everything else, the boring internal admin, it just does.</p>
 
                 <h2>It learns your business as you go</h2>
-                <p>The first week, it asks a few natural questions — your hourly rate, your usual hours, your callout fee. After that it remembers. Mention a new price mid-conversation and it's saved. Tell it a regular customer's name once and it sticks. You never fill in a profile; the business knowledge accumulates from the actual conversations you're already having.</p>
+                <p>The first week, it asks a few natural questions, your hourly rate, your usual hours, your callout fee. After that it remembers. Mention a new price mid-conversation and it's saved. Tell it a regular customer's name once and it sticks. You never fill in a profile; the business knowledge accumulates from the actual conversations you're already having.</p>
 
                 <MessageFlynnCTA
                     headline="Run your next job from a text"
-                    body="Flynn lives in iMessage. Text it like you'd text a mate who happens to run your back office — bookings, invoices, follow-ups, all handled. Nothing to install to get started."
+                    body="Flynn lives in iMessage. Text it like you'd text a mate who happens to run your back office, bookings, invoices, follow-ups, all handled. Nothing to install to get started."
                     mascot="phone"
                 />
 
                 <h2>How to start (it takes one message)</h2>
-                <p>There's no onboarding to grind through. You send a first text — "Hi Flynn" — and it introduces itself and starts learning. Over a few exchanges it picks up your rates and how you work, and from there it's just part of your day. The app and dashboard exist for when you want them, but you never need to open anything to get value.</p>
-                <p className="mt-4">That's the real unlock: the most-used tool on your phone becomes the front door to your whole business. No new habit to build. You're already texting all day — now the texting does the admin too.</p>
+                <p>There's no onboarding to grind through. You send a first text. "Hi Flynn". It introduces itself and starts learning. Over a few exchanges it picks up your rates and how you work, and from there it's just part of your day. The app and dashboard exist for when you want them, but you never need to open anything to get value.</p>
+                <p className="mt-4">That's the real unlock: the most-used tool on your phone becomes the front door to your whole business. No new habit to build. You're already texting all day, now the texting does the admin too.</p>
             </>
         )
     },
@@ -138,10 +138,10 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                 <Hero pose="write" />
 
                 <h2>The 9pm admin tax</h2>
-                <p>Most operators lose an hour or two every night to admin they could've knocked out on site. The job's done, the customer's happy, but the invoice sits unwritten because opening accounting software means sitting down, logging in, finding the customer, typing line items, getting the GST right. So it waits. And waiting costs you — both in cash flow and in invoices that quietly never get sent.</p>
+                <p>Most operators lose an hour or two every night to admin they could've knocked out on site. The job's done, the customer's happy, but the invoice sits unwritten because opening accounting software means sitting down, logging in, finding the customer, typing line items, getting the GST right. So it waits. And waiting costs you, both in cash flow and in invoices that quietly never get sent.</p>
 
                 <h2>What "invoice by text" actually means</h2>
-                <p>You text a plain-English description of the job. The assistant turns it into a correctly formatted invoice — your business details, ABN, GST, line items, totals — shows it to you, and sends it to the customer once you confirm. It files a copy in your accounting tool so the books stay straight.</p>
+                <p>You text a plain English description of the job. The assistant turns it into a correctly formatted invoice. Your business details, ABN, GST, line items and totals, all filled in. It shows you the draft, then sends it to the customer once you confirm. A copy goes into your accounting tool so the books stay straight.</p>
 
                 <div className="bg-surface-50 border-2 border-black p-8 my-8">
                     <h3 className="text-2xl font-bold mb-6">From text to invoice</h3>
@@ -166,10 +166,10 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                 </div>
 
                 <h2>What makes an invoice legit in Australia</h2>
-                <p>A tax invoice over $82.50 (inc GST) needs to show the seller's identity and ABN, that it's a tax invoice, the date, a description of what was sold, the GST amount (or that the total includes GST), and the buyer's details for invoices over $1,000. The point of sending by text isn't to skip any of that — it's that the assistant fills it all in correctly so you don't have to remember the rules each time.</p>
+                <p>A tax invoice over $82.50 (inc GST) needs to show the seller's identity and ABN, that it's a tax invoice, the date, a description of what was sold, the GST amount (or that the total includes GST), and the buyer's details for invoices over $1,000. The point of sending by text isn't to skip any of that, it's that the assistant fills it all in correctly so you don't have to remember the rules each time.</p>
 
                 <h2>Quotes work the same way</h2>
-                <p>Before the job, text the scope and the assistant drafts a quote you can send in seconds — itemised, GST-inclusive, in your business name. When the customer says yes, that quote can roll straight into a booking and later an invoice, so you're never retyping the same details three times.</p>
+                <p>Before the job, text the scope and the assistant drafts a quote you can send in seconds. Itemised, GST included, in your business name. When the customer says yes, that quote can roll straight into a booking and later an invoice, so you're never retyping the same details three times.</p>
 
                 <div className="overflow-x-auto my-8">
                     <table className="w-full border-2 border-black">
@@ -203,7 +203,7 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                 />
 
                 <h2>The bit that actually matters: getting paid</h2>
-                <p>Sending faster is only half of it. The invoices that go out the same day get paid sooner, and the ones that slip get followed up — which is where <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">automatic payment chasing</Link> comes in. Together they close the loop: quote by text, book by text, invoice by text, get paid without nagging anyone yourself. It all rolls up into the bigger picture of <Link to="/blog/run-your-business-from-imessage">running the whole business from your messages</Link>.</p>
+                <p>Sending faster is only half of it. The invoices that go out the same day get paid sooner, and the ones that slip get followed up, which is where <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">automatic payment chasing</Link> comes in. Together they close the loop: quote by text, book by text, invoice by text, get paid without nagging anyone yourself. It all rolls up into the bigger picture of <Link to="/blog/run-your-business-from-imessage">running the whole business from your messages</Link>.</p>
             </>
         )
     },
@@ -215,7 +215,7 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
         datePublished: "2026-06-06",
         readTime: "8 min read",
         category: "Comparison",
-        description: "Comparing the real options for an AI assistant for tradies in 2026 — generic chatbots, job-management apps and text-native agents. What actually saves you time on the tools.",
+        description: "Comparing the real options for an AI assistant for tradies in 2026, generic chatbots, job management apps and text-first agents. What actually saves you time on the tools.",
         content: (
             <>
                 <p className="text-xl text-gray-700 leading-relaxed mb-6">
@@ -228,13 +228,13 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                 <p>They're not the same product wearing different logos. They're three different bets on how you'll use them.</p>
 
                 <h3>1. Generic chatbots (ChatGPT and friends)</h3>
-                <p>Brilliant for drafting a tricky customer email or explaining a regulation. But they don't know your rates, your calendar, or your customers, and they can't <em>do</em> anything — they can't send the invoice or book the job. You're still the one copying the answer into the real tool. Great thinking partner, not an assistant that takes work off your plate.</p>
+                <p>Brilliant for drafting a tricky customer email or explaining a regulation. But they don't know your rates, your calendar, or your customers, and they can't <em>do</em> anything, they can't send the invoice or book the job. You're still the one copying the answer into the real tool. Great thinking partner, not an assistant that takes work off your plate.</p>
 
                 <h3>2. Job-management apps with "AI features"</h3>
-                <p>Powerful and thorough — scheduling, invoicing, quoting, the lot. The catch is they're apps. They demand setup, data entry, and that you actually open them between jobs. Plenty of tradies pay for one and use a fraction of it because the friction of logging in beats the benefit when you're flat out.</p>
+                <p>Powerful and thorough, scheduling, invoicing, quoting, the lot. The catch is they're apps. They demand setup, data entry, and that you actually open them between jobs. Plenty of tradies pay for one and use a fraction of it because the friction of logging in beats the benefit when you're flat out.</p>
 
                 <h3>3. Text-native agents</h3>
-                <p>The newer category: an assistant that lives in your messages, knows your business, and actually executes — books the job, drafts the invoice, chases the payment — from a plain text. No app to open. This is the <Link to="/blog/run-your-business-from-imessage">"run your business from iMessage"</Link> approach.</p>
+                <p>The newer category: an assistant that lives in your messages, knows your business, and actually executes. It books the job, drafts the invoice and chases the payment, all from a plain text. No app to open. This is the <Link to="/blog/run-your-business-from-imessage">"run your business from iMessage"</Link> approach.</p>
 
                 <h2>Side by side</h2>
                 <div className="overflow-x-auto my-8">
@@ -291,20 +291,20 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                     <div className="bg-white border-2 border-black p-6 text-center">
                         <CheckCircle className="text-brand-500 mx-auto mb-2" size={28} />
                         <div className="font-bold">Confirms before it acts</div>
-                        <p className="text-sm text-gray-600 mt-2">Nothing irreversible — invoices, orders — should go out without your okay.</p>
+                        <p className="text-sm text-gray-600 mt-2">Nothing irreversible, like invoices or orders, should go out without your okay.</p>
                     </div>
                 </div>
 
                 <h2>The honest verdict</h2>
-                <p>If you want a thinking partner, a generic chatbot is fine and cheap. If you run a bigger crew and live in a back office, a full job-management app earns its keep. But if you're a solo operator or small team who runs the whole show from your phone, the text-native agent is the one you'll actually keep using — because the bar for using it is "send a text", and you were going to do that anyway.</p>
+                <p>If you want a thinking partner, a generic chatbot is fine and cheap. If you run a bigger crew and live in a back office, a full job management app earns its keep. But if you're a solo operator or small team who runs the whole show from your phone, the text-first agent is the one you'll actually keep using, because the bar for using it is "send a text", and you were going to do that anyway.</p>
 
                 <MessageFlynnCTA
-                    headline="Try the text-native option"
-                    body="Flynn is an AI business assistant that lives in iMessage. It knows your rates, books your jobs, sends your invoices and chases your payments — from a text. See if it fits how you actually work."
+                    headline="Try the text-first option"
+                    body="Flynn is an AI business assistant that lives in iMessage. It knows your rates, books your jobs, sends your invoices and chases your payments, from a text. See if it fits how you actually work."
                     mascot="thumbsup"
                 />
 
-                <p>Whichever way you lean, the test is the same: a week from now, are you still using it? The tools that win for tradies are the ones that disappear into how you already work. For most, that's <Link to="/blog/send-invoices-and-quotes-by-text">texting an invoice</Link> instead of opening software — and never thinking about the assistant at all.</p>
+                <p>Whichever way you lean, the test is the same: a week from now, are you still using it? The tools that win for tradies are the ones that disappear into how you already work. For most, that's <Link to="/blog/send-invoices-and-quotes-by-text">texting an invoice</Link> instead of opening software, and never thinking about the assistant at all.</p>
             </>
         )
     },
@@ -316,17 +316,17 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
         datePublished: "2026-06-02",
         readTime: "6 min read",
         category: "How-To",
-        description: "Late-paying clients drain your cash flow and your weekend. Here's a calm, automatic way to chase unpaid invoices by text — no awkward phone calls, no nagging.",
+        description: "Late-paying clients drain your cash flow and your weekend. Here's a calm, automatic way to chase unpaid invoices by text, no awkward phone calls, no nagging.",
         content: (
             <>
                 <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    Everyone hates the chase. You did the work, the invoice is sitting there 30 days overdue, and now you've got to ring someone and ask for money you've already earned. So most tradies put it off, the invoice ages, and the cash you're owed quietly becomes cash you're probably not getting. There's a better way to handle it — calm, automatic, and no phone call required.
+                    Everyone hates the chase. You did the work, the invoice is sitting there 30 days overdue, and now you've got to ring someone and ask for money you've already earned. So most tradies put it off, the invoice ages, and the cash you're owed quietly becomes cash you're probably not getting. There's a better way to handle it, calm, automatic, and no phone call required.
                 </p>
 
                 <Hero pose="point" />
 
                 <h2>Why chasing is so brutal (and why it shouldn't be)</h2>
-                <p>Late payment is the number one cash-flow killer for small operators. The money's real, the work's done, but the follow-up feels personal — like you're hassling someone. So it gets skipped. The fix isn't to grow a thicker skin. It's to take yourself out of the awkward part entirely and let a system send the polite, consistent reminders that actually get invoices paid.</p>
+                <p>Late payment is the number one cash flow killer for small operators. The money's real, the work's done, but the follow-up feels personal, like you're hassling someone. So it gets skipped. The fix isn't to grow a thicker skin. It's to take yourself out of the awkward part entirely and let a system send the polite, consistent reminders that actually get invoices paid.</p>
 
                 <h2>The follow-up ladder that works</h2>
                 <p>Chasing works when it's consistent and unemotional. A simple sequence, sent automatically, beats a stressed phone call every time:</p>
@@ -338,7 +338,7 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                     </div>
                     <div className="bg-white border-2 border-black p-5 flex items-start gap-4">
                         <span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Due +1</span>
-                        <p className="m-0">A friendly nudge: "Hey, just a heads up that invoice #102 was due yesterday — easy to miss, no stress." Most people pay right here.</p>
+                        <p className="m-0">A friendly nudge: "Hey, just a heads up that invoice #102 was due yesterday, easy to miss, no stress." Most people pay right here.</p>
                     </div>
                     <div className="bg-white border-2 border-black p-5 flex items-start gap-4">
                         <span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day +7</span>
@@ -350,10 +350,10 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
                     </div>
                 </div>
 
-                <p>The magic is that you didn't send any of those. They went out on schedule, in a consistent tone, while you were on the tools. You only get pulled in for the genuine stragglers — which, after a couple of automatic nudges, there are far fewer of.</p>
+                <p>The magic is that you didn't send any of those. They went out on schedule, in a consistent tone, while you were on the tools. You only get pulled in for the genuine stragglers, which, after a couple of automatic nudges, there are far fewer of.</p>
 
                 <h2>Why text beats email for this</h2>
-                <p>Invoices emailed into a busy inbox get buried. A text gets read. A reminder that arrives as a message — short, friendly, with the amount and a way to pay — is far harder to ignore and far easier to action on the spot. That's the same reason <Link to="/blog/reply-to-leads-faster-speed-to-lead">leads convert better by text too</Link>.</p>
+                <p>Invoices emailed into a busy inbox get buried. A text gets read. A reminder that arrives as a message, short, friendly, with the amount and a way to pay, is far harder to ignore and far easier to action on the spot. That's the same reason <Link to="/blog/reply-to-leads-faster-speed-to-lead">leads convert better by text too</Link>.</p>
 
                 <div className="grid md:grid-cols-3 gap-6 my-8">
                     <div className="bg-white border-2 border-black p-6 text-center">
@@ -372,12 +372,12 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
 
                 <MessageFlynnCTA
                     headline="Let Flynn do the chasing"
-                    body="Flynn tracks who hasn't paid and sends polite, well-timed reminders for you — so you get paid without the awkward call. You just see the money land."
+                    body="Flynn tracks who hasn't paid and sends polite, well-timed reminders for you, so you get paid without the awkward call. You just see the money land."
                     mascot="point"
                 />
 
                 <h2>Keep your tone, keep your customers</h2>
-                <p>The worry with automating follow-ups is sounding like a debt collector. Done right, it's the opposite — the reminders read like you wrote them, friendly and human, because they're tuned to your voice. Customers get a gentle nudge, not a threat, and you keep the relationship intact while still getting paid. Pair it with <Link to="/blog/send-invoices-and-quotes-by-text">sending invoices by text</Link> the day the job's done, and your whole cash-flow problem mostly takes care of itself.</p>
+                <p>The worry with automating follow-ups is sounding like a debt collector. Done right, it's the opposite, the reminders read like you wrote them, friendly and human, because they're tuned to your voice. Customers get a gentle nudge, not a threat, and you keep the relationship intact while still getting paid. Pair it with <Link to="/blog/send-invoices-and-quotes-by-text">sending invoices by text</Link> the day the job's done, and your whole cash flow problem mostly takes care of itself.</p>
             </>
         )
     },
@@ -403,14 +403,14 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
 
                 <div className="bg-surface-50 border-2 border-black p-8 my-8">
                     <h3 className="text-2xl font-bold mb-4">The cost of a slow reply</h3>
-                    <p className="m-0">Say you get 10 enquiries a week and reply quickly to half of them. The other five drift because you were on a roof. If even three of those would've booked at a $300 average job, that's <strong>$900 a week</strong> walking to whoever answered faster — roughly <strong>$45,000 a year</strong> in work you never lost on price. You lost it on silence.</p>
+                    <p className="m-0">Say you get 10 enquiries a week and reply quickly to half of them. The other five drift because you were on a roof. If even three of those would've booked at a $300 average job, that's <strong>$900 a week</strong> walking to whoever answered faster, roughly <strong>$45,000 a year</strong> in work you never lost on price. You lost it on silence.</p>
                 </div>
 
                 <h2>Why tradies reply slowly (it's not laziness)</h2>
-                <p>You can't text a quote back while you're under a sink or up a ladder. By the time you check your phone, it's hours later and three other people have replied. It's not a discipline problem — it's a physics problem. You physically can't be on the tools and on the phone at the same time. So the enquiries pile up and the fast money leaks out.</p>
+                <p>You can't text a quote back while you're under a sink or up a ladder. By the time you check your phone, it's hours later and three other people have replied. It's not a discipline problem, it's a physics problem. You physically can't be on the tools and on the phone at the same time. So the enquiries pile up and the fast money leaks out.</p>
 
                 <h2>The fix: an assistant that replies instantly, in your voice</h2>
-                <p>The answer isn't to check your phone more. It's to have something reply for you the moment an enquiry lands — fast, on-brand, using your real pricing and availability — so the lead feels looked after within minutes instead of hours. When you surface from the job, the conversation's already warm and half-qualified.</p>
+                <p>The answer isn't to check your phone more. It's to have something reply for you the moment an enquiry lands, fast, on-brand, using your real pricing and availability, so the lead feels looked after within minutes instead of hours. When you surface from the job, the conversation's already warm and half-qualified.</p>
 
                 <div className="overflow-x-auto my-8">
                     <table className="w-full border-2 border-black">
@@ -439,12 +439,12 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
 
                 <MessageFlynnCTA
                     headline="Never be the slow one again"
-                    body="Flynn replies to new enquiries fast, in your tone, with your pricing — even while you're on the tools. You win the jobs you used to lose to whoever answered first."
+                    body="Flynn replies to new enquiries fast, in your tone, with your pricing, even while you're on the tools. You win the jobs you used to lose to whoever answered first."
                     mascot="phone"
                 />
 
                 <h2>Speed is only step one</h2>
-                <p>Winning the reply is the start. The same assistant that answers fast can <Link to="/blog/send-invoices-and-quotes-by-text">send the quote</Link>, book the job into your calendar, and later <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">chase the payment</Link> — so a fast reply turns into a booked, invoiced, paid job without you touching the admin. That's the whole point of <Link to="/blog/run-your-business-from-imessage">running your business from your messages</Link>: the moment a lead arrives, the machine starts working, and you stay on the tools.</p>
+                <p>Winning the reply is the start. The same assistant that answers fast can <Link to="/blog/send-invoices-and-quotes-by-text">send the quote</Link>, book the job into your calendar, and later <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">chase the payment</Link>, so a fast reply turns into a booked, invoiced, paid job without you touching the admin. That's the whole point of <Link to="/blog/run-your-business-from-imessage">running your business from your messages</Link>: the moment a lead arrives, the machine starts working, and you stay on the tools.</p>
             </>
         )
     },
@@ -455,7 +455,7 @@ export const BlogList: React.FC = () => {
         <>
             <Helmet>
                 <title>Blog - Flynn AI | Run Your Business From Text</title>
-                <meta name="description" content="Guides for tradies and service businesses on running the admin from your messages — booking jobs, sending invoices and quotes by text, chasing payments and winning more leads." />
+                <meta name="description" content="Guides for tradies and service businesses on running the admin from your messages, booking jobs, sending invoices and quotes by text, chasing payments and winning more leads." />
             </Helmet>
 
             <div className="bg-white min-h-screen pt-20 pb-20 px-6">
@@ -545,7 +545,7 @@ export const BlogPost: React.FC = () => {
                         </div>
                     </header>
 
-                    <div className="prose prose-lg prose-headings:font-display prose-headings:font-bold prose-a:text-brand-500 hover:prose-a:text-black">
+                    <div className="blog-content">
                         {post.content}
                     </div>
                 </div>
