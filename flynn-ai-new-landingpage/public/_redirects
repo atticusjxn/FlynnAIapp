@@ -1,0 +1,25 @@
+# 301 redirects for retired AI-receptionist / missed-call blog posts.
+# These URLs are indexed by Google; send their equity to the blog index
+# rather than serving a soft 404. Cloudflare Workers static assets honour
+# this file from the build output (dist/).
+
+/blog/cost-of-missed-calls-plumbing                     /blog  301
+/blog/electricians-missed-calls-revenue-loss            /blog  301
+/blog/hvac-missed-calls-peak-season                     /blog  301
+/blog/landscapers-missed-calls-leads                    /blog  301
+/blog/missed-calls-cost-australian-tradies              /blog  301
+/blog/ai-receptionist-for-plumbers-australia            /blog  301
+/blog/ai-receptionist-for-electricians-australia        /blog  301
+/blog/ai-receptionist-for-cleaners                      /blog  301
+/blog/ai-receptionist-for-painters                      /blog  301
+/blog/ai-receptionist-for-beauty-salons                 /blog  301
+/blog/how-to-set-up-missed-call-text-back-iphone        /blog  301
+/blog/call-forwarding-telstra-missed-call-sms           /blog  301
+/blog/call-forwarding-optus-missed-call-sms             /blog  301
+/blog/how-to-create-booking-link-trade-business         /blog  301
+/blog/convert-missed-call-booked-job                    /blog  301
+/blog/ai-receptionist-vs-virtual-receptionist-plumbers  /blog  301
+/blog/missed-call-text-back-vs-voicemail                /blog  301
+/blog/flynn-vs-enzak-missed-call-sms                    /blog  301
+/blog/gohighlevel-missed-call-vs-flynn                  /blog  301
+/blog/best-missed-call-app-small-business-australia     /blog  301

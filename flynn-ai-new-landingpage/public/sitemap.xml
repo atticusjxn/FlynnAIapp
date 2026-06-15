@@ -15,32 +15,11 @@
   <url><loc>https://flynnai.app/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://flynnai.app/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 
-  <!-- Blog: Cluster A — Revenue Pain -->
-  <url><loc>https://flynnai.app/blog/cost-of-missed-calls-plumbing</loc><lastmod>2025-12-12</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/electricians-missed-calls-revenue-loss</loc><lastmod>2025-12-20</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/hvac-missed-calls-peak-season</loc><lastmod>2026-01-14</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/landscapers-missed-calls-leads</loc><lastmod>2026-01-28</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/missed-calls-cost-australian-tradies</loc><lastmod>2026-02-10</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-
-  <!-- Blog: Cluster B — Trade-Specific AI Receptionist -->
-  <url><loc>https://flynnai.app/blog/ai-receptionist-for-plumbers-australia</loc><lastmod>2026-02-24</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://flynnai.app/blog/ai-receptionist-for-electricians-australia</loc><lastmod>2026-03-03</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://flynnai.app/blog/ai-receptionist-for-cleaners</loc><lastmod>2026-03-10</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/ai-receptionist-for-painters</loc><lastmod>2026-03-17</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/ai-receptionist-for-beauty-salons</loc><lastmod>2026-03-24</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-
-  <!-- Blog: Cluster C — How-To Guides -->
-  <url><loc>https://flynnai.app/blog/how-to-set-up-missed-call-text-back-iphone</loc><lastmod>2026-03-12</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://flynnai.app/blog/call-forwarding-telstra-missed-call-sms</loc><lastmod>2026-03-28</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://flynnai.app/blog/call-forwarding-optus-missed-call-sms</loc><lastmod>2026-04-04</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://flynnai.app/blog/how-to-create-booking-link-trade-business</loc><lastmod>2026-04-08</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/convert-missed-call-booked-job</loc><lastmod>2026-04-12</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
-
-  <!-- Blog: Cluster D — Comparisons -->
-  <url><loc>https://flynnai.app/blog/ai-receptionist-vs-virtual-receptionist-plumbers</loc><lastmod>2025-12-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/missed-call-text-back-vs-voicemail</loc><lastmod>2026-04-15</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/flynn-vs-enzak-missed-call-sms</loc><lastmod>2026-04-22</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/gohighlevel-missed-call-vs-flynn</loc><lastmod>2026-04-28</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://flynnai.app/blog/best-missed-call-app-small-business-australia</loc><lastmod>2026-05-05</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <!-- Blog: Flynn text agent -->
+  <url><loc>https://flynnai.app/blog/run-your-business-from-imessage</loc><lastmod>2026-06-14</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/send-invoices-and-quotes-by-text</loc><lastmod>2026-06-10</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/best-ai-assistant-for-tradies-2026</loc><lastmod>2026-06-06</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/chase-unpaid-invoices-without-awkward-calls</loc><lastmod>2026-06-02</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/reply-to-leads-faster-speed-to-lead</loc><lastmod>2026-05-28</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
 
 </urlset>
