@@ -1011,6 +1011,932 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
             </>
         )
     },
+
+    // ─── W2.1 Best AI tools for small business (roundup) ──────────────────────
+    "best-ai-tools-for-small-business": {
+        title: "The Best AI Tools for Small Business in 2026 (Tested by Job)",
+        date: "Jun 30, 2026",
+        datePublished: "2026-06-30",
+        readTime: "9 min read",
+        category: "Comparison",
+        description: "A practical roundup of the best AI tools for small business in 2026, sorted by the job you actually need done: writing, design, automation, accounting and admin.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Most "best AI tools" lists are 30 apps you'll never open. This one is sorted by the job you actually need done, so you can pick one per problem and move on. Here's what's genuinely worth your time in 2026.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <h2>Best for writing: ChatGPT or Claude</h2>
+                <p>For emails, ad copy, social captions and tricky replies, a general chatbot is hard to beat. It drafts in seconds and rewrites until it sounds right. Just remember it doesn't know your business, so it can't price a job or send anything. See the honest limits in <Link to="/blog/chatgpt-for-small-business">ChatGPT for small business</Link>.</p>
+
+                <h2>Best for design: Canva AI</h2>
+                <p>Logos, flyers, social posts and quick edits without a designer. The AI features turn a rough idea into something presentable fast. Perfect for the marketing you keep putting off.</p>
+
+                <h2>Best for connecting apps: Zapier</h2>
+                <p>If your tools don't talk to each other, Zapier's AI can wire them together so data flows without copy-paste. Powerful, but it's a builder's tool, you set up the automations yourself.</p>
+
+                <h2>Best for the books: your accounting tool's AI</h2>
+                <p>Xero, QuickBooks and MYOB now auto-categorise transactions and flag anomalies. Great for keeping the books tidy, though you still drive the app.</p>
+
+                <h2>Best for the admin that eats your evenings: a business agent</h2>
+                <p>This is the category most lists miss. Writing tools suggest, builder tools need setup, accounting tools need driving. A business agent actually does the admin: sends invoices, books jobs, chases payments, replies to leads, from a text, knowing your real numbers. That's the difference between saving five minutes and saving the whole evening.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Job</th><th className="p-3 text-left font-display">Pick</th><th className="p-3 text-left font-display">Does it act for you?</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Writing</td><td className="p-3">ChatGPT / Claude</td><td className="p-3"><XCircle className="text-red-500" size={18} /> Drafts only</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Design</td><td className="p-3">Canva AI</td><td className="p-3"><XCircle className="text-red-500" size={18} /> You design</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Connecting apps</td><td className="p-3">Zapier</td><td className="p-3">You build it</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Bookkeeping</td><td className="p-3">Xero / QuickBooks AI</td><td className="p-3">You drive it</td></tr>
+                            <tr><td className="p-3 font-bold">Admin (invoices, bookings, chasing)</td><td className="p-3">A business agent</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> Yes</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="The tool that does the admin, not just suggests it"
+                    body="Flynn is the business-agent pick: it sends invoices, books jobs and chases payments from a text, using your real prices. Confirms before anything goes out."
+                    mascot="thumbsup"
+                />
+
+                <h2>How to choose</h2>
+                <p>Don't install ten tools. Pick the one job costing you the most time and solve that first. For most owners it's the admin, not the writing. Start there, then layer in the rest. More on the admin side in <Link to="/blog/ai-tools-small-business-admin">AI tools to run your small business admin</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.2 Best appointment scheduling app for small business ──────────────
+    "best-appointment-scheduling-app-small-business": {
+        title: "The Best Appointment Scheduling App for Small Business (2026)",
+        date: "Jul 1, 2026",
+        datePublished: "2026-07-01",
+        readTime: "7 min read",
+        category: "Comparison",
+        description: "Comparing the best appointment scheduling apps for small business in 2026: Calendly, Square, Setmore and the text-first option, by who actually books more clients.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    The best scheduling app isn't the one with the most features, it's the one your clients actually use. Here's an honest comparison for small business in 2026, sorted by how your clients prefer to book.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>The main options</h2>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-xl font-bold mb-2">Calendly</h3><p className="text-gray-700">Clean booking links, great for consultations and demos. Free plan is generous. Best when clients are happy to self-serve.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-xl font-bold mb-2">Square Appointments</h3><p className="text-gray-700">Booking plus payments in one, strong for salons and in-person services already using Square.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-xl font-bold mb-2">Setmore / SimplyBook</h3><p className="text-gray-700">Generous free tiers, branded booking pages, good for service businesses wanting an online presence.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-xl font-bold mb-2">Text-first (Flynn)</h3><p className="text-gray-700">No booking page. Clients book in the same text thread they already use. Best for messy, conversational bookings.</p></div>
+                </div>
+
+                <h2>The question that decides it</h2>
+                <p>How do your clients actually try to book? If they happily click a link and pick a slot, a booking-link app is perfect. If they text "you free this week?" and won't chase a link, you're losing some of them at that step, and booking from the text wins. Most service businesses are a mix, but the messier your inbox, the more the text-first approach pays off.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">If you want...</th><th className="p-3 text-left font-display">Best pick</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3">A self-serve booking page</td><td className="p-3">Calendly or Setmore</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3">Booking + card payments in person</td><td className="p-3">Square</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3">To book clients in the text</td><td className="p-3">Flynn</td></tr>
+                            <tr><td className="p-3">Bookings plus invoices & chasing</td><td className="p-3">Flynn</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Book clients without a booking page"
+                    body="Flynn checks your calendar and books clients right in the text, then handles the invoice and reminders too. No app or link for your client to chase."
+                    mascot="phone"
+                />
+
+                <p>Go deeper in <Link to="/blog/flynn-vs-calendly-square-booking-by-text">Flynn vs Calendly and Square</Link>, learn <Link to="/blog/how-to-take-bookings-over-text">how to take bookings over text</Link>, and <Link to="/blog/how-to-reduce-no-shows-small-business">cut your no-shows</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.3 How to write a quote ────────────────────────────────────────────
+    "how-to-write-a-quote": {
+        title: "How to Write a Quote That Wins the Job (Free Template)",
+        date: "Jul 2, 2026",
+        datePublished: "2026-07-02",
+        readTime: "7 min read",
+        category: "How-To",
+        description: "A clear guide to writing a professional quote that wins more jobs, what to include, how to price it, common mistakes, and a free template you can copy.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    A good quote does two jobs: it tells the client what they're paying for, and it makes you look like the safe choice. Most quotes only do the first. Here's how to write one that actually wins the work, plus a template to copy.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>What every quote should include</h2>
+                <ul>
+                    <li><strong>Your business details and ABN</strong> so it looks legitimate.</li>
+                    <li><strong>A clear description of the work</strong>, specific enough that there's no confusion later.</li>
+                    <li><strong>Itemised pricing</strong>, labour and materials split out where it helps.</li>
+                    <li><strong>GST</strong> shown clearly, or a note that the total includes it.</li>
+                    <li><strong>What's not included</strong>, the line that prevents most disputes.</li>
+                    <li><strong>Validity</strong>, e.g. "valid for 30 days", which also nudges a decision.</li>
+                    <li><strong>A clear next step</strong>: "reply yes and I'll book you in".</li>
+                </ul>
+
+                <h2>The free template</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6 text-sm">
+                    <p className="m-0"><strong>[Your business name] — ABN [number]</strong></p>
+                    <p className="mt-2 mb-0">Quote for: [client name], [date]</p>
+                    <p className="mt-2 mb-0">Work: [clear description]</p>
+                    <p className="mt-2 mb-0">Labour: [hours x rate] = $[amount]</p>
+                    <p className="mt-1 mb-0">Materials: $[amount]</p>
+                    <p className="mt-1 mb-0">GST: $[amount]</p>
+                    <p className="mt-1 mb-0"><strong>Total: $[amount] inc GST</strong></p>
+                    <p className="mt-2 mb-0">Not included: [exclusions]</p>
+                    <p className="mt-1 mb-0">Valid for 30 days. Reply yes and I'll lock in a time.</p>
+                </div>
+
+                <h2>How to price it so you win without underselling</h2>
+                <p>Don't race to the bottom. Clients rarely pick the cheapest, they pick the one they trust to do it right. A clear, confident quote with a fair price beats a vague cheap one. If you're nervous about a number, itemise it, breaking it down makes the total feel fair instead of scary.</p>
+
+                <h2>The mistakes that lose jobs</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Too slow</div><p className="text-sm text-gray-600 mt-2">The fastest quote often wins. Same-day beats perfect-but-late.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><XCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Too vague</div><p className="text-sm text-gray-600 mt-2">"Bathroom reno, $8k" invites doubt. Detail builds trust.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><MessageSquare className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">No follow-up</div><p className="text-sm text-gray-600 mt-2">Most quotes go quiet. The nudge wins the job.</p></div>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Quote in seconds, follow up automatically"
+                    body="Tell Flynn the job and it drafts a clean, itemised quote in your business name, then reminds you (or the client) to follow up so it never goes cold."
+                    mascot="write"
+                />
+
+                <p>Once it's sent, learn <Link to="/blog/how-to-follow-up-on-a-quote">how to follow up without being annoying</Link>, and know the difference between a <Link to="/blog/quote-vs-estimate-vs-invoice">quote, estimate and invoice</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.4 How to reduce no-shows ──────────────────────────────────────────
+    "how-to-reduce-no-shows-small-business": {
+        title: "How to Reduce No-Shows (Reminder Scripts That Actually Work)",
+        date: "Jul 3, 2026",
+        datePublished: "2026-07-03",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "No-shows quietly cost small businesses thousands a year. Here's how to reduce them with the right reminders, deposits and booking habits, plus reminder scripts to copy.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    A no-show isn't just a gap in your day, it's a slot you turned other clients away for. They add up to real money. The good news is most no-shows are preventable with a few simple habits. Here's what works.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>Why people no-show (it's rarely rudeness)</h2>
+                <p>Most no-shows are forgetfulness, not disrespect. Someone booked two weeks ago, life got busy, the appointment fell out of their head. Which means the fix isn't being stricter, it's being more memorable: the right reminder at the right time.</p>
+
+                <h2>The reminder rhythm that works</h2>
+                <div className="space-y-4 my-8">
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">On booking</span><p className="m-0">Instant confirmation. "You're booked for [day] at [time]. See you then!" Writing it down makes it real.</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day before</span><p className="m-0">"Hi [name], reminder you're booked tomorrow at [time]. Reply YES to confirm or let me know if you need to move it."</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Few hours before</span><p className="m-0">For same-day services: "See you at [time], [name]. Text me if anything changes."</p></div>
+                </div>
+                <p>That "reply YES to confirm" line is the workhorse. It turns a passive reminder into a tiny commitment, and it surfaces the cancellations early so you can fill the slot.</p>
+
+                <h2>The other levers</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><DollarSign className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Deposits</div><p className="text-sm text-gray-600 mt-2">A small deposit for big jobs makes people show up.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><CheckCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Easy rescheduling</div><p className="text-sm text-gray-600 mt-2">If moving a booking is easy, people move it instead of ghosting.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Short lead times</div><p className="text-sm text-gray-600 mt-2">The further out a booking, the more likely it's forgotten.</p></div>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Reminders that send themselves"
+                    body="Flynn confirms every booking and sends the day-before reminder for you, in your voice. Fewer no-shows, no manual texting, slots filled when someone cancels early."
+                    mascot="point"
+                />
+
+                <p>Pair this with <Link to="/blog/how-to-take-bookings-over-text">taking bookings over text</Link> and grab the wording from our <Link to="/blog/customer-follow-up-text-templates">follow-up templates</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.5 Small business tax deductions (AU) ──────────────────────────────
+    "small-business-tax-deductions-australia": {
+        title: "Small Business Tax Deductions Checklist (Australia, 2026)",
+        date: "Jul 4, 2026",
+        datePublished: "2026-07-04",
+        readTime: "8 min read",
+        category: "Guide",
+        description: "A plain-English checklist of common small business tax deductions in Australia for 2026, from vehicle and tools to home office, so you don't leave money on the table.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Every dollar of legitimate business expense you claim is a dollar you're not taxed on. Plenty of small businesses miss claims simply because they didn't track them. Here's a plain-English checklist of common deductions so nothing slips through.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <p className="text-sm text-gray-500 italic">This is general information, not tax advice. Check your situation with your accountant or the ATO.</p>
+
+                <h2>The big categories</h2>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Vehicle & travel</h3><p className="text-gray-700 text-sm">Work-related km, fuel, servicing, registration, parking and tolls. Keep a logbook.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Tools & equipment</h3><p className="text-gray-700 text-sm">Tools, machinery, devices. Smaller items outright, bigger ones depreciated.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Home office</h3><p className="text-gray-700 text-sm">A portion of power, internet and a dedicated work area if you run things from home.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Phone & internet</h3><p className="text-gray-700 text-sm">The work-use portion of your phone and data plans.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Software & subscriptions</h3><p className="text-gray-700 text-sm">Accounting tools, scheduling apps, cloud storage, industry memberships.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Insurance & fees</h3><p className="text-gray-700 text-sm">Public liability, tool insurance, bank fees, merchant fees.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Marketing</h3><p className="text-gray-700 text-sm">Ads, website, signage, printing, business cards.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Education & super</h3><p className="text-gray-700 text-sm">Courses that relate to your work, and your own super contributions.</p></div>
+                </div>
+
+                <h2>The claims people forget</h2>
+                <ul>
+                    <li>Work clothing and protective gear (PPE, branded uniforms).</li>
+                    <li>The work-use share of a personal device or vehicle.</li>
+                    <li>Bank and payment processing fees, which add up over a year.</li>
+                    <li>Accounting and bookkeeping fees themselves.</li>
+                    <li>Small subscriptions you forgot you pay for.</li>
+                </ul>
+
+                <h2>Why most people under-claim</h2>
+                <p>It's not the rules, it's the records. The receipt for a $40 tool in March is long gone by tax time. The fix is logging expenses as they happen, not reconstructing the year in a panic in July. A photo of the receipt, logged the moment you buy, means every claim is there when you need it.</p>
+
+                <MessageFlynnCTA
+                    headline="Log every receipt the moment you spend"
+                    body="Snap a receipt and text it to Flynn. It logs the expense with date, amount and GST and files it to Xero, so nothing's missing come tax time."
+                    mascot="thumbsup"
+                />
+
+                <p>Keep the records straight with <Link to="/blog/how-to-track-business-expenses">how to track business expenses without a bookkeeper</Link>, and get the basics in <Link to="/blog/gst-bas-basics-sole-traders">GST and BAS for sole traders</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.6 How to track business expenses ──────────────────────────────────
+    "how-to-track-business-expenses": {
+        title: "How to Track Business Expenses Without a Bookkeeper",
+        date: "Jul 7, 2026",
+        datePublished: "2026-07-07",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "A simple system for tracking business expenses without hiring a bookkeeper, so your books stay tidy, your claims are complete, and tax time stops being a nightmare.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    You don't need a bookkeeper to keep clean records, you need a system you'll actually stick to. The reason expense tracking fails isn't laziness, it's that most systems take effort at the wrong moment. Here's one that doesn't.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>The one rule that fixes everything</h2>
+                <p>Capture the expense the second it happens, not later. The receipt you log at the counter is logged. The one you shove in the glovebox to "deal with later" is gone. Everything else is detail. Get this one habit right and your books stay 90% clean on their own.</p>
+
+                <h2>The three-tier setup</h2>
+                <div className="space-y-4 my-8">
+                    <div className="bg-white border-2 border-black p-5"><h3 className="font-bold mb-1">1. Separate business account</h3><p className="m-0 text-sm text-gray-700">Run business spending through one account or card. Instantly separates business from personal, no untangling later.</p></div>
+                    <div className="bg-white border-2 border-black p-5"><h3 className="font-bold mb-1">2. Capture receipts instantly</h3><p className="m-0 text-sm text-gray-700">Snap a photo at the moment of purchase. Paper fades and gets lost; a photo doesn't.</p></div>
+                    <div className="bg-white border-2 border-black p-5"><h3 className="font-bold mb-1">3. Log to one place</h3><p className="m-0 text-sm text-gray-700">A spreadsheet or your accounting tool, with vendor, date, amount, GST and category. One source of truth.</p></div>
+                </div>
+
+                <h2>Spreadsheet vs accounting app vs just texting it</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Method</th><th className="p-3 text-left font-display">Effort per expense</th><th className="p-3 text-left font-display">Best for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Spreadsheet</td><td className="p-3">Manual entry</td><td className="p-3">Very small / starting out</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Accounting app</td><td className="p-3">Open app, snap, categorise</td><td className="p-3">Established businesses</td></tr>
+                            <tr><td className="p-3 font-bold">Text a photo</td><td className="p-3">Send one message</td><td className="p-3">Anyone who hates admin</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Tracking expenses as easy as a text"
+                    body="Snap the receipt, text it to Flynn. It reads the vendor, amount and GST, logs it and files it to your accounting tool. No app, no spreadsheet, no shoebox."
+                    mascot="thumbsup"
+                />
+
+                <h2>Why this saves you more than time</h2>
+                <p>Clean records mean you claim every deduction you're owed (see the <Link to="/blog/small-business-tax-deductions-australia">deductions checklist</Link>), your <Link to="/blog/gst-bas-basics-sole-traders">BAS</Link> takes minutes not days, and you actually know if you're making money month to month. The habit is small. The payoff is real.</p>
+            </>
+        )
+    },
+
+    // ─── W2.7 What to do when a client won't pay ──────────────────────────────
+    "what-to-do-when-a-client-wont-pay": {
+        title: "What to Do When a Client Won't Pay (Australia)",
+        date: "Jul 8, 2026",
+        datePublished: "2026-07-08",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "A calm, step-by-step plan for when a client won't pay your invoice in Australia, from reminders to formal demand to your options for recovering the debt.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    A client who won't pay is stressful and, sometimes, expensive. But there's a clear path from polite nudge to last resort, and most cases get resolved long before the serious steps. Here's the calm, ordered plan.
+                </p>
+
+                <Hero pose="point" />
+
+                <p className="text-sm text-gray-500 italic">General information, not legal advice. For larger debts, consider speaking to a solicitor or your state's small business commissioner.</p>
+
+                <h2>Step 1: Rule out a simple miss</h2>
+                <p>Most late payments are oversight, not refusal. A friendly reminder with the invoice and a payment link resolves the majority. Send it before you assume the worst. Use the wording in our <Link to="/blog/late-payment-reminder-templates">late payment reminder templates</Link>.</p>
+
+                <h2>Step 2: Make contact and confirm</h2>
+                <p>If reminders go unanswered, call or text directly. Confirm they received the invoice, ask if there's an issue, and get a clear commitment: when will it be paid? Sometimes there's a genuine cash-flow problem and a short payment plan solves it for both of you.</p>
+
+                <h2>Step 3: A formal reminder in writing</h2>
+                <p>Put it in writing: the invoice number, amount, original due date, and a firm but professional request for payment by a specific date. Keep the tone businesslike. This becomes useful evidence if things escalate.</p>
+
+                <h2>Step 4: A letter of demand</h2>
+                <p>A letter of demand is a formal final notice stating you'll pursue recovery if it isn't paid by a set date. It often works on its own because it signals you're serious. You can write one yourself or have a solicitor send it.</p>
+
+                <h2>Step 5: Your recovery options</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Option</th><th className="p-3 text-left font-display">Best when</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Small business commissioner</td><td className="p-3">You want free help to mediate</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Debt collection agency</td><td className="p-3">You'd rather outsource the chase</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Small claims tribunal</td><td className="p-3">Smaller amounts, low cost, no lawyer needed</td></tr>
+                            <tr><td className="p-3 font-bold">Solicitor</td><td className="p-3">Larger debts worth the legal cost</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>The best fix is prevention</h2>
+                <p>Clear payment terms up front, deposits on big jobs, same-day invoicing, and consistent automatic reminders prevent most of this from ever reaching step three. The businesses that rarely get burned aren't tougher, they're just systematic about getting paid.</p>
+
+                <MessageFlynnCTA
+                    headline="Make slow payment rare"
+                    body="Flynn invoices the moment a job's done and chases overdue payments automatically, politely, on schedule. Most clients pay long before it ever gets awkward."
+                    mascot="thumbsup"
+                />
+
+                <p>Set it up right with <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">automatic invoice chasing</Link> and <Link to="/blog/send-invoice-from-your-phone">same-day invoicing from your phone</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.8 Quote vs estimate vs invoice ────────────────────────────────────
+    "quote-vs-estimate-vs-invoice": {
+        title: "Quote vs Estimate vs Invoice: What's the Difference?",
+        date: "Jul 9, 2026",
+        datePublished: "2026-07-09",
+        readTime: "5 min read",
+        category: "Guide",
+        description: "Quote, estimate and invoice get mixed up all the time, and the difference matters legally and for getting paid. Here's a plain-English explainer for small business.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Quote, estimate and invoice sound interchangeable, but they're three different documents with three different jobs, and mixing them up can cost you money or land you in a dispute. Here's the plain-English difference.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <h2>The quick version</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white"><tr><th className="p-4 text-left font-display">Document</th><th className="p-4 text-left font-display">What it is</th><th className="p-4 text-left font-display">Binding?</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Estimate</td><td className="p-4">A rough, good-faith ballpark of likely cost</td><td className="p-4">No</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Quote</td><td className="p-4">A fixed price for clearly defined work</td><td className="p-4">Usually yes, once accepted</td></tr>
+                            <tr><td className="p-4 font-bold">Invoice</td><td className="p-4">A request for payment for work done</td><td className="p-4">Yes, it's a debt</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>Estimate</h2>
+                <p>An estimate is your best guess before the details are nailed down. "Probably around $2,000 to $2,500, depending on what we find." It's useful early, but it isn't a promise. The risk is when clients treat an estimate as a fixed quote, so always label it clearly and explain it can change.</p>
+
+                <h2>Quote</h2>
+                <p>A quote is a firm price for a defined scope. Once the client accepts it, you're generally bound to that price for that work, which is why specifying what's included (and not) matters so much. A good quote protects both sides. Learn to write a strong one in <Link to="/blog/how-to-write-a-quote">how to write a quote that wins the job</Link>.</p>
+
+                <h2>Invoice</h2>
+                <p>An invoice comes after the work (or at agreed milestones) and is a formal request for payment. In Australia a tax invoice over $82.50 inc GST has required fields: your ABN, the words "tax invoice", the date, a description, and the GST amount. An unpaid invoice is a debt you can pursue.</p>
+
+                <h2>How they flow together</h2>
+                <p>The clean path is estimate (maybe), then quote, then on acceptance the job, then invoice. Done by hand you retype the same details three times. Done well, the quote rolls straight into the invoice with nothing re-entered.</p>
+
+                <MessageFlynnCTA
+                    headline="Quote and invoice without the double-entry"
+                    body="Flynn drafts quotes and invoices from a text, in your business name with GST handled, and rolls an accepted quote straight into an invoice. No retyping."
+                    mascot="write"
+                />
+
+                <p>Next: <Link to="/blog/how-to-write-a-quote">write a winning quote</Link>, then <Link to="/blog/send-invoice-from-your-phone">send the invoice from your phone</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.9 GST & BAS basics for sole traders ───────────────────────────────
+    "gst-bas-basics-sole-traders": {
+        title: "GST & BAS Basics for Sole Traders (Australia, 2026)",
+        date: "Jul 10, 2026",
+        datePublished: "2026-07-10",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "A plain-English guide to GST and BAS for Australian sole traders: when to register, how GST works, what a BAS is, and how to make lodging it painless.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    GST and BAS sound more complicated than they are. For most sole traders it comes down to a few simple rules. Here's the plain-English version so you know what you have to do and when.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <p className="text-sm text-gray-500 italic">General information, not tax advice. Check your situation with your accountant or the ATO.</p>
+
+                <h2>When do you have to register for GST?</h2>
+                <p>In Australia you must register for GST once your business turnover hits $75,000 a year (or you expect it to). Under that, registering is optional. Some sole traders register early so they can claim GST credits on purchases; others wait until they have to. If you drive for a rideshare or taxi service, you must register regardless of turnover.</p>
+
+                <h2>How GST actually works</h2>
+                <p>If you're registered, you add 10% GST to what you charge, collect it from customers, and pass it to the ATO. In return, you can claim back the GST you paid on business purchases. You're essentially a collector in the middle. The difference between GST collected and GST paid is what you owe (or get refunded).</p>
+
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Simple example:</strong> you charge $1,100 (that's $1,000 + $100 GST). You spent $220 on materials ($200 + $20 GST). You owe the ATO $100 minus $20 = $80.</p>
+                </div>
+
+                <h2>What is a BAS?</h2>
+                <p>A Business Activity Statement is the form where you report and pay that GST, usually quarterly. It tells the ATO how much GST you collected and paid, and sometimes other things like PAYG instalments. If your record-keeping is tidy, a BAS takes minutes. If it isn't, it's a weekend of pain.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Quarter</th><th className="p-3 text-left font-display">Period</th><th className="p-3 text-left font-display">Usually due</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3">Q1</td><td className="p-3">Jul to Sep</td><td className="p-3">28 Oct</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3">Q2</td><td className="p-3">Oct to Dec</td><td className="p-3">28 Feb</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3">Q3</td><td className="p-3">Jan to Mar</td><td className="p-3">28 Apr</td></tr>
+                            <tr><td className="p-3">Q4</td><td className="p-3">Apr to Jun</td><td className="p-3">28 Jul</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>The thing that makes BAS easy</h2>
+                <p>It's all in the records. If every sale and expense is logged with its GST as it happens, your BAS is basically a summary that already exists. If you're reconstructing months of receipts the night before, it's miserable. The fix is the same habit that helps everything else: capture as you go.</p>
+
+                <MessageFlynnCTA
+                    headline="Keep GST records without thinking about it"
+                    body="Flynn logs your invoices and expenses with GST as they happen and files them to Xero, so when BAS time comes the numbers are already there."
+                    mascot="thumbsup"
+                />
+
+                <p>Build the habit with <Link to="/blog/how-to-track-business-expenses">how to track business expenses</Link>, and don't miss claims in the <Link to="/blog/small-business-tax-deductions-australia">deductions checklist</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.10 How to get more Google reviews ─────────────────────────────────
+    "how-to-get-more-google-reviews": {
+        title: "How to Get More Google Reviews for Your Small Business",
+        date: "Jul 11, 2026",
+        datePublished: "2026-07-11",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "More Google reviews mean more customers. Here's a simple system to get them: when to ask, exactly what to say, and the text templates that actually get reviews written.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Google reviews are the closest thing to free marketing there is. More reviews mean you rank higher locally and win more of the customers comparing you to the next business. The catch: happy customers rarely leave one unless you ask. Here's how to ask so they actually do.
+                </p>
+
+                <Hero pose="thumbsup" />
+
+                <h2>Timing is everything</h2>
+                <p>Ask right after the moment they're happiest: the job finished well, the problem solved, the "thank you so much" text. Wait a week and the warm glow is gone. The best review request goes out within hours of a great result.</p>
+
+                <h2>Make it one tap</h2>
+                <p>Every extra step loses people. Don't say "search for us on Google". Send a direct link straight to your review form. The easier it is, the more reviews you get. You can get your review link from your Google Business Profile.</p>
+
+                <h2>The templates that work</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>After a great job:</strong> "So glad you're happy with it, [name]! If you've got 20 seconds, a quick Google review really helps a small business like mine. Here's the link: [link]. No worries at all if not."</p>
+                </div>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Gentle follow-up:</strong> "Hey [name], no pressure, just popping the review link here again in case you had a sec: [link]. Really appreciate it either way."</p>
+                </div>
+
+                <h2>The rules</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Ask fast</div><p className="text-sm text-gray-600 mt-2">Within hours of a happy result, not days.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><MessageSquare className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Ask by text</div><p className="text-sm text-gray-600 mt-2">Texts get read and tapped. Emails get buried.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><CheckCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Ask everyone</div><p className="text-sm text-gray-600 mt-2">Consistency is what builds a wall of reviews.</p></div>
+                </div>
+                <p>One note: don't offer payment or discounts for reviews, and never write fake ones. Google penalises it and customers can smell it. Just ask, genuinely, every time.</p>
+
+                <MessageFlynnCTA
+                    headline="Ask for reviews automatically"
+                    body="Flynn can send a review request with your link right after a job wraps, in your voice, to every happy customer. More reviews, zero remembering."
+                    mascot="thumbsup"
+                />
+
+                <p>It's the same habit as good <Link to="/blog/customer-follow-up-text-templates">customer follow-ups</Link>, and it compounds with replying fast to the new leads those reviews bring in (<Link to="/blog/reply-to-leads-faster-speed-to-lead">speed to lead</Link>).</p>
+            </>
+        )
+    },
+
+    // ─── W3.1 Cleaning businesses: admin ──────────────────────────────────────
+    "admin-tips-for-cleaning-businesses": {
+        title: "How Cleaning Businesses Can Cut Admin Time in Half",
+        date: "Jul 14, 2026",
+        datePublished: "2026-07-14",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "Cleaning businesses lose hours every week to quotes, recurring bookings and chasing payment. Here's how to cut that admin in half and spend more time on the tools.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Running a cleaning business is mostly logistics: quoting one-off deep cleans, juggling recurring weekly and fortnightly bookings, and chasing payment after the job. The cleaning is the easy part. Here's how to take the admin off your plate.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>Where the time actually goes</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><FileText className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Quoting</div><p className="text-sm text-gray-600 mt-2">Every enquiry wants a price for a different sized place.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><Calendar className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Recurring bookings</div><p className="text-sm text-gray-600 mt-2">Weekly, fortnightly, monthly, all needing reminders.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><DollarSign className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Getting paid</div><p className="text-sm text-gray-600 mt-2">Invoicing after each clean and chasing the slow ones.</p></div>
+                </div>
+
+                <h2>The fixes that matter most</h2>
+                <p><strong>Quote fast.</strong> Cleaning leads compare three or four quotes and book the first decent reply. Same-day quoting wins more work. See <Link to="/blog/how-to-write-a-quote">how to write a quote that wins</Link>.</p>
+                <p className="mt-4"><strong>Lock in the recurring clients.</strong> Confirmations and day-before reminders cut no-shows on regular jobs and keep the schedule full. More in <Link to="/blog/how-to-reduce-no-shows-small-business">reducing no-shows</Link>.</p>
+                <p className="mt-4"><strong>Invoice the moment you leave.</strong> The invoice sent from the driveway gets paid days sooner. Automate the chase so you never do it by hand.</p>
+
+                <MessageFlynnCTA
+                    headline="Let Flynn run the cleaning admin"
+                    body="Quote new jobs, manage recurring bookings, invoice after each clean and chase late payers, all from a text. Flynn learns your rates so it never asks twice."
+                    mascot="thumbsup"
+                />
+
+                <p>See the tools in <Link to="/blog/best-apps-for-cleaning-businesses">best apps for cleaning businesses</Link>, or run it all from your phone with <Link to="/blog/run-small-business-from-your-phone">the 2026 stack</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.2 Cleaning businesses: best apps ──────────────────────────────────
+    "best-apps-for-cleaning-businesses": {
+        title: "Best Apps for Cleaning Businesses in 2026",
+        date: "Jul 15, 2026",
+        datePublished: "2026-07-15",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best apps for cleaning businesses in 2026 for scheduling, quoting, invoicing and getting paid, plus the text-first option for cleaners who hate admin.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    The right app for a cleaning business depends on your size. A solo cleaner needs something different to a 10-van operation. Here's an honest sort of the options in 2026.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>The main categories</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">ZenMaid / Launch27</td><td className="p-3">Cleaning-specific scheduling for teams</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Jobber / ServiceM8</td><td className="p-3">Full job management for bigger crews</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Xero / QuickBooks</td><td className="p-3">The accounting underneath it all</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Solo & small teams who want admin handled by text</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>Run a big team with dispatching and staff tracking? A full platform like Jobber earns its keep. Solo or a small crew who just wants the quoting, booking and chasing to disappear? A dedicated platform is overkill and you'll fight the setup. That's where a text assistant wins: the bar to use it is "send a text", and it files into the accounting tool you already use.</p>
+
+                <MessageFlynnCTA
+                    headline="The no-app option for cleaners"
+                    body="Flynn quotes, books, invoices and chases payment from a text, and files into Xero. No new platform to learn between jobs."
+                    mascot="thumbsup"
+                />
+
+                <p>More on the workflow in <Link to="/blog/admin-tips-for-cleaning-businesses">how cleaning businesses can cut admin time</Link>, and the bigger comparison in <Link to="/blog/flynn-vs-tradify-jobber-servicem8">Flynn vs Tradify, Jobber and ServiceM8</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.3 Salons & barbers: admin ─────────────────────────────────────────
+    "admin-tips-for-salons-and-barbers": {
+        title: "How Salons and Barbers Can Cut Admin and No-Shows",
+        date: "Jul 16, 2026",
+        datePublished: "2026-07-16",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "No-shows and the booking back-and-forth quietly cost salons and barbers thousands. Here's how to cut both, keep the chair full and spend less time on the phone.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    For a salon or barber, every empty chair is lost money you can't get back. Between no-shows, the endless booking back-and-forth, and rebooking regulars, the admin adds up fast. Here's how to tighten it up.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>The no-show problem</h2>
+                <p>No-shows are the biggest silent cost in the chair. Most are forgetfulness, not rudeness, which means reminders fix the majority. A confirmation on booking and a day-before "reply YES to confirm" text dramatically cuts the empty slots, and surfaces cancellations early so you can fill them. Full playbook in <Link to="/blog/how-to-reduce-no-shows-small-business">how to reduce no-shows</Link>.</p>
+
+                <h2>The booking back-and-forth</h2>
+                <p>Clients text "any chance friday?" and you're mid-cut. By the time you reply they've booked elsewhere. Booking straight from the text, with real available times, captures those clients instead of losing them. See <Link to="/blog/how-to-take-bookings-over-text">how to take bookings over text</Link>.</p>
+
+                <h2>Rebooking regulars</h2>
+                <p>Your best clients come back on a rhythm. A simple "it's been about 5 weeks, want me to book your usual?" keeps the chair full and saves them thinking about it. Done consistently, rebooking is the cheapest growth there is.</p>
+
+                <MessageFlynnCTA
+                    headline="Keep the chair full, hands-free"
+                    body="Flynn books clients from the text, confirms and reminds them to cut no-shows, and nudges regulars to rebook, all in your voice. You stay on the tools."
+                    mascot="phone"
+                />
+
+                <p>Compare booking tools in <Link to="/blog/best-apps-for-hair-salons">best apps for salons and barbers</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.4 Salons & barbers: best apps ─────────────────────────────────────
+    "best-apps-for-hair-salons": {
+        title: "Best Apps for Hair Salons and Barbers (2026)",
+        date: "Jul 17, 2026",
+        datePublished: "2026-07-17",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best booking and admin apps for hair salons and barbers in 2026: Fresha, Square, Booksy and the text-first option, sorted by what fits your shop.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Salon software is a crowded space. Here's an honest sort of the main options in 2026, by the kind of shop you run.
+                </p>
+
+                <Hero pose="point" />
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Fresha</td><td className="p-3">Free booking + payments, big salon feature set</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Square Appointments</td><td className="p-3">Booking plus in-person card payments</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Booksy</td><td className="p-3">Marketplace exposure for new clients</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Booking from the text + reminders + rebooking, no app for clients</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>Want a public booking page and a marketplace to find new clients? Fresha or Booksy do that well. Most of your bookings come by text from existing clients, and you mainly need fewer no-shows and easy rebooking? Booking from the text fits how your clients already behave, and there's no app for them to download.</p>
+
+                <MessageFlynnCTA
+                    headline="Booking and reminders from the text"
+                    body="Flynn books clients in the conversation, sends confirmations and reminders to cut no-shows, and nudges regulars to rebook. No booking app for your clients."
+                    mascot="phone"
+                />
+
+                <p>More in <Link to="/blog/admin-tips-for-salons-and-barbers">how salons cut admin and no-shows</Link> and <Link to="/blog/flynn-vs-calendly-square-booking-by-text">Flynn vs Calendly and Square</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.5 Real estate agents: admin ───────────────────────────────────────
+    "admin-tips-for-real-estate-agents": {
+        title: "How Real Estate Agents Can Win More Leads With Less Admin",
+        date: "Jul 18, 2026",
+        datePublished: "2026-07-18",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "In real estate the fastest reply wins the lead. Here's how agents can respond instantly, book inspections, and follow up buyers and vendors without drowning in admin.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Real estate runs on speed and follow-up. The agent who replies first usually gets the appraisal, and the one who follows up consistently wins the listing. The problem is doing that while you're at an open or in the car. Here's how.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>Speed wins the lead</h2>
+                <p>Property enquiries go cold in minutes. A buyer messaging about a listing is messaging three agents. The first useful reply usually gets the inspection. Replying instantly, even while you're showing a property, is the single biggest lever. See <Link to="/blog/reply-to-leads-faster-speed-to-lead">why speed to lead wins</Link>.</p>
+
+                <h2>Booking inspections without the tag</h2>
+                <p>Coordinating inspection times by phone tag burns hours. Offering real times in the text and booking on the spot keeps buyers moving and your calendar full. More in <Link to="/blog/how-to-take-bookings-over-text">taking bookings over text</Link>.</p>
+
+                <h2>Follow-up is the whole job</h2>
+                <p>Most deals are won in the follow-up: the buyer who needed two weeks, the vendor still deciding. Consistent, personal follow-up is what separates top agents, and it's exactly the thing that slips when you're busy. Templates in <Link to="/blog/customer-follow-up-text-templates">customer follow-up texts</Link>.</p>
+
+                <MessageFlynnCTA
+                    headline="Reply first, follow up always"
+                    body="Flynn replies to enquiries instantly in your voice, books inspections from the text, and keeps buyers and vendors followed up, while you're out showing properties."
+                    mascot="phone"
+                />
+
+                <p>See the tools in <Link to="/blog/best-apps-for-real-estate-agents">best apps for real estate agents</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.6 Real estate agents: best apps ───────────────────────────────────
+    "best-apps-for-real-estate-agents": {
+        title: "Best Apps for Real Estate Agents in 2026",
+        date: "Jul 21, 2026",
+        datePublished: "2026-07-21",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best apps for real estate agents in 2026 for lead response, scheduling and follow-up, plus the text-first assistant that handles enquiries while you're at an open.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Agents drown in tools: a CRM, a scheduler, a dialer, a follow-up app. Here's what actually matters in 2026 and how to keep it simple.
+                </p>
+
+                <Hero pose="point" />
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">A real estate CRM</td><td className="p-3">Pipeline and contact management at scale</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Calendly</td><td className="p-3">Self-serve inspection / appraisal booking</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Your phone + texts</td><td className="p-3">Where buyers and vendors actually talk to you</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Instant replies, booking and follow-up from the text</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>A big team needs a proper CRM for the pipeline, no question. But the moment that decides whether you win a lead happens in a text while you're out, and that's where a CRM can't help, because you're not at a desk. A text assistant covers the live moment: instant reply, book the inspection, keep the follow-up going, then hand the record to your CRM.</p>
+
+                <MessageFlynnCTA
+                    headline="Never miss the live moment"
+                    body="Flynn replies to enquiries the instant they land, books inspections and follows up buyers and vendors, all from a text, while you're showing a property."
+                    mascot="phone"
+                />
+
+                <p>More in <Link to="/blog/admin-tips-for-real-estate-agents">how agents win more leads with less admin</Link> and <Link to="/blog/reply-to-leads-faster-speed-to-lead">speed to lead</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.7 Freelancers: admin ──────────────────────────────────────────────
+    "admin-tips-for-freelancers": {
+        title: "How Freelancers Can Spend Less Time on Admin and More on Work",
+        date: "Jul 22, 2026",
+        datePublished: "2026-07-22",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "Freelancers lose billable hours to proposals, invoicing and chasing late clients. Here's how to cut that admin down so you spend your time on paid work instead.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    As a freelancer, admin is time you don't get paid for. Every hour spent writing proposals, sending invoices and chasing late payers is an hour you can't bill. Here's how to shrink it.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>The three admin sinks</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><FileText className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Proposals & quotes</div><p className="text-sm text-gray-600 mt-2">Re-writing the same scope and pricing for every lead.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><DollarSign className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Invoicing</div><p className="text-sm text-gray-600 mt-2">Formatting invoices and tracking what's been paid.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Chasing clients</div><p className="text-sm text-gray-600 mt-2">The awkward "just following up on that invoice" dance.</p></div>
+                </div>
+
+                <h2>The fixes</h2>
+                <p><strong>Quote fast and clearly.</strong> The freelancer who replies same-day with a tidy quote usually wins over the one who takes three days. See <Link to="/blog/how-to-write-a-quote">writing a winning quote</Link>.</p>
+                <p className="mt-4"><strong>Invoice on delivery.</strong> Send the invoice the moment you deliver, while the value is fresh. <Link to="/blog/send-invoice-from-your-phone">Even from your phone</Link>.</p>
+                <p className="mt-4"><strong>Automate the chase.</strong> Late-paying clients are a freelancer's biggest cash-flow risk. Consistent reminders get you paid without the awkward email. <Link to="/blog/late-payment-reminder-templates">Templates here</Link>.</p>
+
+                <MessageFlynnCTA
+                    headline="Bill more, admin less"
+                    body="Flynn drafts your quotes and invoices from a text and chases late clients automatically, in your voice. More billable hours, less unpaid admin."
+                    mascot="thumbsup"
+                />
+
+                <p>See the toolkit in <Link to="/blog/best-apps-for-freelancers">best apps for freelancers</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.8 Freelancers: best apps ──────────────────────────────────────────
+    "best-apps-for-freelancers": {
+        title: "Best Apps for Freelancers in 2026 (Invoicing, Quotes & Admin)",
+        date: "Jul 23, 2026",
+        datePublished: "2026-07-23",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best apps for freelancers in 2026 to handle invoicing, quotes, payments and chasing clients, plus the text-first assistant that does the admin for you.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Freelancers don't need a 20-app stack. You need to quote, invoice, get paid, and chase the stragglers. Here's what's worth using in 2026.
+                </p>
+
+                <Hero pose="point" />
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Wave / FreshBooks</td><td className="p-3">Invoicing and light accounting</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Bonsai</td><td className="p-3">Proposals, contracts and invoicing in one</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Xero</td><td className="p-3">Proper accounting as you grow</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Quotes, invoices and chasing, done from a text</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>If you want contracts and proposals built in, Bonsai is strong. If you just want clean invoicing, Wave or FreshBooks do it well. But all of them are apps you open and drive. If the admin is the bit you avoid, a text assistant that quotes, invoices and chases for you (and files into your accounting tool) removes the friction that makes you put it off.</p>
+
+                <MessageFlynnCTA
+                    headline="The admin layer for freelancers"
+                    body="Flynn turns a text into a quote or invoice, tracks what's unpaid, and chases late clients for you. Files into the accounting tool you already use."
+                    mascot="thumbsup"
+                />
+
+                <p>More in <Link to="/blog/admin-tips-for-freelancers">how freelancers can cut admin</Link> and <Link to="/blog/chatgpt-for-small-business">ChatGPT for small business</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.9 Personal trainers: admin ────────────────────────────────────────
+    "admin-tips-for-personal-trainers": {
+        title: "How Personal Trainers Can Cut No-Shows and Admin",
+        date: "Jul 24, 2026",
+        datePublished: "2026-07-24",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "Personal trainers lose income to no-shows, session juggling and chasing payments. Here's how to keep sessions full, get paid on time, and spend less time on your phone.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    As a personal trainer your income is your calendar. A no-show is money gone, a missed rebooking is a client drifting away, and chasing session payments is the worst part of the week. Here's how to tighten all three.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>No-shows are lost income</h2>
+                <p>An empty session slot is revenue you can't recover. Most no-shows are forgetfulness, so reminders fix the bulk of them: a confirmation on booking and a day-before nudge. Add a cancellation window and clients respect your time. Full guide in <Link to="/blog/how-to-reduce-no-shows-small-business">reducing no-shows</Link>.</p>
+
+                <h2>Keep sessions booked ahead</h2>
+                <p>The clients who book their next session before they leave are the ones who stick. A quick "same time next week?" in the text keeps your calendar full and your clients consistent, which is what gets them results and keeps them paying.</p>
+
+                <h2>Payments and packages</h2>
+                <p>Chasing for session or package payments is awkward when you see the client in person. Automatic, friendly reminders take you out of the uncomfortable part and get you paid on time. <Link to="/blog/late-payment-reminder-templates">Templates here</Link>.</p>
+
+                <MessageFlynnCTA
+                    headline="Keep every session booked and paid"
+                    body="Flynn books sessions from the text, sends reminders to cut no-shows, nudges clients to rebook, and chases package payments, all in your voice."
+                    mascot="phone"
+                />
+
+                <p>See the tools in <Link to="/blog/best-apps-for-personal-trainers">best apps for personal trainers</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.10 Personal trainers: best apps ───────────────────────────────────
+    "best-apps-for-personal-trainers": {
+        title: "Best Apps for Personal Trainers in 2026",
+        date: "Jul 25, 2026",
+        datePublished: "2026-07-25",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best apps for personal trainers in 2026 for programming, booking and payments, plus the text-first assistant that keeps sessions booked and paid for you.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Trainer software splits into two jobs: programming and coaching, and the business admin around it. Here's what's worth using in 2026 for each.
+                </p>
+
+                <Hero pose="point" />
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Trainerize / TrueCoach</td><td className="p-3">Programming, tracking and client coaching</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Mindbody</td><td className="p-3">Studios with classes and memberships</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Square</td><td className="p-3">Booking plus taking payments</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Booking, reminders, rebooking and payment chasing by text</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>For programming and tracking workouts, a coaching tool like Trainerize is purpose-built and worth it. But those tools aren't built for the business admin, the booking, the no-show reminders, the chasing. That's the bit that eats your evenings, and it's exactly what a text assistant handles, alongside the tools you already coach in.</p>
+
+                <MessageFlynnCTA
+                    headline="The business side, handled"
+                    body="Flynn keeps sessions booked, cuts no-shows with reminders, nudges rebookings and chases payments, from a text, so you can focus on coaching."
+                    mascot="thumbsup"
+                />
+
+                <p>More in <Link to="/blog/admin-tips-for-personal-trainers">how personal trainers cut no-shows and admin</Link>.</p>
+            </>
+        )
+    },
 };
 
 export const BlogList: React.FC = () => {
