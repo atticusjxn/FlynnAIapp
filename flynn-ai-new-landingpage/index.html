@@ -31,7 +31,7 @@
     gtag('config', 'G-N12D97R2ZB');
   </script>
 
-  <!-- Meta Pixel — TODO: replace 885850801136212. Get it from business.facebook.com → Events Manager → Pixels. -->
+  <!-- Meta Pixel — Flynn Web dataset 2580731252385574 (dedicated web pixel; the app dataset 885850801136212 stays separate). Same ID is set as META_CAPI_PIXEL_ID on the server for CAPI dedup. -->
   <script>
     !function(f,b,e,v,n,t,s)
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -41,7 +41,7 @@
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '885850801136212');
+    fbq('init', '2580731252385574');
     fbq('track', 'PageView');
   </script>
   <!-- Note: Meta Pixel <noscript> img fallback omitted — parse5 disallows in <head>. JS-based tracking covers >99% of users. -->

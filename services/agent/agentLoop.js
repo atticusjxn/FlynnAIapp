@@ -20,6 +20,7 @@
 const { getLLMClient } = require('../../llmClient');
 const nango = require('../nango');
 const registry = require('./toolRegistry');
+const billingGate = require('../billingGate');
 const { logToolEvent } = require('./toolEvents');
 
 const QWEN_MODEL = process.env.SMS_LLM_MODEL || process.env.DRAFT_LLM_MODEL || 'qwen3.5-flash';
@@ -126,6 +127,7 @@ Rules:
 - When the user tells you something new about their business (a rate, a supplier, a client, a preference like where receipts get logged), call remember to save it. Never ask for something twice. This is how you learn their tool stack.
 - Don't push connect links in the first messages. Have a real conversation first and learn what they actually use (their calendar, accounting, the suppliers they order from), remembering each. Once you've got a good picture of their stack, offer to set it all up in one go with connect_tools, which texts them a single page pre-filled with their tools, instead of dripping one link at a time. Only use a one-off gated connect link when they make a specific request (book/order/invoice) before they've set up.
 - Calendar can be Google or Apple/iCloud. If they say they use Apple Calendar or iCloud, call remember with calendar_provider set to "apple" before booking, so it goes to the right calendar. Otherwise assume Google.
+- Email can be Gmail, Outlook/Microsoft 365, or another provider (Bigpond, iCloud, Optus, or their own business domain). Gmail and Outlook are one-tap sign-ins; everything else needs their email address and an app password. If they tell you which they use, call remember with email_provider (e.g. "gmail", "outlook", "bigpond") before sending so the connect prompt and the send go to the right place. If you don't know yet and they ask you to email someone, ask once which email they use.
 - When a task could go to more than one place (e.g. a receipt could go to a spreadsheet or their accounting software) and their business details don't say which, ask once what they'd prefer, then remember the answer.
 - If the user seems to be forwarding a customer message they received, draft the reply they should send, in their voice, using their real pricing.
 - Texting style: sound like a sharp mate. Casual, lowercase starts where natural, contractions always. One or two short sentences. Separate thoughts with a blank line to send as separate bubbles, max 3.
@@ -196,6 +198,22 @@ async function reconcileActionedItem(openItems, toolName, args, supabase) {
     .then(() => {}, () => {});
 }
 
+// The unfinished task, phrased as a hook for the paywall upsell ("want me to
+// send that invoice?"). Null falls back to a generic line.
+function taskHookFor(name, args = {}) {
+  switch (name) {
+    case 'xero_send_invoice': return `send that invoice to ${args.client_name || 'them'}`;
+    case 'draft_quote': return `quote ${args.client_name || 'that job'}`;
+    case 'order_parts': return 'put that order in';
+    case 'send_email': return 'send that email';
+    case 'calendar_book_event': return 'book that in';
+    case 'xero_log_expense':
+    case 'sheets_log_expense': return 'keep logging your receipts';
+    case 'log_timesheet': return 'log those hours';
+    default: return null;
+  }
+}
+
 async function gatedLinkBubble(capability, ctx, provider) {
   const authKind = registry.authKindFor(provider, capability);
   if (authKind === 'nango_oauth') {
@@ -204,6 +222,9 @@ async function gatedLinkBubble(capability, ctx, provider) {
   }
   if (authKind === 'credentials_apple') {
     return "to book into your apple calendar i need an icloud app-specific password (apple won't let me use your normal one). make one at appleid.apple.com under Sign-In and Security, then text me your icloud email and that password";
+  }
+  if (authKind === 'credentials_imap') {
+    return "to send from your email i need your address and an app password (bigpond, icloud and the like won't take your normal password for apps). grab one from your email provider's security settings, then text me your email address and that app password";
   }
   return `i can do that through ${capability.connectBlurb}. what's your ${provider} login? email then password works`;
 }
@@ -267,6 +288,16 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
       // Acting on a tool that matches an open group item retires it (whether it
       // executes, parks for confirm, or parks for connect below).
       await reconcileActionedItem(openItems, entry.tool.name, args, supabase);
+
+      // Paywall gate — metered "doing" tools stop past the free budget (chat
+      // and read-only tools stay free). No-op unless FLYNN_PAYWALL=1.
+      if (registry.METERED_TOOLS.has(entry.tool.name)) {
+        const gate = await billingGate.isEntitled({ user: ctx.user, phone, supabase, toolName: entry.tool.name });
+        if (!gate.entitled) {
+          const bubble = await billingGate.upsellBubble({ user: ctx.user, phone, taskHook: taskHookFor(entry.tool.name, args) });
+          return { reply: bubble, intent: 'AGENT_PAYWALL' };
+        }
+      }
 
       const provider = registry.providerFor(entry.capability, ctx, args);
 
@@ -392,7 +423,7 @@ async function resumeParkedAction(phone, provider, supabase) {
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, phone, business_brain, onboarding_step, preferred_channel')
+    .select('id, phone, business_brain, onboarding_step, preferred_channel, subscription_status, trial_end_date, stripe_customer_id')
     .eq('phone', phone)
     .maybeSingle();
 
@@ -440,11 +471,13 @@ const PROVIDER_TO_BRAIN_SLUG = {
   'google-calendar': 'google_calendar',
   'google-mail': 'gmail',
   'google-sheet': 'google_sheets',
+  outlook: 'outlook',
 };
 const CONNECTED_BLURB = {
   'google-calendar': "calendar's in. i can check your week and book jobs straight into it now",
   'google-mail': "gmail's connected. i can find emails and send them for you now",
   'google-sheet': "sheets is connected. text me receipts and i'll log them for you",
+  outlook: "outlook's connected. i can find your emails and send them for you now",
 };
 
 /**

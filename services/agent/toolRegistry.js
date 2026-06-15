@@ -19,9 +19,12 @@
 const browserbase = require('../browserbaseAgent');
 const googleCalendar = require('../googleCalendar');
 const appleCalendar = require('../appleCalendar');
+const xeroReceivables = require('../xeroReceivables');
+const imapEmail = require('../imapEmail');
 
 const GMAIL_BASE = 'https://gmail.googleapis.com/gmail/v1';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4';
+const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 
 const SUPPLIER_SLUGS = ['reece', 'bunnings', 'tradelink', 'nhp', 'middy', 'rsea', 'neco', 'amazon'];
 
@@ -87,6 +90,29 @@ async function googleApi(token, url, { method = 'GET', body } = {}) {
   return res.json();
 }
 
+// Microsoft Graph (Outlook mail). Same shape as googleApi; token from Nango via
+// nangoToken(ctx, 'outlook'). Used for the Microsoft 365 / Outlook mail tools.
+async function graphApi(token, url, { method = 'GET', body } = {}) {
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(method === 'GET' ? { ConsistencyLevel: 'eventual' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(`Graph API ${method} ${url} failed (${res.status}): ${text.slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
+  }
+  // sendMail returns 202 with no body
+  if (res.status === 202 || res.status === 204) return {};
+  return res.json();
+}
+
 // Xero accounting API. Mirrors googleApi (token from Nango via nangoToken), plus
 // the Xero-tenant-id header that scopes every call to one organisation.
 const XERO_API = 'https://api.xero.com/api.xro/2.0';
@@ -144,8 +170,30 @@ function resolveCalendarProvider(ctx, args) {
 // gating doesn't depend on a single per-capability auth_kind.
 function authKindFor(provider, capability) {
   if (provider === 'apple-calendar') return 'credentials_apple';
+  if (provider === 'imap-email') return 'credentials_imap';
+  if (provider === 'outlook') return 'nango_oauth';
   if (typeof provider === 'string' && provider.startsWith('google-')) return 'nango_oauth';
   return capability?.auth_kind || 'credentials_browserbase';
+}
+
+// Which mail provider this user is on. Connected wins (outlook > gmail > imap);
+// then a remembered preference (brain.email_provider, set via remember when they
+// say "I use outlook" / "bigpond"); else default to Gmail (the largest slice).
+// Mirrors resolveCalendarProvider so the agent calls one set of email tools and
+// Flynn routes to the right backend.
+function resolveMailProvider(ctx) {
+  if (ctx.connections.get('outlook')?.status === 'connected') return 'outlook';
+  if (ctx.connections.get('google-mail')?.status === 'connected') return 'google-mail';
+  if (ctx.userIntegrations['imap-email']?.email
+    || ctx.connections.get('imap-email')?.status === 'connected') return 'imap-email';
+  const pref = String(ctx.brain?.email_provider || '').toLowerCase();
+  if (pref === 'outlook' || pref === 'microsoft' || pref === 'office365' || pref === 'hotmail') return 'outlook';
+  if (pref === 'gmail' || pref === 'google') return 'google-mail';
+  if (pref && pref !== 'gmail' && pref !== 'google') {
+    // a named non-Google/Microsoft provider (bigpond, icloud, optus, a host domain)
+    if (pref !== 'outlook' && pref !== 'microsoft') return 'imap-email';
+  }
+  return 'google-mail';
 }
 
 async function checkAvailability(ctx, args) {
@@ -194,18 +242,38 @@ async function bookEvent(ctx, args) {
 }
 
 // ---------------------------------------------------------------------------
-// Gmail
+// Email — one capability over three backends, resolved per call by
+// resolveMailProvider: Gmail (OAuth), Outlook/Microsoft 365 (Graph OAuth), or
+// IMAP/SMTP for the AU long tail (Bigpond, Optus, iCloud, host mailboxes).
 // ---------------------------------------------------------------------------
 
 async function findEmails(ctx, args) {
-  const query = requireArg(args, 'query', 'gmail search query, e.g. from:dave OR "quote"');
+  const query = requireArg(args, 'query', 'search query, e.g. from:dave OR "quote"');
   const max = Math.min(Math.max(Number(args.max_results) || 5, 1), 10);
-  const token = await nangoToken(ctx, 'google-mail');
+  const provider = resolveMailProvider(ctx);
 
+  if (provider === 'outlook') {
+    const token = await nangoToken(ctx, 'outlook');
+    const url = `${GRAPH_BASE}/me/messages?$search=${encodeURIComponent(`"${query}"`)}&$top=${max}&$select=from,subject,receivedDateTime,bodyPreview`;
+    const list = await graphApi(token, url);
+    const msgs = list.value || [];
+    if (!msgs.length) return { result: `no emails match "${query}"` };
+    return { result: msgs.map((m) => `from ${m.from?.emailAddress?.address || '?'} | ${m.subject || '(no subject)'} | ${(m.receivedDateTime || '').slice(0, 10)} | ${m.bodyPreview || ''}`).join('\n') };
+  }
+
+  if (provider === 'imap-email') {
+    const creds = ctx.userIntegrations['imap-email'];
+    if (!creds?.email) throw new ToolArgError('no email login on file — ask for their email address and app password, then call save_login with provider imap-email');
+    const lines = await imapEmail.findEmails({ email: creds.email, password: creds.password, query, max });
+    if (!lines.length) return { result: `no emails match "${query}"` };
+    return { result: lines.join('\n') };
+  }
+
+  // Gmail (default)
+  const token = await nangoToken(ctx, 'google-mail');
   const list = await googleApi(token, `${GMAIL_BASE}/users/me/messages?q=${encodeURIComponent(query)}&maxResults=${max}`);
   const ids = (list.messages || []).map((m) => m.id);
   if (!ids.length) return { result: `no emails match "${query}"` };
-
   const summaries = [];
   for (const id of ids) {
     const msg = await googleApi(token, `${GMAIL_BASE}/users/me/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`);
@@ -220,7 +288,32 @@ async function sendEmail(ctx, args) {
   const subject = requireArg(args, 'subject');
   const body = requireArg(args, 'body', 'plain-text email body');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) throw new ToolArgError(`"${to}" is not a valid email address — ask the user for it`);
+  const provider = resolveMailProvider(ctx);
 
+  if (provider === 'outlook') {
+    const token = await nangoToken(ctx, 'outlook');
+    await graphApi(token, `${GRAPH_BASE}/me/sendMail`, {
+      method: 'POST',
+      body: {
+        message: {
+          subject,
+          body: { contentType: 'Text', content: body },
+          toRecipients: [{ emailAddress: { address: to } }],
+        },
+        saveToSentItems: true,
+      },
+    });
+    return { result: `email sent to ${to} via outlook`, userFacing: `sent the email to ${to}` };
+  }
+
+  if (provider === 'imap-email') {
+    const creds = ctx.userIntegrations['imap-email'];
+    if (!creds?.email) throw new ToolArgError('no email login on file — ask for their email address and app password, then call save_login with provider imap-email');
+    await imapEmail.sendEmail({ email: creds.email, password: creds.password, to, subject, body });
+    return { result: `email sent to ${to} from ${creds.email}`, userFacing: `sent the email to ${to}` };
+  }
+
+  // Gmail (default)
   const token = await nangoToken(ctx, 'google-mail');
   const raw = Buffer.from(`To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`)
     .toString('base64url');
@@ -439,6 +532,22 @@ async function xeroLogExpense(ctx, args) {
   };
 }
 
+async function xeroListInvoices(ctx, args = {}) {
+  const connectionRow = ctx.connections.get('xero');
+  if (!connectionRow?.nango_connection_id) throw new ToolArgError('xero not connected');
+  const onlyOverdue = args.only_overdue !== false; // default to overdue-only
+  const rows = await xeroReceivables.listOutstandingInvoices({ connectionRow, supabase: ctx.supabase, onlyOverdue });
+  if (!rows.length) {
+    return { result: 'no outstanding invoices', userFacing: onlyOverdue ? "nothing overdue, you're all paid up" : 'nothing outstanding right now' };
+  }
+  const total = rows.reduce((s, r) => s + r.amountDueCents, 0);
+  const lines = rows.slice(0, 8).map((r) => `${r.contactName} ${money(r.amountDueCents, r.currency || ctx.currency)}${r.daysOverdue > 0 ? ` (${r.daysOverdue}d overdue)` : ''}`);
+  return {
+    result: `${rows.length} outstanding totalling ${money(total, ctx.currency)}: ${lines.join('; ')}`,
+    userFacing: `you've got ${rows.length} unpaid totalling ${money(total, ctx.currency)}:\n${lines.join('\n')}`,
+  };
+}
+
 function resolveSupplier(ctx, args = {}) {
   const wanted = (args.supplier || '').toLowerCase().trim();
   if (wanted && SUPPLIER_SLUGS.includes(wanted)) return wanted;
@@ -464,6 +573,133 @@ async function orderParts(ctx, args) {
     result: `order placed at ${slug}: ${items.map((i) => `${i.qty || 1}x ${i.name}`).join(', ')}.${total}`,
     userFacing: `order's in at ${slug}${total ? `,${total.toLowerCase()}` : ''}. confirmation will come from them`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Quotes — phone-keyed quote tracking (agent_quotes). Flynn drafts the quote
+// the operator sends to their client AND records it so the chaser can nudge
+// them to follow it up when it goes cold. Stored in our own DB, so never gated
+// on a third-party connection (auth_kind: none).
+// ---------------------------------------------------------------------------
+
+const QUOTE_DEFAULT_VALID_DAYS = 14;
+const QUOTE_FIRST_FOLLOWUP_DAYS = 3;
+
+function formatQuote(ctx, { clientName, lineItems, description, amountCents, validDays }) {
+  const business = ctx.brain?.business_name || ctx.brain?.business_type || 'us';
+  const body = Array.isArray(lineItems) && lineItems.length
+    ? lineItems.map((li) => {
+      const amt = Number(li.amount_cents);
+      return `- ${li.description || 'item'}${Number.isFinite(amt) && amt > 0 ? `  ${money(amt, ctx.currency)}` : ''}`;
+    }).join('\n')
+    : (description || '');
+  return [
+    `Quote from ${business}`,
+    `For: ${clientName}`,
+    '',
+    body || null,
+    body ? '' : null,
+    `Total: ${money(amountCents, ctx.currency)} inc GST`,
+    `Valid for ${validDays} days.`,
+  ].filter((v) => v !== null).join('\n');
+}
+
+async function draftQuote(ctx, args) {
+  const clientName = requireArg(args, 'client_name', "the client this quote is for");
+  const amountCents = Number(requireArg(args, 'amount_cents', 'total in integer cents'));
+  if (!Number.isFinite(amountCents) || amountCents <= 0) throw new ToolArgError('amount_cents must be a positive integer');
+  const validDays = Math.min(Math.max(Number(args.valid_days) || QUOTE_DEFAULT_VALID_DAYS, 1), 90);
+  const description = args.description
+    || (Array.isArray(args.line_items) ? args.line_items.map((li) => li.description).filter(Boolean).join(', ') : null);
+
+  const quoteText = formatQuote(ctx, { clientName, lineItems: args.line_items, description, amountCents, validDays });
+
+  if (ctx.supabase) {
+    const followupDays = Math.min(Math.max(Number(args.followup_days) || QUOTE_FIRST_FOLLOWUP_DAYS, 1), 30);
+    await ctx.supabase.from('agent_quotes').insert({
+      user_id: ctx.user?.id || null,
+      user_phone: ctx.phone,
+      client_name: clientName,
+      client_handle: String(clientName).toLowerCase().trim(),
+      amount_cents: amountCents,
+      currency: ctx.currency,
+      description,
+      status: 'open',
+      next_followup_at: new Date(Date.now() + followupDays * 24 * 60 * 60 * 1000).toISOString(),
+    }).then(() => {}, (e) => console.warn('[quotes] record failed:', e?.message));
+  }
+
+  // result carries the full quote so the model relays it verbatim to the user.
+  return {
+    result: `quote drafted and saved as open for ${clientName} (${money(amountCents, ctx.currency)}). Send this to the user EXACTLY as written, in a code-free plain block, don't reword it:\n\n${quoteText}`,
+    userFacing: `here's the quote for ${clientName.toLowerCase()}, copy and send it:\n\n${quoteText}`,
+  };
+}
+
+// Record a quote the operator already gave verbally, without drafting text —
+// "quoted dave $480 for the reno". Just feeds the chaser.
+async function recordQuote(ctx, args) {
+  const clientName = requireArg(args, 'client_name');
+  const amountCents = Number(requireArg(args, 'amount_cents', 'integer cents'));
+  if (!Number.isFinite(amountCents) || amountCents <= 0) throw new ToolArgError('amount_cents must be a positive integer');
+  const followupDays = Math.min(Math.max(Number(args.followup_days) || QUOTE_FIRST_FOLLOWUP_DAYS, 1), 30);
+  if (ctx.supabase) {
+    await ctx.supabase.from('agent_quotes').insert({
+      user_id: ctx.user?.id || null,
+      user_phone: ctx.phone,
+      client_name: clientName,
+      client_handle: String(clientName).toLowerCase().trim(),
+      amount_cents: amountCents,
+      currency: ctx.currency,
+      description: args.description || null,
+      status: 'open',
+      next_followup_at: new Date(Date.now() + followupDays * 24 * 60 * 60 * 1000).toISOString(),
+    }).then(() => {}, (e) => console.warn('[quotes] record failed:', e?.message));
+  }
+  return {
+    result: `recorded quote: ${clientName} ${money(amountCents, ctx.currency)} (open, will nudge to follow up)`,
+    userFacing: `got it, noted the ${money(amountCents, ctx.currency)} quote for ${clientName.toLowerCase()}. i'll remind you to chase it if it goes quiet`,
+  };
+}
+
+async function listQuotes(ctx, args = {}) {
+  if (!ctx.supabase) return { result: 'quotes unavailable' };
+  const status = String(args.status || 'open').toLowerCase();
+  const { data } = await ctx.supabase
+    .from('agent_quotes')
+    .select('client_name, amount_cents, currency, status, sent_at')
+    .eq('user_phone', ctx.phone)
+    .eq('status', status)
+    .order('sent_at', { ascending: false })
+    .limit(10);
+  if (!data || !data.length) {
+    return { result: `no ${status} quotes`, userFacing: status === 'open' ? 'no open quotes right now' : `no ${status} quotes` };
+  }
+  const total = data.reduce((s, q) => s + (q.amount_cents || 0), 0);
+  const lines = data.map((q) => `${q.client_name} ${money(q.amount_cents || 0, q.currency || ctx.currency)}`);
+  return {
+    result: `${data.length} ${status} totalling ${money(total, ctx.currency)}: ${lines.join('; ')}`,
+    userFacing: `${status} quotes (${money(total, ctx.currency)}):\n${lines.join('\n')}`,
+  };
+}
+
+async function updateQuote(ctx, args) {
+  if (!ctx.supabase) return { result: 'quotes unavailable' };
+  const status = String(requireArg(args, 'status')).toLowerCase();
+  if (!['won', 'lost', 'expired', 'open'].includes(status)) throw new ToolArgError('status must be won, lost, expired or open');
+  const handle = String(requireArg(args, 'client_name')).toLowerCase().trim();
+  const { data } = await ctx.supabase
+    .from('agent_quotes')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('user_phone', ctx.phone)
+    .eq('client_handle', handle)
+    .eq('status', 'open')
+    .select('client_name, amount_cents, currency');
+  if (!data || !data.length) {
+    return { result: `no open quote found for ${handle}`, userFacing: `couldn't find an open quote for ${handle}` };
+  }
+  const q = data[0];
+  return { result: `quote for ${q.client_name} marked ${status}`, userFacing: `marked ${q.client_name.toLowerCase()}'s quote as ${status}` };
 }
 
 // ---------------------------------------------------------------------------
@@ -498,8 +734,13 @@ async function saveLogin(ctx, args) {
   const provider = (requireArg(args, 'provider') || '').toLowerCase().trim();
   const email = requireArg(args, 'email');
   const password = requireArg(args, 'password');
-  const known = new Set(['xero', 'apple-calendar', ...SUPPLIER_SLUGS]);
-  if (!known.has(provider)) throw new ToolArgError(`unknown provider "${provider}" — must be one of: xero, apple-calendar, ${SUPPLIER_SLUGS.join(', ')}`);
+  const known = new Set(['xero', 'apple-calendar', 'imap-email', ...SUPPLIER_SLUGS]);
+  if (!known.has(provider)) throw new ToolArgError(`unknown provider "${provider}" — must be one of: xero, apple-calendar, imap-email, ${SUPPLIER_SLUGS.join(', ')}`);
+  // IMAP/SMTP email only works for non-OAuth providers — Gmail and Microsoft
+  // basic auth is dead, so steer those back to the one-click OAuth connectors.
+  if (provider === 'imap-email' && imapEmail.requiresOAuth(email)) {
+    throw new ToolArgError(`${email} is a ${email.split('@')[1]} address — that needs the one-click ${/gmail|googlemail/.test(email) ? 'Gmail' : 'Outlook'} sign-in, not a password. Offer connect_tools instead.`);
+  }
   const ak = authKindFor(provider);
 
   const now = new Date().toISOString();
@@ -586,19 +827,20 @@ const CAPABILITIES = [
   },
   {
     capability: 'email',
-    provider: 'google-mail',
-    auth_kind: 'nango_oauth',
-    label: 'Gmail',
-    connectBlurb: 'your gmail',
+    provider: null, // resolved per call: google-mail (OAuth), outlook (OAuth), or imap-email (login)
+    auth_kind: 'nango_oauth', // default; authKindFor() overrides for imap-email
+    dynamicProvider: resolveMailProvider,
+    label: 'Email',
+    connectBlurb: 'your email',
     tools: [
       {
-        name: 'gmail_find_emails',
+        name: 'find_emails',
         confirm: false,
-        description: "Search the user's Gmail and return sender/subject/snippet summaries.",
+        description: "Search the user's inbox (Gmail, Outlook/Microsoft 365, or their other email) and return sender/subject/snippet summaries.",
         parameters: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: 'gmail search syntax, e.g. from:dave newer_than:7d' },
+            query: { type: 'string', description: 'search terms, e.g. dave quote (Gmail also takes from:dave newer_than:7d)' },
             max_results: { type: 'number', description: 'default 5, max 10' },
           },
           required: ['query'],
@@ -606,9 +848,9 @@ const CAPABILITIES = [
         executor: findEmails,
       },
       {
-        name: 'gmail_send_email',
+        name: 'send_email',
         confirm: true,
-        description: "Send an email from the user's Gmail. Irreversible, so the user is asked to confirm first.",
+        description: "Send an email from the user's own email account (Gmail, Outlook, or their other provider, whichever they connected). Irreversible, so the user is asked to confirm first.",
         parameters: {
           type: 'object',
           properties: {
@@ -732,6 +974,18 @@ const CAPABILITIES = [
         },
         executor: xeroLogExpense,
       },
+      {
+        name: 'xero_list_invoices',
+        confirm: false,
+        description: "Read the user's outstanding sales invoices from Xero (accounts receivable). Use when they ask what's unpaid, what's owed to them, or what's overdue. Defaults to overdue only; pass only_overdue=false for everything outstanding.",
+        parameters: {
+          type: 'object',
+          properties: {
+            only_overdue: { type: 'boolean', description: 'true (default) = overdue only; false = all outstanding' },
+          },
+        },
+        executor: xeroListInvoices,
+      },
     ],
   },
   {
@@ -770,6 +1024,83 @@ const CAPABILITIES = [
           const list = (args.items || []).map((i) => `${i.qty || 1}x ${i.name}`).join(', ');
           return `ordering ${list}${args.supplier ? ` from ${args.supplier}` : ''}. good to go?`;
         },
+      },
+    ],
+  },
+  {
+    capability: 'quotes',
+    provider: null,
+    auth_kind: 'none',
+    label: 'quotes',
+    tools: [
+      {
+        name: 'draft_quote',
+        confirm: false,
+        description: "Draft a quote the user can send to their client AND record it so you can chase it later. Use when the user asks you to quote a job. Return the drafted quote text to the user verbatim. Pass line_items for an itemised quote or description for a one-liner.",
+        parameters: {
+          type: 'object',
+          properties: {
+            client_name: { type: 'string', description: 'who the quote is for' },
+            amount_cents: { type: 'number', description: 'total quote amount in integer cents' },
+            description: { type: 'string', description: 'what the quote is for, if not itemised' },
+            line_items: {
+              type: 'array',
+              description: 'optional itemised lines',
+              items: {
+                type: 'object',
+                properties: {
+                  description: { type: 'string' },
+                  amount_cents: { type: 'number' },
+                },
+                required: ['description'],
+              },
+            },
+            valid_days: { type: 'number', description: 'how many days the quote is valid, default 14' },
+          },
+          required: ['client_name', 'amount_cents'],
+        },
+        executor: draftQuote,
+      },
+      {
+        name: 'record_quote',
+        confirm: false,
+        description: "Record a quote the user already gave verbally (no text drafted), e.g. \"quoted dave $480 for the reno\", so you can chase the follow-up. Use when they mention a quote they've already sent.",
+        parameters: {
+          type: 'object',
+          properties: {
+            client_name: { type: 'string' },
+            amount_cents: { type: 'number', description: 'integer cents' },
+            description: { type: 'string' },
+          },
+          required: ['client_name', 'amount_cents'],
+        },
+        executor: recordQuote,
+      },
+      {
+        name: 'list_quotes',
+        confirm: false,
+        description: "List the user's quotes by status (default open). Use when they ask what quotes are out, what's pending, or what's still open.",
+        parameters: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', description: 'open (default), won, lost, or expired' },
+          },
+        },
+        executor: listQuotes,
+      },
+      {
+        name: 'update_quote',
+        confirm: false,
+        description: "Mark an open quote won, lost or expired so Flynn stops chasing it. Use when the user says a quote was accepted, declined, or is dead.",
+        parameters: {
+          type: 'object',
+          properties: {
+            client_name: { type: 'string', description: 'the client whose quote to update' },
+            status: { type: 'string', description: 'won, lost, or expired' },
+          },
+          required: ['client_name', 'status'],
+        },
+        executor: updateQuote,
       },
     ],
   },
@@ -837,6 +1168,21 @@ const CAPABILITIES = [
     ],
   },
 ];
+
+// Tools that actually DO money/admin work — the "doing" surface the paywall
+// meters. Read-only, memory, setup and credential tools are always free so
+// chat, onboarding and connecting never hit the gate. Receipts are metered but
+// the free budget is generous enough that activation always happens free.
+const METERED_TOOLS = new Set([
+  'calendar_book_event',
+  'send_email',
+  'sheets_log_expense',
+  'log_timesheet',
+  'xero_send_invoice',
+  'xero_log_expense',
+  'order_parts',
+  'draft_quote',
+]);
 
 const TOOL_INDEX = new Map();
 for (const cap of CAPABILITIES) {
@@ -914,6 +1260,7 @@ function getOpenAITools(ctx) {
 
 module.exports = {
   CAPABILITIES,
+  METERED_TOOLS,
   ToolArgError,
   findTool,
   providerFor,

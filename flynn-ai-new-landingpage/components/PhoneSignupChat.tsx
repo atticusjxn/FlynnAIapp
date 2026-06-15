@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { trackMessagedFlynn } from '../services/tracking';
 
 const DEMO = [
   { out: false, text: "Hey! I'm Flynn, your business brain." },
@@ -32,6 +33,20 @@ export default function PhoneSignupChat() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {}
+  }
+
+  // Fire the MessagedFlynn conversion + attribution bridge, then open iMessage
+  // with the ref embedded so the later Activated event attributes to this click.
+  // The static href stays as a no-JS fallback.
+  function handleMessageFlynn(e: React.MouseEvent<HTMLAnchorElement>) {
+    try {
+      const ref = trackMessagedFlynn();
+      const link = `sms:${FLYNN_NUMBER}&body=${encodeURIComponent(`Hi Flynn [${ref}]`)}`;
+      e.preventDefault();
+      window.location.href = link;
+    } catch {
+      // let the default href handle navigation
+    }
   }
 
   return (
@@ -96,6 +111,7 @@ export default function PhoneSignupChat() {
       {/* Primary CTA — Series style: white pill, green iMessage icon */}
       <a
         href={SMS_LINK}
+        onClick={handleMessageFlynn}
         className="flex items-center gap-3 bg-white rounded-full px-5 py-3.5 shadow-[0_4px_20px_-4px_rgba(44,32,24,0.2)] border border-gray-100 hover:shadow-[0_6px_28px_-4px_rgba(44,32,24,0.3)] active:scale-95 transition-all order-1 lg:order-2"
       >
         <IMessageIcon size={30} />

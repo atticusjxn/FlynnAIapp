@@ -87,6 +87,73 @@ export function trackTrialSignup(params: { email: string; businessType: string }
   });
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'https://flynnai-telephony.fly.dev';
+
+function readCookie(name: string): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : undefined;
+}
+
+/** Meta browser identifiers, with fbc synthesised from fbclid when the cookie isn't set yet. */
+function metaIds(): { fbp?: string; fbc?: string; fbclid?: string } {
+  const fbp = readCookie('_fbp');
+  let fbc = readCookie('_fbc');
+  const fbclid = new URLSearchParams(window.location.search).get('fbclid') || undefined;
+  if (!fbc && fbclid) fbc = `fb.1.${Math.floor(Date.now() / 1000)}.${fbclid}`;
+  return { fbp, fbc, fbclid };
+}
+
+function randomId(len: number): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const a = new Uint8Array(len);
+  window.crypto.getRandomValues(a);
+  let s = '';
+  for (let i = 0; i < len; i++) s += chars[a[i] % chars.length];
+  return s;
+}
+
+/**
+ * The conversion the ads optimise on. Fires the Meta Pixel MessagedFlynn event
+ * (full browser attribution) AND beacons the server so CAPI mirrors it with the
+ * same event_id (deduped, survives iOS / ad-blockers). Returns a short ref to
+ * embed in the pre-filled iMessage body so the later Activated event attributes
+ * back to this click. Call synchronously on the tap, before navigating to the
+ * sms: link.
+ */
+export function trackMessagedFlynn(): string {
+  const ref = randomId(6);
+  const eventId = window.crypto?.randomUUID?.() || `${Date.now()}-${ref}`;
+  const ids = metaIds();
+
+  // 1. Browser Pixel event (shares eventId with the server mirror for dedup).
+  window.fbq?.('trackCustom', 'MessagedFlynn', { ref }, { eventID: eventId });
+  window.ttq?.track('Contact', { content_id: 'message_flynn' });
+  window.gtag?.('event', 'message_flynn');
+  window.posthog?.capture('message_flynn_tapped', { ref });
+
+  // 2. Server beacon → CAPI mirror + attribution bridge. sendBeacon survives the
+  // page unload as iMessage opens; text/plain keeps it a CORS-simple request.
+  try {
+    const payload = JSON.stringify({
+      ref,
+      event_id: eventId,
+      event_source_url: window.location.href,
+      ...ids,
+      utm: captureUTMs(),
+    });
+    const url = `${API_BASE_URL}/api/track/messaged`;
+    const blob = new Blob([payload], { type: 'text/plain' });
+    if (!(navigator.sendBeacon && navigator.sendBeacon(url, blob))) {
+      fetch(url, { method: 'POST', body: payload, headers: { 'Content-Type': 'text/plain' }, keepalive: true }).catch(() => {});
+    }
+  } catch {
+    // tracking must never block the tap
+  }
+
+  return ref;
+}
+
 /** Track when a user clicks the App Store / Google Play badge — high-intent event. */
 export function trackStoreBadgeClick(store: 'apple' | 'google'): void {
   const event = store === 'apple' ? 'click_app_store' : 'click_google_play';

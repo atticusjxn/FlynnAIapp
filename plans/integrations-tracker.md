@@ -9,7 +9,7 @@ Status legend: not-started · in-progress · in-review(<date>) · live · no-api
 | google_calendar | tradie | live | see Nango dashboard | calendar.readonly, calendar.events | n/a — production-unverified | Google Cloud project `flynn-integrations`; Nango key `google-calendar` |
 | gmail | tradie | in-progress | same Google client | gmail.modify | CASA review pending | Nango key `google-mail` configured; `available: false` until CASA clears |
 | google_sheets | expenses | live | same Google client | spreadsheets, drive.file | n/a | Nango key `google-sheet`; powers receipt→Sheets flow; no dashboard card |
-| xero | tradie | not-started | | | | paid API tiers from 2026-03-02; check billing tier at signup |
+| xero | tradie | live | 893F4D14DB2D4DCD916AA06CBC4F1875 | offline_access, openid, profile, email, accounting.invoices, accounting.contacts | n/a (uncertified, 5-org free) | App "Flynn AI" (dev portal app id aad525cf-3916-48c2-bdff-a2fcbdb50d75), Web app, redirect https://connect.flynnai.app/oauth/callback, privacy https://flynnai.app/privacy, AI-data=No. Nango 'xero' config id 3 LIVE (client_id+secret set, missing_fields []). Client secret stored encrypted in Nango only. NOTE 2026-06-15: rotated NANGO_DASHBOARD_PASSWORD on flynn-nango (old one wasn't saved) to use the config API — new dashpass in /tmp/nango_dashpass.txt locally. |
 | stripe | tradie | not-started | | | | Stripe Connect OAuth |
 | jobber | tradie | not-started | | | | `available: true` in catalogue — needs Nango integration + OAuth app |
 | servicem8 | tradie | not-started | | | | partner approval likely; submit early |

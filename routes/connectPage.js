@@ -79,12 +79,21 @@ function buildItems({ user, connections, integ }) {
     ? connections.get(meta.nango)?.status === 'connected'
     : (connections.get(meta.provider)?.status === 'connected' || integ.has(meta.provider));
 
-  return [...slugs].map((slug) => {
+  const cards = [...slugs].map((slug) => {
     const meta = CATALOG[slug];
     return meta ? { slug, ...meta, connected: isConnected(meta) } : null;
-  }).filter(Boolean)
-    // unconnected first (actionable), connected sink to the bottom
-    .sort((a, b) => Number(a.connected) - Number(b.connected));
+  }).filter(Boolean);
+
+  // Email is one step with a provider chooser (Gmail / Outlook one-click, or any
+  // other address via app password) so a non-Gmail operator is still one session.
+  const emailConnected = connections.get('google-mail')?.status === 'connected'
+    || connections.get('outlook')?.status === 'connected'
+    || connections.get('imap-email')?.status === 'connected'
+    || integ.has('imap-email');
+  cards.push({ slug: 'email', kind: 'email', name: 'Email', icon: '📧', blurb: 'Find & send email from a text', connected: emailConnected });
+
+  // unconnected first (actionable), connected sink to the bottom
+  return cards.sort((a, b) => Number(a.connected) - Number(b.connected));
 }
 
 // ---------------------------------------------------------------------------
@@ -122,10 +131,16 @@ router.post('/setup/credential', express.json(), async (req, res) => {
   const provider = String(req.body?.provider || '').toLowerCase().trim();
   const email = String(req.body?.email || '').trim();
   const password = String(req.body?.password || '');
-  const valid = provider === 'apple-calendar' || provider === 'xero' || SUPPLIER_SLUGS.includes(provider);
+  const valid = provider === 'apple-calendar' || provider === 'xero' || provider === 'imap-email' || SUPPLIER_SLUGS.includes(provider);
   if (!valid || !email || !password) return res.status(400).json({ ok: false, error: 'missing or invalid fields' });
+  // Gmail/Microsoft addresses can't use IMAP basic auth — steer to the OAuth tiles.
+  if (provider === 'imap-email' && require('../services/imapEmail').requiresOAuth(email)) {
+    return res.status(400).json({ ok: false, error: 'that address uses one-click sign-in, pick the Gmail or Outlook tile instead' });
+  }
 
-  const authKind = provider === 'apple-calendar' ? 'credentials_apple' : 'credentials_browserbase';
+  const authKind = provider === 'apple-calendar' ? 'credentials_apple'
+    : provider === 'imap-email' ? 'credentials_imap'
+    : 'credentials_browserbase';
   const now = new Date().toISOString();
   try {
     await supabase.from('user_integrations').upsert({
@@ -218,7 +233,16 @@ function render(){
   if(i >= items.length){ return done(); }
   const it = items[i];
   prog.textContent = 'Step ' + (i+1) + ' of ' + items.length;
-  if(it.kind === 'oauth'){
+  if(it.kind === 'email'){
+    const T = encodeURIComponent(STATE.token);
+    stage.innerHTML =
+      '<div class="card"><div class="ico">📧</div>'+
+      '<div class="cname">Email</div><p class="cblurb">Connect the email you use for work, I\\'ll find and send from it.</p>'+
+      '<a class="btn" style="display:block;text-align:center;text-decoration:none;background:#EA4335" href="/setup/oauth/google-mail?t='+T+'">Gmail / Google Workspace</a>'+
+      '<a class="btn" style="display:block;text-align:center;text-decoration:none;background:#0072C6" href="/setup/oauth/outlook?t='+T+'">Outlook / Microsoft 365</a>'+
+      '<button class="btn" style="background:#475569" onclick="emailOther()">Another email (Bigpond, iCloud…)</button>'+
+      '<button class="skip" onclick="next()">Skip for now</button></div>';
+  } else if(it.kind === 'oauth'){
     stage.innerHTML =
       '<div class="card"><div class="ico">'+it.icon+'</div>'+
       '<div class="cname">'+esc(it.name)+'</div><p class="cblurb">'+esc(it.blurb)+'</p>'+
@@ -237,6 +261,32 @@ function render(){
   }
 }
 function next(){ i++; render(); }
+function emailOther(){
+  stage.innerHTML =
+    '<div class="card"><div class="ico">📧</div>'+
+    '<div class="cname">Your email</div><p class="cblurb">Bigpond, iCloud, Optus, or your own business domain.</p>'+
+    '<label>Email address</label><input id="email" type="text" autocomplete="username" autocapitalize="none" inputmode="email">'+
+    '<label>App password</label><input id="password" type="password" autocomplete="current-password">'+
+    '<p class="help">Use an app password from your email provider\\'s security settings. Bigpond and iCloud require one, your normal password won\\'t work for apps.</p>'+
+    '<div class="err" id="err"></div>'+
+    '<button class="btn" id="save" onclick="saveImap()">Connect email</button>'+
+    '<button class="skip" onclick="render()">Back</button></div>';
+}
+async function saveImap(){
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const err = document.getElementById('err');
+  const btn = document.getElementById('save');
+  if(!email || !password){ err.textContent='Enter both fields.'; return; }
+  btn.disabled=true; btn.textContent='Connecting…'; err.textContent='';
+  try{
+    const r = await fetch('/setup/credential',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({t:STATE.token,provider:'imap-email',email,password})});
+    const j = await r.json();
+    if(j.ok){ items[i].connected=true; next(); }
+    else { err.textContent=j.error||'Couldn\\'t save that, double-check and try again.'; btn.disabled=false; btn.textContent='Connect email'; }
+  }catch(e){ err.textContent='Something went wrong, try again.'; btn.disabled=false; btn.textContent='Connect email'; }
+}
 function done(){
   prog.textContent='';
   stage.innerHTML='<div class="done"><div class="big">✅</div><h1>All set</h1>'+

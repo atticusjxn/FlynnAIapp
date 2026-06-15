@@ -177,7 +177,7 @@ export const INTEGRATIONS: IntegrationMeta[] = [
   {
     provider: 'xero', connectSlug: 'xero', name: 'Xero',
     category: 'Invoicing & payments', value: 'Send invoices and file the receipts you snap',
-    authType: 'oauth', available: false, accent: '#13B5EA', Icon: XeroIcon,
+    authType: 'oauth', available: true, accent: '#13B5EA', Icon: XeroIcon,
   },
   {
     provider: 'myob', connectSlug: 'myob', name: 'MYOB',

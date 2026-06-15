@@ -57,8 +57,8 @@ const WIDGETS = [
   },
   {
     type: 'email', title: 'Email', baseline: 0,
-    capabilities: ['email'], providers: ['google-mail'],
-    actions: [{ label: 'Send email', action: 'tool:gmail_send_email' }],
+    capabilities: ['email'], providers: ['google-mail', 'outlook', 'imap-email'],
+    actions: [{ label: 'Send email', action: 'tool:send_email' }],
     bindingSource: 'tool_call_events', bindingFilter: { capability: 'email' },
   },
   {

@@ -513,14 +513,18 @@ export default FlynnDraftCard;
 - **Approval Flows**: "Insert", "Edit", "Skip" — never auto-send
 - **Error Handling**: Gentle, helpful messages with next steps
 
-## 💼 Accounting Integration (Roadmap)
+## 💼 Accounting & Integration Status
 
-Flynn AI will integrate with major accounting platforms so service providers can invoice from completed job cards without double data entry.
+Flynn integrates via the **iMessage agent tool-loop** (`services/agent/`, `FLYNN_TOOL_LOOP=1`) over the self-hosted **Nango** OAuth backbone (`connect.flynnai.app`). Connectors live in `data/integrations.tsx`; setup state tracked in `plans/integrations-tracker.md`. (Nango config is via its management API with basic auth, not the dashboard — see memory `flynn-nango-poc-plan`.)
 
-### Supported Platforms (planned)
-- **MYOB** — AU/NZ focus
-- **QuickBooks** — US/global small business
-- **Xero** — Cloud-first SMB
+**Live now:** Google Calendar, Google Sheets (receipts/timesheets), **Xero** (log expense / list invoices via API + browserbase invoice send), **multi-provider email** — `send_email`/`find_emails` route to Gmail (OAuth), Outlook/Microsoft 365 (Graph OAuth), or any other provider (Bigpond/iCloud/Optus/cPanel via IMAP+SMTP, `services/imapEmail.js`). Agent also does **quotes** (draft/record/chase via `agent_quotes`), the **weekly money digest** + **quote chaser** crons, and a **Stripe paywall gate** (`FLYNN_PAYWALL`).
+
+**Ads tracking:** Meta CAPI is wired (`services/metaCapi.js`) on a dedicated web pixel — see memory `flynn-meta-capi`.
+
+### Supported accounting platforms
+- **Xero** — Cloud-first SMB (**live**)
+- **MYOB** — AU/NZ focus (planned; dev approval slow)
+- **QuickBooks** — US/global small business (planned)
 
 ### Planned Features
 - Send invoice for a completed booking

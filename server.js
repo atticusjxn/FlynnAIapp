@@ -1332,6 +1332,10 @@ app.use('/webhooks/sms', smsInboundRoutes);
 const iMessageInboundRoutes = require('./routes/iMessageInbound');
 app.use('/webhooks/imessage', iMessageInboundRoutes);
 
+// Meta CAPI attribution beacon from the landing-page "Message Flynn" tap.
+const trackingRoutes = require('./routes/trackingRoutes');
+app.use('/api/track', trackingRoutes);
+
 // ========================================
 // Integrations via Nango Cloud (OAuth backbone for the iMessage agent).
 // Env-flagged: without NANGO_SECRET_KEY these routes don't exist.
@@ -6024,6 +6028,8 @@ if (require.main === module) {
   const bookingReminderScheduler = require('./services/bookingReminderScheduler');
   const reengagementScheduler = require('./services/reengagementScheduler');
   const groupDigestScheduler = require('./services/groupAgent/digestScheduler');
+  const quoteChaseScheduler = require('./services/quoteChaseScheduler');
+  const weeklyDigestScheduler = require('./services/weeklyDigestScheduler');
 
   // Process reminders every minute
   setInterval(async () => {
@@ -6035,6 +6041,10 @@ if (require.main === module) {
       // Group note-taker: batch-extract action items + send the daily boss digest
       // (internally throttled to ~3 min between sweeps).
       await groupDigestScheduler.processTick();
+      // Chase quotes that have gone cold (internally throttled to ~15 min).
+      await quoteChaseScheduler.processTick();
+      // Weekly money/admin digest at the operator's digest hour (throttled ~20 min).
+      await weeklyDigestScheduler.processTick();
     } catch (error) {
       console.error('[Cron] Reminder processor error:', error);
     }

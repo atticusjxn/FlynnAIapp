@@ -25,6 +25,7 @@ const { sendMessage: bbSend, sendAttachment, downloadAttachment, setTyping, mark
 const { sendToUser } = require('../services/flynnOutbound');
 const { sanitiseReply } = require('../services/flynnTone');
 const { ensureAuthUser } = require('../services/authLink');
+const metaCapi = require('../services/metaCapi');
 const generator = require('../services/dashboard/manifestGenerator');
 const { createDashboardLoginLink } = require('../services/dashboardLink');
 
@@ -141,7 +142,7 @@ router.post('/inbound', async (req, res) => {
     if (supabase) {
       const { data } = await supabase
         .from('users')
-        .select('id, phone, business_brain, onboarding_step, preferred_channel')
+        .select('id, phone, business_brain, onboarding_step, preferred_channel, subscription_status, trial_end_date, stripe_customer_id')
         .eq('phone', from)
         .maybeSingle();
 
@@ -166,7 +167,7 @@ router.post('/inbound', async (req, res) => {
         }
         const { data: created } = await supabase
           .from('users')
-          .select('id, phone, business_brain, onboarding_step, preferred_channel')
+          .select('id, phone, business_brain, onboarding_step, preferred_channel, subscription_status, trial_end_date, stripe_customer_id')
           .eq('phone', from)
           .maybeSingle();
         user = created;
@@ -194,6 +195,21 @@ router.post('/inbound', async (req, res) => {
     // Remember we can reach this user on iMessage (where they just texted from).
     if (supabase && user?.preferred_channel !== 'imessage') {
       await supabase.from('users').update({ preferred_channel: 'imessage' }).eq('phone', from).then(() => {}, () => {});
+    }
+
+    // CAPI attribution bridge: if the pre-filled body carries the ref token we
+    // minted at the "Message Flynn" tap, claim it for this phone so the later
+    // Activated event attributes back to the ad click. Cheap, idempotent.
+    if (supabase && body) {
+      const refMatch = body.match(/\[([a-z0-9]{6})\]/i);
+      if (refMatch) {
+        await supabase
+          .from('capi_click_bridge')
+          .update({ user_phone: from })
+          .eq('ref', refMatch[1].toLowerCase())
+          .is('user_phone', null)
+          .then(() => {}, () => {});
+      }
     }
 
     // Load unexpired pending action + integrations + connections in parallel
@@ -304,7 +320,7 @@ router.post('/inbound', async (req, res) => {
     // gone live and, if so, record it + resume the parked action right now.
     // Gated on the awaiting_connection row, so it only fires mid-connect and
     // resumeParkedAction deletes the row, so it never double-announces.
-    const NANGO_OAUTH_PROVIDERS = ['google-calendar', 'google-mail', 'google-sheet', 'xero'];
+    const NANGO_OAUTH_PROVIDERS = ['google-calendar', 'google-mail', 'google-sheet', 'xero', 'outlook'];
     if (supabase && user?.id
       && pendingAction?.status === 'awaiting_connection'
       && NANGO_OAUTH_PROVIDERS.includes(pendingAction.required_provider)) {
@@ -347,6 +363,43 @@ router.post('/inbound', async (req, res) => {
         })
         .eq('id', user.id)
         .then(() => {}, () => {});
+    }
+
+    // Activation event: the first successful "doing" action (e.g. first receipt
+    // logged) — the strategy's activation metric. Gated on a brain flag so the
+    // extra read stops the moment a user activates. May land one message late
+    // (tool_call_events is written async), which is fine for attribution.
+    if (supabase && user?.id) {
+      try {
+        const brainNow = result.updatedBrain || user.business_brain || {};
+        if (!brainNow._capi_activated) {
+          const registry = require('../services/agent/toolRegistry');
+          const { count } = await supabase
+            .from('tool_call_events')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_phone', from)
+            .eq('success', true)
+            .in('tool_name', [...registry.METERED_TOOLS]);
+          if ((count || 0) > 0) {
+            // Pull the browser identity bridged from the ad click (if any) so
+            // the off-site activation attributes back to the original click.
+            const { data: bridge } = await supabase
+              .from('capi_click_bridge')
+              .select('fbp, fbc, fbclid, event_source_url')
+              .eq('user_phone', from)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            metaCapi.trackActivated(from, bridge || {}).catch(() => {});
+            await supabase.from('users')
+              .update({ business_brain: { ...brainNow, _capi_activated: true } })
+              .eq('id', user.id)
+              .then(() => {}, () => {});
+          }
+        }
+      } catch (err) {
+        console.warn('[iMessageInbound] activation check failed:', err?.message);
+      }
     }
 
     // Save newly collected integration credentials (mirrored into
