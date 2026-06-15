@@ -448,6 +448,569 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
             </>
         )
     },
+
+    // ─── W1.1 Send an invoice from your phone ─────────────────────────────────
+    "send-invoice-from-your-phone": {
+        title: "How to Send an Invoice From Your Phone (No Laptop Needed)",
+        date: "Jun 16, 2026",
+        datePublished: "2026-06-16",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "You don't need to sit down at a laptop to invoice a client. Here are the fastest ways to send a proper GST invoice straight from your phone, including by text.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    The job's done, the client's happy, and the last thing you want is to drive home and open a laptop to get paid. Good news: you can send a proper invoice from your phone in under a minute. Here's how, from slowest to fastest.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>Option 1: Your accounting app on mobile</h2>
+                <p>Xero, MYOB and QuickBooks all have phone apps. They work, but they're built for the desktop first. You log in, find the customer, tap through line items, set the tax, then send. It's fine when you're sitting down. It's fiddly with one hand on a worksite or between clients.</p>
+
+                <h2>Option 2: A dedicated invoice app</h2>
+                <p>Apps like Square or a standalone invoicing tool are quicker than full accounting software for a one-off invoice. The trade-off is another login, another subscription, and your numbers living in a second place you have to reconcile later.</p>
+
+                <h2>Option 3: Just text it</h2>
+                <p>The fastest way is to describe the job in a text and let an assistant build the invoice for you. You write one line, it formats a correct invoice with your business details, ABN and GST, shows you the draft, and sends it once you say go. A copy files into your accounting tool automatically, so the books stay straight.</p>
+
+                <div className="bg-surface-50 border-2 border-black p-8 my-8">
+                    <h3 className="text-2xl font-bold mb-4">What that looks like</h3>
+                    <p className="m-0"><strong>You text:</strong> "invoice sarah for today, 3 hours plus $90 materials"</p>
+                    <p className="mt-3 mb-0"><strong>You get back:</strong> a formatted invoice, labour at your saved rate, materials, GST added, total done. Reply "send" and it's gone.</p>
+                </div>
+
+                <h2>What every invoice has to include</h2>
+                <p>However you send it, a valid tax invoice over $82.50 (inc GST) in Australia needs your business name and ABN, the words "tax invoice", the date, what you sold, the GST amount or a note that the total includes GST, and the buyer's details once it's over $1,000. The point of sending from your phone isn't to skip the rules, it's to have something fill them in correctly every time.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white">
+                            <tr>
+                                <th className="p-4 text-left font-display">Method</th>
+                                <th className="p-4 text-left font-display">Time to send</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Accounting app on mobile</td><td className="p-4">3 to 5 minutes</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Dedicated invoice app</td><td className="p-4">2 to 3 minutes</td></tr>
+                            <tr><td className="p-4 font-bold">By text</td><td className="p-4">Under 1 minute</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Invoice your next job as a text"
+                    body="Describe the job, Flynn drafts a proper GST invoice and files a copy in Xero. You just tap send. No laptop, no app to open first."
+                    mascot="write"
+                />
+
+                <h2>The real win is getting paid sooner</h2>
+                <p>The invoice you send from the driveway gets paid days before the one waiting on your kitchen table. Send same-day, then let the follow-ups run themselves with <Link to="/blog/late-payment-reminder-templates">payment reminder templates</Link> or automatic <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">invoice chasing</Link>. It all rolls into <Link to="/blog/run-small-business-from-your-phone">running the business from your phone</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.2 AI tools to run small business admin ────────────────────────────
+    "ai-tools-small-business-admin": {
+        title: "AI Tools to Run Your Small Business Admin in 2026",
+        date: "Jun 17, 2026",
+        datePublished: "2026-06-17",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "The admin that eats your evenings (invoicing, quoting, scheduling, follow-ups) is exactly what AI is now good at. Here are the tools that actually take work off your plate in 2026.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Most "AI for business" advice is about writing blog posts. That's not your problem. Your problem is the two hours a night of invoicing, quoting, chasing payments and replying to enquiries. The good news: that admin is exactly what AI got good at in 2026. Here's what actually helps.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <h2>The jobs worth handing to AI</h2>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6">
+                        <FileText className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Invoicing & quoting</h3>
+                        <p className="text-gray-700">Turn a sentence into a formatted invoice or quote. The repetitive formatting is gone.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6">
+                        <DollarSign className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Chasing money</h3>
+                        <p className="text-gray-700">Automatic, polite reminders on overdue invoices so you stop doing it by hand.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6">
+                        <MessageSquare className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Replying to enquiries</h3>
+                        <p className="text-gray-700">Fast, on-brand replies to new leads so you don't lose them to a faster competitor.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6">
+                        <Calendar className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Booking & reminders</h3>
+                        <p className="text-gray-700">Jobs into your calendar and reminders to clients, without the back-and-forth.</p>
+                    </div>
+                </div>
+
+                <h2>The two kinds of AI tool</h2>
+                <p>There's a big difference that decides whether a tool actually saves you time.</p>
+                <p className="mt-4"><strong>Assistants that suggest.</strong> A generic chatbot can draft an email or explain a rule. But it doesn't know your prices or clients, and it can't send the invoice or book the job. You still do the task. Useful, but it's a thinking partner, not an admin team.</p>
+                <p className="mt-4"><strong>Agents that do.</strong> The newer category knows your business and actually executes: it sends the invoice, books the job, chases the payment, from a plain instruction. That's the difference between saving five minutes and saving the whole evening.</p>
+
+                <h2>What to look for in 2026</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><Zap className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">It executes</div><p className="text-sm text-gray-600 mt-2">Not just answers. It does the task end to end.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><CheckCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">It confirms first</div><p className="text-sm text-gray-600 mt-2">Nothing irreversible goes out without your okay.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><MessageSquare className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Zero setup friction</div><p className="text-sm text-gray-600 mt-2">If you have to open an app to use it, you won't.</p></div>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="The admin assistant that lives in your texts"
+                    body="Flynn does the admin instead of suggesting it. Invoices, quotes, bookings, follow-ups, all from a text, all with your okay before anything sends."
+                    mascot="thumbsup"
+                />
+
+                <h2>Where to start</h2>
+                <p>Pick the one job that costs you the most time and hand that over first. For most small businesses it's invoicing or chasing payments. Get that off your plate, then add the next. If you want the whole stack in one place, see <Link to="/blog/run-small-business-from-your-phone">how to run your business from your phone</Link>, or the honest take on <Link to="/blog/chatgpt-for-small-business">ChatGPT for small business</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.3 Flynn vs Tradify / Jobber / ServiceM8 ───────────────────────────
+    "flynn-vs-tradify-jobber-servicem8": {
+        title: "Flynn vs Tradify, Jobber & ServiceM8: An Honest Comparison",
+        date: "Jun 18, 2026",
+        datePublished: "2026-06-18",
+        readTime: "8 min read",
+        category: "Comparison",
+        description: "Tradify, Jobber and ServiceM8 are powerful job-management apps. Flynn is a text-based assistant. Here's an honest look at which suits how you actually work.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Tradify, Jobber and ServiceM8 are good products with a lot of fans. Flynn is a different kind of thing. This is an honest look at where each fits, so you pick the one that matches how you actually run your day, not the one with the longest feature list.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>What the job-management apps are</h2>
+                <p>Tradify, Jobber and ServiceM8 are full job-management platforms. Quoting, scheduling, job tracking, invoicing, team management, the lot. If you run a crew and live in a back office or a tablet, they're genuinely powerful and worth the money.</p>
+                <p className="mt-4">The catch is the same for all three: they're apps you have to open, learn, and keep fed with data. Plenty of solo operators pay for one and use a fraction of it, because opening an app between jobs is friction, and the setup is a project in itself.</p>
+
+                <h2>What Flynn is</h2>
+                <p>Flynn isn't an app you open. It's an assistant that lives in your messages. You text it like you'd text an office manager, and it does the admin: drafts and sends invoices, books jobs into your calendar, chases payments, replies to leads. It learns your prices and clients so it never asks twice. Nothing to log into between jobs.</p>
+
+                <h2>Side by side</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white">
+                            <tr>
+                                <th className="p-3 text-left font-display">What matters</th>
+                                <th className="p-3 text-left font-display">Job-mgmt apps</th>
+                                <th className="p-3 text-left font-display">Flynn</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Depth of features</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> Deep</td><td className="p-3">Focused on admin</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">App to open & learn</td><td className="p-3">Yes</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> None, it's a text</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Setup effort</td><td className="p-3">Hours</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> One message</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Best for big crews</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /></td><td className="p-3">Solo & small teams</td></tr>
+                            <tr><td className="p-3 font-bold">Best for "just handle it"</td><td className="p-3">Partly</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>Which should you pick</h2>
+                <p>If you run a larger team, schedule lots of jobs across staff, and want one system of record, a full job-management app earns its keep. If you're a solo operator or small team who runs everything from your phone and just wants the admin to disappear, the app is overkill and you'll fight the friction. That's where a text assistant wins, because the bar to use it is "send a text".</p>
+                <p className="mt-4">They're not even mutually exclusive. Flynn can sit on top of your existing tools (it files invoices into Xero, books into your calendar) and just be the fast front door you actually use.</p>
+
+                <MessageFlynnCTA
+                    headline="Try the no-app option"
+                    body="Flynn handles invoices, quotes, bookings and follow-ups from a text, and files into the tools you already use. See if it fits how you actually work."
+                    mascot="thumbsup"
+                />
+
+                <p>Still weighing it up? See <Link to="/blog/flynn-vs-calendly-square-booking-by-text">Flynn vs Calendly and Square for bookings</Link>, or the broader <Link to="/blog/best-ai-assistant-for-tradies-2026">best AI assistant for tradies</Link> breakdown.</p>
+            </>
+        )
+    },
+
+    // ─── W1.4 Flynn vs Calendly / Square ──────────────────────────────────────
+    "flynn-vs-calendly-square-booking-by-text": {
+        title: "Flynn vs Calendly & Square: Booking Clients by Text",
+        date: "Jun 19, 2026",
+        datePublished: "2026-06-19",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "Calendly and Square Appointments use booking links. Flynn books clients straight from a text. Here's which approach gets more of your clients actually booked.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Calendly and Square Appointments are solid booking tools. They both run on the same idea: send the client a link, let them pick a slot. Flynn works differently, it books from the conversation you're already having. Here's when each wins.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>The booking-link model</h2>
+                <p>Calendly and Square give you a page where clients self-serve a time. It's great when the client is already keen and happy to click through. The friction shows up with the clients who aren't: the ones who text "you free thursday?" and won't go hunting through a link to find out. Some drop off right there.</p>
+
+                <h2>The book-from-the-text model</h2>
+                <p>Flynn lives in the chat. When a client texts asking about a time, you (or Flynn) just reply with what's free and book it, no link, no page, no app for them to load. For service businesses where booking happens in a back-and-forth text, that removes the step where people leak away.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white">
+                            <tr>
+                                <th className="p-3 text-left font-display"></th>
+                                <th className="p-3 text-left font-display">Calendly / Square</th>
+                                <th className="p-3 text-left font-display">Flynn</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">How clients book</td><td className="p-3">Click a link, pick a slot</td><td className="p-3">Just reply in the text</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Client needs an app/page</td><td className="p-3">Yes</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> No</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Self-serve scheduling page</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /></td><td className="p-3">Not the focus</td></tr>
+                            <tr><td className="p-3 font-bold">Also invoices, quotes, follow-ups</td><td className="p-3">No</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>Which fits you</h2>
+                <p>If most of your bookings come from people happy to self-serve a link (consultants, demos, salons with a steady online flow), Calendly or Square do the job well. If your bookings happen in messy text conversations and you want the rest of your admin handled too, booking from the text converts more of those chats and keeps everything in one place.</p>
+
+                <MessageFlynnCTA
+                    headline="Book your next client from the text"
+                    body="Flynn checks your calendar and books the job right in the conversation, then handles the invoice and reminders too. No link for your client to chase."
+                    mascot="phone"
+                />
+
+                <p>More on the approach: <Link to="/blog/how-to-take-bookings-over-text">how to take bookings over text</Link>, and keep clients coming back with <Link to="/blog/customer-follow-up-text-templates">follow-up templates</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.5 ChatGPT for small business ──────────────────────────────────────
+    "chatgpt-for-small-business": {
+        title: "ChatGPT for Small Business: What It Can and Can't Do",
+        date: "Jun 20, 2026",
+        datePublished: "2026-06-20",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "ChatGPT is a brilliant thinking partner for small business owners, and useless for some of the jobs you actually need done. Here's the honest line between the two.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    ChatGPT is genuinely useful for running a small business, and genuinely oversold for some of it. Knowing the line saves you time and stops you expecting it to do things it structurally can't. Here's the honest breakdown.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <h2>What ChatGPT is great at</h2>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6"><CheckCircle className="text-green-600 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Writing & rewriting</h3><p className="text-gray-700">Customer emails, ad copy, a polite reply to a tricky review. First drafts in seconds.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><CheckCircle className="text-green-600 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Explaining things</h3><p className="text-gray-700">"What does this clause mean?", "how does GST work for a sole trader?" A patient explainer.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><CheckCircle className="text-green-600 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Thinking out loud</h3><p className="text-gray-700">Pricing ideas, naming, how to handle a difficult client. A sounding board on tap.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><CheckCircle className="text-green-600 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Summarising</h3><p className="text-gray-700">Long emails, contracts, a wall of text from a supplier, boiled down.</p></div>
+                </div>
+
+                <h2>What it can't do (by design)</h2>
+                <p>This is the part the hype skips. ChatGPT doesn't know your business and can't act on it.</p>
+                <ul>
+                    <li><strong>It doesn't know your numbers.</strong> Your rates, your clients, your calendar. It'll happily invent a plausible price that isn't yours.</li>
+                    <li><strong>It can't actually do the task.</strong> It can write an invoice in the chat, but it can't send it, file it in Xero, or book the job. You still do all of that by hand.</li>
+                    <li><strong>It forgets.</strong> Tell it your callout fee today, it won't remember next week unless you set it up to.</li>
+                </ul>
+                <p className="mt-4">So for the admin that actually eats your time, ChatGPT gets you a draft and then hands the real work back to you.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white"><tr><th className="p-4 text-left font-display">Task</th><th className="p-4 text-left font-display">ChatGPT</th><th className="p-4 text-left font-display">A business agent</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4">Draft a client email</td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4">Actually send the invoice</td><td className="p-4"><XCircle className="text-red-500" size={18} /></td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4">Use your real prices</td><td className="p-4"><XCircle className="text-red-500" size={18} /></td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                            <tr><td className="p-4">Book a job in your calendar</td><td className="p-4"><XCircle className="text-red-500" size={18} /></td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="When you need it done, not just drafted"
+                    body="Flynn knows your prices and clients and actually executes: sends the invoice, books the job, chases the payment. From a text, with your okay first."
+                    mascot="thumbsup"
+                />
+
+                <h2>Use both</h2>
+                <p>Keep ChatGPT for thinking and writing. Use a business agent for the admin that needs to actually happen. For more on that split, see <Link to="/blog/ai-tools-small-business-admin">AI tools to run your small business admin</Link> and <Link to="/blog/best-ai-assistant-for-tradies-2026">the best AI assistant comparison</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.6 Customer follow-up text templates ───────────────────────────────
+    "customer-follow-up-text-templates": {
+        title: "12 Customer Follow-Up Text Templates (Copy & Paste)",
+        date: "Jun 23, 2026",
+        datePublished: "2026-06-23",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "Free, copy-and-paste text message templates for following up with customers: after a quote, after a job, for reviews, for rebooking, and for slow payers.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Following up is where most of the money is, and it's the thing everyone forgets to do. Here are templates you can copy, tweak and send in seconds. Keep them short, friendly and human. Long, formal messages get ignored.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>After you send a quote</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Hey [name], just checking you got the quote I sent through. Happy to tweak anything or answer questions. Keen to help when you're ready."</p>
+                </div>
+
+                <h2>When a quote goes quiet (3 to 5 days)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Hi [name], no rush at all, just wanted to check the quote still suits. If the timing or price is off, tell me and we'll sort something."</p>
+                </div>
+
+                <h2>After a job is done</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Thanks again [name], great working with you. Anything not quite right, just say the word. Otherwise I'll get the invoice across shortly."</p>
+                </div>
+
+                <h2>Asking for a review</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Glad you're happy with it [name]. If you've got 20 seconds, a quick Google review really helps a small business like mine. Here's the link: [link]. No worries if not."</p>
+                </div>
+
+                <h2>Rebooking a past customer</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Hey [name], it's been about [time] since I last sorted your [job]. Want me to book you in again before it gets busy?"</p>
+                </div>
+
+                <h2>A gentle payment nudge</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Hi [name], quick heads up that invoice [#] was due [date]. Easy to miss, here's the link to sort it: [link]. Cheers."</p>
+                </div>
+
+                <h2>The two rules that make follow-ups work</h2>
+                <p>First, be consistent. The follow-up you actually send beats the perfect one you don't. Second, sound like you, not a corporation. These read like a person texted, which is exactly why they get replies. If remembering to send them is the hard part, that's the bit worth automating.</p>
+
+                <MessageFlynnCTA
+                    headline="Stop remembering to follow up"
+                    body="Flynn tracks your quotes and invoices and sends the follow-ups for you, in your voice, at the right time. You just see the replies and the payments land."
+                    mascot="point"
+                />
+
+                <p>Related: <Link to="/blog/how-to-follow-up-on-a-quote">how to follow up on a quote without being annoying</Link> and <Link to="/blog/late-payment-reminder-templates">late payment reminder templates</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.7 How to follow up on a quote ─────────────────────────────────────
+    "how-to-follow-up-on-a-quote": {
+        title: "How to Follow Up on a Quote Without Being Annoying",
+        date: "Jun 24, 2026",
+        datePublished: "2026-06-24",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "Most quotes are won or lost in the follow-up, not the price. Here's how to chase a quote so you close more jobs without feeling pushy or desperate.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Here's the uncomfortable stat: a big chunk of quotes never get a yes or a no. They just go quiet. And most owners never follow up because it feels pushy. That silence is costing you jobs you'd have won with one friendly nudge. Here's how to do it right.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>Why following up feels bad (and why it shouldn't)</h2>
+                <p>Chasing a quote feels like begging. It isn't. The customer asked you for a price, which means they had a problem they wanted solved. Following up is just making it easy for them to say yes. Half the time they meant to reply and life got in the way. Your nudge is a favour, not a nuisance.</p>
+
+                <h2>The follow-up rhythm that works</h2>
+                <div className="space-y-4 my-8">
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day 0</span><p className="m-0">Send the quote with a clear next step. "Reply yes and I'll lock in a time."</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day 3</span><p className="m-0">Friendly check-in. "Just making sure that quote landed, happy to tweak anything."</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day 7</span><p className="m-0">Add value or a reason. "Got a gap next week if you want to get it done before [season/event]."</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day 14</span><p className="m-0">The graceful close. "All good if the timing's not right, I'll close this off, just shout when you're ready."</p></div>
+                </div>
+                <p>That last one works surprisingly well. Giving people an easy out often gets the yes, because it removes the pressure.</p>
+
+                <h2>The rules</h2>
+                <ul>
+                    <li><strong>Two or three nudges, then stop.</strong> Persistent isn't pushy. Endless is.</li>
+                    <li><strong>Always add something.</strong> A gap in the calendar, a reason to act now, an offer to adjust. Never just "any update?".</li>
+                    <li><strong>Keep it short and human.</strong> A text, not a formal letter.</li>
+                </ul>
+
+                <MessageFlynnCTA
+                    headline="Never let a quote go cold"
+                    body="Flynn remembers every quote you send and reminds you (or follows up for you) on the right day, in your voice. More jobs closed, zero awkwardness."
+                    mascot="thumbsup"
+                />
+
+                <p>Steal the wording from <Link to="/blog/customer-follow-up-text-templates">our follow-up text templates</Link>, and once they say yes, <Link to="/blog/send-invoice-from-your-phone">invoice the job from your phone</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.8 How to take bookings over text ──────────────────────────────────
+    "how-to-take-bookings-over-text": {
+        title: "How to Take Bookings Over Text (Without the Back-and-Forth)",
+        date: "Jun 25, 2026",
+        datePublished: "2026-06-25",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "Most clients would rather text than use a booking app. Here's how to take bookings over text cleanly, avoid the endless back-and-forth, and stop double-booking yourself.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Your clients already text you. They'd rather do that than learn your booking app. The problem isn't the channel, it's the back-and-forth: "you free thursday?", "morning or arvo?", "what time?", three days later you've lost track. Here's how to take bookings over text cleanly.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>Why text beats a booking link for a lot of clients</h2>
+                <p>Booking links are great for the keen and the tech-comfortable. But a chunk of clients won't click through, won't make an account, and just want a human answer in the thread. Forcing them to a link loses some of them. Meeting them in the text keeps them.</p>
+
+                <h2>The three problems to solve</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">The back-and-forth</div><p className="text-sm text-gray-600 mt-2">Offer two or three specific times, not "when suits?".</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><Calendar className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Double-booking</div><p className="text-sm text-gray-600 mt-2">Every text booking has to land in one calendar, instantly.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><CheckCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">No-shows</div><p className="text-sm text-gray-600 mt-2">A confirmation and a reminder text cuts them right down.</p></div>
+                </div>
+
+                <h2>The clean way to do it</h2>
+                <p>Offer specific times, confirm in writing, and put it straight in your calendar. Done by hand that's three steps and a chance to slip up. The faster version: an assistant reads your calendar, offers what's actually free, books it when the client says yes, and sends the confirmation, all in the same text thread.</p>
+
+                <div className="bg-surface-50 border-2 border-black p-8 my-8">
+                    <h3 className="text-2xl font-bold mb-4">In practice</h3>
+                    <p className="m-0"><strong>Client:</strong> "any chance this week?"</p>
+                    <p className="mt-2 mb-0"><strong>You:</strong> "I've got Thursday 9am or Friday 2pm, want one of those?"</p>
+                    <p className="mt-2 mb-0"><strong>Client:</strong> "Friday's good"</p>
+                    <p className="mt-2 mb-0"><strong>Done:</strong> it's in your calendar, client gets a confirmation, reminder goes out the day before.</p>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Take your next booking from the text"
+                    body="Flynn checks your calendar, offers real times, books the job and sends the reminder, all in the conversation. No app for your client, no double-bookings for you."
+                    mascot="phone"
+                />
+
+                <p>Compare the approaches in <Link to="/blog/flynn-vs-calendly-square-booking-by-text">Flynn vs Calendly and Square</Link>, and reduce no-shows with <Link to="/blog/customer-follow-up-text-templates">reminder and rebooking templates</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.9 Late payment reminder templates ─────────────────────────────────
+    "late-payment-reminder-templates": {
+        title: "Late Payment Reminder Templates (Text & Email, Free)",
+        date: "Jun 26, 2026",
+        datePublished: "2026-06-26",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "Free copy-and-paste late payment reminder templates for text and email, from the friendly first nudge to the firm final notice, plus when to send each one.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Getting paid late is the most common cash-flow problem in small business, and the fix is boring but reliable: consistent, polite reminders. Here are templates for each stage, plus exactly when to send them. Copy, tweak, send.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>1. The friendly heads-up (day after due)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Text:</strong> "Hi [name], quick reminder that invoice [#] for [$amount] was due yesterday. Easy to miss, here's the link to pay: [link]. Cheers!"</p>
+                </div>
+
+                <h2>2. The check-in (7 days overdue)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Email:</strong> "Hi [name], just following up on invoice [#] for [$amount], now a week overdue. If you've already sent it, ignore this. If not, here's the payment link: [link]. Let me know if there's any issue."</p>
+                </div>
+
+                <h2>3. The firm reminder (14 days overdue)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Email:</strong> "Hi [name], invoice [#] for [$amount] is now 14 days overdue. Could you let me know when I can expect payment? Happy to sort a plan if needed. Payment link: [link]."</p>
+                </div>
+
+                <h2>4. The final notice (30 days overdue)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Email:</strong> "Hi [name], this is a final reminder on invoice [#] for [$amount], now 30 days overdue. Please arrange payment within 7 days so we can keep things on good terms. Link: [link]. Get in touch if there's a problem."</p>
+                </div>
+
+                <h2>When to send each</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white"><tr><th className="p-4 text-left font-display">Stage</th><th className="p-4 text-left font-display">Timing</th><th className="p-4 text-left font-display">Tone</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Heads-up</td><td className="p-4">Due + 1 day</td><td className="p-4">Light, no stress</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Check-in</td><td className="p-4">+ 7 days</td><td className="p-4">Friendly, clear</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Firm reminder</td><td className="p-4">+ 14 days</td><td className="p-4">Direct, fair</td></tr>
+                            <tr><td className="p-4 font-bold">Final notice</td><td className="p-4">+ 30 days</td><td className="p-4">Firm, professional</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>The secret isn't the wording, it's sending every stage on time without fail. That's the part worth taking off your plate.</p>
+
+                <MessageFlynnCTA
+                    headline="Send these on autopilot"
+                    body="Flynn tracks who hasn't paid and sends the right reminder at the right time, in your voice. You stop chasing and just watch the money land."
+                    mascot="point"
+                />
+
+                <p>For the bigger picture, see <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">how to chase unpaid invoices without the awkward calls</Link>, and <Link to="/blog/send-invoice-from-your-phone">send the invoice from your phone</Link> the day the job's done.</p>
+            </>
+        )
+    },
+
+    // ─── W1.10 Run small business from your phone (hub) ───────────────────────
+    "run-small-business-from-your-phone": {
+        title: "How to Run Your Small Business From Your Phone (2026 Stack)",
+        date: "Jun 27, 2026",
+        datePublished: "2026-06-27",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "You can run nearly all of your small business admin from your phone in 2026. Here's the practical stack for invoicing, quoting, bookings, payments and follow-ups.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Your phone is already where your business happens: the enquiries, the quotes, the supplier chats. The only reason you still open a laptop is admin. In 2026 you don't have to. Here's the practical stack for running nearly everything from your phone.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>The five jobs to move to your phone</h2>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6"><MessageSquare className="text-brand-500 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Replying to leads</h3><p className="text-gray-700">Fast replies win jobs. The first to answer usually books the work. <Link to="/blog/reply-to-leads-faster-speed-to-lead">More on speed to lead</Link>.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><Calendar className="text-brand-500 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Bookings</h3><p className="text-gray-700">Take bookings in the text and have them land in your calendar. <Link to="/blog/how-to-take-bookings-over-text">How to do it</Link>.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><FileText className="text-brand-500 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Quotes & invoices</h3><p className="text-gray-700">Build and send both from your phone in under a minute. <Link to="/blog/send-invoice-from-your-phone">Here's how</Link>.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><DollarSign className="text-brand-500 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Getting paid</h3><p className="text-gray-700">Automatic reminders so you stop chasing. <Link to="/blog/late-payment-reminder-templates">Templates here</Link>.</p></div>
+                </div>
+
+                <h2>Two ways to build the stack</h2>
+                <p><strong>The app pile.</strong> An accounting app, a scheduling app, a payments app, a notes app. It works, but you're juggling four logins and copying data between them. Most owners use a fraction of each.</p>
+                <p className="mt-4"><strong>The one-text approach.</strong> Instead of four apps, one assistant in your messages that handles all of it and files into the tools you already use. The bar to use it is "send a text", which means you actually do.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white"><tr><th className="p-4 text-left font-display">Job</th><th className="p-4 text-left font-display">App pile</th><th className="p-4 text-left font-display">One text</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4">Invoice a job</td><td className="p-4">Open accounting app</td><td className="p-4">Text it</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4">Book a client</td><td className="p-4">Open scheduling app</td><td className="p-4">Text it</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4">Chase a payment</td><td className="p-4">Remember to, manually</td><td className="p-4">Automatic</td></tr>
+                            <tr><td className="p-4">Logins to manage</td><td className="p-4">Four or more</td><td className="p-4">One</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Run it all from one text thread"
+                    body="Flynn is the one-text stack: invoices, quotes, bookings, payment chasing and lead replies, all from your messages, all filed into the tools you already use."
+                    mascot="thumbsup"
+                />
+
+                <h2>Where to start</h2>
+                <p>Don't move everything at once. Pick the job that wastes the most time, usually invoicing or chasing payments, and move that first. Once it's off your plate, add the next. Before long the laptop is for the rare big job, and the day-to-day runs from your pocket. That's the whole idea behind <Link to="/blog/run-your-business-from-imessage">running your business from iMessage</Link>.</p>
+            </>
+        )
+    },
 };
 
 export const BlogList: React.FC = () => {
