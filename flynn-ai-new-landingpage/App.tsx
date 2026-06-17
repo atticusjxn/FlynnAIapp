@@ -17,6 +17,7 @@ import Integrations from './pages/Integrations';
 import Setup from './pages/Setup';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import Sprint from './pages/Sprint';
 import DashboardLayout from './components/DashboardLayout';
 
 import Features from './components/Features';
@@ -59,6 +60,9 @@ function App() {
 
           <Route path="/login" element={<Login />} />
           <Route path="/instagram-ad" element={<InstagramAd />} />
+
+          {/* Founder content-sprint checklist — standalone, mobile, add-to-homescreen */}
+          <Route path="/sprint" element={<Sprint />} />
 
           <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
           <Route path="/dashboard/integrations" element={<DashboardLayout><Integrations /></DashboardLayout>} />
