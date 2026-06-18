@@ -305,10 +305,10 @@ export default function LandingPage() {
                 <div className="w-[72px] h-[72px] rounded-xl border-[3px] border-[#2C2018] bg-[#7C6F4F] shadow-[3px_3px_0_0_#2C2018] grid place-items-end p-1.5"><span className="text-[9px] text-white bg-black/35 rounded px-1.5 py-0.5">Before</span></div>
                 <div className="w-[72px] h-[72px] rounded-xl border-[3px] border-[#2C2018] bg-[#3F9B54] shadow-[3px_3px_0_0_#2C2018] grid place-items-end p-1.5"><span className="text-[9px] text-white bg-black/35 rounded px-1.5 py-0.5">After</span></div>
               </div>
-              {/* Flynn sends the invoice */}
+              {/* Flynn emails the invoice */}
               <div className="max-w-[88%] bg-[#FFFBF4] border-[3px] border-[#2C2018] rounded-2xl rounded-bl-md px-4 py-3 shadow-[4px_4px_0_0_#2C2018]">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-[#FB5B1E] flex items-center gap-1.5 mb-1">✓ invoice sent · photos attached</span>
-                sent henderson an invoice for $640 with the photos on it. forward it on:
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[#FB5B1E] flex items-center gap-1.5 mb-1">✓ invoice emailed to henderson</span>
+                emailed henderson the invoice for $640 with the before/afters on it. here's the link too:
                 <span className="block mt-1 font-medium text-[#007AFF] underline decoration-[#007AFF]/30">flynnai.app/i/h7x2k9</span>
               </div>
               {/* paid event card */}
