@@ -2,7 +2,7 @@ name: FlynnAI
 options:
   bundleIdPrefix: com.flynnai
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "18.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
   groupSortPosition: top
@@ -16,7 +16,7 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
-    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
     DEVELOPMENT_LANGUAGE: en
     CLANG_ENABLE_MODULES: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -53,7 +53,7 @@ targets:
         CFBundleName: $(PRODUCT_NAME)
         CFBundleDisplayName: Flynn
         CFBundleShortVersionString: "3.0.1"
-        CFBundleVersion: "89"
+        CFBundleVersion: "113"
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         UILaunchScreen:
           UIColorName: ""
@@ -82,8 +82,8 @@ targets:
           NSAllowsArbitraryLoads: false
         ITSAppUsesNonExemptEncryption: false
         NSCalendarsFullAccessUsageDescription: "Flynn adds your confirmed bookings to your calendar so you never miss a job."
-        NSUserNotificationUsageDescription: "Flynn notifies you when a missed call is captured or you're running low on AI minutes."
-        NSMicrophoneUsageDescription: "Flynn needs your microphone to let you hear and talk to the AI receptionist demo."
+        NSUserNotificationUsageDescription: "Flynn notifies you when a booking is added to your calendar or a draft is ready."
+        NSMicrophoneUsageDescription: "Flynn uses your microphone for voice commands — hold the mic to create quotes, bookings, notes and replies by talking."
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)
@@ -103,7 +103,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app
         MARKETING_VERSION: "3.0.1"
-        CURRENT_PROJECT_VERSION: "89"
+        CURRENT_PROJECT_VERSION: "113"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
         DEVELOPMENT_TEAM: "69T5H7R46N"
@@ -136,7 +136,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app.keyboard
         PRODUCT_NAME: FlynnKeyboard
         MARKETING_VERSION: "3.0.1"
-        CURRENT_PROJECT_VERSION: "89"
+        CURRENT_PROJECT_VERSION: "113"
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: "69T5H7R46N"
         CODE_SIGN_STYLE: Automatic

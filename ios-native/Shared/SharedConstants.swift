@@ -23,6 +23,9 @@ enum FlynnShared {
         static let threadUpdatedAt = "flynn.thread.updatedAt"
         /// Drafts staged by the screenshot App Intent for the keyboard to display.
         static let stagedScreenshot = "flynn.staged.screenshot"
+        /// An agreed-time booking staged by the keyboard for the main app to write
+        /// to the calendar (the keyboard/intent can't touch EventKit themselves).
+        static let stagedCalendarEvent = "flynn.staged.calendarEvent"
     }
 
     /// Keychain account name for the keyboard JWT.
@@ -35,5 +38,10 @@ enum FlynnShared {
     /// A staged screenshot capture older than this is ignored by the keyboard, so a
     /// stale capture never overrides a fresh clipboard copy. Sized to comfortably
     /// cover the gesture → app-switch → open-keyboard hop.
-    static let stagedDraftFreshnessSeconds: TimeInterval = 90
+    static let stagedDraftFreshnessSeconds: TimeInterval = 300
+
+    /// A staged calendar booking older than this is ignored by the app. Longer
+    /// than the draft window because the user may tap the chip, then take a while
+    /// to actually switch into Flynn to confirm it.
+    static let stagedCalendarEventFreshnessSeconds: TimeInterval = 900
 }

@@ -1,0 +1,47 @@
+{
+  "name": "Flynn Desktop",
+  "version": "1.0.0",
+  "description": "Connects Flynn Desktop to web-based conversations in Chrome and Edge.",
+  "manifest_version": 3,
+
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["ws://localhost:9741/"],
+
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content/whatsapp.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content/gmail.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.linkedin.com/messaging/*", "https://www.linkedin.com/in/*/messaging/*"],
+      "js": ["content/linkedin.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_title": "Flynn Desktop",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

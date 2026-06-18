@@ -1,0 +1,10 @@
+[
+  { "at": 0, "from": "me", "text": "Hey Flynn can you check if bunnings has the skirting board for tomorrow" },
+  { "at": 10, "from": "flynn", "text": "yep just checked bunnings rocklea and they've got the 92mm fj primed mdf bullnose skirting in stock for about $8.50 a length. want me to set enough aside for the toowong job now?" },
+  { "at": 26.9, "from": "me", "text": "Cool and will the weather be good for the job" },
+  { "at": 35.6, "from": "flynn", "text": "yep just checked the forecast for toowong tomorrow, it's looking mostly dry with a light breeze in the morning before any chance of a shower late afternoon. should be sweet for getting that skirting installed without any delays." },
+  { "at": 56.5, "from": "me", "text": "Perfect and can you just follow up on Greg for that invoice from last week" },
+  { "at": 58, "from": "flynn", "text": "yeah Greg's one's about four days over now. want me to send him a nudge? something like \"hey Greg, just chasing that invoice for the bathroom job, no rush, whenever you get a sec\". happy with that?" },
+  { "at": 85.1, "from": "me", "text": "Yeah send it" },
+  { "at": 91.1, "from": "flynn", "text": "yep, just fired that nudge off to Greg, it's gone through." }
+]

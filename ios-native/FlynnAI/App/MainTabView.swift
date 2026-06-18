@@ -4,25 +4,29 @@ import SwiftUI
 /// push onto the correct stack without clobbering the others.
 struct MainTabView: View {
     @Environment(DeepLinkRouter.self) private var deepLink
+    @Environment(FlashStore.self) private var flash
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selection: FlynnTab = .dashboard
     @State private var drawer = DrawerController()
+    @State private var calendarStore = PendingCalendarStore()
 
     @State private var dashboardPath = NavigationPath()
-    @State private var voicePath = NavigationPath()
     @State private var brainPath = NavigationPath()
     @State private var eventsPath = NavigationPath()
+    @State private var connectedPath = NavigationPath()
     // Parked tabs — paths retained so deep links to their detail routes still work.
     @State private var callsPath = NavigationPath()
     @State private var clientsPath = NavigationPath()
     @State private var moneyPath = NavigationPath()
 
     var body: some View {
+        @Bindable var calendarStore = calendarStore
         ZStack(alignment: .leading) {
             TabView(selection: $selection) {
                 tab(.dashboard, path: $dashboardPath) { DashboardView() }
-                tab(.voice, path: $voicePath) { VoiceView() }
                 tab(.brain, path: $brainPath) { BrainView() }
                 tab(.events, path: $eventsPath) { EventsListView() }
+                tab(.connected, path: $connectedPath) { IntegrationsView() }
             }
 
             if drawer.isOpen {
@@ -42,6 +46,26 @@ struct MainTabView: View {
             guard let link else { return }
             applyDeepLink(link)
             deepLink.pending = nil
+        }
+        // A booking the keyboard staged becomes a confirm card here — the foreground
+        // app is the only place that can write to the calendar. Picked up on launch,
+        // on every foreground, and when the calendar deep link pings.
+        .task { calendarStore.checkForPending() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { calendarStore.checkForPending() }
+        }
+        .onChange(of: deepLink.calendarPickupPing) { _, _ in
+            calendarStore.checkForPending()
+        }
+        .sheet(item: $calendarStore.pending, onDismiss: { calendarStore.handleSheetDismissed() }) { event in
+            PendingEventConfirmView(
+                event: event,
+                writeState: calendarStore.writeState,
+                onConfirm: { Task { await calendarStore.confirm() } },
+                onDismiss: { calendarStore.dismiss() }
+            )
+            .presentationDetents([.medium])
+            .interactiveDismissDisabled(calendarStore.writeState == .writing)
         }
     }
 
@@ -85,8 +109,8 @@ struct MainTabView: View {
         switch section {
         case .businessProfile:
             BusinessProfileEditorView()
-        case .callForwarding:
-            ForwardingSetupView()
+        case .keyboard:
+            KeyboardSetupFlow()
         case .billing:
             SubscriptionDetailView()
         case .integrations:
@@ -109,7 +133,7 @@ struct MainTabView: View {
         case .calls: callsPath.append(route)
         case .clients: clientsPath.append(route)
         case .money: moneyPath.append(route)
-        case .voice: voicePath.append(route)
+        case .connected: connectedPath.append(route)
         case .brain: brainPath.append(route)
         }
     }

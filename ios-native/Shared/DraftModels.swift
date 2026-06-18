@@ -17,8 +17,27 @@ struct DraftRequest: Encodable {
     }
 }
 
+/// An agreed, calendar-verified booking the backend surfaces alongside drafts so
+/// the keyboard can offer a one-tap "add to calendar". Present only when the
+/// customer named a time that's genuinely free in the owner's real calendar.
+struct AgreedEvent: Decodable {
+    let title: String
+    let startISO: String
+    let durationMin: Int
+    let location: String?
+    let customer: String?
+}
+
 struct DraftResponse: Decodable {
     let drafts: [String]
+    /// Optional/back-compatible: null or absent when no firm time was agreed.
+    let agreedEvent: AgreedEvent?
+}
+
+/// What the draft client hands back: the reply options plus an optional booking.
+struct DraftResult {
+    let drafts: [String]
+    let agreedEvent: AgreedEvent?
 }
 
 /// Records which draft the user inserted, plus the full candidate set and pick

@@ -10,7 +10,6 @@ struct CaptureSetupStepView: View {
 
     private enum Mode { case choose, screenshot }
     @State private var mode: Mode = .choose
-    @State private var showBackTapAlt = false
 
     var body: some View {
         switch mode {
@@ -27,14 +26,14 @@ struct CaptureSetupStepView: View {
                 eyebrow: "One last thing",
                 title: "Pick how you",
                 accentTitle: "capture messages",
-                subtitle: "Both work great and you can use either anytime. We recommend the screenshot way — it's one tap and never touches your clipboard."
+                subtitle: "Both work great and you can use either anytime. We recommend the screenshot way, it's one tap and never touches your clipboard."
             )
 
             captureCard(
                 badge: "RECOMMENDED",
                 icon: "text.viewfinder",
                 title: "Screenshot capture",
-                description: "Tap your gesture over any message — Flynn reads the screen and your replies are waiting in the keyboard. Nothing is saved to your camera roll.",
+                description: "Tap your gesture over any message, Flynn reads the screen and your replies are waiting in the keyboard. Nothing is saved to your camera roll.",
                 buttonTitle: "Set up screenshot capture",
                 variant: .primary
             ) { withAnimation { mode = .screenshot } }
@@ -98,59 +97,110 @@ struct CaptureSetupStepView: View {
         OnboardingScaffold(variant: 0) {
             OnboardingHeadline(
                 eyebrow: "Screenshot capture",
-                title: "Two taps to",
-                accentTitle: "set it up"
+                title: "Two quick",
+                accentTitle: "steps"
             )
 
+            // Step 1 — add the shortcut.
             sectionTitle("1  Add the Flynn shortcut")
-            stepText("Adds a one-tap “\(FlynnConfig.captureIntentName)” shortcut that screenshots your screen and gets replies ready — without saving to your camera roll.")
             if FlynnConfig.captureShortcutURL != nil {
+                stepText("Adds a one-tap \"\(FlynnConfig.captureIntentName)\" shortcut that screenshots your screen and gets replies ready, without saving to your camera roll.")
                 RetroButton(title: "Add the Flynn shortcut", action: addShortcut)
             } else {
                 manualShortcutSteps
             }
 
-            sectionTitle("2  Choose your gesture")
-            gestureSection
+            // Step 2 — bind it to a gesture. Without this nothing runs the
+            // shortcut. iOS gives third-party apps no way to deep-link into the
+            // Action Button / Back Tap panes — the private `App-Prefs:`/`prefs:`
+            // schemes only navigate from inside Shortcuts itself; from here they
+            // just dump the user on Flynn's own Settings page. So we spell out the
+            // exact path instead of shipping a button that lands in the wrong place.
+            sectionTitle("2  Set up your gesture")
+            gestureCard
 
-            RetroButton(title: "Open Settings", variant: .secondary, action: openSettings)
-                .padding(.top, 4)
+            Text("Tip: press your gesture while looking at a real message, not inside the Shortcuts app, which would just screenshot Shortcuts itself.")
+                .font(.custom(FlynnFontName.interRegular, size: 13))
+                .foregroundColor(OB.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 2)
         } footer: {
-            RetroButton(title: "Done — finish setup", action: onFinish)
+            RetroButton(title: "Done, finish setup", action: onFinish)
             RetroTextButton(title: "Back", action: { withAnimation { mode = .choose } })
         }
     }
 
-    @ViewBuilder private var gestureSection: some View {
-        if DeviceCapability.hasActionButton {
-            stepText("Open Settings → Action Button, swipe to Shortcut, and choose “\(FlynnConfig.captureIntentName)”. A single press now triggers Flynn.")
-            Text("Heads up: this replaces your Action Button's current action (like Camera).")
-                .font(.custom(FlynnFontName.interRegular, size: 13))
-                .foregroundColor(OB.inkFaint)
-                .fixedSize(horizontal: false, vertical: true)
-            Button { withAnimation { showBackTapAlt.toggle() } } label: {
-                Text(showBackTapAlt ? "Hide Back Tap option" : "Want to keep your Action Button? Use Back Tap →")
-                    .font(.custom(FlynnFontName.interMedium, size: 14))
-                    .foregroundColor(OB.orange)
-            }
-            .buttonStyle(.plain)
-            if showBackTapAlt {
-                stepText(backTapInstruction)
-            }
-        } else {
-            stepText(backTapInstruction)
-        }
+    private struct GestureOption {
+        let icon: String
+        let title: String
+        let badge: String?
+        let assign: String
     }
 
-    private var backTapInstruction: String {
-        "Open Settings → Accessibility → Touch → Back Tap → Triple Tap, then choose “\(FlynnConfig.captureIntentName)”. Triple-tap the back of your phone to trigger Flynn."
+    private var gestureOptions: [GestureOption] {
+        var options: [GestureOption] = []
+        if DeviceCapability.hasActionButton {
+            options.append(GestureOption(
+                icon: "button.programmable",
+                title: "Action Button",
+                badge: "RECOMMENDED",
+                assign: "Settings \u{2192} Action Button \u{2192} swipe to Shortcut \u{2192} \"\(FlynnConfig.captureIntentName)\""
+            ))
+        }
+        options.append(GestureOption(
+            icon: "hand.tap",
+            title: "Back Tap (triple-tap)",
+            badge: DeviceCapability.hasActionButton ? nil : "RECOMMENDED",
+            assign: "Settings \u{2192} Accessibility \u{2192} Touch \u{2192} Back Tap \u{2192} Triple Tap \u{2192} \"\(FlynnConfig.captureIntentName)\""
+        ))
+        return options
+    }
+
+    private var gestureCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Pick one and set it up:")
+                .font(.custom(FlynnFontName.interRegular, size: 15))
+                .foregroundColor(OB.inkSoft)
+
+            ForEach(Array(gestureOptions.enumerated()), id: \.offset) { _, option in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: option.icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(OB.orange)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text(option.title)
+                                .font(.custom(FlynnFontName.spaceGroteskBold, size: 16))
+                                .foregroundColor(OB.ink)
+                            if let badge = option.badge {
+                                Text(badge)
+                                    .font(.custom(FlynnFontName.spaceGroteskBold, size: 9))
+                                    .tracking(1)
+                                    .foregroundColor(OB.card)
+                                    .padding(.horizontal, 6).padding(.vertical, 3)
+                                    .background(Capsule().fill(OB.orange))
+                            }
+                        }
+                        Text(option.assign)
+                            .font(.custom(FlynnFontName.interMedium, size: 13))
+                            .foregroundColor(OB.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(OB.card))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
     }
 
     private var manualShortcutSteps: some View {
         VStack(alignment: .leading, spacing: 6) {
             stepText("Open the Shortcuts app → New Shortcut, then:")
-            bullet("Add the “Take Screenshot” action.")
-            bullet("Add the “\(FlynnConfig.captureIntentName)” action and pass the screenshot into it.")
+            bullet("Add the \"Take Screenshot\" action.")
+            bullet("Add the \"\(FlynnConfig.captureIntentName)\" action and pass the screenshot into it.")
         }
     }
 
@@ -160,7 +210,7 @@ struct CaptureSetupStepView: View {
         Text(s)
             .font(.custom(FlynnFontName.spaceGroteskBold, size: 17))
             .foregroundColor(OB.ink)
-            .padding(.top, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func stepText(_ s: String) -> some View {
@@ -184,9 +234,5 @@ struct CaptureSetupStepView: View {
 
     private func addShortcut() {
         if let url = FlynnConfig.captureShortcutURL { UIApplication.shared.open(url) }
-    }
-
-    private func openSettings() {
-        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
     }
 }

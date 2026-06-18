@@ -523,6 +523,12 @@ const createCompatibleClient = (opts = {}) => {
       body.max_tokens = request.max_tokens || request.max_output_tokens;
     }
     if (request.response_format) body.response_format = request.response_format;
+    // OpenAI-style tool calling (the compatible client is the only one that maps
+    // these — don't rely on tools through the anthropic/gemini clients). Don't
+    // combine tools with response_format json_object: tool args are already JSON.
+    if (request.tools) body.tools = request.tools;
+    if (request.tool_choice) body.tool_choice = request.tool_choice;
+    if (typeof request.parallel_tool_calls === 'boolean') body.parallel_tool_calls = request.parallel_tool_calls;
     // Provider-specific passthroughs. Qwen (DashScope) hybrid-thinking models need
     // enable_thinking:false for low latency; merge any other extra fields too.
     if (typeof request.enable_thinking === 'boolean') body.enable_thinking = request.enable_thinking;

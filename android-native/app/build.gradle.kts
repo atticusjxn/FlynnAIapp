@@ -13,16 +13,18 @@ android {
         applicationId = "com.flynnai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 58
+        versionName = "2.1.0"
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file("../flynn-release.jks")
-            storePassword = "flynnrelease2024"
-            keyAlias = "flynn"
-            keyPassword = "flynnrelease2024"
+            // The registered Play upload key (SHA1 1D:59:B3:…:EF:4D), shared with the legacy
+            // android/ project. The stray flynn-release.jks was never registered with Play.
+            storeFile = file("../../android/app/flynn-upload.keystore")
+            storePassword = "90a29bfc69139182b37d99e8c746f258"
+            keyAlias = "34a3ad6d621a991a54e848b424e93815"
+            keyPassword = "edca4d288925a225cd91eb83de21c25c"
         }
     }
 

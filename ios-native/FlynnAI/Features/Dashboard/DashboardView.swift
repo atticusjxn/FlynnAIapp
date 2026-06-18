@@ -1,17 +1,20 @@
 import SwiftUI
+import UIKit
 
-/// Home for the text co-pilot: leads with setup status (keyboard + calendar),
-/// quick access to the Business Brain & voice, and recent bookings + replies.
-/// Keeps the novel copy → Flynn keyboard → tap gesture sticky with a practice
-/// reminder.
+/// Home: a visual view of what Flynn is doing for you, built from your actual
+/// activity over text. Vertical-agnostic — whatever you use Flynn for (replies,
+/// invoices, parts orders, bookings, anything new it learns) shows up here. Cards
+/// appear only when there's something to show; an empty home steers you to text
+/// Flynn and connect the apps it works with.
 struct DashboardView: View {
     @State private var store = DashboardStore()
-    @State private var showingPractice = false
     @State private var showingAddReply = false
+    @State private var showingKeyboardSetup = false
+    @State private var showingPractice = false
     @Environment(DeepLinkRouter.self) private var deepLink
 
-    private var setupStepsRemaining: Int {
-        (store.keyboardAdded ? 0 : 1) + (store.calendarConnected ? 0 : 1)
+    private var hasActivity: Bool {
+        !store.awaitingConfirmation.isEmpty || !store.events.isEmpty || !store.recentActivity.isEmpty
     }
 
     var body: some View {
@@ -19,26 +22,18 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: FlynnSpacing.lg) {
                 greeting
 
-                if store.state == .loaded && setupStepsRemaining > 0 {
-                    setupCard
-                }
-
-                howFlynnWorksCard
-
-                businessBrainCard
-
                 switch store.state {
                 case .idle, .loading:
                     loadingCard
                 case .error(let message):
                     errorCard(message: message)
                 case .loaded:
-                    if !store.recentReplies.isEmpty {
-                        recentRepliesSection
-                    }
-                    if !store.events.isEmpty {
-                        upcomingSection
-                    }
+                    if !store.awaitingConfirmation.isEmpty { awaitingSection }
+                    if !store.events.isEmpty { upcomingSection }
+                    if !store.recentActivity.isEmpty { activitySection }
+                    if !hasActivity { emptyStateCard }
+                    quickActionsCard
+                    if !store.keyboardAdded { keyboardCard }
                 }
             }
             .padding(.horizontal, FlynnSpacing.lg)
@@ -48,14 +43,17 @@ struct DashboardView: View {
         .background(FlynnColor.background)
         .navigationTitle("Home")
         .navigationBarTitleDisplayMode(.large)
+        .sheet(isPresented: $showingAddReply) {
+            AddReplySheet { Task { await store.load() } }
+        }
+        .sheet(isPresented: $showingKeyboardSetup) {
+            KeyboardSetupFlow()
+        }
         .sheet(isPresented: $showingPractice) {
             NavigationStack {
                 PracticeStepView(onContinue: { showingPractice = false })
                     .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { showingPractice = false } } }
             }
-        }
-        .sheet(isPresented: $showingAddReply) {
-            AddReplySheet { Task { await store.load() } }
         }
         .task { await store.load() }
         .refreshable { await store.load() }
@@ -71,9 +69,7 @@ struct DashboardView: View {
             Text(store.firstName.map { "Hey, \($0)." } ?? "Flynn")
                 .flynnType(FlynnTypography.h1)
                 .foregroundColor(FlynnColor.textPrimary)
-            Text(setupStepsRemaining > 0
-                 ? "Finish setup to start replying with Flynn."
-                 : "You're set — copy a customer's text and tap the Flynn keyboard.")
+            Text("Text Flynn whatever you need handled. Here's what it's been up to.")
                 .flynnType(FlynnTypography.bodyMedium)
                 .foregroundColor(FlynnColor.textSecondary)
         }
@@ -88,181 +84,35 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: – Setup checklist
+    // MARK: – Waiting on your OK (staged pending actions, any type)
 
-    private var setupCard: some View {
+    private var awaitingSection: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            HStack {
-                Image(systemName: "bolt.fill").foregroundColor(FlynnColor.primary)
-                Text("Finish setting up Flynn")
-                    .flynnType(FlynnTypography.h4)
-                    .foregroundColor(FlynnColor.textPrimary)
-                Spacer()
-                Text("\(2 - setupStepsRemaining) / 2")
-                    .flynnType(FlynnTypography.caption)
-                    .foregroundColor(FlynnColor.textTertiary)
-            }
-
-            Divider()
-
-            setupStep(
-                icon: "keyboard",
-                title: "Add the Flynn keyboard",
-                subtitle: "Draft replies right inside Messages",
-                done: store.keyboardAdded
-            ) {
-                showingPractice = true
-            }
-
-            setupStep(
-                icon: "calendar.badge.plus",
-                title: "Connect your calendar",
-                subtitle: "Offer real free times and book jobs",
-                done: store.calendarConnected
-            ) {
-                deepLink.pending = .init(tab: .dashboard, route: .settingsSection(.integrations))
-            }
-        }
-        .padding(FlynnSpacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
-                .fill(FlynnColor.backgroundSecondary)
-        )
-        .brutalistBorder(cornerRadius: FlynnRadii.md, color: FlynnColor.primary, lineWidth: 2)
-    }
-
-    private func setupStep(icon: String, title: String, subtitle: String, done: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: done ? {} : action) {
-            HStack(spacing: FlynnSpacing.sm) {
-                ZStack {
-                    Circle()
-                        .fill(done ? FlynnColor.successLight : FlynnColor.background)
-                        .frame(width: 36, height: 36)
-                    Image(systemName: done ? "checkmark" : icon)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(done ? FlynnColor.success : FlynnColor.textSecondary)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .flynnType(FlynnTypography.label)
-                        .foregroundColor(done ? FlynnColor.textTertiary : FlynnColor.textPrimary)
-                        .strikethrough(done)
-                    Text(subtitle)
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(FlynnColor.textTertiary)
-                }
-                Spacer()
-                if !done {
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(FlynnColor.textTertiary)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .disabled(done)
-    }
-
-    // MARK: – How Flynn works (sticky reminder + practice)
-
-    private var howFlynnWorksCard: some View {
-        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            HStack(spacing: FlynnSpacing.sm) {
-                Mascot(.point, size: 44)
-                Text("How Flynn works")
+            HStack(spacing: FlynnSpacing.xs) {
+                Image(systemName: "clock.badge.checkmark").foregroundColor(FlynnColor.warning)
+                Text("Waiting on your OK")
                     .flynnType(FlynnTypography.h4)
                     .foregroundColor(FlynnColor.textPrimary)
             }
-            HStack(spacing: FlynnSpacing.sm) {
-                miniStep(number: "1", text: "Copy the customer's text")
-                miniStep(number: "2", text: "Switch to the Flynn keyboard")
-                miniStep(number: "3", text: "Tap a reply & send")
-            }
-            FlynnButton(title: "Practice again", action: { showingPractice = true }, variant: .secondary, size: .small)
-        }
-        .padding(FlynnSpacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
-                .fill(FlynnColor.backgroundSecondary)
-        )
-        .brutalistBorder(cornerRadius: FlynnRadii.md)
-    }
-
-    private func miniStep(number: String, text: String) -> some View {
-        VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
-            Text(number)
-                .flynnType(FlynnTypography.caption)
-                .foregroundColor(.white)
-                .frame(width: 22, height: 22)
-                .background(Circle().fill(FlynnColor.primary))
-            Text(text)
-                .flynnType(FlynnTypography.caption)
-                .foregroundColor(FlynnColor.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: – Business Brain & voice
-
-    private var businessBrainCard: some View {
-        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            Text("Your Business Brain & voice")
-                .flynnType(FlynnTypography.h4)
-                .foregroundColor(FlynnColor.textPrimary)
-            Text("The better Flynn knows your business and your style, the better your replies.")
-                .flynnType(FlynnTypography.caption)
-                .foregroundColor(FlynnColor.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: FlynnSpacing.sm) {
-                Button { deepLink.pending = .init(tab: .dashboard, route: .settingsSection(.businessProfile)) } label: {
-                    Label("Edit business", systemImage: "building.2")
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(FlynnColor.primary)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.background))
-                        .brutalistBorder(cornerRadius: FlynnRadii.md)
-                }
-                Button { showingAddReply = true } label: {
-                    Label("Add a reply", systemImage: "text.bubble")
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(FlynnColor.primary)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.background))
-                        .brutalistBorder(cornerRadius: FlynnRadii.md)
-                }
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(FlynnSpacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
-                .fill(FlynnColor.backgroundSecondary)
-        )
-        .brutalistBorder(cornerRadius: FlynnRadii.md)
-    }
-
-    // MARK: – Recent replies
-
-    private var recentRepliesSection: some View {
-        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            Text("Recent replies you sent")
-                .flynnType(FlynnTypography.h4)
-                .foregroundColor(FlynnColor.textPrimary)
-            ForEach(Array(store.recentReplies.enumerated()), id: \.offset) { _, reply in
+            ForEach(store.awaitingConfirmation) { item in
                 HStack(alignment: .top, spacing: FlynnSpacing.sm) {
-                    Image(systemName: "checkmark.message.fill")
-                        .foregroundColor(FlynnColor.success)
-                    Text(reply)
-                        .flynnType(FlynnTypography.bodySmall)
-                        .foregroundColor(FlynnColor.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: iconForAction(item.actionType))
+                        .foregroundColor(FlynnColor.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.message ?? prettyAction(item.actionType))
+                            .flynnType(FlynnTypography.bodySmall)
+                            .foregroundColor(FlynnColor.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Reply to Flynn to confirm or cancel")
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.textTertiary)
+                    }
                     Spacer(minLength: 0)
                 }
                 .padding(FlynnSpacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
-                .brutalistBorder(cornerRadius: FlynnRadii.md)
+                .brutalistBorder(cornerRadius: FlynnRadii.md, color: FlynnColor.warning, lineWidth: 2)
             }
         }
     }
@@ -288,6 +138,143 @@ struct DashboardView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    // MARK: – Recent activity from Flynn
+
+    private var activitySection: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+            Text("Recent activity")
+                .flynnType(FlynnTypography.h4)
+                .foregroundColor(FlynnColor.textPrimary)
+            ForEach(store.recentActivity.prefix(6)) { reply in
+                HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+                    Image(systemName: "bubble.left.and.text.bubble.right")
+                        .foregroundColor(FlynnColor.success)
+                    Text(reply.body)
+                        .flynnType(FlynnTypography.bodySmall)
+                        .foregroundColor(FlynnColor.textPrimary)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .padding(FlynnSpacing.sm)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
+                .brutalistBorder(cornerRadius: FlynnRadii.md)
+            }
+        }
+    }
+
+    // MARK: – Empty state (new user — steer to text + connect)
+
+    private var emptyStateCard: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+            HStack(spacing: FlynnSpacing.sm) {
+                Mascot(.wave, size: 44)
+                Text("Nothing here yet")
+                    .flynnType(FlynnTypography.h4)
+                    .foregroundColor(FlynnColor.textPrimary)
+            }
+            Text("Text Flynn what you need — replying to customers, invoices, ordering parts, booking jobs. Connect your apps and it does more.")
+                .flynnType(FlynnTypography.bodySmall)
+                .foregroundColor(FlynnColor.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            FlynnButton(title: "Connect your apps", action: {
+                deepLink.pending = .init(tab: .connected, route: nil)
+            }, variant: .secondary, size: .small)
+        }
+        .padding(FlynnSpacing.md)
+        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
+        .brutalistBorder(cornerRadius: FlynnRadii.md)
+    }
+
+    // MARK: – Quick actions (the editable backup of what Flynn knows)
+
+    private var quickActionsCard: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+            Text("Manage Flynn")
+                .flynnType(FlynnTypography.h4)
+                .foregroundColor(FlynnColor.textPrimary)
+            HStack(spacing: FlynnSpacing.sm) {
+                quickAction(title: "What Flynn knows", icon: "brain.head.profile") {
+                    deepLink.pending = .init(tab: .brain, route: nil)
+                }
+                quickAction(title: "Connected apps", icon: "square.stack.3d.up") {
+                    deepLink.pending = .init(tab: .connected, route: nil)
+                }
+            }
+            HStack(spacing: FlynnSpacing.sm) {
+                quickAction(title: "Add a reply in your voice", icon: "text.bubble") {
+                    showingAddReply = true
+                }
+                quickAction(title: "Flynn keyboard", icon: "keyboard") {
+                    showingKeyboardSetup = true
+                }
+            }
+        }
+        .padding(FlynnSpacing.md)
+        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
+        .brutalistBorder(cornerRadius: FlynnRadii.md)
+    }
+
+    private func quickAction(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.primary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .multilineTextAlignment(.leading)
+                .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.background))
+                .brutalistBorder(cornerRadius: FlynnRadii.md)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: – Keyboard add-on (only while not set up)
+
+    private var keyboardCard: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+            HStack(spacing: FlynnSpacing.sm) {
+                Image(systemName: "keyboard").foregroundColor(FlynnColor.primary)
+                Text("Add the Flynn keyboard")
+                    .flynnType(FlynnTypography.h4)
+                    .foregroundColor(FlynnColor.textPrimary)
+            }
+            Text("Optional: draft replies in your voice right inside Messages, without leaving the app you're in.")
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: FlynnSpacing.sm) {
+                FlynnButton(title: "Set up keyboard", action: { showingKeyboardSetup = true }, variant: .secondary, size: .small)
+                FlynnButton(title: "Practice", action: { showingPractice = true }, variant: .secondary, size: .small)
+            }
+        }
+        .padding(FlynnSpacing.md)
+        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
+        .brutalistBorder(cornerRadius: FlynnRadii.md)
+    }
+
+    // MARK: – Helpers
+
+    private func iconForAction(_ type: String?) -> String {
+        switch (type ?? "").uppercased() {
+        case "INVOICE": return "doc.text"
+        case "ORDER_PARTS": return "shippingbox"
+        case "BOOK_JOB": return "calendar.badge.plus"
+        case "DRAFT_REPLY": return "text.bubble"
+        default: return "checkmark.circle"
+        }
+    }
+
+    private func prettyAction(_ type: String?) -> String {
+        switch (type ?? "").uppercased() {
+        case "INVOICE": return "Send an invoice"
+        case "ORDER_PARTS": return "Order parts"
+        case "BOOK_JOB": return "Book a job"
+        case "DRAFT_REPLY": return "Send a reply"
+        default: return "Confirm an action"
         }
     }
 
@@ -319,4 +306,3 @@ struct DashboardView: View {
         }
     }
 }
-

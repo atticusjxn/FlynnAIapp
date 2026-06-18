@@ -31,6 +31,13 @@ enum FlynnEnv {
         infoString("STRIPE_PUBLISHABLE_KEY")
     }
 
+    /// Flynn's iMessage/SMS number — the agent users text to get started.
+    /// Overridable via Info.plist (FLYNN_CONTACT_NUMBER); defaults to the live number.
+    static var flynnContactNumber: String {
+        let value = infoString("FLYNN_CONTACT_NUMBER")
+        return (value?.isEmpty ?? true) ? "+61497779071" : value!
+    }
+
     /// iOS bundle id registered against the TikTok Business SDK app entry.
     /// Returns nil until configured in Secrets.local.xcconfig.
     static var tiktokAppID: String? {

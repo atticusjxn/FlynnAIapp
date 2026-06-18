@@ -1,2334 +1,1939 @@
 import React from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, Clock, Calendar, CheckCircle, XCircle, TrendingUp, Phone, DollarSign, AlertTriangle, Wrench, Thermometer, Zap } from 'lucide-react';
-import SmartStoreCTA from '../components/SmartStoreCTA';
-import aiVsVirtualImg from '../assets/blog-ai-vs-virtual.png';
-import missedCallsChartImg from '../assets/blog-missed-calls-chart.png';
-import afterHoursFlowImg from '../assets/blog-after-hours-flow.png';
-import crmIntegrationImg from '../assets/blog-crm-integration.png';
+import { ArrowLeft, Clock, Calendar, CheckCircle, XCircle, MessageSquare, Zap, FileText, DollarSign } from 'lucide-react';
+import MessageFlynnCTA from '../components/MessageFlynnCTA';
+
+// Small mascot banner shown near the top of each article. The mascots in
+// /public/mascots are the "Flynn guy" used across the landing page.
+const Hero = ({ pose }: { pose: string }) => (
+    <div className="not-prose flex justify-center my-8">
+        <div className="bg-surface-50 border-2 border-black w-full flex items-center justify-center py-8 shadow-[6px_6px_0px_0px_#FB5B1E]">
+            <img
+                src={`/mascots/${pose}.png`}
+                alt="Flynn mascot"
+                draggable={false}
+                className="w-40 h-40 select-none pointer-events-none"
+            />
+        </div>
+    </div>
+);
 
 const blogPosts: Record<string, { title: string; date: string; readTime: string; content: React.ReactNode; category: string; description: string; image?: string; datePublished?: string }> = {
 
-    // ─── CLUSTER A: Revenue Pain ──────────────────────────────────────────────
-
-    "cost-of-missed-calls-plumbing": {
-        title: "How Much Do Missed Calls Cost Your Plumbing Business?",
-        date: "Dec 12, 2025",
-        datePublished: "2025-12-12",
-        readTime: "6 min read",
-        category: "Growth",
-        description: "Calculate the real cost of missed calls for plumbing businesses. Discover why voicemail loses leads and how an instant SMS booking link recovers them.",
+    // ─── 1. Flagship: run your business from iMessage ─────────────────────────
+    "run-your-business-from-imessage": {
+        title: "How to Run Your Whole Trade Business From iMessage (2026 Guide)",
+        date: "Jun 14, 2026",
+        datePublished: "2026-06-14",
+        readTime: "8 min read",
+        category: "Guide",
+        description: "You already run your day from text messages. Here's how to turn iMessage into a full business assistant that books jobs, sends invoices and chases payments.",
         content: (
             <>
                 <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    Every time your phone rings and you can't pick up — you're knee-deep in a pipe, on the roof, or mid-conversation with another client — that call is probably gone forever. For plumbers, the numbers are brutal.
+                    Think about where your business actually lives. Not in some dashboard you log into once a fortnight. It lives in your messages, the customer asking for a quote, the supplier confirming parts, your mate sending through a referral. You already run the whole thing from a thread. The problem has always been everything <em>around</em> the messages: the invoicing, the follow-ups, the bookings, the admin that piles up while you're on the tools.
                 </p>
 
-                <h2>The Real Math</h2>
-                <p>Let's say your average job is worth $350 and you miss just 5 calls a week. That's $1,750 in potential revenue. Over a year? <strong>$91,000</strong>. And that assumes a conservative conversion rate — many plumbers could convert 40–50% of those calls if they were answered.</p>
+                <Hero pose="phone" />
 
-                <div className="bg-surface-50 border-2 border-black p-8 my-8">
-                    <h3 className="text-2xl font-bold mb-6">The Revenue Leak Calculator</h3>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Missed calls per week (typical plumber):</span>
-                            <span className="text-2xl">12</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Conversion rate if answered:</span>
-                            <span className="text-2xl">40%</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Jobs lost per week:</span>
-                            <span className="text-2xl text-red-600">5</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Average job value:</span>
-                            <span className="text-2xl">$350</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-4">
-                            <span className="font-bold text-xl">Annual revenue lost:</span>
-                            <span className="text-4xl font-bold text-red-600">$91,000</span>
-                        </div>
-                    </div>
-                </div>
+                <p>In 2026 that gap finally closed. You can now run the back office of your business straight from a text conversation, no app to learn, no new login, no "setup wizard". You text an assistant the same way you'd text a sharp office manager, and the admin just gets handled.</p>
 
-                <h2>Why 88% of Your Callers Don't Leave Voicemails</h2>
-                <p>Here's the uncomfortable truth: when someone calls a plumber and gets voicemail, 88% of them hang up and call the next plumber on the list. They don't leave a message. They're not going to wait for a callback that might come hours later. They have water coming through the ceiling right now.</p>
-                <p className="mt-4">Voicemail was designed for personal communication. For a tradesperson competing on speed, it's a dead end. The caller expects an answer — and if they don't get one, your competitor does.</p>
+                <h2>Why text beats yet another app</h2>
+                <p>Service operators don't abandon apps because the apps are bad. They abandon them because opening an app is friction, and friction loses every time you're standing in someone's backyard with dirty hands. Text has none of that friction. It's already open. It's where you already are. The keyboard you already use.</p>
+                <p className="mt-4">There's a reason this shift is happening now. In June 2026, Apple approved the first AI agents to operate directly inside Messages for Business, a signal that texting an assistant is becoming a mainstream way to get things done, not a novelty. The behaviour was already there. The tooling finally caught up.</p>
 
-                <h2>The 4 Solutions Most Plumbers Try (And Why They Fail)</h2>
+                <h2>What "running your business from text" actually looks like</h2>
+                <p>Here's a normal Tuesday, handled entirely from your message thread:</p>
 
                 <div className="overflow-x-auto my-8">
                     <table className="w-full border-2 border-black">
                         <thead className="bg-black text-white">
                             <tr>
-                                <th className="p-4 text-left font-display">Solution</th>
-                                <th className="p-4 text-left font-display">Why It Fails</th>
+                                <th className="p-4 text-left font-display">You text</th>
+                                <th className="p-4 text-left font-display">What gets done</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white">
                             <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Voicemail</td>
-                                <td className="p-4">Only 12% of callers leave a message. The other 88% call your competitor.</td>
+                                <td className="p-4 font-bold">"book dave in thursday arvo for the hot water swap"</td>
+                                <td className="p-4">Job added to your calendar, customer texted a confirmation.</td>
                             </tr>
                             <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Spouse/partner answering</td>
-                                <td className="p-4">Not scalable. Causes relationship tension. Unprofessional during peak hours.</td>
+                                <td className="p-4 font-bold">"invoice the smith job, 4 hrs + $260 parts"</td>
+                                <td className="p-4">Invoice drafted with your rates and GST, sent once you say go.</td>
                             </tr>
                             <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Hiring someone to answer</td>
-                                <td className="p-4">$35,000–$50,000/year just for call answering. They still can't answer when on break.</td>
+                                <td className="p-4 font-bold">"what have I got on tomorrow?"</td>
+                                <td className="p-4">Your day read back to you, in order, with addresses.</td>
                             </tr>
                             <tr>
-                                <td className="p-4 font-bold">Call forwarding to your mobile</td>
-                                <td className="p-4">You're still under the sink. You still can't answer. Defeats the purpose entirely.</td>
+                                <td className="p-4 font-bold">[forward a customer's message]</td>
+                                <td className="p-4">A reply drafted in your tone, using your pricing and availability.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <h2>The Fix: Instant SMS When a Call Is Missed</h2>
-                <p>The only method that works is one that operates independently of whether you can pick up. When a call comes in and you're busy, Flynn answers immediately, presents a short menu, and within 2 seconds sends the caller an SMS with a link to your booking page or quote form — while they're still on the phone.</p>
+                <p>No tabs. No forms. You describe what you want in plain English and it happens. That's the whole idea behind <Link to="/blog/best-ai-assistant-for-tradies-2026">a text-first business assistant</Link>, the interface is a conversation, not a screen full of buttons.</p>
+
+                <h2>The four jobs it takes off your plate</h2>
+
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6">
+                        <MessageSquare className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Replying to leads</h3>
+                        <p className="text-gray-700">A new enquiry gets a fast, on-brand reply instead of sitting unread until 8pm. Speed is the whole game, <Link to="/blog/reply-to-leads-faster-speed-to-lead">replying first usually wins the job</Link>.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6">
+                        <Calendar className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Booking the work</h3>
+                        <p className="text-gray-700">Jobs land in your calendar from a one-line text. No double-entry, no "I thought that was next week".</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6">
+                        <FileText className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Invoicing & quoting</h3>
+                        <p className="text-gray-700">Quotes and invoices drafted from a sentence and filed into your accounting tool. More on <Link to="/blog/send-invoices-and-quotes-by-text">sending invoices by text</Link>.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6">
+                        <DollarSign className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Chasing money</h3>
+                        <p className="text-gray-700">Overdue invoices followed up automatically, politely, so you stop <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">doing the awkward chase yourself</Link>.</p>
+                    </div>
+                </div>
+
+                <h2>"But will it text things on its own?"</h2>
+                <p>Fair question, and the answer matters. A good text assistant never fires off anything irreversible without checking. Sending an invoice, placing a parts order, confirming a booking, it drafts it, shows you, and waits for a "yeah" before it goes. You stay in control of anything that touches a customer or your money. Everything else, the boring internal admin, it just does.</p>
+
+                <h2>It learns your business as you go</h2>
+                <p>The first week, it asks a few natural questions, your hourly rate, your usual hours, your callout fee. After that it remembers. Mention a new price mid-conversation and it's saved. Tell it a regular customer's name once and it sticks. You never fill in a profile; the business knowledge accumulates from the actual conversations you're already having.</p>
+
+                <MessageFlynnCTA
+                    headline="Run your next job from a text"
+                    body="Flynn lives in iMessage. Text it like you'd text a mate who happens to run your back office, bookings, invoices, follow-ups, all handled. Nothing to install to get started."
+                    mascot="phone"
+                />
+
+                <h2>How to start (it takes one message)</h2>
+                <p>There's no onboarding to grind through. You send a first text. "Hi Flynn". It introduces itself and starts learning. Over a few exchanges it picks up your rates and how you work, and from there it's just part of your day. The app and dashboard exist for when you want them, but you never need to open anything to get value.</p>
+                <p className="mt-4">That's the real unlock: the most-used tool on your phone becomes the front door to your whole business. No new habit to build. You're already texting all day, now the texting does the admin too.</p>
+            </>
+        )
+    },
+
+    // ─── 2. Send invoices & quotes by text ────────────────────────────────────
+    "send-invoices-and-quotes-by-text": {
+        title: "How to Send Invoices and Quotes by Text Message (Australia, 2026)",
+        date: "Jun 10, 2026",
+        datePublished: "2026-06-10",
+        readTime: "7 min read",
+        category: "How-To",
+        description: "Stop doing invoices at 9pm. Here's how to send proper GST invoices and quotes straight from a text message, synced to Xero, without opening accounting software.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    The invoice you don't send tonight is the invoice you forget by Friday. For a lot of tradies, quoting and invoicing is the last thing standing between a finished job and getting paid, and it always happens after hours, on the couch, when you're cooked. There's a faster way: send it as a text and let an assistant turn it into a proper invoice.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>The 9pm admin tax</h2>
+                <p>Most operators lose an hour or two every night to admin they could've knocked out on site. The job's done, the customer's happy, but the invoice sits unwritten because opening accounting software means sitting down, logging in, finding the customer, typing line items, getting the GST right. So it waits. And waiting costs you, both in cash flow and in invoices that quietly never get sent.</p>
+
+                <h2>What "invoice by text" actually means</h2>
+                <p>You text a plain English description of the job. The assistant turns it into a correctly formatted invoice. Your business details, ABN, GST, line items and totals, all filled in. It shows you the draft, then sends it to the customer once you confirm. A copy goes into your accounting tool so the books stay straight.</p>
+
+                <div className="bg-surface-50 border-2 border-black p-8 my-8">
+                    <h3 className="text-2xl font-bold mb-6">From text to invoice</h3>
+                    <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                            <span className="font-bold text-brand-500 text-xl">1.</span>
+                            <p className="m-0"><strong>You text:</strong> "invoice jenny for the bathroom job, 6 hours labour, $480 in tiles and grout"</p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <span className="font-bold text-brand-500 text-xl">2.</span>
+                            <p className="m-0"><strong>It drafts:</strong> labour at your saved hourly rate, materials, GST added, total calculated, your ABN and details on it.</p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <span className="font-bold text-brand-500 text-xl">3.</span>
+                            <p className="m-0"><strong>You check it</strong> and reply "send it".</p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <span className="font-bold text-brand-500 text-xl">4.</span>
+                            <p className="m-0"><strong>Done:</strong> customer gets the invoice, a copy lands in Xero, you're back to your night.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>What makes an invoice legit in Australia</h2>
+                <p>A tax invoice over $82.50 (inc GST) needs to show the seller's identity and ABN, that it's a tax invoice, the date, a description of what was sold, the GST amount (or that the total includes GST), and the buyer's details for invoices over $1,000. The point of sending by text isn't to skip any of that, it's that the assistant fills it all in correctly so you don't have to remember the rules each time.</p>
+
+                <h2>Quotes work the same way</h2>
+                <p>Before the job, text the scope and the assistant drafts a quote you can send in seconds. Itemised, GST included, in your business name. When the customer says yes, that quote can roll straight into a booking and later an invoice, so you're never retyping the same details three times.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white">
+                            <tr>
+                                <th className="p-4 text-left font-display">The old way</th>
+                                <th className="p-4 text-left font-display">By text</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black">
+                                <td className="p-4">Log into accounting app, find customer, type line items</td>
+                                <td className="p-4">One text describing the job</td>
+                            </tr>
+                            <tr className="border-b-2 border-black">
+                                <td className="p-4">Done at 9pm if you remember</td>
+                                <td className="p-4">Done in the ute before you drive off</td>
+                            </tr>
+                            <tr>
+                                <td className="p-4">Manually re-enter into the books later</td>
+                                <td className="p-4">Synced to Xero automatically</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Send your next invoice as a text"
+                    body="Describe the job, Flynn drafts a proper GST invoice, you tap send. It even files the copy in Xero for you. No accounting software open, no late-night admin."
+                    mascot="write"
+                />
+
+                <h2>The bit that actually matters: getting paid</h2>
+                <p>Sending faster is only half of it. The invoices that go out the same day get paid sooner, and the ones that slip get followed up, which is where <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">automatic payment chasing</Link> comes in. Together they close the loop: quote by text, book by text, invoice by text, get paid without nagging anyone yourself. It all rolls up into the bigger picture of <Link to="/blog/run-your-business-from-imessage">running the whole business from your messages</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── 3. Best AI assistant for tradies 2026 ────────────────────────────────
+    "best-ai-assistant-for-tradies-2026": {
+        title: "The Best AI Assistant for Tradies in 2026 (An Honest Comparison)",
+        date: "Jun 6, 2026",
+        datePublished: "2026-06-06",
+        readTime: "8 min read",
+        category: "Comparison",
+        description: "Comparing the real options for an AI assistant for tradies in 2026, generic chatbots, job management apps and text-first agents. What actually saves you time on the tools.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    "AI assistant for tradies" covers wildly different things in 2026, and most of them won't survive contact with a real work week. Here's an honest look at the options, what each is genuinely good at, and where they fall down when you're actually busy.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <h2>The three kinds of "AI assistant" you'll run into</h2>
+                <p>They're not the same product wearing different logos. They're three different bets on how you'll use them.</p>
+
+                <h3>1. Generic chatbots (ChatGPT and friends)</h3>
+                <p>Brilliant for drafting a tricky customer email or explaining a regulation. But they don't know your rates, your calendar, or your customers, and they can't <em>do</em> anything, they can't send the invoice or book the job. You're still the one copying the answer into the real tool. Great thinking partner, not an assistant that takes work off your plate.</p>
+
+                <h3>2. Job-management apps with "AI features"</h3>
+                <p>Powerful and thorough, scheduling, invoicing, quoting, the lot. The catch is they're apps. They demand setup, data entry, and that you actually open them between jobs. Plenty of tradies pay for one and use a fraction of it because the friction of logging in beats the benefit when you're flat out.</p>
+
+                <h3>3. Text-native agents</h3>
+                <p>The newer category: an assistant that lives in your messages, knows your business, and actually executes. It books the job, drafts the invoice and chases the payment, all from a plain text. No app to open. This is the <Link to="/blog/run-your-business-from-imessage">"run your business from iMessage"</Link> approach.</p>
+
+                <h2>Side by side</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white">
+                            <tr>
+                                <th className="p-3 text-left font-display">What matters</th>
+                                <th className="p-3 text-left font-display">Generic chatbot</th>
+                                <th className="p-3 text-left font-display">Job-mgmt app</th>
+                                <th className="p-3 text-left font-display">Text-native agent</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black">
+                                <td className="p-3 font-bold">Knows your rates & customers</td>
+                                <td className="p-3"><XCircle className="text-red-500" size={18} /></td>
+                                <td className="p-3"><CheckCircle className="text-green-600" size={18} /></td>
+                                <td className="p-3"><CheckCircle className="text-green-600" size={18} /></td>
+                            </tr>
+                            <tr className="border-b-2 border-black">
+                                <td className="p-3 font-bold">Actually sends/books things</td>
+                                <td className="p-3"><XCircle className="text-red-500" size={18} /></td>
+                                <td className="p-3"><CheckCircle className="text-green-600" size={18} /></td>
+                                <td className="p-3"><CheckCircle className="text-green-600" size={18} /></td>
+                            </tr>
+                            <tr className="border-b-2 border-black">
+                                <td className="p-3 font-bold">No app to open</td>
+                                <td className="p-3"><XCircle className="text-red-500" size={18} /></td>
+                                <td className="p-3"><XCircle className="text-red-500" size={18} /></td>
+                                <td className="p-3"><CheckCircle className="text-green-600" size={18} /></td>
+                            </tr>
+                            <tr>
+                                <td className="p-3 font-bold">Works the way you already work</td>
+                                <td className="p-3">Partly</td>
+                                <td className="p-3"><XCircle className="text-red-500" size={18} /></td>
+                                <td className="p-3"><CheckCircle className="text-green-600" size={18} /></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>What to actually look for</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center">
+                        <Zap className="text-brand-500 mx-auto mb-2" size={28} />
+                        <div className="font-bold">It does, not just suggests</div>
+                        <p className="text-sm text-gray-600 mt-2">If you still have to do the task yourself afterwards, it's a search engine, not an assistant.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6 text-center">
+                        <MessageSquare className="text-brand-500 mx-auto mb-2" size={28} />
+                        <div className="font-bold">Zero setup friction</div>
+                        <p className="text-sm text-gray-600 mt-2">If using it means opening an app between jobs, you won't. Be honest with yourself.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6 text-center">
+                        <CheckCircle className="text-brand-500 mx-auto mb-2" size={28} />
+                        <div className="font-bold">Confirms before it acts</div>
+                        <p className="text-sm text-gray-600 mt-2">Nothing irreversible, like invoices or orders, should go out without your okay.</p>
+                    </div>
+                </div>
+
+                <h2>The honest verdict</h2>
+                <p>If you want a thinking partner, a generic chatbot is fine and cheap. If you run a bigger crew and live in a back office, a full job management app earns its keep. But if you're a solo operator or small team who runs the whole show from your phone, the text-first agent is the one you'll actually keep using, because the bar for using it is "send a text", and you were going to do that anyway.</p>
+
+                <MessageFlynnCTA
+                    headline="Try the text-first option"
+                    body="Flynn is an AI business assistant that lives in iMessage. It knows your rates, books your jobs, sends your invoices and chases your payments, from a text. See if it fits how you actually work."
+                    mascot="thumbsup"
+                />
+
+                <p>Whichever way you lean, the test is the same: a week from now, are you still using it? The tools that win for tradies are the ones that disappear into how you already work. For most, that's <Link to="/blog/send-invoices-and-quotes-by-text">texting an invoice</Link> instead of opening software, and never thinking about the assistant at all.</p>
+            </>
+        )
+    },
+
+    // ─── 4. Chase unpaid invoices ─────────────────────────────────────────────
+    "chase-unpaid-invoices-without-awkward-calls": {
+        title: "How to Chase Unpaid Invoices Without the Awkward Phone Calls",
+        date: "Jun 2, 2026",
+        datePublished: "2026-06-02",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "Late-paying clients drain your cash flow and your weekend. Here's a calm, automatic way to chase unpaid invoices by text, no awkward phone calls, no nagging.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Everyone hates the chase. You did the work, the invoice is sitting there 30 days overdue, and now you've got to ring someone and ask for money you've already earned. So most tradies put it off, the invoice ages, and the cash you're owed quietly becomes cash you're probably not getting. There's a better way to handle it, calm, automatic, and no phone call required.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>Why chasing is so brutal (and why it shouldn't be)</h2>
+                <p>Late payment is the number one cash flow killer for small operators. The money's real, the work's done, but the follow-up feels personal, like you're hassling someone. So it gets skipped. The fix isn't to grow a thicker skin. It's to take yourself out of the awkward part entirely and let a system send the polite, consistent reminders that actually get invoices paid.</p>
+
+                <h2>The follow-up ladder that works</h2>
+                <p>Chasing works when it's consistent and unemotional. A simple sequence, sent automatically, beats a stressed phone call every time:</p>
+
+                <div className="space-y-4 my-8">
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4">
+                        <span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day 0</span>
+                        <p className="m-0">Invoice sent, with a clear due date. Clarity up front prevents half the late payments.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4">
+                        <span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Due +1</span>
+                        <p className="m-0">A friendly nudge: "Hey, just a heads up that invoice #102 was due yesterday, easy to miss, no stress." Most people pay right here.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4">
+                        <span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day +7</span>
+                        <p className="m-0">A slightly firmer reminder with the payment link again. Still polite, still automatic.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4">
+                        <span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day +14</span>
+                        <p className="m-0">A final notice that flags it to you so you can decide whether to make the rare phone call.</p>
+                    </div>
+                </div>
+
+                <p>The magic is that you didn't send any of those. They went out on schedule, in a consistent tone, while you were on the tools. You only get pulled in for the genuine stragglers, which, after a couple of automatic nudges, there are far fewer of.</p>
+
+                <h2>Why text beats email for this</h2>
+                <p>Invoices emailed into a busy inbox get buried. A text gets read. A reminder that arrives as a message, short, friendly, with the amount and a way to pay, is far harder to ignore and far easier to action on the spot. That's the same reason <Link to="/blog/reply-to-leads-faster-speed-to-lead">leads convert better by text too</Link>.</p>
 
                 <div className="grid md:grid-cols-3 gap-6 my-8">
                     <div className="bg-white border-2 border-black p-6 text-center">
-                        <div className="text-4xl font-bold text-brand-500 mb-2">2s</div>
-                        <div className="text-sm font-medium">Time from missed call to SMS sent</div>
+                        <div className="text-3xl font-bold text-brand-500 mb-1">0</div>
+                        <div className="text-sm font-medium">awkward phone calls you make</div>
                     </div>
                     <div className="bg-white border-2 border-black p-6 text-center">
-                        <div className="text-4xl font-bold text-brand-500 mb-2">24/7</div>
-                        <div className="text-sm font-medium">Always on, even at 2 AM</div>
+                        <div className="text-3xl font-bold text-brand-500 mb-1">Auto</div>
+                        <div className="text-sm font-medium">reminders sent on schedule</div>
                     </div>
                     <div className="bg-white border-2 border-black p-6 text-center">
-                        <div className="text-4xl font-bold text-brand-500 mb-2">5 min</div>
-                        <div className="text-sm font-medium">Setup using your existing number</div>
+                        <div className="text-3xl font-bold text-brand-500 mb-1">Faster</div>
+                        <div className="text-sm font-medium">cash in your account</div>
                     </div>
                 </div>
 
-                <p>You don't need a new phone number. You don't need to change your existing setup. You forward your calls to Flynn using a simple carrier code — and Flynn handles everything from there.</p>
-
-                <h2>What Your Callers Actually Experience</h2>
-                <p>When someone calls your number and you're busy, they hear a short, professional greeting. They can press 1 to receive a booking link by SMS, press 2 to get a quote form, or press 3 to leave a voicemail. Within seconds, they have a text with a direct link. They click it. They book. You get a notification.</p>
-                <p className="mt-4">No voicemail box to check. No callbacks to remember. No leads falling through the cracks at 7 PM on a Friday.</p>
-
-                <SmartStoreCTA
-                    headline="Stop Losing $91,000 a Year to Missed Calls"
-                    body="Flynn answers every missed call and instantly texts callers your booking link or quote form. Setup in 5 minutes with your existing number."
+                <MessageFlynnCTA
+                    headline="Let Flynn do the chasing"
+                    body="Flynn tracks who hasn't paid and sends polite, well-timed reminders for you, so you get paid without the awkward call. You just see the money land."
+                    mascot="point"
                 />
+
+                <h2>Keep your tone, keep your customers</h2>
+                <p>The worry with automating follow-ups is sounding like a debt collector. Done right, it's the opposite, the reminders read like you wrote them, friendly and human, because they're tuned to your voice. Customers get a gentle nudge, not a threat, and you keep the relationship intact while still getting paid. Pair it with <Link to="/blog/send-invoices-and-quotes-by-text">sending invoices by text</Link> the day the job's done, and your whole cash flow problem mostly takes care of itself.</p>
             </>
         )
     },
 
-    "electricians-missed-calls-revenue-loss": {
-        title: "How Electricians Lose $127,000/Year to Missed Calls (And How to Fix It)",
-        date: "Dec 20, 2025",
-        datePublished: "2025-12-20",
-        readTime: "7 min read",
-        category: "Revenue",
-        description: "Data-driven analysis of revenue loss from missed calls in electrical contracting businesses, with actionable solutions and ROI calculations.",
-        image: missedCallsChartImg,
-        content: (
-            <>
-                <img src={missedCallsChartImg} alt="Revenue Loss from Missed Calls Chart" className="w-full rounded-lg border-4 border-black shadow-[8px_8px_0px_0px_#000000] mb-8" />
-
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    You're on a ladder installing a panel. Your phone rings. You can't answer. That call was worth $2,400. It just went to your competitor.
-                </p>
-
-                <h2>The $127,000 Problem</h2>
-                <p>We analysed 500 electrical contractors and found the average solo electrician or small team (2–5 people) misses <strong>23 calls per week</strong>.</p>
-
-                <div className="bg-surface-50 border-2 border-black p-8 my-8">
-                    <h3 className="text-2xl font-bold mb-6">The Math That Hurts</h3>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center pb-4 border-b-2 border-gray-300">
-                            <span className="font-bold">Missed calls per week:</span>
-                            <span className="text-2xl">23</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-4 border-b-2 border-gray-300">
-                            <span className="font-bold">Conversion rate (if answered):</span>
-                            <span className="text-2xl">35%</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-4 border-b-2 border-gray-300">
-                            <span className="font-bold">Jobs lost per week:</span>
-                            <span className="text-2xl text-red-600">8</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-4 border-b-2 border-gray-300">
-                            <span className="font-bold">Average job value:</span>
-                            <span className="text-2xl">$650</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-4">
-                            <span className="font-bold text-xl">Annual revenue loss:</span>
-                            <span className="text-4xl font-bold text-red-600">$270,400</span>
-                        </div>
-                        <p className="text-sm text-gray-600 pt-4">*Even at a conservative 30% profit margin, that's <strong>$81,120 in lost profit</strong> per year.</p>
-                    </div>
-                </div>
-
-                <h2>Why Electricians Miss More Calls Than Other Trades</h2>
-                <p>Electrical work has unique challenges:</p>
-
-                <div className="grid md:grid-cols-2 gap-6 my-8">
-                    <div className="bg-white border-2 border-black p-6">
-                        <Phone className="text-brand-500 mb-4" size={32} />
-                        <h3 className="text-xl font-bold mb-3">Safety First = Phone Last</h3>
-                        <p className="text-gray-700">Working with live electricity requires 100% focus. You literally can't answer your phone when you're in a panel.</p>
-                    </div>
-                    <div className="bg-white border-2 border-black p-6">
-                        <TrendingUp className="text-brand-500 mb-4" size={32} />
-                        <h3 className="text-xl font-bold mb-3">Emergency Premium</h3>
-                        <p className="text-gray-700">Electrical emergencies pay 2–3× normal rates. Missing one after-hours call costs you $1,500–$3,000.</p>
-                    </div>
-                </div>
-
-                <h2>The 3 Types of Calls You're Missing</h2>
-
-                <div className="space-y-6 my-8">
-                    <div className="border-l-4 border-red-600 pl-6 py-4 bg-red-50">
-                        <h3 className="text-xl font-bold mb-2">1. Emergency Calls (40% of missed calls)</h3>
-                        <p className="mb-3">Power outages, sparking outlets, tripped breakers. These customers call 3–5 electricians until someone answers.</p>
-                        <p className="font-bold">Average value: $800–$2,400</p>
-                        <p className="text-sm text-gray-700">If you miss this call, you lose it forever. They're not calling back.</p>
-                    </div>
-
-                    <div className="border-l-4 border-yellow-600 pl-6 py-4 bg-yellow-50">
-                        <h3 className="text-xl font-bold mb-2">2. Project Quotes (35% of missed calls)</h3>
-                        <p className="mb-3">Panel upgrades, rewiring, EV charger installations. These are your bread-and-butter jobs.</p>
-                        <p className="font-bold">Average value: $1,200–$5,000</p>
-                        <p className="text-sm text-gray-700">They'll call 2–3 electricians. First to respond usually wins.</p>
-                    </div>
-
-                    <div className="border-l-4 border-blue-600 pl-6 py-4 bg-blue-50">
-                        <h3 className="text-xl font-bold mb-2">3. Routine Service (25% of missed calls)</h3>
-                        <p className="mb-3">Outlet installations, light fixtures, ceiling fans. Quick jobs that fill your schedule.</p>
-                        <p className="font-bold">Average value: $200–$600</p>
-                        <p className="text-sm text-gray-700">These customers are price-shopping. Speed matters.</p>
-                    </div>
-                </div>
-
-                <h2>What Doesn't Work (And Why)</h2>
-
-                <table className="w-full border-2 border-black my-8">
-                    <thead className="bg-black text-white">
-                        <tr>
-                            <th className="p-4 text-left">Solution</th>
-                            <th className="p-4 text-left">Why It Fails</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white">
-                        <tr className="border-b-2 border-black">
-                            <td className="p-4 font-bold">Voicemail</td>
-                            <td className="p-4">Only 12% of people leave messages. 88% call someone else.</td>
-                        </tr>
-                        <tr className="border-b-2 border-black">
-                            <td className="p-4 font-bold">Hiring an apprentice to answer</td>
-                            <td className="p-4">Costs $35K–$50K/year. They're on jobs with you anyway.</td>
-                        </tr>
-                        <tr className="border-b-2 border-black">
-                            <td className="p-4 font-bold">Spouse/partner answering</td>
-                            <td className="p-4">Unprofessional. Causes domestic tension. Not scalable.</td>
-                        </tr>
-                        <tr>
-                            <td className="p-4 font-bold">Call forwarding to cell</td>
-                            <td className="p-4">You still can't answer while working. Defeats the purpose.</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h2>The Fix: AI That Actually Works for Electricians</h2>
-                <p>Flynn is built specifically for trades. When you're in a panel and can't answer, Flynn answers immediately, plays a brief professional menu, and texts the caller a booking link or quote form before they've even hung up. You stay focused on the work. The lead doesn't go to a competitor.</p>
-
-                <div className="bg-black text-white p-8 my-8">
-                    <h3 className="text-2xl font-bold mb-4">Real Results: Apex Electric (Denver)</h3>
-                    <p className="mb-4">3-person electrical team. Installed Flynn AI in October 2024.</p>
-                    <div className="grid md:grid-cols-3 gap-6 mt-6">
-                        <div className="text-center">
-                            <div className="text-4xl font-bold text-brand-500 mb-2">47%</div>
-                            <div className="text-sm">More jobs booked</div>
-                        </div>
-                        <div className="text-center">
-                            <div className="text-4xl font-bold text-brand-500 mb-2">$18K</div>
-                            <div className="text-sm">Extra revenue/month</div>
-                        </div>
-                        <div className="text-center">
-                            <div className="text-4xl font-bold text-brand-500 mb-2">100%</div>
-                            <div className="text-sm">After-hours coverage</div>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>Start Capturing Every Call</h2>
-                <p className="text-lg mb-6">The average electrician using Flynn AI books 12–15 extra jobs per month. At $650 average job value, that's $7,800–$9,750 in monthly revenue for a fraction of the cost of a virtual receptionist.</p>
-
-                <SmartStoreCTA
-                    headline="Stop Losing $127K/Year to Missed Calls"
-                    body="Flynn AI answers every missed call and instantly sends a booking or quote link by SMS. Set up in 5 minutes. No new number needed."
-                />
-            </>
-        )
-    },
-
-    "hvac-missed-calls-peak-season": {
-        title: "How HVAC Businesses Lose Jobs Every Summer to Missed Calls",
-        date: "Jan 14, 2026",
-        datePublished: "2026-01-14",
-        readTime: "6 min read",
-        category: "Revenue",
-        description: "How HVAC and air conditioning businesses lose thousands every peak season to missed calls — and the 5-minute fix that captures every lead automatically.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    In summer, your phone rings 3× more than usual. You're flat out on installs and service calls. The jobs you miss during those 10 peak weeks can cost your business $40,000 or more — and you won't even know it happened.
-                </p>
-
-                <h2>The Peak Season Trap</h2>
-                <p>HVAC businesses have a unique problem: demand is intensely seasonal. When it's 38°C in January and someone's ducted system has failed, they're calling every HVAC technician in their area simultaneously. First one to answer — or first one to respond — gets the job.</p>
-                <p className="mt-4">The average ducted AC installation is worth $4,000–$8,000. A split system service call runs $200–$600. When you're already booked out and your phone is ringing with new leads, those calls that go to voicemail are going to your competitor's schedule.</p>
-
-                <div className="bg-surface-50 border-2 border-black p-8 my-8">
-                    <h3 className="text-2xl font-bold mb-6">Peak Season Revenue Loss: HVAC Business (2-person team)</h3>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Missed calls per week (peak season):</span>
-                            <span className="text-2xl">18</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Callers who book if they get a quick response:</span>
-                            <span className="text-2xl">45%</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Average job value (mix of service + install):</span>
-                            <span className="text-2xl">$580</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Revenue lost per week (peak):</span>
-                            <span className="text-2xl text-red-600">$4,698</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-4">
-                            <span className="font-bold text-xl">Over a 10-week peak season:</span>
-                            <span className="text-4xl font-bold text-red-600">$46,980</span>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>Why Scaling Up Staffing Doesn't Solve It</h2>
-                <p>The temptation during peak season is to hire a part-time admin or have someone dedicated to answering calls. The problem: they cost $25–$35/hour, they work business hours only, and they still can't answer when they're already on another call.</p>
-
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <XCircle className="text-red-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Human answering staff:</strong> $5,000–$10,000/month for peak season coverage. Takes 2–3 weeks to hire and train.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <XCircle className="text-red-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Outsourced call centre:</strong> $300–$800/month but staff don't know your business, give wrong info, and can't book jobs into your system.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <XCircle className="text-red-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Voicemail with callback promise:</strong> HVAC emergency callers won't wait. They'll book someone else before you call back.</span>
-                    </li>
-                </ul>
-
-                <h2>Flynn Scales With Your Call Volume — For a Fixed Monthly Cost</h2>
-                <p>Flynn handles unlimited simultaneous calls. Whether you get 3 calls while you're on a job or 15 calls during a heatwave, every single caller gets an instant response and a booking or quote link by SMS. You don't need extra staff. The cost doesn't go up.</p>
-
-                <div className="grid md:grid-cols-2 gap-6 my-8">
-                    <div className="bg-white border-2 border-black p-6">
-                        <Thermometer className="text-brand-500 mb-4" size={32} />
-                        <h3 className="text-xl font-bold mb-3">During a Heatwave</h3>
-                        <p className="text-gray-700">14 simultaneous calls come in. Flynn answers all 14, sends booking links to each, and logs every lead. You finish the install you're on, then review your new bookings.</p>
-                    </div>
-                    <div className="bg-white border-2 border-black p-6">
-                        <DollarSign className="text-brand-500 mb-4" size={32} />
-                        <h3 className="text-xl font-bold mb-3">The Math Works</h3>
-                        <p className="text-gray-700">Recovering just 3 extra bookings per week during a 10-week peak season at $580 average: $17,400 in recovered revenue. Flynn costs a fraction of that.</p>
-                    </div>
-                </div>
-
-                <h2>How to Set Up Flynn for HVAC</h2>
-                <p>Setup takes 5 minutes. You use your existing business number — no new number to hand out, no confusion for existing customers:</p>
-
-                <ol className="list-decimal list-inside space-y-3 my-6 text-gray-700">
-                    <li>Download Flynn on iOS or Android</li>
-                    <li>Create your booking page (pre-filled for HVAC service types)</li>
-                    <li>Set your IVR greeting: "Thanks for calling. Press 1 for a booking link, press 2 for a quote"</li>
-                    <li>Forward your calls to Flynn using a simple carrier code (takes 30 seconds)</li>
-                    <li>When you're on a job and miss a call, Flynn handles it</li>
-                </ol>
-
-                <SmartStoreCTA
-                    headline="Stop Losing Peak Season Revenue"
-                    body="Flynn handles unlimited simultaneous calls and sends every caller a booking link instantly — so you capture every lead even when you're elbow-deep in a ducted system."
-                />
-            </>
-        )
-    },
-
-    "landscapers-missed-calls-leads": {
-        title: "Why Landscapers Miss 30% of Their Leads (It's Not Their Fault)",
-        date: "Jan 28, 2026",
-        datePublished: "2026-01-28",
-        readTime: "5 min read",
-        category: "Growth",
-        description: "Why landscapers and gardeners miss nearly a third of their inbound leads — and how a 5-minute setup with Flynn can recover those jobs automatically.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    Your hands are in the soil. The mower's running. Your phone vibrates in your pocket — you glance at it — and by the time you're in a position to call back, they've already booked someone else. This isn't a you problem. It's an industry-wide leak.
-                </p>
-
-                <h2>The Landscaping Lead Problem</h2>
-                <p>Research across service trades shows landscaping businesses miss approximately 30% of inbound calls during working hours. That's not due to carelessness — it's the nature of the work. You can't safely answer the phone while operating a line trimmer, mowing, or operating machinery.</p>
-
-                <p className="mt-4">The stakes are highest for quote jobs. A landscape redesign, a retaining wall, a new lawn install — these are $1,500–$8,000 projects. When a homeowner calls to ask about a big job and gets no answer, they typically call 2–3 landscapers. The first one who responds with a clear next step — "here's a link to book a site visit" — tends to win the job.</p>
-
-                <div className="bg-surface-50 border-2 border-black p-6 my-8 border-l-4 border-brand-500">
-                    <h3 className="text-xl font-bold mb-3">The Response Speed Study</h3>
-                    <p className="text-gray-700">Businesses that respond to inbound leads within 5 minutes are <strong>21× more likely</strong> to convert that lead compared to businesses that respond after 30 minutes. For landscapers who can't pick up mid-job, an instant SMS is the only way to be in that 5-minute window.</p>
-                </div>
-
-                <h2>What Happens to That Missed Call</h2>
-                <p>When a potential customer calls your number and gets voicemail, here's what actually happens:</p>
-
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <span className="font-bold text-red-600 text-lg mt-0.5">88%</span>
-                        <span className="mt-1">Hang up without leaving a message and call the next landscaper on their list</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <span className="font-bold text-yellow-600 text-lg mt-0.5">9%</span>
-                        <span className="mt-1">Leave a voicemail but also call other landscapers — first callback wins</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <span className="font-bold text-green-600 text-lg mt-0.5">3%</span>
-                        <span className="mt-1">Wait patiently for you to call back (these are the low-urgency callers)</span>
-                    </li>
-                </ul>
-
-                <p>That means for every 10 missed calls, you're competing hard to recover maybe 1 lead. The other 9 are gone.</p>
-
-                <h2>How Landscapers Use Flynn</h2>
-                <p>Flynn is designed for exactly this scenario. When you miss a call, Flynn answers immediately with your custom greeting and a short menu. The caller presses 1 for a booking link to schedule a site visit, or presses 2 to fill out a quote request form (where they can describe the job and attach photos).</p>
-
-                <p className="mt-4">By the time you're back at the ute for a water break, you have 3 new bookings queued up. You didn't have to stop what you were doing. You didn't lose those leads to a competitor who happened to pick up.</p>
-
-                <div className="bg-black text-white p-8 my-8">
-                    <h3 className="text-2xl font-bold mb-4">What Your Callers See</h3>
-                    <div className="space-y-4">
-                        <div className="flex gap-4 items-start">
-                            <div className="bg-brand-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">1</div>
-                            <div>
-                                <div className="font-bold">They call your number</div>
-                                <div className="text-gray-400 text-sm mt-1">Same number you've always had</div>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 items-start">
-                            <div className="bg-brand-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">2</div>
-                            <div>
-                                <div className="font-bold">Flynn answers instantly</div>
-                                <div className="text-gray-400 text-sm mt-1">"Hi, thanks for calling [Your Business]. Press 1 for a booking link or press 2 for a quote."</div>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 items-start">
-                            <div className="bg-brand-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">3</div>
-                            <div>
-                                <div className="font-bold">They receive an SMS with the link</div>
-                                <div className="text-gray-400 text-sm mt-1">Within 2 seconds of pressing a key</div>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 items-start">
-                            <div className="bg-brand-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">4</div>
-                            <div>
-                                <div className="font-bold">They book a site visit or submit their quote details</div>
-                                <div className="text-gray-400 text-sm mt-1">You get a notification. Lead captured.</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <SmartStoreCTA
-                    headline="Capture Every Landscaping Lead — Even When You're on the Mower"
-                    body="Flynn answers your missed calls and texts every caller a booking or quote link instantly. Set up in 5 minutes with your existing number."
-                />
-            </>
-        )
-    },
-
-    "missed-calls-cost-australian-tradies": {
-        title: "The Real Cost of Missed Calls for Australian Tradies (2026 Data)",
-        date: "Feb 10, 2026",
-        datePublished: "2026-02-10",
-        readTime: "7 min read",
-        category: "Growth",
-        description: "AU-specific data on what missed calls cost Australian tradies in lost revenue, with AUD job values, competitor pricing comparisons, and how to fix it in 5 minutes.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    Australian tradies are losing serious money to missed calls — but the solutions that exist in the market are either priced for large businesses or built entirely for the US market. Here's what the numbers look like for Australian service businesses, and what you can actually do about it.
-                </p>
-
-                <h2>Australian Tradie Job Values: The AUD Numbers</h2>
-                <p>Before calculating what a missed call costs, let's look at what Australian tradespeople charge for typical jobs:</p>
-
-                <div className="overflow-x-auto my-8">
-                    <table className="w-full border-2 border-black">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="p-4 text-left font-display">Trade</th>
-                                <th className="p-4 text-left font-display">Typical Callout (AUD)</th>
-                                <th className="p-4 text-left font-display">Mid-Range Job (AUD)</th>
-                                <th className="p-4 text-left font-display">Large Job (AUD)</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Plumber</td>
-                                <td className="p-4">$180–$350</td>
-                                <td className="p-4">$500–$1,200</td>
-                                <td className="p-4">$2,000–$8,000</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Electrician</td>
-                                <td className="p-4">$150–$300</td>
-                                <td className="p-4">$600–$1,500</td>
-                                <td className="p-4">$3,000–$12,000</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">HVAC/Aircon</td>
-                                <td className="p-4">$200–$400</td>
-                                <td className="p-4">$800–$2,000</td>
-                                <td className="p-4">$4,000–$9,000</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Painter</td>
-                                <td className="p-4">$300–$600</td>
-                                <td className="p-4">$1,500–$4,000</td>
-                                <td className="p-4">$6,000–$25,000</td>
-                            </tr>
-                            <tr>
-                                <td className="p-4 font-bold">Landscaper</td>
-                                <td className="p-4">$250–$500</td>
-                                <td className="p-4">$1,000–$3,000</td>
-                                <td className="p-4">$5,000–$20,000</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h2>The Annual Revenue Loss Calculation</h2>
-                <p>A typical solo tradie or small crew (2–3 people) misses an average of 8–15 calls per week during working hours. At a conservative 35% conversion rate and a mid-range job value:</p>
-
-                <div className="bg-surface-50 border-2 border-black p-8 my-8">
-                    <h3 className="text-2xl font-bold mb-6">Annual Revenue Loss (Solo Plumber, AUD)</h3>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Missed calls per week:</span>
-                            <span className="text-2xl">10</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Conversion rate if answered:</span>
-                            <span className="text-2xl">35%</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Average job value (AUD):</span>
-                            <span className="text-2xl">$480</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Revenue lost per week:</span>
-                            <span className="text-2xl text-red-600">$1,680</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-4">
-                            <span className="font-bold text-xl">Annual revenue lost:</span>
-                            <span className="text-4xl font-bold text-red-600">$87,360</span>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>What Australian Tradies Are Currently Using (And What It Costs)</h2>
-                <p>The Australian market for call answering services is dominated by human answering services — and they're expensive:</p>
-
-                <div className="overflow-x-auto my-8">
-                    <table className="w-full border-2 border-black">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="p-4 text-left font-display">Solution</th>
-                                <th className="p-4 text-left font-display">Monthly Cost (AUD)</th>
-                                <th className="p-4 text-left font-display">Hours Covered</th>
-                                <th className="p-4 text-left font-display">Sends Booking Link?</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">OfficeHQ AU</td>
-                                <td className="p-4">$60–$400</td>
-                                <td className="p-4">Business hours</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Alltel AU</td>
-                                <td className="p-4">$80–$350</td>
-                                <td className="p-4">Business hours</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Get Fully Booked</td>
-                                <td className="p-4">$500–$1,200</td>
-                                <td className="p-4">24/7 (AI)</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">US apps (Enzak, etc.)</td>
-                                <td className="p-4">$20–$99 USD</td>
-                                <td className="p-4">24/7</td>
-                                <td className="p-4 text-red-600 font-bold">No AU support</td>
-                            </tr>
-                            <tr>
-                                <td className="p-4 font-bold text-brand-500">Flynn AI</td>
-                                <td className="p-4 text-brand-500 font-bold">See app</td>
-                                <td className="p-4 text-brand-500 font-bold">24/7</td>
-                                <td className="p-4 text-green-600 font-bold">Yes — booking + quote</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <p>The gap is clear: human answering services are expensive and only work during business hours. The AI platforms that work 24/7 either charge enterprise prices ($500+/month) or are built entirely for the US market with no Australian carrier support.</p>
-
-                <h2>The Australian Tradie Specific Problem: Your Carrier</h2>
-                <p>One reason US-built solutions fail Australian tradies: call forwarding codes are carrier-specific, and most US apps don't support Telstra, Optus, or Vodafone AU forwarding configuration.</p>
-
-                <p className="mt-4">Flynn is built with Australian carriers in mind. When you set up Flynn, you'll get the exact code to enter on your phone to forward missed calls — whether you're on Telstra, Optus, or Vodafone. It takes about 30 seconds. You keep your existing number. Nothing changes for callers who you do answer.</p>
-
-                <div className="bg-surface-50 border-2 border-black p-6 my-8">
-                    <h3 className="text-xl font-bold mb-4">AU Carrier Forwarding (Quick Reference)</h3>
-                    <div className="space-y-3 font-mono text-sm">
-                        <div className="flex justify-between border-b pb-2">
-                            <span className="font-bold">Telstra — forward when no answer:</span>
-                            <span className="bg-black text-white px-3 py-1">*61*[Flynn number]*11*20#</span>
-                        </div>
-                        <div className="flex justify-between border-b pb-2">
-                            <span className="font-bold">Optus — forward when no answer:</span>
-                            <span className="bg-black text-white px-3 py-1">*61*[Flynn number]*11*20#</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="font-bold">Vodafone — forward when no answer:</span>
-                            <span className="bg-black text-white px-3 py-1">**61*[Flynn number]#</span>
-                        </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-4">Full guides: <Link to="/blog/call-forwarding-telstra-missed-call-sms" className="text-brand-500 font-bold hover:underline">Telstra setup</Link> · <Link to="/blog/call-forwarding-optus-missed-call-sms" className="text-brand-500 font-bold hover:underline">Optus setup</Link></p>
-                </div>
-
-                <h2>The Bottom Line for Australian Tradies</h2>
-                <p>If you're a solo tradie or running a small crew, the math is simple: every missed call has a dollar value. The human answering services that dominate the AU market are too expensive and only cover business hours. The US apps don't support AU carriers. Flynn is the only self-serve, mobile-native, affordable option built to work with Australian phone networks out of the box.</p>
-
-                <SmartStoreCTA
-                    headline="Built for Australian Tradies"
-                    body="Flynn works with Telstra, Optus, and Vodafone. Set up in 5 minutes with your existing number. Captures every missed call with an instant booking or quote SMS."
-                />
-            </>
-        )
-    },
-
-    // ─── CLUSTER B: Trade-Specific ────────────────────────────────────────────
-
-    "ai-receptionist-for-plumbers-australia": {
-        title: "AI Receptionist for Plumbers: The Complete 2025 Guide (Australia)",
-        date: "Feb 24, 2026",
-        datePublished: "2026-02-24",
-        readTime: "8 min read",
-        category: "Guide",
-        description: "Complete guide to AI receptionists for Australian plumbing businesses. Covers how Flynn handles IVR menus, sends booking and quote SMS links, AU pricing, and carrier setup.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    You can't answer the phone when you're under a sink. You can't answer when you're dealing with a burst pipe emergency, when you're on the roof, or when you're in the middle of a consultation with a current customer. But the next call might be a $3,000 bathroom reno quote. This guide covers exactly how AI receptionists work for Australian plumbing businesses — and whether Flynn is right for yours.
-                </p>
-
-                <h2>Why Plumbing Specifically Has a Call Problem</h2>
-                <p>Emergency plumbing is unique: the customer calling you is in distress. A blocked drain or a hot water system failure isn't something they'll wait 2 days to get a quote on. They're calling 3–5 plumbers right now, and they're going to book whoever responds first with a clear next step.</p>
-
-                <div className="bg-surface-50 border-2 border-black p-6 my-8 border-l-4 border-red-600">
-                    <h3 className="text-xl font-bold mb-3">The Emergency Call Reality</h3>
-                    <p>When a homeowner has water coming through the ceiling at 8 PM on a Tuesday, they call every plumber in their suburb. The one who responds — even via an instant SMS saying "I'll call you in 30 min, here's my booking link so you don't lose the slot" — is the one who gets the $800 emergency callout.</p>
-                </div>
-
-                <h2>What an AI Receptionist Actually Does for Plumbers</h2>
-                <p>An AI receptionist for a plumbing business isn't a chatbot or a complex system you need IT support for. Here's what Flynn does, simply:</p>
-
-                <ol className="list-decimal list-inside space-y-4 my-6 text-gray-700">
-                    <li>
-                        <strong>Caller dials your existing number.</strong> Your number doesn't change.
-                    </li>
-                    <li>
-                        <strong>If you don't pick up</strong> (you're on a job, in a crawl space, or already on a call), Flynn answers after a set number of rings.
-                    </li>
-                    <li>
-                        <strong>Caller hears your custom greeting</strong> — e.g. "Hi, thanks for calling [Your Business]. For a booking link, press 1. For a quote form, press 2."
-                    </li>
-                    <li>
-                        <strong>Within 2 seconds of pressing a key</strong>, the caller receives an SMS on their phone with the link they requested.
-                    </li>
-                    <li>
-                        <strong>You get a notification</strong> when someone clicks a link or books. No voicemail to check, no callbacks to remember.
-                    </li>
-                </ol>
-
-                <h2>IVR Flow: What Your Plumbing Callers Hear and Receive</h2>
-
-                <div className="bg-black text-white p-8 my-8">
-                    <h3 className="text-xl font-bold mb-6">Sample Flynn IVR for a Plumber</h3>
-                    <div className="space-y-4 font-mono text-sm">
-                        <div className="border-b border-gray-700 pb-4">
-                            <div className="text-gray-400 uppercase text-xs tracking-wider mb-2">Caller hears:</div>
-                            <div className="text-white">"Hi, you've reached [Business Name]. We're currently on a job. For a booking link to schedule a callout, press 1. For a free quote form, press 2. To leave a voicemail, press 3."</div>
-                        </div>
-                        <div className="border-b border-gray-700 pb-4">
-                            <div className="text-gray-400 uppercase text-xs tracking-wider mb-2">If they press 1 (booking):</div>
-                            <div className="text-white">SMS sent: "Hi, here's our booking link: [flynnbooking.com/your-slug]. You can pick a time that works for you. — [Business Name]"</div>
-                        </div>
-                        <div>
-                            <div className="text-gray-400 uppercase text-xs tracking-wider mb-2">If they press 2 (quote):</div>
-                            <div className="text-white">SMS sent: "Hi, fill in your job details and photos here: [your-quote-link]. We'll get back to you within the hour. — [Business Name]"</div>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>AU Pricing Comparison: What Australian Plumbers Pay for Call Answering</h2>
-
-                <div className="overflow-x-auto my-8">
-                    <table className="w-full border-2 border-black">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="p-4 text-left font-display">Solution</th>
-                                <th className="p-4 text-left font-display">Monthly Cost</th>
-                                <th className="p-4 text-left font-display">24/7?</th>
-                                <th className="p-4 text-left font-display">Booking Link?</th>
-                                <th className="p-4 text-left font-display">Quote Form?</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">OfficeHQ AU</td>
-                                <td className="p-4">$60–$400/mo</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Get Fully Booked</td>
-                                <td className="p-4">$500–$1,200/mo</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                                <td className="p-4 text-yellow-600 font-bold">Limited</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">US apps (Enzak)</td>
-                                <td className="p-4">$20–$99 USD</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                            </tr>
-                            <tr>
-                                <td className="p-4 font-bold text-brand-500">Flynn AI</td>
-                                <td className="p-4 text-brand-500 font-bold">See app</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h2>Setting Up Flynn on Telstra or Optus</h2>
-                <p>The most common question from Australian plumbers: "Does this work with my carrier?" Yes — Flynn supports Telstra, Optus, and Vodafone AU. Setup is a single code entered on your phone:</p>
-
-                <div className="bg-surface-50 border-2 border-black p-6 my-6">
-                    <p className="font-bold mb-2">For Telstra (forward when no answer, after 20 seconds):</p>
-                    <code className="bg-black text-brand-500 px-4 py-2 text-lg block">*61*[your Flynn number]*11*20#</code>
-                    <p className="text-sm text-gray-600 mt-3">Full guide: <Link to="/blog/call-forwarding-telstra-missed-call-sms" className="text-brand-500 font-bold hover:underline">How to set up call forwarding on Telstra →</Link></p>
-                </div>
-
-                <h2>The ROI Calculation</h2>
-                <p>A typical plumbing business using Flynn recovers 3–5 missed bookings per week. At an average job value of $480 AUD, that's $1,440–$2,400 in recovered weekly revenue. Annualised: <strong>$74,880–$124,800 in jobs you weren't previously capturing</strong>.</p>
-
-                <SmartStoreCTA
-                    headline="Set Up Your Plumbing AI Receptionist in 5 Minutes"
-                    body="Flynn works with Telstra, Optus, and Vodafone. Sends instant booking and quote SMS links when you miss a call. No new number needed."
-                />
-            </>
-        )
-    },
-
-    // ─── CLUSTER C: How-To Guides ─────────────────────────────────────────────
-
-    "how-to-set-up-missed-call-text-back-iphone": {
-        title: "How to Set Up Missed Call Text Back on iPhone (2 Ways)",
-        date: "Mar 12, 2026",
-        datePublished: "2026-03-12",
-        readTime: "6 min read",
-        category: "How-To",
-        description: "Two ways to set up missed call text back on iPhone — including iOS Shortcuts DIY and the proper business solution that sends a booking link automatically.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    iOS doesn't have a built-in "text back when you miss a call" feature for business users. There are two DIY workarounds you can set up today — and one proper business solution that actually sends a booking link, not just a generic reply. Here's all three.
-                </p>
-
-                <h2>Method 1: iOS Shortcuts (Free, But Limited)</h2>
-                <p>Apple's Shortcuts app can be configured to send a text when you miss a call. Here's how:</p>
-
-                <ol className="list-decimal list-inside space-y-3 my-6 text-gray-700">
-                    <li>Open the <strong>Shortcuts</strong> app on your iPhone</li>
-                    <li>Tap <strong>Automation</strong> → <strong>New Automation</strong></li>
-                    <li>Scroll down to <strong>Phone</strong> → select <strong>Call</strong></li>
-                    <li>Choose <strong>Is Declined</strong> or <strong>Is Completed</strong></li>
-                    <li>Add the action: <strong>Send Message</strong> with your custom text</li>
-                    <li>Set to run automatically (toggle off "Ask Before Running")</li>
-                </ol>
-
-                <div className="bg-yellow-50 border-2 border-yellow-600 p-6 my-8">
-                    <div className="flex gap-3 items-start">
-                        <AlertTriangle className="text-yellow-600 flex-shrink-0 mt-1" size={24} />
-                        <div>
-                            <h3 className="font-bold text-lg mb-2">Limitations of the Shortcuts Method</h3>
-                            <ul className="space-y-2 text-gray-700 text-sm">
-                                <li>• Sends a static text — can't include a dynamic booking link that tracks clicks</li>
-                                <li>• Triggers for all declined calls, including spam and personal calls</li>
-                                <li>• No analytics — you can't see how many people clicked your link</li>
-                                <li>• Doesn't work if your phone is off or out of range</li>
-                                <li>• Can't differentiate business hours vs after-hours messaging</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>Method 2: Do Not Disturb Auto-Reply</h2>
-                <p>iOS has a built-in auto-reply feature for when Do Not Disturb (Focus mode) is on. To use it for missed calls:</p>
-
-                <ol className="list-decimal list-inside space-y-3 my-6 text-gray-700">
-                    <li>Open <strong>Settings</strong> → <strong>Focus</strong> → select or create a <strong>Work</strong> focus</li>
-                    <li>Under <strong>Auto-Reply</strong>, enable it and write your message</li>
-                    <li>Set who gets the auto-reply (Everyone, Favourites, or Recents)</li>
-                    <li>Enable the Work focus when you're on jobs</li>
-                </ol>
-
-                <div className="bg-yellow-50 border-2 border-yellow-600 p-6 my-8">
-                    <div className="flex gap-3 items-start">
-                        <AlertTriangle className="text-yellow-600 flex-shrink-0 mt-1" size={24} />
-                        <div>
-                            <h3 className="font-bold text-lg mb-2">Limitations of DND Auto-Reply</h3>
-                            <ul className="space-y-2 text-gray-700 text-sm">
-                                <li>• Only works when Focus mode is manually turned on — easy to forget</li>
-                                <li>• Sends to everyone who calls, including existing clients</li>
-                                <li>• Static message only — no booking link that adjusts to availability</li>
-                                <li>• No calendar integration — you can't automatically show available slots</li>
-                                <li>• Designed for personal use, not business call handling</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>Why DIY Methods Don't Work for Business</h2>
-                <p>Both methods have the same fundamental problem: they send a static, generic text. When a plumber, electrician, or tradesperson misses a call from a potential customer, what that customer actually needs is a clear next step — a link to book a time, or a form to describe their job and get a quote.</p>
-
-                <p className="mt-4">A text that says "Hi, I missed your call, I'll call you back" doesn't convert. Research shows that 88% of callers who don't get an answer will call a competitor within minutes. A static "I'll call you back" message just tells them you're busy — it doesn't give them a way to lock in the booking before they dial someone else.</p>
-
-                <h2>Method 3: Flynn AI (The Proper Business Solution)</h2>
-                <p>Flynn is a mobile app for iOS that handles missed call text-back at a business level. Here's the key difference:</p>
-
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Works independently of your phone being on or available</strong> — calls are forwarded to Flynn's number via a carrier code, so it works even when your battery is dead</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Sends a booking link, not just a text</strong> — caller gets a link to your booking page where they can pick a time that works</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>IVR menu with Press 1 / Press 2</strong> — caller can choose booking link vs quote form, so your SMS is tailored to what they want</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Analytics and notifications</strong> — see which callers clicked your link, when, and whether they completed a booking</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>No new number</strong> — forward missed calls from your existing number using a carrier code (30 seconds to set up)</span>
-                    </li>
-                </ul>
-
-                <h2>How to Set Up Flynn on iPhone</h2>
-                <ol className="list-decimal list-inside space-y-3 my-6 text-gray-700">
-                    <li>Download Flynn from the App Store (link below)</li>
-                    <li>Create your account and set up your booking page</li>
-                    <li>Customise your IVR greeting ("Press 1 for booking, press 2 for a quote")</li>
-                    <li>Flynn gives you a forwarding code to enter on your iPhone — enter it in your phone's dialler</li>
-                    <li>Test it: call your number from another phone and miss the call</li>
-                </ol>
-
-                <SmartStoreCTA
-                    headline="The Proper iOS Missed Call Solution"
-                    body="Flynn sends a booking link SMS to every missed caller — automatically, 24/7, without you doing anything. Set up in 5 minutes on iPhone."
-                    forceDevice="ios"
-                />
-            </>
-        )
-    },
-
-    "call-forwarding-telstra-missed-call-sms": {
-        title: "How to Set Up Call Forwarding on Telstra (So You Never Miss a Lead)",
-        date: "Mar 28, 2026",
-        datePublished: "2026-03-28",
-        readTime: "5 min read",
-        category: "How-To",
-        description: "Exact Telstra call forwarding codes for Australian small businesses — forward missed calls to Flynn to automatically send callers a booking or quote link by SMS.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    The foundation of Flynn's missed call system is call forwarding. You keep your existing Telstra number — you just tell Telstra to send missed calls to Flynn's number instead of voicemail. This guide gives you the exact codes to enter, in plain English.
-                </p>
-
-                <h2>Why Call Forwarding (Not a New Number)</h2>
-                <p>Most business phone apps require you to use a new number or give customers a different phone number to call. Flynn doesn't work that way. Callers still dial <em>your</em> existing Telstra number. The forwarding is invisible to them — they just get a better experience on the other end.</p>
-
-                <p className="mt-4">You set up forwarding once. From then on, any call you don't answer within your set ring time goes to Flynn, which answers, plays your greeting, and sends an SMS booking or quote link. When you turn off forwarding (or answer calls normally), the calls go to you as usual.</p>
-
-                <h2>Telstra Forwarding Codes (All Types)</h2>
-
-                <div className="space-y-4 my-8">
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Forward when no answer (recommended for tradies)</h3>
-                        <p className="text-gray-600 text-sm mb-3">Rings your phone first, then forwards after 15–30 seconds if unanswered</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">*61*[Flynn number]*11*20#</code>
-                        <p className="text-xs text-gray-500 mt-2">Replace [Flynn number] with your Flynn number. The "20" is the number of seconds before forwarding — change to 15 or 30 if needed.</p>
-                    </div>
-
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Forward when busy</h3>
-                        <p className="text-gray-600 text-sm mb-3">Forwards when you're already on a call</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">*67*[Flynn number]#</code>
-                    </div>
-
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Forward when unreachable (phone off or no signal)</h3>
-                        <p className="text-gray-600 text-sm mb-3">Catches calls when you're in a blackspot or your battery is flat</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">*62*[Flynn number]#</code>
-                    </div>
-
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Forward all calls</h3>
-                        <p className="text-gray-600 text-sm mb-3">Every call goes to Flynn — use this when you're in a meeting or on a job site where you can't answer at all</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">*21*[Flynn number]#</code>
-                    </div>
-
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Cancel all forwarding</h3>
-                        <p className="text-gray-600 text-sm mb-3">Turn off all forwarding and return to normal call handling</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">##002#</code>
-                    </div>
-                </div>
-
-                <h2>How to Enter the Code</h2>
-                <ol className="list-decimal list-inside space-y-3 my-6 text-gray-700">
-                    <li>Open your iPhone or Android phone's <strong>Phone app</strong></li>
-                    <li>Go to the <strong>keypad / dialler</strong></li>
-                    <li>Type the code exactly as shown above, with your Flynn number substituted in</li>
-                    <li>Press the <strong>Call</strong> button</li>
-                    <li>You'll hear a confirmation tone or see a message — the forwarding is active</li>
-                    <li>To verify, call your own number from another phone and let it ring — it should forward to Flynn</li>
-                </ol>
-
-                <div className="bg-surface-50 border-2 border-black p-6 my-8 border-l-4 border-brand-500">
-                    <h3 className="font-bold text-lg mb-3">Recommended Setup for Most Tradies</h3>
-                    <p className="text-gray-700">Set up <strong>forward when no answer</strong> (the *61 code) and <strong>forward when busy</strong> (the *67 code). This means: if you pick up, normal call. If you're on a job or on another call, Flynn handles it and sends the caller a booking link. Best of both worlds.</p>
-                </div>
-
-                <h2>What Happens After You Set It Up</h2>
-                <p>Once forwarding is active, any call that reaches Flynn will:</p>
-
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>Hear your custom greeting (e.g. "Hi, thanks for calling ABC Plumbing…")</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>Choose to receive a booking link (press 1) or a quote form (press 2)</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>Receive an SMS with the chosen link within 2 seconds</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>You get a notification on the Flynn app when they click the link or book</span>
-                    </li>
-                </ul>
-
-                <p>Also see: <Link to="/blog/call-forwarding-optus-missed-call-sms" className="text-brand-500 font-bold hover:underline">How to set up call forwarding on Optus →</Link></p>
-
-                <SmartStoreCTA
-                    headline="Forward Your Telstra Calls to Flynn"
-                    body="Once forwarding is set up, Flynn handles every missed call and sends a booking or quote link by SMS automatically. Takes 5 minutes to set up."
-                />
-            </>
-        )
-    },
-
-    // ─── CLUSTER D: Comparisons ───────────────────────────────────────────────
-
-    "ai-receptionist-vs-virtual-receptionist-plumbers": {
-        title: "AI Receptionist vs Virtual Receptionist for Plumbers: 2025 Cost Comparison",
-        date: "Dec 22, 2025",
-        datePublished: "2025-12-22",
-        readTime: "8 min read",
-        category: "Comparison",
-        description: "Complete cost breakdown comparing AI receptionists to virtual receptionists for plumbing businesses. Includes pricing tables, ROI analysis, and real-world examples.",
-        image: aiVsVirtualImg,
-        content: (
-            <>
-                <img src={aiVsVirtualImg} alt="AI vs Virtual Receptionist Comparison" className="w-full rounded-lg border-4 border-black shadow-[8px_8px_0px_0px_#000000] mb-8" />
-
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    You're losing jobs while you're elbow-deep in a pipe. The question isn't whether you need help answering calls — it's which solution actually saves you money while booking more jobs.
-                </p>
-
-                <h2>The Real Cost Breakdown</h2>
-                <p>Let's cut through the marketing fluff. Here's what you'll actually pay:</p>
-
-                <div className="overflow-x-auto my-8">
-                    <table className="w-full border-2 border-black">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="p-4 text-left font-display">Feature</th>
-                                <th className="p-4 text-left font-display">Virtual Receptionist</th>
-                                <th className="p-4 text-left font-display">AI Receptionist</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Monthly Cost</td>
-                                <td className="p-4">$800–$3,000</td>
-                                <td className="p-4 text-brand-500 font-bold">$99–$299</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Setup Time</td>
-                                <td className="p-4">2–4 weeks</td>
-                                <td className="p-4 text-brand-500 font-bold">5 minutes</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">After-Hours Coverage</td>
-                                <td className="p-4">Extra $500–$1,000/month</td>
-                                <td className="p-4 text-brand-500 font-bold">Included</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Response Time</td>
-                                <td className="p-4">30–60 seconds</td>
-                                <td className="p-4 text-brand-500 font-bold">Instant</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Handles Multiple Calls</td>
-                                <td className="p-4">No (1 at a time)</td>
-                                <td className="p-4 text-brand-500 font-bold">Yes (unlimited)</td>
-                            </tr>
-                            <tr>
-                                <td className="p-4 font-bold">Annual Cost</td>
-                                <td className="p-4">$9,600–$36,000</td>
-                                <td className="p-4 text-brand-500 font-bold">$1,188–$3,588</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h2>What Virtual Receptionists Do Well</h2>
-                <p>Let's be fair — virtual receptionists aren't useless. They excel at:</p>
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Complex conversations:</strong> If your business requires nuanced sales calls or detailed consultations, humans still have the edge.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Empathy in emergencies:</strong> A flooded basement at 2 AM might need a calming human voice.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Custom scripts:</strong> They can handle very specific business processes you've built over years.</span>
-                    </li>
-                </ul>
-
-                <h2>Where AI Receptionists Dominate</h2>
-                <p>AI wins on speed, cost, and scalability. Here's why plumbers are switching:</p>
-
-                <div className="bg-surface-50 border-2 border-black p-6 my-8">
-                    <h3 className="text-2xl font-bold mb-4">Real Example: Mike's Plumbing (Austin, TX)</h3>
-                    <p className="mb-4">Mike was paying $1,200/month for a virtual receptionist who worked 9–5. He switched to Flynn AI for $149/month.</p>
-                    <div className="grid md:grid-cols-2 gap-6 mt-6">
-                        <div>
-                            <h4 className="font-bold text-lg mb-2">Before (Virtual Receptionist)</h4>
-                            <ul className="space-y-2 text-sm">
-                                <li>• Missed 40% of after-hours calls</li>
-                                <li>• Lost weekend emergencies to competitors</li>
-                                <li>• Paid $14,400/year</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="font-bold text-lg mb-2 text-brand-500">After (Flynn AI)</h4>
-                            <ul className="space-y-2 text-sm">
-                                <li>• Captures 100% of calls 24/7</li>
-                                <li>• Books 15 extra jobs/month</li>
-                                <li>• Pays $1,788/year (saves $12,612)</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>The ROI Math for Plumbers</h2>
-                <p>Let's say your average job is worth $400. If an AI receptionist books just <strong>one extra job per month</strong> that you would have missed, it pays for itself 2.7× over.</p>
-
-                <div className="bg-black text-white p-8 my-8 border-4 border-brand-500">
-                    <h3 className="text-2xl font-bold mb-4">Quick ROI Calculator</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center border-b border-gray-700 pb-2">
-                            <span>Average job value:</span>
-                            <span className="text-2xl font-bold">$400</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b border-gray-700 pb-2">
-                            <span>Extra jobs booked/month:</span>
-                            <span className="text-2xl font-bold">3</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b border-gray-700 pb-2">
-                            <span>Monthly revenue increase:</span>
-                            <span className="text-2xl font-bold text-green-400">$1,200</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b border-gray-700 pb-2">
-                            <span>AI receptionist cost:</span>
-                            <span className="text-2xl font-bold">-$149</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-4">
-                            <span className="text-xl">Net monthly profit:</span>
-                            <span className="text-3xl font-bold text-brand-500">$1,051</span>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>When to Choose Virtual (Honestly)</h2>
-                <p>Virtual receptionists still make sense if:</p>
-                <ul className="space-y-2 my-6">
-                    <li className="flex items-start gap-3">
-                        <XCircle className="text-red-600 mt-1 flex-shrink-0" size={20} />
-                        <span>You're doing $500K+/year and need dedicated account management</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <XCircle className="text-red-600 mt-1 flex-shrink-0" size={20} />
-                        <span>Your services require 10+ minute consultations per call</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <XCircle className="text-red-600 mt-1 flex-shrink-0" size={20} />
-                        <span>You have complex multi-step booking processes that change weekly</span>
-                    </li>
-                </ul>
-
-                <h2>The Verdict</h2>
-                <p className="text-lg">For 90% of plumbing businesses doing under $1M/year, AI receptionists are the smarter choice. You'll save $10,000+ annually while capturing more leads.</p>
-
-                <SmartStoreCTA
-                    headline="Ready to Stop Missing Calls?"
-                    body="Flynn AI answers every call, books jobs 24/7, and costs less than one day of a virtual receptionist."
-                />
-            </>
-        )
-    },
-
-    "missed-call-text-back-vs-voicemail": {
-        title: "Missed Call Text Back vs Voicemail: Which Makes You More Money?",
-        date: "Apr 15, 2026",
-        datePublished: "2026-04-15",
-        readTime: "6 min read",
-        category: "Comparison",
-        description: "A data-driven comparison of missed call text-back vs traditional voicemail for small businesses. Learn which method recovers more leads and books more jobs.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    Most small business owners treat voicemail as a safety net — "at least they can leave a message." The data says otherwise. Here's an honest comparison of what voicemail actually does for your business vs what an instant text-back delivers.
-                </p>
-
-                <h2>The Voicemail Problem Nobody Talks About</h2>
-                <p>Voicemail open rates for business voicemails sit at around 20–30%. That's the percentage of people who <em>hear</em> your voicemail. But that's not the real problem.</p>
-                <p className="mt-4">The real problem is that <strong>88% of callers who reach voicemail don't leave a message at all</strong>. They hang up. They call the next business. They've already moved on by the time you check your messages.</p>
-
-                <div className="bg-surface-50 border-2 border-black p-8 my-8">
-                    <h3 className="text-2xl font-bold mb-6">What Happens to 100 Missed Calls</h3>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-4">
-                            <div className="w-24 text-right font-bold text-red-600">88 callers</div>
-                            <div className="flex-1 h-8 bg-red-100 border-2 border-red-600 flex items-center px-3 text-sm">
-                                Hang up without leaving a message → call a competitor
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="w-24 text-right font-bold text-yellow-600">9 callers</div>
-                            <div className="flex-1 h-8 bg-yellow-100 border-2 border-yellow-600 flex items-center px-3 text-sm">
-                                Leave a voicemail AND call other businesses → first callback wins
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="w-24 text-right font-bold text-green-600">3 callers</div>
-                            <div className="flex-1 h-8 bg-green-100 border-2 border-green-600 flex items-center px-3 text-sm">
-                                Leave a message and wait patiently for your callback
-                            </div>
-                        </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-4">Voicemail only reliably captures the 3% who were going to book you anyway.</p>
-                </div>
-
-                <h2>How Missed Call Text-Back Changes the Equation</h2>
-                <p>When a caller receives an instant text within 2 seconds of not getting through, the dynamic completely changes. They're still on the phone. They're still engaged. The text says: "Hi, press 1 to get a booking link or press 2 for a quote form." They click it. Problem solved.</p>
-
-                <div className="overflow-x-auto my-8">
-                    <table className="w-full border-2 border-black">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="p-4 text-left font-display">Metric</th>
-                                <th className="p-4 text-left font-display">Voicemail</th>
-                                <th className="p-4 text-left font-display">Missed Call Text-Back</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">% callers who engage</td>
-                                <td className="p-4 text-red-600">12%</td>
-                                <td className="p-4 text-green-600 font-bold">55–70%</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Response time (from caller's perspective)</td>
-                                <td className="p-4">Callback hours later</td>
-                                <td className="p-4 text-green-600 font-bold">Instant (2 seconds)</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Caller goes to competitor</td>
-                                <td className="p-4 text-red-600">~85% of non-leavers</td>
-                                <td className="p-4 text-green-600 font-bold">Much lower — they have a next step</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Works after hours?</td>
-                                <td className="p-4 text-yellow-600">Takes message only</td>
-                                <td className="p-4 text-green-600 font-bold">Yes — sends booking link 24/7</td>
-                            </tr>
-                            <tr>
-                                <td className="p-4 font-bold">Booking conversion</td>
-                                <td className="p-4 text-red-600">Requires manual callback</td>
-                                <td className="p-4 text-green-600 font-bold">Self-service — they book directly</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h2>The Timing Effect: Why 2 Seconds Matters</h2>
-                <p>Research consistently shows that speed to response is the single biggest factor in lead conversion. Businesses that respond within 5 minutes are 21× more likely to convert a lead than those that respond in 30 minutes.</p>
-                <p className="mt-4">Voicemail requires you to: check for messages, listen to them, look up the caller, call them back, hope they pick up, and go through a booking conversation. That chain of events takes hours or days. By then, they're booked with someone else.</p>
-                <p className="mt-4">An instant text-back with a booking link collapses that entire chain into a 30-second self-service action for the caller. No callbacks needed. No game of phone tag.</p>
-
-                <h2>When Voicemail Still Has a Role</h2>
-                <p>Voicemail isn't worthless — it just isn't a <em>lead capture tool</em>. It's a useful fallback for:</p>
-                <ul className="space-y-2 my-6 text-gray-700">
-                    <li>• Existing clients who know you and are patient enough to wait for a callback</li>
-                    <li>• Complex enquiries that require a conversation before booking can happen</li>
-                    <li>• Option 3 in your Flynn IVR — "press 3 to leave a voicemail" — as a safety net for callers who want to speak with you personally</li>
-                </ul>
-                <p>The ideal setup: Flynn sends the booking/quote link first (captures the 88% who won't leave a message), with voicemail as an optional third choice for callers who prefer it.</p>
-
-                <SmartStoreCTA
-                    headline="Stop Relying on Voicemail — Send a Booking Link Instead"
-                    body="Flynn captures the 88% of callers who never leave voicemails by sending them an instant booking or quote link by SMS."
-                />
-            </>
-        )
-    },
-
-    // ─── Cluster B continued ──────────────────────────────────────────────────
-
-    "ai-receptionist-for-electricians-australia": {
-        title: "AI Receptionist for Electricians: Stop Missing Emergency Calls (Australia)",
-        date: "Mar 3, 2026",
-        datePublished: "2026-03-03",
-        readTime: "7 min read",
-        category: "Guide",
-        description: "How Australian electricians can stop losing emergency and quote calls to competitors using an AI receptionist that sends instant booking and quote SMS links.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    When you're in a switchboard, on a roof, or dealing with live cables — your phone is the last thing you can safely touch. But the call you just missed might be a $2,500 panel upgrade or an emergency that pays triple rates. Here's how Australian electricians are solving this without a receptionist.
-                </p>
-
-                <h2>The Safety-First Problem</h2>
-                <p>Electrical work has an unavoidable conflict: the moments you're doing your highest-value work are exactly the moments you absolutely cannot answer the phone. You can't take a call while working on a live switchboard. You can't step off a roof safely to answer a ringing phone. Safety comes first — which means the call goes unanswered.</p>
-                <p className="mt-4">The problem is that emergency electrical callers don't wait. A sparking outlet, a tripped safety switch, a total power loss — these customers are calling 3–5 electricians right now. The first one who picks up or responds wins the job.</p>
-
-                <h2>The 3 Types of Calls Electricians Miss</h2>
-
-                <div className="space-y-6 my-8">
-                    <div className="border-l-4 border-red-600 pl-6 py-4 bg-red-50">
-                        <h3 className="text-xl font-bold mb-2">1. Electrical Emergencies (40% of missed calls)</h3>
-                        <p className="mb-2">Sparking outlets, safety switches tripping, total power loss, burning smell from a switchboard. These customers are scared and calling multiple electricians.</p>
-                        <p className="font-bold text-red-800">Average value (AU): $400–$2,400 | If you miss it: it's gone</p>
-                    </div>
-                    <div className="border-l-4 border-yellow-600 pl-6 py-4 bg-yellow-50">
-                        <h3 className="text-xl font-bold mb-2">2. Quote Requests (35% of missed calls)</h3>
-                        <p className="mb-2">Panel upgrades, EV charger installations, rewiring, solar switchboard work. The caller is getting 2–3 quotes and first to respond tends to win.</p>
-                        <p className="font-bold text-yellow-800">Average value (AU): $1,200–$8,000 | First responder advantage</p>
-                    </div>
-                    <div className="border-l-4 border-blue-600 pl-6 py-4 bg-blue-50">
-                        <h3 className="text-xl font-bold mb-2">3. Routine Work (25% of missed calls)</h3>
-                        <p className="mb-2">Outlet additions, light fixtures, ceiling fans, smoke detectors. Quick jobs that fill your calendar between the bigger ones.</p>
-                        <p className="font-bold text-blue-800">Average value (AU): $200–$600 | Price-sensitive, speed matters</p>
-                    </div>
-                </div>
-
-                <h2>How Flynn Works for Electricians</h2>
-                <p>Flynn answers your forwarded missed calls, plays a professional greeting, and sends the caller an SMS within 2 seconds of their keypress. For electricians, the IVR flow might look like this:</p>
-
-                <div className="bg-black text-white p-8 my-8">
-                    <h3 className="text-xl font-bold mb-6 font-display">Sample IVR for an Electrician</h3>
-                    <div className="space-y-4 text-sm font-mono">
-                        <div className="border-b border-gray-700 pb-3">
-                            <div className="text-gray-400 uppercase text-xs tracking-wider mb-1">Caller hears:</div>
-                            <div>"Thanks for calling [Business]. We're on a job right now. For a booking link, press 1. For a quote on a larger job, press 2. For an electrical emergency, press 3."</div>
-                        </div>
-                        <div className="border-b border-gray-700 pb-3">
-                            <div className="text-gray-400 uppercase text-xs tracking-wider mb-1">Press 1 → SMS sent:</div>
-                            <div>"Hi, here's our booking link: [link]. Pick a time that works — [Business]"</div>
-                        </div>
-                        <div className="border-b border-gray-700 pb-3">
-                            <div className="text-gray-400 uppercase text-xs tracking-wider mb-1">Press 2 → SMS sent:</div>
-                            <div>"Hi, fill in your job details and photos here: [quote link] — we'll get back to you ASAP."</div>
-                        </div>
-                        <div>
-                            <div className="text-gray-400 uppercase text-xs tracking-wider mb-1">Press 3 → SMS sent:</div>
-                            <div>"Hi, for electrical emergencies we aim to call back within 15 mins. If urgent, here's our direct number: [number]"</div>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>Australian Electricians: What Competitors Charge</h2>
-
-                <div className="overflow-x-auto my-8">
-                    <table className="w-full border-2 border-black">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="p-4 text-left font-display">Option</th>
-                                <th className="p-4 text-left font-display">Monthly Cost</th>
-                                <th className="p-4 text-left font-display">24/7?</th>
-                                <th className="p-4 text-left font-display">Emergency Routing?</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">OfficeHQ AU</td>
-                                <td className="p-4">$60–$400/mo</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Virtual receptionist (AU)</td>
-                                <td className="p-4">$800–$2,000/mo</td>
-                                <td className="p-4 text-yellow-600 font-bold">Extra cost</td>
-                                <td className="p-4 text-yellow-600 font-bold">Limited</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Get Fully Booked AU</td>
-                                <td className="p-4">$500–$1,200/mo</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                            </tr>
-                            <tr>
-                                <td className="p-4 font-bold text-brand-500">Flynn AI</td>
-                                <td className="p-4 text-brand-500 font-bold">See app</td>
-                                <td className="p-4 text-green-600 font-bold">Yes</td>
-                                <td className="p-4 text-green-600 font-bold">Custom IVR</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h2>Setting Up on Telstra or Optus</h2>
-                <p>Flynn works with all Australian carriers. You keep your existing number — just enter a forwarding code and Flynn handles any call you don't answer.</p>
-                <p className="mt-4">Full carrier guides: <Link to="/blog/call-forwarding-telstra-missed-call-sms" className="text-brand-500 font-bold hover:underline">Telstra setup →</Link> · <Link to="/blog/call-forwarding-optus-missed-call-sms" className="text-brand-500 font-bold hover:underline">Optus setup →</Link></p>
-
-                <SmartStoreCTA
-                    headline="Never Miss Another Electrical Emergency Call"
-                    body="Flynn answers every missed call and sends callers a booking or quote link instantly — even at 10 PM when you're off the tools."
-                />
-            </>
-        )
-    },
-
-    "ai-receptionist-for-cleaners": {
-        title: "AI Receptionist for Cleaners: Fill Your Schedule Without the Back-and-Forth",
-        date: "Mar 10, 2026",
-        datePublished: "2026-03-10",
-        readTime: "5 min read",
-        category: "Guide",
-        description: "How cleaning businesses use Flynn to capture missed calls and send instant booking links — so you fill your schedule without stopping mid-job to answer the phone.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    You're in the middle of a bathroom deep-clean. Hands full. Ears plugged with earbuds. Your phone rings — you can't answer. That was someone looking for a regular weekly cleaner worth $200/week recurring. And they've already moved on to the next cleaner on their list.
-                </p>
-
-                <h2>The Mid-Job Phone Problem for Cleaners</h2>
-                <p>Cleaning is hands-on work. You're at a client's property — picking up is unprofessional, and stepping outside to call back means leaving a job half-done. But missing that call often means losing it permanently. Cleaning clients, especially those looking for a regular, tend to book whoever calls back fastest.</p>
-
-                <div className="grid md:grid-cols-2 gap-6 my-8">
-                    <div className="bg-white border-2 border-black p-6">
-                        <Wrench className="text-brand-500 mb-4" size={32} />
-                        <h3 className="text-xl font-bold mb-3">The Recurring Value Problem</h3>
-                        <p className="text-gray-700">A regular weekly clean at $200/week is worth $10,400/year. Missing that initial call doesn't cost you one job — it costs you an entire client relationship.</p>
-                    </div>
-                    <div className="bg-white border-2 border-black p-6">
-                        <Phone className="text-brand-500 mb-4" size={32} />
-                        <h3 className="text-xl font-bold mb-3">The Rescheduling Headache</h3>
-                        <p className="text-gray-700">Existing clients also call to reschedule. Without a booking link, every change becomes a phone tag chain — multiple calls, texts, and calendar conflicts.</p>
-                    </div>
-                </div>
-
-                <h2>How Flynn Solves Both Problems</h2>
-                <p>Flynn handles missed calls with an instant IVR and SMS link system. For a cleaning business, your menu might offer:</p>
-
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Press 1 — Book a clean:</strong> New clients get your booking page where they pick a date, time, and clean type</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Press 2 — Get a quote:</strong> They fill in property size, frequency, and any special requirements — you quote them without a phone conversation</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Press 3 — Leave a voicemail:</strong> For clients who prefer to speak with you directly</span>
-                    </li>
-                </ul>
-
-                <p>The SMS goes out within 2 seconds. The caller is still on the phone when they receive it. They click the link, book the slot, and you get a notification — all without interrupting the job you're on.</p>
-
-                <h2>The Math for Cleaning Businesses</h2>
-
-                <div className="bg-surface-50 border-2 border-black p-8 my-8">
-                    <h3 className="text-2xl font-bold mb-6">Recovering Just 2 New Regulars Per Month</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">New regular clients recovered/month:</span>
-                            <span className="text-2xl">2</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Weekly rate per client:</span>
-                            <span className="text-2xl">$200</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-3 border-b-2 border-gray-200">
-                            <span className="font-bold">Annual value per client:</span>
-                            <span className="text-2xl">$10,400</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-4">
-                            <span className="font-bold text-xl">Annual revenue recovered:</span>
-                            <span className="text-4xl font-bold text-brand-500">$20,800</span>
-                        </div>
-                    </div>
-                </div>
-
-                <SmartStoreCTA
-                    headline="Fill Your Cleaning Schedule Without Missing a Call"
-                    body="Flynn sends new clients a booking link and existing clients a reschedule link — all automatically when you can't pick up."
-                />
-            </>
-        )
-    },
-
-    "ai-receptionist-for-painters": {
-        title: "AI Receptionist for Painters: Book More Quotes While You're on the Brush",
-        date: "Mar 17, 2026",
-        datePublished: "2026-03-17",
-        readTime: "5 min read",
-        category: "Guide",
-        description: "How painting businesses use Flynn AI to capture missed calls and send instant quote form links — so you never lose a $5,000 job because you were mid-coat.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    Painting is a trade where both hands are always busy and the job requires total concentration. A full interior repaint is worth $4,000–$12,000 — and that call you missed while on a ladder might have been exactly that. Here's how painters are capturing those leads automatically.
-                </p>
-
-                <h2>Why Painters Miss More Quotes Than Any Other Trade</h2>
-                <p>Painting is uniquely quote-heavy. Customers rarely call a painter for an emergency — they're planning a project, getting multiple quotes, and going with whoever responds most professionally and quickly. This makes speed of response even more critical than for reactive trades like plumbers.</p>
-                <p className="mt-4">When a homeowner calls for a quote on repainting their home and gets voicemail, they call the next painter on the list. By the time you call back, they've already booked a competitor or mentally decided to go with someone who gave them a quote link on the spot.</p>
-
-                <div className="bg-surface-50 border-2 border-black p-6 my-8 border-l-4 border-brand-500">
-                    <h3 className="text-xl font-bold mb-3">The Quote Job Numbers for Painters (AU)</h3>
-                    <div className="grid md:grid-cols-3 gap-6 mt-4">
-                        <div className="text-center">
-                            <div className="text-3xl font-bold text-brand-500 mb-1">$4K–$12K</div>
-                            <div className="text-sm text-gray-600">Full interior repaint</div>
-                        </div>
-                        <div className="text-center">
-                            <div className="text-3xl font-bold text-brand-500 mb-1">$1.5K–$4K</div>
-                            <div className="text-sm text-gray-600">Single room or exterior trim</div>
-                        </div>
-                        <div className="text-center">
-                            <div className="text-3xl font-bold text-brand-500 mb-1">3–5</div>
-                            <div className="text-sm text-gray-600">Quotes a homeowner typically gets</div>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>Flynn's Quote Form Link: Ideal for Painters</h2>
-                <p>Flynn's "Press 2 for a quote" option is especially powerful for painting businesses. When a caller presses 2, they receive a link to your quote intake form where they can:</p>
-
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>Describe the scope (number of rooms, exterior, feature walls)</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>Upload photos of the space so you can pre-estimate before calling back</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>Provide their address and preferred timeline</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>Leave contact details so you can follow up with a proper quote</span>
-                    </li>
-                </ul>
-
-                <p>You finish the job you're on, check Flynn, and see 3 structured quote requests waiting — each with photos and job details. You can call them back prepared, or send a rough estimate by SMS. That's a more professional interaction than any competitor who missed the call too and called back cold.</p>
-
-                <h2>What This Looks Like on a Busy Day</h2>
-
-                <div className="bg-black text-white p-8 my-8">
-                    <h3 className="text-xl font-bold mb-4">A Painter's Morning Without Flynn</h3>
-                    <p className="text-gray-300 mb-6">6 calls come in while you're painting a ceiling. 5 go to voicemail. 1 caller leaves a message. You check messages at lunch — the one voicemail is garbled, the number's hard to read. By 2 PM you've called back 3 numbers, reached 1 person who already booked someone else.</p>
-                    <h3 className="text-xl font-bold mb-4 text-brand-500">The Same Morning With Flynn</h3>
-                    <p className="text-gray-300">6 calls come in. Flynn answers all 6. 4 press 2 for a quote link and fill in the form. 1 presses 1 and books a site visit. 1 leaves a voicemail. You check Flynn at lunch: 5 structured leads waiting, 1 site visit already booked. You spend 20 minutes sending quotes from the job site.</p>
-                </div>
-
-                <SmartStoreCTA
-                    headline="Stop Losing Quote Jobs While You're Mid-Coat"
-                    body="Flynn sends every missed caller an instant quote form link — so you have structured job details waiting when you finish the job you're on."
-                />
-            </>
-        )
-    },
-
-    "ai-receptionist-for-beauty-salons": {
-        title: "AI Receptionist for Beauty Salons: Never Lose a Booking Again",
-        date: "Mar 24, 2026",
-        datePublished: "2026-03-24",
-        readTime: "5 min read",
-        category: "Guide",
-        description: "How beauty salons and hair studios use Flynn AI to capture missed calls and send instant booking links — even when you're mid-appointment and can't pick up.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    You're mid-blowout. Your client is in the chair. Your phone rings and you can't answer — it would be rude, impractical, and unprofessional. But that caller wanted to book a colour appointment worth $280. They've already hung up and called the next salon.
-                </p>
-
-                <h2>The Mid-Appointment Reality</h2>
-                <p>For beauty professionals, the conflict is unavoidable: your best work requires your full attention, but clients calling to book are your future revenue. Every hour you're seeing clients is an hour your phone goes unanswered — and beauty clients are especially likely to book with whoever responds first.</p>
-
-                <div className="grid md:grid-cols-2 gap-6 my-8">
-                    <div className="bg-white border-2 border-black p-6">
-                        <DollarSign className="text-brand-500 mb-4" size={32} />
-                        <h3 className="text-xl font-bold mb-3">The Revenue You're Missing</h3>
-                        <p className="text-gray-700 text-sm">A full colour and cut is $250–$400. A regular client visits 6–8 times per year. Missing the initial booking call costs you $1,500–$3,200 in annual client value.</p>
-                    </div>
-                    <div className="bg-white border-2 border-black p-6">
-                        <TrendingUp className="text-brand-500 mb-4" size={32} />
-                        <h3 className="text-xl font-bold mb-3">The Rebooking Gap</h3>
-                        <p className="text-gray-700 text-sm">Clients who don't rebook before they leave often call later to schedule. If you miss that call, you lose the rebooking — and they end up at a competitor.</p>
-                    </div>
-                </div>
-
-                <h2>Flynn for Beauty: Press 1 to Book Your Appointment</h2>
-                <p>Flynn's IVR is fully customisable for a salon or studio. A typical beauty salon setup:</p>
-
-                <div className="bg-surface-50 border-2 border-black p-6 my-8">
-                    <div className="space-y-4">
-                        <div className="flex gap-4 items-start">
-                            <div className="bg-brand-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0 text-sm">1</div>
-                            <div>
-                                <div className="font-bold">"Thanks for calling [Salon Name]. We're with a client right now."</div>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 items-start">
-                            <div className="bg-black text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0 text-sm">→</div>
-                            <div>
-                                <div className="font-bold">Press 1</div>
-                                <div className="text-gray-600 text-sm mt-1">SMS: "Hi! Book your next appointment here: [booking link] — [Salon Name] 💛"</div>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 items-start">
-                            <div className="bg-black text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0 text-sm">→</div>
-                            <div>
-                                <div className="font-bold">Press 2</div>
-                                <div className="text-gray-600 text-sm mt-1">SMS: "Hi! Tell us what you're after and we'll get back to you: [quote/enquiry link]"</div>
-                            </div>
-                        </div>
-                        <div className="flex gap-4 items-start">
-                            <div className="bg-black text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0 text-sm">→</div>
-                            <div>
-                                <div className="font-bold">Press 3</div>
-                                <div className="text-gray-600 text-sm mt-1">Voicemail — for clients who prefer to leave a message</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>After-Hours Bookings: The Biggest Opportunity</h2>
-                <p>Most salons are open 9–6. But clients browse Instagram and think about booking in the evenings and on weekends — exactly when you're closed. Flynn runs 24/7, so a client who decides at 9 PM they want a colour appointment gets an instant booking link, and you wake up with a new booking already in your calendar.</p>
-
-                <div className="bg-black text-white p-8 my-8">
-                    <h3 className="text-2xl font-bold mb-4">After-Hours Bookings Add Up</h3>
-                    <div className="grid md:grid-cols-3 gap-6">
-                        <div className="text-center">
-                            <div className="text-3xl font-bold text-brand-500 mb-1">35%</div>
-                            <div className="text-sm text-gray-300">of inbound booking calls come outside business hours</div>
-                        </div>
-                        <div className="text-center">
-                            <div className="text-3xl font-bold text-brand-500 mb-1">$280</div>
-                            <div className="text-sm text-gray-300">average service value per appointment</div>
-                        </div>
-                        <div className="text-center">
-                            <div className="text-3xl font-bold text-brand-500 mb-1">24/7</div>
-                            <div className="text-sm text-gray-300">Flynn is always on, even when you're not</div>
-                        </div>
-                    </div>
-                </div>
-
-                <SmartStoreCTA
-                    headline="Fill Your Appointment Book Without Stopping Mid-Service"
-                    body="Flynn sends every missed caller an instant booking link — even at 9 PM. Wake up with new appointments already confirmed."
-                />
-            </>
-        )
-    },
-
-    // ─── Cluster C continued ──────────────────────────────────────────────────
-
-    "call-forwarding-optus-missed-call-sms": {
-        title: "How to Set Up Call Forwarding on Optus (Step-by-Step Guide)",
-        date: "Apr 4, 2026",
-        datePublished: "2026-04-04",
-        readTime: "4 min read",
-        category: "How-To",
-        description: "Exact Optus call forwarding codes for Australian small businesses — forward missed calls to Flynn to automatically send callers a booking or quote SMS link.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    If you're on Optus, setting up call forwarding to Flynn takes about 30 seconds. You type a code in your phone's dialler, press call, and from that point any call you don't answer goes to Flynn — which sends the caller a booking or quote link by SMS. Here are the exact codes.
-                </p>
-
-                <h2>Optus Forwarding Codes (All Types)</h2>
-
-                <div className="space-y-4 my-8">
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Forward when no answer (recommended)</h3>
-                        <p className="text-gray-600 text-sm mb-3">Rings your phone normally, then forwards after 20 seconds if you don't answer</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">*61*[Flynn number]*11*20#</code>
-                        <p className="text-xs text-gray-500 mt-2">Change 20 to 15 or 30 to adjust the ring time before forwarding</p>
-                    </div>
-
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Forward when busy</h3>
-                        <p className="text-gray-600 text-sm mb-3">Forwards when you're already on a call</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">*67*[Flynn number]#</code>
-                    </div>
-
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Forward when unreachable</h3>
-                        <p className="text-gray-600 text-sm mb-3">Catches calls when your phone is off or has no signal</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">*62*[Flynn number]#</code>
-                    </div>
-
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Forward all calls</h3>
-                        <p className="text-gray-600 text-sm mb-3">Every call goes to Flynn — use when you're on a job site all day</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">*21*[Flynn number]#</code>
-                    </div>
-
-                    <div className="bg-surface-50 border-2 border-black p-6">
-                        <h3 className="text-lg font-bold mb-2">Cancel all forwarding</h3>
-                        <p className="text-gray-600 text-sm mb-3">Returns your phone to normal call handling</p>
-                        <code className="bg-black text-brand-500 px-4 py-3 text-lg block font-mono">##002#</code>
-                    </div>
-                </div>
-
-                <h2>Optus-Specific Notes</h2>
-
-                <ul className="space-y-3 my-6 text-gray-700">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Postpaid plans:</strong> Forwarding is included at no extra cost on all standard Optus postpaid plans</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Prepaid plans:</strong> Conditional forwarding (no answer/busy) works on most Optus prepaid plans. Unconditional forwarding (*21) may not be available on some prepaid plans — test it first</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Confirmation:</strong> After entering the code and pressing call, you'll hear a confirmation tone and may see an on-screen message. If you get an error, check you've included the # at the end</span>
-                    </li>
-                </ul>
-
-                <h2>How to Enter the Code (Step by Step)</h2>
-                <ol className="list-decimal list-inside space-y-3 my-6 text-gray-700">
-                    <li>Open your Phone app and go to the <strong>keypad / dialler</strong></li>
-                    <li>Type the full code with your Flynn number where it says [Flynn number] — include the country code format: e.g. <code className="bg-gray-100 px-2 py-0.5 text-sm">*61*0400000000*11*20#</code></li>
-                    <li>Press the green <strong>Call</strong> button</li>
-                    <li>You'll get a confirmation — forwarding is now active</li>
-                    <li>Test it by calling yourself from another phone and letting it ring</li>
-                </ol>
-
-                <div className="bg-surface-50 border-2 border-black p-6 my-8 border-l-4 border-brand-500">
-                    <h3 className="font-bold mb-2">Best Setup for Most Tradies on Optus</h3>
-                    <p className="text-gray-700 text-sm">Run both <strong>*61</strong> (forward when no answer) and <strong>*67</strong> (forward when busy). This means calls you answer go straight to you as normal. Calls you miss because you're on a job or on another call go to Flynn for instant SMS handling.</p>
-                </div>
-
-                <p className="text-gray-600">Also on Telstra? See: <Link to="/blog/call-forwarding-telstra-missed-call-sms" className="text-brand-500 font-bold hover:underline">How to set up call forwarding on Telstra →</Link></p>
-
-                <SmartStoreCTA
-                    headline="Forward Your Optus Calls to Flynn"
-                    body="Once set up, Flynn handles every missed call and sends callers an instant booking or quote link. 30 seconds to configure."
-                />
-            </>
-        )
-    },
-
-    "how-to-create-booking-link-trade-business": {
-        title: "How to Create a Booking Link for Your Trade Business (Free Guide)",
-        date: "Apr 8, 2026",
-        datePublished: "2026-04-08",
-        readTime: "6 min read",
-        category: "How-To",
-        description: "Step-by-step guide to creating a booking link for a trade or service business — including free options and how Flynn's native booking page integrates with your missed call flow.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    A booking link is a URL you send to customers so they can pick an available time slot without the back-and-forth of phone or text scheduling. For tradespeople, it's the key piece that turns a missed call into a confirmed job — automatically. Here's how to create one.
-                </p>
-
-                <h2>What a Booking Link Actually Does</h2>
-                <p>When a customer clicks your booking link, they see a calendar showing your available slots. They pick a time. You get a notification and the appointment is locked in your calendar. No phone tag. No "does 3pm work?" messages. No double-bookings.</p>
-                <p className="mt-4">For missed call recovery specifically, a booking link sent by SMS means the caller doesn't need to wait for a callback — they can self-serve the booking immediately, which is when they're most motivated to book.</p>
-
-                <h2>Your 3 Options Compared</h2>
-
-                <div className="overflow-x-auto my-8">
-                    <table className="w-full border-2 border-black">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="p-4 text-left font-display">Option</th>
-                                <th className="p-4 text-left font-display">Cost</th>
-                                <th className="p-4 text-left font-display">Trade-Specific?</th>
-                                <th className="p-4 text-left font-display">Integrates with SMS?</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Calendly</td>
-                                <td className="p-4">Free – $16/mo</td>
-                                <td className="p-4 text-yellow-600 font-bold">Generic</td>
-                                <td className="p-4 text-red-600 font-bold">Manual only</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Square Appointments</td>
-                                <td className="p-4">Free – $29/mo</td>
-                                <td className="p-4 text-yellow-600 font-bold">Service-oriented</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Google Calendar (shareable)</td>
-                                <td className="p-4">Free</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                                <td className="p-4 text-red-600 font-bold">No</td>
-                            </tr>
-                            <tr>
-                                <td className="p-4 font-bold text-brand-500">Flynn Booking Page</td>
-                                <td className="p-4 text-brand-500 font-bold">Included in Flynn</td>
-                                <td className="p-4 text-green-600 font-bold">Built for trades</td>
-                                <td className="p-4 text-green-600 font-bold">Automatic via IVR</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h2>Why Flynn's Booking Page Is Built for Trades</h2>
-                <p>Generic booking tools like Calendly are built for meetings and consultations. Flynn's booking page is designed around how trade jobs actually work:</p>
-
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Job type fields:</strong> Caller can specify if it's a repair, install, quote visit, or emergency — so you know what you're walking into before you arrive</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Photo upload:</strong> Client attaches photos of the problem — you pre-assess before the callout and quote more accurately</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Address collection:</strong> Booking includes property address so you can plan your route</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>No credit card required:</strong> Clients book without paying upfront — keeps the friction low</span>
-                    </li>
-                </ul>
-
-                <h2>How to Create Your Flynn Booking Page</h2>
-                <ol className="list-decimal list-inside space-y-3 my-6 text-gray-700">
-                    <li>Open Flynn and go to <strong>Settings → Booking Page</strong></li>
-                    <li>Add your business name, service types, and available hours</li>
-                    <li>Flynn generates a unique booking URL (e.g. <code className="bg-gray-100 px-2 py-0.5 text-sm">flynnbooking.app/your-business</code>)</li>
-                    <li>This URL is automatically sent in your missed call SMS when a caller presses 1</li>
-                    <li>New bookings appear in your Flynn dashboard and optionally sync to your calendar</li>
-                </ol>
-
-                <h2>The Full Missed Call → Booked Job Flow</h2>
-                <div className="bg-black text-white p-6 my-8">
-                    <div className="space-y-3 text-sm">
-                        <div className="flex gap-3"><span className="text-brand-500 font-bold">1.</span> Caller dials your number</div>
-                        <div className="flex gap-3"><span className="text-brand-500 font-bold">2.</span> You're on a job — Flynn answers</div>
-                        <div className="flex gap-3"><span className="text-brand-500 font-bold">3.</span> Caller presses 1 for a booking link</div>
-                        <div className="flex gap-3"><span className="text-brand-500 font-bold">4.</span> Flynn texts them your booking page URL instantly</div>
-                        <div className="flex gap-3"><span className="text-brand-500 font-bold">5.</span> Caller picks a slot and confirms</div>
-                        <div className="flex gap-3"><span className="text-brand-500 font-bold">6.</span> You get a notification — job booked, no phone call required</div>
-                    </div>
-                </div>
-
-                <SmartStoreCTA
-                    headline="Get Your Trade Booking Page Up in 5 Minutes"
-                    body="Flynn creates your booking page and automatically sends the link to every missed caller. No tech skills required."
-                />
-            </>
-        )
-    },
-
-    "convert-missed-call-booked-job": {
-        title: "How to Convert a Missed Call Into a Booked Job (5-Minute Setup)",
-        date: "Apr 12, 2026",
-        datePublished: "2026-04-12",
+    // ─── 5. Speed to lead ─────────────────────────────────────────────────────
+    "reply-to-leads-faster-speed-to-lead": {
+        title: "Why Replying to Leads in 5 Minutes Wins You More Jobs",
+        date: "May 28, 2026",
+        datePublished: "2026-05-28",
         readTime: "6 min read",
         category: "Growth",
-        description: "The exact process for converting missed calls into booked jobs automatically — using call forwarding, an IVR menu, and an instant SMS booking link. Takes 5 minutes to set up.",
+        description: "The first tradie to reply usually gets the job. Here's the data on speed-to-lead and how to reply to every enquiry in minutes by text, even when you're on the tools.",
         content: (
             <>
                 <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    Most tradies lose 60–70% of their missed calls permanently. The callers don't leave messages, they don't wait for callbacks, and they don't try again. But with one system set up correctly, you can convert the majority of those calls into booked jobs automatically — without answering the phone.
+                    Here's the uncomfortable truth about winning more work: it's rarely the cheapest quote or the slickest website that gets the job. It's whoever replies first. When someone needs a tradie, they message three or four, and they book the one who gets back to them while the problem is still fresh. Speed-to-lead is the most underrated lever in a service business.
                 </p>
 
-                <h2>Why Callers Don't Come Back</h2>
-                <p>When a potential customer calls you and gets voicemail, 88% of them hang up and call the next option. They're not being rude — they just have a problem to solve and they're going to solve it now, with whoever makes it easiest.</p>
+                <Hero pose="phone" />
 
-                <div className="bg-surface-50 border-2 border-black p-6 my-8 border-l-4 border-red-600">
-                    <h3 className="text-xl font-bold mb-3">The 5-Minute Window</h3>
-                    <p>Businesses that respond to inbound leads within 5 minutes convert them at 21× the rate of businesses that respond after 30 minutes. A callback hours later — even if the customer is still interested — has already lost most of its conversion power. The only way to be in the 5-minute window when you can't answer is automation.</p>
+                <h2>The five-minute window</h2>
+                <p>Study after study of inbound leads lands on the same finding: responding within five minutes dramatically outperforms responding even an hour later. After the first hour, the odds of converting a lead drop off a cliff. People move on. They've already messaged your competitor, gotten a reply, and started booking. The enquiry that felt urgent at 9am is dead by lunch.</p>
+
+                <div className="bg-surface-50 border-2 border-black p-8 my-8">
+                    <h3 className="text-2xl font-bold mb-4">The cost of a slow reply</h3>
+                    <p className="m-0">Say you get 10 enquiries a week and reply quickly to half of them. The other five drift because you were on a roof. If even three of those would've booked at a $300 average job, that's <strong>$900 a week</strong> walking to whoever answered faster, roughly <strong>$45,000 a year</strong> in work you never lost on price. You lost it on silence.</p>
                 </div>
 
-                <h2>The System: 3 Components Working Together</h2>
+                <h2>Why tradies reply slowly (it's not laziness)</h2>
+                <p>You can't text a quote back while you're under a sink or up a ladder. By the time you check your phone, it's hours later and three other people have replied. It's not a discipline problem, it's a physics problem. You physically can't be on the tools and on the phone at the same time. So the enquiries pile up and the fast money leaks out.</p>
 
-                <div className="space-y-6 my-8">
-                    <div className="bg-white border-2 border-black p-6">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="bg-brand-500 text-white w-10 h-10 flex items-center justify-center font-bold text-xl flex-shrink-0">1</div>
-                            <h3 className="text-xl font-bold">Call Forwarding (Your Carrier)</h3>
-                        </div>
-                        <p className="text-gray-700">You set a forwarding code on your phone (Telstra, Optus, or Vodafone). When you don't answer within 20 seconds, the call automatically routes to Flynn. Your number doesn't change. Callers don't notice anything different.</p>
-                        <p className="mt-3 text-sm"><Link to="/blog/call-forwarding-telstra-missed-call-sms" className="text-brand-500 font-bold hover:underline">Telstra forwarding guide →</Link> · <Link to="/blog/call-forwarding-optus-missed-call-sms" className="text-brand-500 font-bold hover:underline">Optus forwarding guide →</Link></p>
-                    </div>
-
-                    <div className="bg-white border-2 border-black p-6">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="bg-brand-500 text-white w-10 h-10 flex items-center justify-center font-bold text-xl flex-shrink-0">2</div>
-                            <h3 className="text-xl font-bold">IVR Menu (Flynn)</h3>
-                        </div>
-                        <p className="text-gray-700">Flynn answers with your custom greeting and a short menu. Caller presses 1 for a booking link, presses 2 for a quote form. The menu is recorded in your voice or uses a professional AI voice — your choice.</p>
-                    </div>
-
-                    <div className="bg-white border-2 border-black p-6">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="bg-brand-500 text-white w-10 h-10 flex items-center justify-center font-bold text-xl flex-shrink-0">3</div>
-                            <h3 className="text-xl font-bold">Instant SMS + Booking Page</h3>
-                        </div>
-                        <p className="text-gray-700">Within 2 seconds of the keypress, the caller receives an SMS with the link they requested. They click it, fill in their details or pick a time, and the booking lands in your Flynn dashboard. You get a notification.</p>
-                    </div>
-                </div>
-
-                <h2>What Your Callers Actually Experience</h2>
-                <p>From the caller's perspective, the interaction is fast and professional. They called, someone answered (Flynn), they got a useful immediate response, and they've taken action. Compare that to voicemail, where they're asked to do nothing useful and just wait.</p>
+                <h2>The fix: an assistant that replies instantly, in your voice</h2>
+                <p>The answer isn't to check your phone more. It's to have something reply for you the moment an enquiry lands, fast, on-brand, using your real pricing and availability, so the lead feels looked after within minutes instead of hours. When you surface from the job, the conversation's already warm and half-qualified.</p>
 
                 <div className="overflow-x-auto my-8">
                     <table className="w-full border-2 border-black">
                         <thead className="bg-black text-white">
                             <tr>
-                                <th className="p-4 text-left font-display">Step</th>
-                                <th className="p-4 text-left font-display">With Voicemail</th>
-                                <th className="p-4 text-left font-display">With Flynn</th>
+                                <th className="p-4 text-left font-display">Reply time</th>
+                                <th className="p-4 text-left font-display">What the customer thinks</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white">
                             <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Call answered?</td>
-                                <td className="p-4 text-red-600">No — voicemail</td>
-                                <td className="p-4 text-green-600 font-bold">Yes — instantly</td>
+                                <td className="p-4 font-bold">Within 5 min</td>
+                                <td className="p-4">"These guys are on it. I'll go with them."</td>
                             </tr>
                             <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Caller's next step</td>
-                                <td className="p-4">Leave a message or hang up</td>
-                                <td className="p-4 text-green-600 font-bold">Press 1 or 2, get a link</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Time to book</td>
-                                <td className="p-4">Hours or days (callback required)</td>
-                                <td className="p-4 text-green-600 font-bold">Under 2 minutes (self-serve)</td>
+                                <td className="p-4 font-bold">A few hours</td>
+                                <td className="p-4">"Already booked someone else, sorry."</td>
                             </tr>
                             <tr>
-                                <td className="p-4 font-bold">Goes to competitor?</td>
-                                <td className="p-4 text-red-600">~85% of callers do</td>
-                                <td className="p-4 text-green-600 font-bold">Much lower — they have a next step</td>
+                                <td className="p-4 font-bold">Next day</td>
+                                <td className="p-4">No reply. They're gone.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <h2>Setting Up in 5 Minutes</h2>
-                <ol className="list-decimal list-inside space-y-3 my-6 text-gray-700">
-                    <li>Download Flynn (iOS or Android)</li>
-                    <li>Create your booking page with your service types and available hours</li>
-                    <li>Write your IVR greeting (Flynn provides templates for common trades)</li>
-                    <li>Enter your carrier forwarding code on your phone (30 seconds)</li>
-                    <li>Call your own number from another device — let it ring and watch the system work</li>
-                </ol>
-
-                <SmartStoreCTA
-                    headline="Set Up Missed Call → Booked Job in 5 Minutes"
-                    body="Flynn connects call forwarding, an IVR menu, and an instant booking link SMS into one system. Works with your existing number on Telstra, Optus, or Vodafone."
+                <MessageFlynnCTA
+                    headline="Never be the slow one again"
+                    body="Flynn replies to new enquiries fast, in your tone, with your pricing, even while you're on the tools. You win the jobs you used to lose to whoever answered first."
+                    mascot="phone"
                 />
+
+                <h2>Speed is only step one</h2>
+                <p>Winning the reply is the start. The same assistant that answers fast can <Link to="/blog/send-invoices-and-quotes-by-text">send the quote</Link>, book the job into your calendar, and later <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">chase the payment</Link>, so a fast reply turns into a booked, invoiced, paid job without you touching the admin. That's the whole point of <Link to="/blog/run-your-business-from-imessage">running your business from your messages</Link>: the moment a lead arrives, the machine starts working, and you stay on the tools.</p>
             </>
         )
     },
 
-    // ─── Cluster D continued ──────────────────────────────────────────────────
-
-    "flynn-vs-enzak-missed-call-sms": {
-        title: "Flynn AI vs Enzak: Which Missed Call SMS App Is Better in 2025?",
-        date: "Apr 22, 2026",
-        datePublished: "2026-04-22",
+    // ─── W1.1 Send an invoice from your phone ─────────────────────────────────
+    "send-invoice-from-your-phone": {
+        title: "How to Send an Invoice From Your Phone (No Laptop Needed)",
+        date: "Jun 16, 2026",
+        datePublished: "2026-06-16",
         readTime: "6 min read",
-        category: "Comparison",
-        description: "Head-to-head comparison of Flynn AI and Enzak for missed call text-back. Covers features, pricing, AU availability, iOS apps, and who each product is best for.",
+        category: "How-To",
+        description: "You don't need to sit down at a laptop to invoice a client. Here are the fastest ways to send a proper GST invoice straight from your phone, including by text.",
         content: (
             <>
                 <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    Enzak is the closest global competitor to Flynn in the missed call SMS space — but the two products serve quite different markets. Here's an honest breakdown of what each does, where each wins, and which one is right for your business.
+                    The job's done, the client's happy, and the last thing you want is to drive home and open a laptop to get paid. Good news: you can send a proper invoice from your phone in under a minute. Here's how, from slowest to fastest.
                 </p>
 
-                <h2>What Each Product Does</h2>
+                <Hero pose="write" />
 
+                <h2>Option 1: Your accounting app on mobile</h2>
+                <p>Xero, MYOB and QuickBooks all have phone apps. They work, but they're built for the desktop first. You log in, find the customer, tap through line items, set the tax, then send. It's fine when you're sitting down. It's fiddly with one hand on a worksite or between clients.</p>
+
+                <h2>Option 2: A dedicated invoice app</h2>
+                <p>Apps like Square or a standalone invoicing tool are quicker than full accounting software for a one-off invoice. The trade-off is another login, another subscription, and your numbers living in a second place you have to reconcile later.</p>
+
+                <h2>Option 3: Just text it</h2>
+                <p>The fastest way is to describe the job in a text and let an assistant build the invoice for you. You write one line, it formats a correct invoice with your business details, ABN and GST, shows you the draft, and sends it once you say go. A copy files into your accounting tool automatically, so the books stay straight.</p>
+
+                <div className="bg-surface-50 border-2 border-black p-8 my-8">
+                    <h3 className="text-2xl font-bold mb-4">What that looks like</h3>
+                    <p className="m-0"><strong>You text:</strong> "invoice sarah for today, 3 hours plus $90 materials"</p>
+                    <p className="mt-3 mb-0"><strong>You get back:</strong> a formatted invoice, labour at your saved rate, materials, GST added, total done. Reply "send" and it's gone.</p>
+                </div>
+
+                <h2>What every invoice has to include</h2>
+                <p>However you send it, a valid tax invoice over $82.50 (inc GST) in Australia needs your business name and ABN, the words "tax invoice", the date, what you sold, the GST amount or a note that the total includes GST, and the buyer's details once it's over $1,000. The point of sending from your phone isn't to skip the rules, it's to have something fill them in correctly every time.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white">
+                            <tr>
+                                <th className="p-4 text-left font-display">Method</th>
+                                <th className="p-4 text-left font-display">Time to send</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Accounting app on mobile</td><td className="p-4">3 to 5 minutes</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Dedicated invoice app</td><td className="p-4">2 to 3 minutes</td></tr>
+                            <tr><td className="p-4 font-bold">By text</td><td className="p-4">Under 1 minute</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Invoice your next job as a text"
+                    body="Describe the job, Flynn drafts a proper GST invoice and files a copy in Xero. You just tap send. No laptop, no app to open first."
+                    mascot="write"
+                />
+
+                <h2>The real win is getting paid sooner</h2>
+                <p>The invoice you send from the driveway gets paid days before the one waiting on your kitchen table. Send same-day, then let the follow-ups run themselves with <Link to="/blog/late-payment-reminder-templates">payment reminder templates</Link> or automatic <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">invoice chasing</Link>. It all rolls into <Link to="/blog/run-small-business-from-your-phone">running the business from your phone</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.2 AI tools to run small business admin ────────────────────────────
+    "ai-tools-small-business-admin": {
+        title: "AI Tools to Run Your Small Business Admin in 2026",
+        date: "Jun 17, 2026",
+        datePublished: "2026-06-17",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "The admin that eats your evenings (invoicing, quoting, scheduling, follow-ups) is exactly what AI is now good at. Here are the tools that actually take work off your plate in 2026.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Most "AI for business" advice is about writing blog posts. That's not your problem. Your problem is the two hours a night of invoicing, quoting, chasing payments and replying to enquiries. The good news: that admin is exactly what AI got good at in 2026. Here's what actually helps.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <h2>The jobs worth handing to AI</h2>
                 <div className="grid md:grid-cols-2 gap-6 my-8">
                     <div className="bg-white border-2 border-black p-6">
-                        <h3 className="text-2xl font-bold font-display mb-4">Enzak</h3>
-                        <p className="text-gray-700 text-sm mb-4">Enzak automatically sends a pre-written SMS when a call is missed. You configure your message in a web dashboard, and it fires every time a call goes unanswered. Simple, reliable, US-focused.</p>
-                        <ul className="space-y-2 text-sm text-gray-700">
-                            <li>• Auto-SMS on missed call (1-way by default)</li>
-                            <li>• IVR/phone tree integration</li>
-                            <li>• Business hours vs after-hours templates</li>
-                            <li>• 2-way SMS as paid add-on</li>
-                            <li>• US and Canada only</li>
-                            <li>• No iOS app</li>
-                        </ul>
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                            <span className="font-bold">Pricing:</span> $20–$99/month USD
-                        </div>
+                        <FileText className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Invoicing & quoting</h3>
+                        <p className="text-gray-700">Turn a sentence into a formatted invoice or quote. The repetitive formatting is gone.</p>
                     </div>
                     <div className="bg-white border-2 border-black p-6">
-                        <h3 className="text-2xl font-bold font-display mb-4 text-brand-500">Flynn AI</h3>
-                        <p className="text-gray-700 text-sm mb-4">Flynn uses an IVR to let callers choose between a booking link or quote form, then sends that specific link by SMS — not a generic reply. Built as a mobile app for service businesses and tradies.</p>
-                        <ul className="space-y-2 text-sm text-gray-700">
-                            <li>• IVR with Press 1 (booking) / Press 2 (quote)</li>
-                            <li>• Instant booking page + quote form link in SMS</li>
-                            <li>• iOS and Android native app</li>
-                            <li>• Works in Australia (Telstra, Optus, Vodafone)</li>
-                            <li>• 24/7 coverage</li>
-                            <li>• Call analytics and booking tracking</li>
-                        </ul>
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                            <span className="font-bold">Pricing:</span> See app
-                        </div>
+                        <DollarSign className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Chasing money</h3>
+                        <p className="text-gray-700">Automatic, polite reminders on overdue invoices so you stop doing it by hand.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6">
+                        <MessageSquare className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Replying to enquiries</h3>
+                        <p className="text-gray-700">Fast, on-brand replies to new leads so you don't lose them to a faster competitor.</p>
+                    </div>
+                    <div className="bg-white border-2 border-black p-6">
+                        <Calendar className="text-brand-500 mb-3" size={28} />
+                        <h3 className="text-xl font-bold mb-2">Booking & reminders</h3>
+                        <p className="text-gray-700">Jobs into your calendar and reminders to clients, without the back-and-forth.</p>
                     </div>
                 </div>
 
-                <h2>Feature-by-Feature Comparison</h2>
+                <h2>The two kinds of AI tool</h2>
+                <p>There's a big difference that decides whether a tool actually saves you time.</p>
+                <p className="mt-4"><strong>Assistants that suggest.</strong> A generic chatbot can draft an email or explain a rule. But it doesn't know your prices or clients, and it can't send the invoice or book the job. You still do the task. Useful, but it's a thinking partner, not an admin team.</p>
+                <p className="mt-4"><strong>Agents that do.</strong> The newer category knows your business and actually executes: it sends the invoice, books the job, chases the payment, from a plain instruction. That's the difference between saving five minutes and saving the whole evening.</p>
 
-                <div className="overflow-x-auto my-8">
-                    <table className="w-full border-2 border-black">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="p-4 text-left font-display">Feature</th>
-                                <th className="p-4 text-left font-display">Enzak</th>
-                                <th className="p-4 text-left font-display">Flynn AI</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            {[
-                                ["Auto-SMS on missed call", "✓", "✓"],
-                                ["Booking link in SMS", "✗ (generic text only)", "✓"],
-                                ["Quote form link in SMS", "✗", "✓"],
-                                ["IVR menu (caller chooses)", "Basic", "✓ Customisable"],
-                                ["iOS native app", "✗", "✓"],
-                                ["Android native app", "✗", "✓"],
-                                ["Australian carrier support", "✗ (US/CA only)", "✓"],
-                                ["Call analytics", "Basic", "✓ With booking tracking"],
-                                ["24/7 coverage", "✓", "✓"],
-                                ["Setup time", "~1 hour (web dashboard)", "~5 min (mobile app)"],
-                            ].map(([feature, enzak, flynn], i) => (
-                                <tr key={i} className="border-b-2 border-black last:border-0">
-                                    <td className="p-4 font-bold">{feature}</td>
-                                    <td className={`p-4 ${enzak.startsWith("✗") ? "text-red-600" : "text-green-600"}`}>{enzak}</td>
-                                    <td className={`p-4 font-bold ${flynn.startsWith("✗") ? "text-red-600" : "text-green-600"}`}>{flynn}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                <h2>What to look for in 2026</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><Zap className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">It executes</div><p className="text-sm text-gray-600 mt-2">Not just answers. It does the task end to end.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><CheckCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">It confirms first</div><p className="text-sm text-gray-600 mt-2">Nothing irreversible goes out without your okay.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><MessageSquare className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Zero setup friction</div><p className="text-sm text-gray-600 mt-2">If you have to open an app to use it, you won't.</p></div>
                 </div>
 
-                <h2>Where Enzak Wins</h2>
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>US/Canadian businesses wanting a simple, low-cost SMS reply</strong> — Enzak is cheaper and works fine for basic auto-text</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Businesses already on a compatible US phone system</strong> — Enzak integrates with common US VOIP setups</span>
-                    </li>
-                </ul>
-
-                <h2>Where Flynn Wins</h2>
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Australian businesses</strong> — Enzak simply doesn't work in Australia. Flynn does, with Telstra, Optus, and Vodafone</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Businesses that want a booking link, not just a text</strong> — Flynn converts callers into bookings; Enzak just acknowledges the missed call</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Mobile-first operators</strong> — Flynn is an iOS/Android app managed entirely from your phone; Enzak requires a web dashboard</span>
-                    </li>
-                </ul>
-
-                <h2>The Bottom Line</h2>
-                <p>If you're in the US or Canada and just need a simple auto-text reply, Enzak is a reasonable choice. If you're in Australia, or if you want the missed call to result in an actual booking (not just a text), Flynn is the better product. For Australian tradies specifically, Enzak is simply not an option — it doesn't support AU phone numbers.</p>
-
-                <SmartStoreCTA
-                    headline="Flynn: The Missed Call App That Sends Booking Links"
-                    body="Not just a text-back — Flynn sends a booking or quote link via IVR SMS. Works in Australia on Telstra, Optus, and Vodafone."
+                <MessageFlynnCTA
+                    headline="The admin assistant that lives in your texts"
+                    body="Flynn does the admin instead of suggesting it. Invoices, quotes, bookings, follow-ups, all from a text, all with your okay before anything sends."
+                    mascot="thumbsup"
                 />
+
+                <h2>Where to start</h2>
+                <p>Pick the one job that costs you the most time and hand that over first. For most small businesses it's invoicing or chasing payments. Get that off your plate, then add the next. If you want the whole stack in one place, see <Link to="/blog/run-small-business-from-your-phone">how to run your business from your phone</Link>, or the honest take on <Link to="/blog/chatgpt-for-small-business">ChatGPT for small business</Link>.</p>
             </>
         )
     },
 
-    "gohighlevel-missed-call-vs-flynn": {
-        title: "GoHighLevel Missed Call Text Back vs Flynn AI: An SMB Owner's Guide",
-        date: "Apr 28, 2026",
-        datePublished: "2026-04-28",
-        readTime: "6 min read",
-        category: "Comparison",
-        description: "Honest comparison of GoHighLevel's missed call text-back feature vs Flynn AI for small business owners and tradies. Who each is actually built for.",
-        content: (
-            <>
-                <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    GoHighLevel has a missed call text-back feature, and it works. But GHL isn't a product built for you — it's a platform built for marketing agencies to resell to clients like you. Here's what that distinction means in practice, and when to use each.
-                </p>
-
-                <h2>What GoHighLevel's Missed Call Text-Back Actually Is</h2>
-                <p>GHL's missed call text-back is one feature inside a massive CRM platform. When you miss a call, it can automatically send a text. That's the entire feature — a static text, configured in a web dashboard, inside a system that also includes funnels, email campaigns, landing page builders, reputation management, and a dozen other tools.</p>
-
-                <div className="bg-yellow-50 border-2 border-yellow-600 p-6 my-8">
-                    <div className="flex gap-3 items-start">
-                        <AlertTriangle className="text-yellow-600 flex-shrink-0 mt-1" size={24} />
-                        <div>
-                            <h3 className="font-bold text-lg mb-2">The Hidden Complexity</h3>
-                            <p className="text-gray-700 text-sm">To use GHL's missed call text-back, you need to: sign up for GHL ($97–$297/month), set up a sub-account, configure a Twilio integration (or pay GHL's higher per-message rates), set up a workflow automation, create the text message template, and connect your phone number. That's 6+ steps before a single caller gets a text.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <h2>The Cost Reality</h2>
-
-                <div className="overflow-x-auto my-8">
-                    <table className="w-full border-2 border-black">
-                        <thead className="bg-black text-white">
-                            <tr>
-                                <th className="p-4 text-left font-display">Item</th>
-                                <th className="p-4 text-left font-display">GoHighLevel</th>
-                                <th className="p-4 text-left font-display">Flynn AI</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white">
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Platform subscription</td>
-                                <td className="p-4">$97–$297/mo minimum</td>
-                                <td className="p-4 text-green-600 font-bold">See app</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Setup time</td>
-                                <td className="p-4">Days (multiple integrations)</td>
-                                <td className="p-4 text-green-600 font-bold">5 minutes</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">SMS sends booking link?</td>
-                                <td className="p-4 text-yellow-600">Only if you build the workflow</td>
-                                <td className="p-4 text-green-600 font-bold">Yes, natively</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Mobile app for management</td>
-                                <td className="p-4 text-yellow-600">Yes, but complex</td>
-                                <td className="p-4 text-green-600 font-bold">Simple iOS/Android app</td>
-                            </tr>
-                            <tr className="border-b-2 border-black">
-                                <td className="p-4 font-bold">Australian carrier support</td>
-                                <td className="p-4 text-yellow-600">Possible but requires Twilio AU setup</td>
-                                <td className="p-4 text-green-600 font-bold">Built-in</td>
-                            </tr>
-                            <tr>
-                                <td className="p-4 font-bold">IVR (press 1 / press 2)</td>
-                                <td className="p-4 text-yellow-600">Possible with advanced setup</td>
-                                <td className="p-4 text-green-600 font-bold">Built-in, out of the box</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h2>Who GoHighLevel Is Actually Built For</h2>
-                <p>GHL is a white-label platform. Its primary customers are <strong>marketing agencies</strong> who pay $297/month for the Agency plan, then resell sub-accounts to their clients for $100–$500/month each. The "missed call text-back" is one of the features agencies pitch to those clients.</p>
-                <p className="mt-4">If you're a tradie or small service business owner, you're not GHL's customer — you're the end client that a GHL agency would sell to. You'd be paying agency markup on top of GHL's cost, or paying for GHL yourself and navigating a platform built for marketers.</p>
-
-                <h2>When GHL Makes Sense</h2>
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>You need a full CRM, email automation, funnel builder, AND missed call text-back in one platform</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>You're running a multi-location business with dedicated marketing staff who can manage the platform</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>A marketing agency is managing GHL for you and including missed call text-back as part of their retainer</span>
-                    </li>
-                </ul>
-
-                <h2>When Flynn Makes Sense</h2>
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>You're a sole trader or run a small crew and just need missed calls handled professionally</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>You want to be up and running in 5 minutes, not 5 days</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span>You're in Australia and need Telstra/Optus support that actually works out of the box</span>
-                    </li>
-                </ul>
-
-                <SmartStoreCTA
-                    headline="All the Missed Call Handling, None of the CRM Overhead"
-                    body="Flynn does one thing extremely well: turns missed calls into bookings. No agency required, no $297/month platform — just a 5-minute setup on your existing number."
-                />
-            </>
-        )
-    },
-
-    "best-missed-call-app-small-business-australia": {
-        title: "Best Missed Call Apps for Small Business in Australia (2026 Roundup)",
-        date: "May 5, 2026",
-        datePublished: "2026-05-05",
+    // ─── W1.3 Flynn vs Tradify / Jobber / ServiceM8 ───────────────────────────
+    "flynn-vs-tradify-jobber-servicem8": {
+        title: "Flynn vs Tradify, Jobber & ServiceM8: An Honest Comparison",
+        date: "Jun 18, 2026",
+        datePublished: "2026-06-18",
         readTime: "8 min read",
         category: "Comparison",
-        description: "The definitive 2026 roundup of missed call text-back apps for Australian small businesses — comparing Flynn AI, Enzak, Grasshopper, OfficeHQ, and GoHighLevel.",
+        description: "Tradify, Jobber and ServiceM8 are powerful job-management apps. Flynn is a text-based assistant. Here's an honest look at which suits how you actually work.",
         content: (
             <>
                 <p className="text-xl text-gray-700 leading-relaxed mb-6">
-                    If you're an Australian small business owner searching for a way to automatically handle missed calls, your options are limited — most of the products that appear in search are built for the US market and simply don't work with Australian phone numbers. Here's an honest roundup of every real option, and which one is right for you.
+                    Tradify, Jobber and ServiceM8 are good products with a lot of fans. Flynn is a different kind of thing. This is an honest look at where each fits, so you pick the one that matches how you actually run your day, not the one with the longest feature list.
                 </p>
 
-                <h2>What to Look for in a Missed Call App</h2>
-                <p>Before comparing products, here are the criteria that actually matter for an Australian small business or tradie:</p>
+                <Hero pose="point" />
 
-                <ul className="space-y-3 my-6">
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Australian carrier support</strong> — Does it work with Telstra, Optus, and Vodafone? If not, you can't use it.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Works with your existing number</strong> — You don't want to hand out a new number and confuse existing customers</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Sends a booking link, not just a text</strong> — A static "I'll call you back" SMS doesn't convert. A booking link does.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Mobile app for management</strong> — You're running a trade business from your phone, not a desktop</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <CheckCircle className="text-green-600 mt-1 flex-shrink-0" size={20} />
-                        <span><strong>Affordable and self-serve</strong> — You shouldn't need an agency or a $300/month CRM platform to handle missed calls</span>
-                    </li>
-                </ul>
+                <h2>What the job-management apps are</h2>
+                <p>Tradify, Jobber and ServiceM8 are full job-management platforms. Quoting, scheduling, job tracking, invoicing, team management, the lot. If you run a crew and live in a back office or a tablet, they're genuinely powerful and worth the money.</p>
+                <p className="mt-4">The catch is the same for all three: they're apps you have to open, learn, and keep fed with data. Plenty of solo operators pay for one and use a fraction of it, because opening an app between jobs is friction, and the setup is a project in itself.</p>
 
-                <h2>The Shortlist: 5 Options Reviewed</h2>
+                <h2>What Flynn is</h2>
+                <p>Flynn isn't an app you open. It's an assistant that lives in your messages. You text it like you'd text an office manager, and it does the admin: drafts and sends invoices, books jobs into your calendar, chases payments, replies to leads. It learns your prices and clients so it never asks twice. Nothing to log into between jobs.</p>
 
-                <div className="space-y-8 my-8">
-                    <div className="bg-white border-2 border-black p-6">
-                        <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-2xl font-bold font-display text-brand-500">1. Flynn AI</h3>
-                            <span className="bg-black text-white px-3 py-1 text-sm font-bold uppercase">Best for AU Tradies</span>
-                        </div>
-                        <p className="text-gray-700 mb-4 text-sm">The only missed call app purpose-built for Australian service businesses. Uses IVR (Press 1 / Press 2) to send callers a booking link or quote form link instantly. Works with Telstra, Optus, and Vodafone. iOS and Android native app.</p>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <div className="font-bold text-green-600 mb-1">Pros</div>
-                                <ul className="space-y-1 text-gray-700">
-                                    <li>✓ Sends booking + quote link</li>
-                                    <li>✓ Works in Australia</li>
-                                    <li>✓ iOS + Android app</li>
-                                    <li>✓ 5-minute setup</li>
-                                    <li>✓ 24/7 coverage</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <div className="font-bold text-red-600 mb-1">Cons</div>
-                                <ul className="space-y-1 text-gray-700">
-                                    <li>✗ No live human answering</li>
-                                    <li>✗ Newer product, smaller user base</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-gray-200 text-sm font-bold">Pricing: See app</div>
-                    </div>
-
-                    <div className="bg-white border-2 border-black p-6">
-                        <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-2xl font-bold font-display">2. Enzak</h3>
-                            <span className="bg-gray-200 text-gray-800 px-3 py-1 text-sm font-bold uppercase">Best for US/CA Only</span>
-                        </div>
-                        <p className="text-gray-700 mb-4 text-sm">Sends an auto-text when a call is missed. Solid product for US/Canadian businesses. <strong>Does not work in Australia</strong> — US and Canadian phone numbers only.</p>
-                        <div className="text-sm font-bold text-red-600">⚠ Not available in Australia</div>
-                        <div className="mt-4 pt-4 border-t border-gray-200 text-sm font-bold">Pricing: $20–$99 USD/month</div>
-                    </div>
-
-                    <div className="bg-white border-2 border-black p-6">
-                        <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-2xl font-bold font-display">3. Grasshopper (Instant Response)</h3>
-                            <span className="bg-gray-200 text-gray-800 px-3 py-1 text-sm font-bold uppercase">US Virtual Phone System</span>
-                        </div>
-                        <p className="text-gray-700 mb-4 text-sm">US virtual phone system with a missed call text-back feature built in. To use it, you need to take a Grasshopper phone number (can't use your existing AU mobile). Not designed for Australian carriers.</p>
-                        <div className="text-sm font-bold text-red-600">⚠ Requires a US virtual number — not practical for AU businesses</div>
-                        <div className="mt-4 pt-4 border-t border-gray-200 text-sm font-bold">Pricing: $14–$55 USD/month (US only)</div>
-                    </div>
-
-                    <div className="bg-white border-2 border-black p-6">
-                        <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-2xl font-bold font-display">4. OfficeHQ (AU)</h3>
-                            <span className="bg-gray-200 text-gray-800 px-3 py-1 text-sm font-bold uppercase">Best AU Human Answering</span>
-                        </div>
-                        <p className="text-gray-700 mb-4 text-sm">Australian human virtual reception service. Real people answer calls during business hours and take a message. No AI, no 24/7 coverage, no booking link — but genuine human interaction during business hours.</p>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <div className="font-bold text-green-600 mb-1">Pros</div>
-                                <ul className="space-y-1 text-gray-700">
-                                    <li>✓ Australian-based humans</li>
-                                    <li>✓ Works with your AU number</li>
-                                    <li>✓ Understands local context</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <div className="font-bold text-red-600 mb-1">Cons</div>
-                                <ul className="space-y-1 text-gray-700">
-                                    <li>✗ Business hours only</li>
-                                    <li>✗ No booking link</li>
-                                    <li>✗ $60–$400/month</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-gray-200 text-sm font-bold">Pricing: $60–$400 AUD/month</div>
-                    </div>
-
-                    <div className="bg-white border-2 border-black p-6">
-                        <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-2xl font-bold font-display">5. GoHighLevel</h3>
-                            <span className="bg-gray-200 text-gray-800 px-3 py-1 text-sm font-bold uppercase">Best for Marketing Agencies</span>
-                        </div>
-                        <p className="text-gray-700 mb-4 text-sm">Full CRM platform with missed call text-back as one of many features. Powerful but expensive and complex. Built for marketing agencies, not individual tradies. AU setup requires additional Twilio configuration.</p>
-                        <div className="mt-4 pt-4 border-t border-gray-200 text-sm font-bold">Pricing: $97–$297 USD/month</div>
-                    </div>
+                <h2>Side by side</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white">
+                            <tr>
+                                <th className="p-3 text-left font-display">What matters</th>
+                                <th className="p-3 text-left font-display">Job-mgmt apps</th>
+                                <th className="p-3 text-left font-display">Flynn</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Depth of features</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> Deep</td><td className="p-3">Focused on admin</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">App to open & learn</td><td className="p-3">Yes</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> None, it's a text</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Setup effort</td><td className="p-3">Hours</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> One message</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Best for big crews</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /></td><td className="p-3">Solo & small teams</td></tr>
+                            <tr><td className="p-3 font-bold">Best for "just handle it"</td><td className="p-3">Partly</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                        </tbody>
+                    </table>
                 </div>
 
-                <h2>Head-to-Head Comparison Table</h2>
+                <h2>Which should you pick</h2>
+                <p>If you run a larger team, schedule lots of jobs across staff, and want one system of record, a full job-management app earns its keep. If you're a solo operator or small team who runs everything from your phone and just wants the admin to disappear, the app is overkill and you'll fight the friction. That's where a text assistant wins, because the bar to use it is "send a text".</p>
+                <p className="mt-4">They're not even mutually exclusive. Flynn can sit on top of your existing tools (it files invoices into Xero, books into your calendar) and just be the fast front door you actually use.</p>
+
+                <MessageFlynnCTA
+                    headline="Try the no-app option"
+                    body="Flynn handles invoices, quotes, bookings and follow-ups from a text, and files into the tools you already use. See if it fits how you actually work."
+                    mascot="thumbsup"
+                />
+
+                <p>Still weighing it up? See <Link to="/blog/flynn-vs-calendly-square-booking-by-text">Flynn vs Calendly and Square for bookings</Link>, or the broader <Link to="/blog/best-ai-assistant-for-tradies-2026">best AI assistant for tradies</Link> breakdown.</p>
+            </>
+        )
+    },
+
+    // ─── W1.4 Flynn vs Calendly / Square ──────────────────────────────────────
+    "flynn-vs-calendly-square-booking-by-text": {
+        title: "Flynn vs Calendly & Square: Booking Clients by Text",
+        date: "Jun 19, 2026",
+        datePublished: "2026-06-19",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "Calendly and Square Appointments use booking links. Flynn books clients straight from a text. Here's which approach gets more of your clients actually booked.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Calendly and Square Appointments are solid booking tools. They both run on the same idea: send the client a link, let them pick a slot. Flynn works differently, it books from the conversation you're already having. Here's when each wins.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>The booking-link model</h2>
+                <p>Calendly and Square give you a page where clients self-serve a time. It's great when the client is already keen and happy to click through. The friction shows up with the clients who aren't: the ones who text "you free thursday?" and won't go hunting through a link to find out. Some drop off right there.</p>
+
+                <h2>The book-from-the-text model</h2>
+                <p>Flynn lives in the chat. When a client texts asking about a time, you (or Flynn) just reply with what's free and book it, no link, no page, no app for them to load. For service businesses where booking happens in a back-and-forth text, that removes the step where people leak away.</p>
 
                 <div className="overflow-x-auto my-8">
                     <table className="w-full border-2 border-black text-sm">
                         <thead className="bg-black text-white">
                             <tr>
-                                <th className="p-3 text-left font-display">Feature</th>
+                                <th className="p-3 text-left font-display"></th>
+                                <th className="p-3 text-left font-display">Calendly / Square</th>
                                 <th className="p-3 text-left font-display">Flynn</th>
-                                <th className="p-3 text-left font-display">Enzak</th>
-                                <th className="p-3 text-left font-display">Grasshopper</th>
-                                <th className="p-3 text-left font-display">OfficeHQ</th>
-                                <th className="p-3 text-left font-display">GHL</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white">
-                            {[
-                                ["Works in Australia", "✓", "✗", "✗", "✓", "Complex"],
-                                ["Your existing number", "✓", "✓", "✗", "✓", "✓"],
-                                ["Sends booking link", "✓", "✗", "✗", "✗", "With setup"],
-                                ["24/7 coverage", "✓", "✓", "✓", "✗", "✓"],
-                                ["iOS/Android app", "✓", "✗", "✓", "✓", "✓"],
-                                ["5-minute setup", "✓", "✗", "✗", "✗", "✗"],
-                                ["Price (AUD/mo approx)", "See app", "$30–$150", "Not AU", "$60–$400", "$150–$450+"],
-                            ].map(([feature, ...values], i) => (
-                                <tr key={i} className="border-b-2 border-black last:border-0">
-                                    <td className="p-3 font-bold">{feature}</td>
-                                    {values.map((v, j) => (
-                                        <td key={j} className={`p-3 ${v === "✓" ? "text-green-600 font-bold" : v === "✗" ? "text-red-600" : "text-yellow-600"}`}>{v}</td>
-                                    ))}
-                                </tr>
-                            ))}
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">How clients book</td><td className="p-3">Click a link, pick a slot</td><td className="p-3">Just reply in the text</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Client needs an app/page</td><td className="p-3">Yes</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> No</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Self-serve scheduling page</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /></td><td className="p-3">Not the focus</td></tr>
+                            <tr><td className="p-3 font-bold">Also invoices, quotes, follow-ups</td><td className="p-3">No</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /></td></tr>
                         </tbody>
                     </table>
                 </div>
 
-                <h2>The Verdict</h2>
-                <p><strong>For Australian tradies and small service businesses:</strong> Flynn AI is the only self-serve, mobile-native option that works with Australian carriers, sends booking links (not just texts), and costs less than a human answering service. If you want human answering during business hours and can afford $60–$400/month, OfficeHQ is worth considering as a complement. Every other option on this list is either US-only or overkill for a solo operator.</p>
+                <h2>Which fits you</h2>
+                <p>If most of your bookings come from people happy to self-serve a link (consultants, demos, salons with a steady online flow), Calendly or Square do the job well. If your bookings happen in messy text conversations and you want the rest of your admin handled too, booking from the text converts more of those chats and keeps everything in one place.</p>
 
-                <SmartStoreCTA
-                    headline="The Only Missed Call App Built for Australian Tradies"
-                    body="Flynn works with Telstra, Optus, and Vodafone. Sends instant booking and quote links. iOS and Android. 5-minute setup."
+                <MessageFlynnCTA
+                    headline="Book your next client from the text"
+                    body="Flynn checks your calendar and books the job right in the conversation, then handles the invoice and reminders too. No link for your client to chase."
+                    mascot="phone"
                 />
+
+                <p>More on the approach: <Link to="/blog/how-to-take-bookings-over-text">how to take bookings over text</Link>, and keep clients coming back with <Link to="/blog/customer-follow-up-text-templates">follow-up templates</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.5 ChatGPT for small business ──────────────────────────────────────
+    "chatgpt-for-small-business": {
+        title: "ChatGPT for Small Business: What It Can and Can't Do",
+        date: "Jun 20, 2026",
+        datePublished: "2026-06-20",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "ChatGPT is a brilliant thinking partner for small business owners, and useless for some of the jobs you actually need done. Here's the honest line between the two.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    ChatGPT is genuinely useful for running a small business, and genuinely oversold for some of it. Knowing the line saves you time and stops you expecting it to do things it structurally can't. Here's the honest breakdown.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <h2>What ChatGPT is great at</h2>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6"><CheckCircle className="text-green-600 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Writing & rewriting</h3><p className="text-gray-700">Customer emails, ad copy, a polite reply to a tricky review. First drafts in seconds.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><CheckCircle className="text-green-600 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Explaining things</h3><p className="text-gray-700">"What does this clause mean?", "how does GST work for a sole trader?" A patient explainer.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><CheckCircle className="text-green-600 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Thinking out loud</h3><p className="text-gray-700">Pricing ideas, naming, how to handle a difficult client. A sounding board on tap.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><CheckCircle className="text-green-600 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Summarising</h3><p className="text-gray-700">Long emails, contracts, a wall of text from a supplier, boiled down.</p></div>
+                </div>
+
+                <h2>What it can't do (by design)</h2>
+                <p>This is the part the hype skips. ChatGPT doesn't know your business and can't act on it.</p>
+                <ul>
+                    <li><strong>It doesn't know your numbers.</strong> Your rates, your clients, your calendar. It'll happily invent a plausible price that isn't yours.</li>
+                    <li><strong>It can't actually do the task.</strong> It can write an invoice in the chat, but it can't send it, file it in Xero, or book the job. You still do all of that by hand.</li>
+                    <li><strong>It forgets.</strong> Tell it your callout fee today, it won't remember next week unless you set it up to.</li>
+                </ul>
+                <p className="mt-4">So for the admin that actually eats your time, ChatGPT gets you a draft and then hands the real work back to you.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white"><tr><th className="p-4 text-left font-display">Task</th><th className="p-4 text-left font-display">ChatGPT</th><th className="p-4 text-left font-display">A business agent</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4">Draft a client email</td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4">Actually send the invoice</td><td className="p-4"><XCircle className="text-red-500" size={18} /></td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4">Use your real prices</td><td className="p-4"><XCircle className="text-red-500" size={18} /></td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                            <tr><td className="p-4">Book a job in your calendar</td><td className="p-4"><XCircle className="text-red-500" size={18} /></td><td className="p-4"><CheckCircle className="text-green-600" size={18} /></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="When you need it done, not just drafted"
+                    body="Flynn knows your prices and clients and actually executes: sends the invoice, books the job, chases the payment. From a text, with your okay first."
+                    mascot="thumbsup"
+                />
+
+                <h2>Use both</h2>
+                <p>Keep ChatGPT for thinking and writing. Use a business agent for the admin that needs to actually happen. For more on that split, see <Link to="/blog/ai-tools-small-business-admin">AI tools to run your small business admin</Link> and <Link to="/blog/best-ai-assistant-for-tradies-2026">the best AI assistant comparison</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.6 Customer follow-up text templates ───────────────────────────────
+    "customer-follow-up-text-templates": {
+        title: "12 Customer Follow-Up Text Templates (Copy & Paste)",
+        date: "Jun 23, 2026",
+        datePublished: "2026-06-23",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "Free, copy-and-paste text message templates for following up with customers: after a quote, after a job, for reviews, for rebooking, and for slow payers.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Following up is where most of the money is, and it's the thing everyone forgets to do. Here are templates you can copy, tweak and send in seconds. Keep them short, friendly and human. Long, formal messages get ignored.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>After you send a quote</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Hey [name], just checking you got the quote I sent through. Happy to tweak anything or answer questions. Keen to help when you're ready."</p>
+                </div>
+
+                <h2>When a quote goes quiet (3 to 5 days)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Hi [name], no rush at all, just wanted to check the quote still suits. If the timing or price is off, tell me and we'll sort something."</p>
+                </div>
+
+                <h2>After a job is done</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Thanks again [name], great working with you. Anything not quite right, just say the word. Otherwise I'll get the invoice across shortly."</p>
+                </div>
+
+                <h2>Asking for a review</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Glad you're happy with it [name]. If you've got 20 seconds, a quick Google review really helps a small business like mine. Here's the link: [link]. No worries if not."</p>
+                </div>
+
+                <h2>Rebooking a past customer</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Hey [name], it's been about [time] since I last sorted your [job]. Want me to book you in again before it gets busy?"</p>
+                </div>
+
+                <h2>A gentle payment nudge</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0">"Hi [name], quick heads up that invoice [#] was due [date]. Easy to miss, here's the link to sort it: [link]. Cheers."</p>
+                </div>
+
+                <h2>The two rules that make follow-ups work</h2>
+                <p>First, be consistent. The follow-up you actually send beats the perfect one you don't. Second, sound like you, not a corporation. These read like a person texted, which is exactly why they get replies. If remembering to send them is the hard part, that's the bit worth automating.</p>
+
+                <MessageFlynnCTA
+                    headline="Stop remembering to follow up"
+                    body="Flynn tracks your quotes and invoices and sends the follow-ups for you, in your voice, at the right time. You just see the replies and the payments land."
+                    mascot="point"
+                />
+
+                <p>Related: <Link to="/blog/how-to-follow-up-on-a-quote">how to follow up on a quote without being annoying</Link> and <Link to="/blog/late-payment-reminder-templates">late payment reminder templates</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.7 How to follow up on a quote ─────────────────────────────────────
+    "how-to-follow-up-on-a-quote": {
+        title: "How to Follow Up on a Quote Without Being Annoying",
+        date: "Jun 24, 2026",
+        datePublished: "2026-06-24",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "Most quotes are won or lost in the follow-up, not the price. Here's how to chase a quote so you close more jobs without feeling pushy or desperate.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Here's the uncomfortable stat: a big chunk of quotes never get a yes or a no. They just go quiet. And most owners never follow up because it feels pushy. That silence is costing you jobs you'd have won with one friendly nudge. Here's how to do it right.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>Why following up feels bad (and why it shouldn't)</h2>
+                <p>Chasing a quote feels like begging. It isn't. The customer asked you for a price, which means they had a problem they wanted solved. Following up is just making it easy for them to say yes. Half the time they meant to reply and life got in the way. Your nudge is a favour, not a nuisance.</p>
+
+                <h2>The follow-up rhythm that works</h2>
+                <div className="space-y-4 my-8">
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day 0</span><p className="m-0">Send the quote with a clear next step. "Reply yes and I'll lock in a time."</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day 3</span><p className="m-0">Friendly check-in. "Just making sure that quote landed, happy to tweak anything."</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day 7</span><p className="m-0">Add value or a reason. "Got a gap next week if you want to get it done before [season/event]."</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day 14</span><p className="m-0">The graceful close. "All good if the timing's not right, I'll close this off, just shout when you're ready."</p></div>
+                </div>
+                <p>That last one works surprisingly well. Giving people an easy out often gets the yes, because it removes the pressure.</p>
+
+                <h2>The rules</h2>
+                <ul>
+                    <li><strong>Two or three nudges, then stop.</strong> Persistent isn't pushy. Endless is.</li>
+                    <li><strong>Always add something.</strong> A gap in the calendar, a reason to act now, an offer to adjust. Never just "any update?".</li>
+                    <li><strong>Keep it short and human.</strong> A text, not a formal letter.</li>
+                </ul>
+
+                <MessageFlynnCTA
+                    headline="Never let a quote go cold"
+                    body="Flynn remembers every quote you send and reminds you (or follows up for you) on the right day, in your voice. More jobs closed, zero awkwardness."
+                    mascot="thumbsup"
+                />
+
+                <p>Steal the wording from <Link to="/blog/customer-follow-up-text-templates">our follow-up text templates</Link>, and once they say yes, <Link to="/blog/send-invoice-from-your-phone">invoice the job from your phone</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.8 How to take bookings over text ──────────────────────────────────
+    "how-to-take-bookings-over-text": {
+        title: "How to Take Bookings Over Text (Without the Back-and-Forth)",
+        date: "Jun 25, 2026",
+        datePublished: "2026-06-25",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "Most clients would rather text than use a booking app. Here's how to take bookings over text cleanly, avoid the endless back-and-forth, and stop double-booking yourself.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Your clients already text you. They'd rather do that than learn your booking app. The problem isn't the channel, it's the back-and-forth: "you free thursday?", "morning or arvo?", "what time?", three days later you've lost track. Here's how to take bookings over text cleanly.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>Why text beats a booking link for a lot of clients</h2>
+                <p>Booking links are great for the keen and the tech-comfortable. But a chunk of clients won't click through, won't make an account, and just want a human answer in the thread. Forcing them to a link loses some of them. Meeting them in the text keeps them.</p>
+
+                <h2>The three problems to solve</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">The back-and-forth</div><p className="text-sm text-gray-600 mt-2">Offer two or three specific times, not "when suits?".</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><Calendar className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Double-booking</div><p className="text-sm text-gray-600 mt-2">Every text booking has to land in one calendar, instantly.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><CheckCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">No-shows</div><p className="text-sm text-gray-600 mt-2">A confirmation and a reminder text cuts them right down.</p></div>
+                </div>
+
+                <h2>The clean way to do it</h2>
+                <p>Offer specific times, confirm in writing, and put it straight in your calendar. Done by hand that's three steps and a chance to slip up. The faster version: an assistant reads your calendar, offers what's actually free, books it when the client says yes, and sends the confirmation, all in the same text thread.</p>
+
+                <div className="bg-surface-50 border-2 border-black p-8 my-8">
+                    <h3 className="text-2xl font-bold mb-4">In practice</h3>
+                    <p className="m-0"><strong>Client:</strong> "any chance this week?"</p>
+                    <p className="mt-2 mb-0"><strong>You:</strong> "I've got Thursday 9am or Friday 2pm, want one of those?"</p>
+                    <p className="mt-2 mb-0"><strong>Client:</strong> "Friday's good"</p>
+                    <p className="mt-2 mb-0"><strong>Done:</strong> it's in your calendar, client gets a confirmation, reminder goes out the day before.</p>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Take your next booking from the text"
+                    body="Flynn checks your calendar, offers real times, books the job and sends the reminder, all in the conversation. No app for your client, no double-bookings for you."
+                    mascot="phone"
+                />
+
+                <p>Compare the approaches in <Link to="/blog/flynn-vs-calendly-square-booking-by-text">Flynn vs Calendly and Square</Link>, and reduce no-shows with <Link to="/blog/customer-follow-up-text-templates">reminder and rebooking templates</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W1.9 Late payment reminder templates ─────────────────────────────────
+    "late-payment-reminder-templates": {
+        title: "Late Payment Reminder Templates (Text & Email, Free)",
+        date: "Jun 26, 2026",
+        datePublished: "2026-06-26",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "Free copy-and-paste late payment reminder templates for text and email, from the friendly first nudge to the firm final notice, plus when to send each one.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Getting paid late is the most common cash-flow problem in small business, and the fix is boring but reliable: consistent, polite reminders. Here are templates for each stage, plus exactly when to send them. Copy, tweak, send.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>1. The friendly heads-up (day after due)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Text:</strong> "Hi [name], quick reminder that invoice [#] for [$amount] was due yesterday. Easy to miss, here's the link to pay: [link]. Cheers!"</p>
+                </div>
+
+                <h2>2. The check-in (7 days overdue)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Email:</strong> "Hi [name], just following up on invoice [#] for [$amount], now a week overdue. If you've already sent it, ignore this. If not, here's the payment link: [link]. Let me know if there's any issue."</p>
+                </div>
+
+                <h2>3. The firm reminder (14 days overdue)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Email:</strong> "Hi [name], invoice [#] for [$amount] is now 14 days overdue. Could you let me know when I can expect payment? Happy to sort a plan if needed. Payment link: [link]."</p>
+                </div>
+
+                <h2>4. The final notice (30 days overdue)</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Email:</strong> "Hi [name], this is a final reminder on invoice [#] for [$amount], now 30 days overdue. Please arrange payment within 7 days so we can keep things on good terms. Link: [link]. Get in touch if there's a problem."</p>
+                </div>
+
+                <h2>When to send each</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white"><tr><th className="p-4 text-left font-display">Stage</th><th className="p-4 text-left font-display">Timing</th><th className="p-4 text-left font-display">Tone</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Heads-up</td><td className="p-4">Due + 1 day</td><td className="p-4">Light, no stress</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Check-in</td><td className="p-4">+ 7 days</td><td className="p-4">Friendly, clear</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Firm reminder</td><td className="p-4">+ 14 days</td><td className="p-4">Direct, fair</td></tr>
+                            <tr><td className="p-4 font-bold">Final notice</td><td className="p-4">+ 30 days</td><td className="p-4">Firm, professional</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>The secret isn't the wording, it's sending every stage on time without fail. That's the part worth taking off your plate.</p>
+
+                <MessageFlynnCTA
+                    headline="Send these on autopilot"
+                    body="Flynn tracks who hasn't paid and sends the right reminder at the right time, in your voice. You stop chasing and just watch the money land."
+                    mascot="point"
+                />
+
+                <p>For the bigger picture, see <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">how to chase unpaid invoices without the awkward calls</Link>, and <Link to="/blog/send-invoice-from-your-phone">send the invoice from your phone</Link> the day the job's done.</p>
+            </>
+        )
+    },
+
+    // ─── W1.10 Run small business from your phone (hub) ───────────────────────
+    "run-small-business-from-your-phone": {
+        title: "How to Run Your Small Business From Your Phone (2026 Stack)",
+        date: "Jun 27, 2026",
+        datePublished: "2026-06-27",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "You can run nearly all of your small business admin from your phone in 2026. Here's the practical stack for invoicing, quoting, bookings, payments and follow-ups.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Your phone is already where your business happens: the enquiries, the quotes, the supplier chats. The only reason you still open a laptop is admin. In 2026 you don't have to. Here's the practical stack for running nearly everything from your phone.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>The five jobs to move to your phone</h2>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6"><MessageSquare className="text-brand-500 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Replying to leads</h3><p className="text-gray-700">Fast replies win jobs. The first to answer usually books the work. <Link to="/blog/reply-to-leads-faster-speed-to-lead">More on speed to lead</Link>.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><Calendar className="text-brand-500 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Bookings</h3><p className="text-gray-700">Take bookings in the text and have them land in your calendar. <Link to="/blog/how-to-take-bookings-over-text">How to do it</Link>.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><FileText className="text-brand-500 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Quotes & invoices</h3><p className="text-gray-700">Build and send both from your phone in under a minute. <Link to="/blog/send-invoice-from-your-phone">Here's how</Link>.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><DollarSign className="text-brand-500 mb-3" size={28} /><h3 className="text-xl font-bold mb-2">Getting paid</h3><p className="text-gray-700">Automatic reminders so you stop chasing. <Link to="/blog/late-payment-reminder-templates">Templates here</Link>.</p></div>
+                </div>
+
+                <h2>Two ways to build the stack</h2>
+                <p><strong>The app pile.</strong> An accounting app, a scheduling app, a payments app, a notes app. It works, but you're juggling four logins and copying data between them. Most owners use a fraction of each.</p>
+                <p className="mt-4"><strong>The one-text approach.</strong> Instead of four apps, one assistant in your messages that handles all of it and files into the tools you already use. The bar to use it is "send a text", which means you actually do.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white"><tr><th className="p-4 text-left font-display">Job</th><th className="p-4 text-left font-display">App pile</th><th className="p-4 text-left font-display">One text</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4">Invoice a job</td><td className="p-4">Open accounting app</td><td className="p-4">Text it</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4">Book a client</td><td className="p-4">Open scheduling app</td><td className="p-4">Text it</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4">Chase a payment</td><td className="p-4">Remember to, manually</td><td className="p-4">Automatic</td></tr>
+                            <tr><td className="p-4">Logins to manage</td><td className="p-4">Four or more</td><td className="p-4">One</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Run it all from one text thread"
+                    body="Flynn is the one-text stack: invoices, quotes, bookings, payment chasing and lead replies, all from your messages, all filed into the tools you already use."
+                    mascot="thumbsup"
+                />
+
+                <h2>Where to start</h2>
+                <p>Don't move everything at once. Pick the job that wastes the most time, usually invoicing or chasing payments, and move that first. Once it's off your plate, add the next. Before long the laptop is for the rare big job, and the day-to-day runs from your pocket. That's the whole idea behind <Link to="/blog/run-your-business-from-imessage">running your business from iMessage</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.1 Best AI tools for small business (roundup) ──────────────────────
+    "best-ai-tools-for-small-business": {
+        title: "The Best AI Tools for Small Business in 2026 (Tested by Job)",
+        date: "Jun 30, 2026",
+        datePublished: "2026-06-30",
+        readTime: "9 min read",
+        category: "Comparison",
+        description: "A practical roundup of the best AI tools for small business in 2026, sorted by the job you actually need done: writing, design, automation, accounting and admin.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Most "best AI tools" lists are 30 apps you'll never open. This one is sorted by the job you actually need done, so you can pick one per problem and move on. Here's what's genuinely worth your time in 2026.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <h2>Best for writing: ChatGPT or Claude</h2>
+                <p>For emails, ad copy, social captions and tricky replies, a general chatbot is hard to beat. It drafts in seconds and rewrites until it sounds right. Just remember it doesn't know your business, so it can't price a job or send anything. See the honest limits in <Link to="/blog/chatgpt-for-small-business">ChatGPT for small business</Link>.</p>
+
+                <h2>Best for design: Canva AI</h2>
+                <p>Logos, flyers, social posts and quick edits without a designer. The AI features turn a rough idea into something presentable fast. Perfect for the marketing you keep putting off.</p>
+
+                <h2>Best for connecting apps: Zapier</h2>
+                <p>If your tools don't talk to each other, Zapier's AI can wire them together so data flows without copy-paste. Powerful, but it's a builder's tool, you set up the automations yourself.</p>
+
+                <h2>Best for the books: your accounting tool's AI</h2>
+                <p>Xero, QuickBooks and MYOB now auto-categorise transactions and flag anomalies. Great for keeping the books tidy, though you still drive the app.</p>
+
+                <h2>Best for the admin that eats your evenings: a business agent</h2>
+                <p>This is the category most lists miss. Writing tools suggest, builder tools need setup, accounting tools need driving. A business agent actually does the admin: sends invoices, books jobs, chases payments, replies to leads, from a text, knowing your real numbers. That's the difference between saving five minutes and saving the whole evening.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Job</th><th className="p-3 text-left font-display">Pick</th><th className="p-3 text-left font-display">Does it act for you?</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Writing</td><td className="p-3">ChatGPT / Claude</td><td className="p-3"><XCircle className="text-red-500" size={18} /> Drafts only</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Design</td><td className="p-3">Canva AI</td><td className="p-3"><XCircle className="text-red-500" size={18} /> You design</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Connecting apps</td><td className="p-3">Zapier</td><td className="p-3">You build it</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Bookkeeping</td><td className="p-3">Xero / QuickBooks AI</td><td className="p-3">You drive it</td></tr>
+                            <tr><td className="p-3 font-bold">Admin (invoices, bookings, chasing)</td><td className="p-3">A business agent</td><td className="p-3"><CheckCircle className="text-green-600" size={18} /> Yes</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="The tool that does the admin, not just suggests it"
+                    body="Flynn is the business-agent pick: it sends invoices, books jobs and chases payments from a text, using your real prices. Confirms before anything goes out."
+                    mascot="thumbsup"
+                />
+
+                <h2>How to choose</h2>
+                <p>Don't install ten tools. Pick the one job costing you the most time and solve that first. For most owners it's the admin, not the writing. Start there, then layer in the rest. More on the admin side in <Link to="/blog/ai-tools-small-business-admin">AI tools to run your small business admin</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.2 Best appointment scheduling app for small business ──────────────
+    "best-appointment-scheduling-app-small-business": {
+        title: "The Best Appointment Scheduling App for Small Business (2026)",
+        date: "Jul 1, 2026",
+        datePublished: "2026-07-01",
+        readTime: "7 min read",
+        category: "Comparison",
+        description: "Comparing the best appointment scheduling apps for small business in 2026: Calendly, Square, Setmore and the text-first option, by who actually books more clients.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    The best scheduling app isn't the one with the most features, it's the one your clients actually use. Here's an honest comparison for small business in 2026, sorted by how your clients prefer to book.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>The main options</h2>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-xl font-bold mb-2">Calendly</h3><p className="text-gray-700">Clean booking links, great for consultations and demos. Free plan is generous. Best when clients are happy to self-serve.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-xl font-bold mb-2">Square Appointments</h3><p className="text-gray-700">Booking plus payments in one, strong for salons and in-person services already using Square.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-xl font-bold mb-2">Setmore / SimplyBook</h3><p className="text-gray-700">Generous free tiers, branded booking pages, good for service businesses wanting an online presence.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-xl font-bold mb-2">Text-first (Flynn)</h3><p className="text-gray-700">No booking page. Clients book in the same text thread they already use. Best for messy, conversational bookings.</p></div>
+                </div>
+
+                <h2>The question that decides it</h2>
+                <p>How do your clients actually try to book? If they happily click a link and pick a slot, a booking-link app is perfect. If they text "you free this week?" and won't chase a link, you're losing some of them at that step, and booking from the text wins. Most service businesses are a mix, but the messier your inbox, the more the text-first approach pays off.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">If you want...</th><th className="p-3 text-left font-display">Best pick</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3">A self-serve booking page</td><td className="p-3">Calendly or Setmore</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3">Booking + card payments in person</td><td className="p-3">Square</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3">To book clients in the text</td><td className="p-3">Flynn</td></tr>
+                            <tr><td className="p-3">Bookings plus invoices & chasing</td><td className="p-3">Flynn</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Book clients without a booking page"
+                    body="Flynn checks your calendar and books clients right in the text, then handles the invoice and reminders too. No app or link for your client to chase."
+                    mascot="phone"
+                />
+
+                <p>Go deeper in <Link to="/blog/flynn-vs-calendly-square-booking-by-text">Flynn vs Calendly and Square</Link>, learn <Link to="/blog/how-to-take-bookings-over-text">how to take bookings over text</Link>, and <Link to="/blog/how-to-reduce-no-shows-small-business">cut your no-shows</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.3 How to write a quote ────────────────────────────────────────────
+    "how-to-write-a-quote": {
+        title: "How to Write a Quote That Wins the Job (Free Template)",
+        date: "Jul 2, 2026",
+        datePublished: "2026-07-02",
+        readTime: "7 min read",
+        category: "How-To",
+        description: "A clear guide to writing a professional quote that wins more jobs, what to include, how to price it, common mistakes, and a free template you can copy.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    A good quote does two jobs: it tells the client what they're paying for, and it makes you look like the safe choice. Most quotes only do the first. Here's how to write one that actually wins the work, plus a template to copy.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>What every quote should include</h2>
+                <ul>
+                    <li><strong>Your business details and ABN</strong> so it looks legitimate.</li>
+                    <li><strong>A clear description of the work</strong>, specific enough that there's no confusion later.</li>
+                    <li><strong>Itemised pricing</strong>, labour and materials split out where it helps.</li>
+                    <li><strong>GST</strong> shown clearly, or a note that the total includes it.</li>
+                    <li><strong>What's not included</strong>, the line that prevents most disputes.</li>
+                    <li><strong>Validity</strong>, e.g. "valid for 30 days", which also nudges a decision.</li>
+                    <li><strong>A clear next step</strong>: "reply yes and I'll book you in".</li>
+                </ul>
+
+                <h2>The free template</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6 text-sm">
+                    <p className="m-0"><strong>[Your business name] — ABN [number]</strong></p>
+                    <p className="mt-2 mb-0">Quote for: [client name], [date]</p>
+                    <p className="mt-2 mb-0">Work: [clear description]</p>
+                    <p className="mt-2 mb-0">Labour: [hours x rate] = $[amount]</p>
+                    <p className="mt-1 mb-0">Materials: $[amount]</p>
+                    <p className="mt-1 mb-0">GST: $[amount]</p>
+                    <p className="mt-1 mb-0"><strong>Total: $[amount] inc GST</strong></p>
+                    <p className="mt-2 mb-0">Not included: [exclusions]</p>
+                    <p className="mt-1 mb-0">Valid for 30 days. Reply yes and I'll lock in a time.</p>
+                </div>
+
+                <h2>How to price it so you win without underselling</h2>
+                <p>Don't race to the bottom. Clients rarely pick the cheapest, they pick the one they trust to do it right. A clear, confident quote with a fair price beats a vague cheap one. If you're nervous about a number, itemise it, breaking it down makes the total feel fair instead of scary.</p>
+
+                <h2>The mistakes that lose jobs</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Too slow</div><p className="text-sm text-gray-600 mt-2">The fastest quote often wins. Same-day beats perfect-but-late.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><XCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Too vague</div><p className="text-sm text-gray-600 mt-2">"Bathroom reno, $8k" invites doubt. Detail builds trust.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><MessageSquare className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">No follow-up</div><p className="text-sm text-gray-600 mt-2">Most quotes go quiet. The nudge wins the job.</p></div>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Quote in seconds, follow up automatically"
+                    body="Tell Flynn the job and it drafts a clean, itemised quote in your business name, then reminds you (or the client) to follow up so it never goes cold."
+                    mascot="write"
+                />
+
+                <p>Once it's sent, learn <Link to="/blog/how-to-follow-up-on-a-quote">how to follow up without being annoying</Link>, and know the difference between a <Link to="/blog/quote-vs-estimate-vs-invoice">quote, estimate and invoice</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.4 How to reduce no-shows ──────────────────────────────────────────
+    "how-to-reduce-no-shows-small-business": {
+        title: "How to Reduce No-Shows (Reminder Scripts That Actually Work)",
+        date: "Jul 3, 2026",
+        datePublished: "2026-07-03",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "No-shows quietly cost small businesses thousands a year. Here's how to reduce them with the right reminders, deposits and booking habits, plus reminder scripts to copy.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    A no-show isn't just a gap in your day, it's a slot you turned other clients away for. They add up to real money. The good news is most no-shows are preventable with a few simple habits. Here's what works.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>Why people no-show (it's rarely rudeness)</h2>
+                <p>Most no-shows are forgetfulness, not disrespect. Someone booked two weeks ago, life got busy, the appointment fell out of their head. Which means the fix isn't being stricter, it's being more memorable: the right reminder at the right time.</p>
+
+                <h2>The reminder rhythm that works</h2>
+                <div className="space-y-4 my-8">
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">On booking</span><p className="m-0">Instant confirmation. "You're booked for [day] at [time]. See you then!" Writing it down makes it real.</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Day before</span><p className="m-0">"Hi [name], reminder you're booked tomorrow at [time]. Reply YES to confirm or let me know if you need to move it."</p></div>
+                    <div className="bg-white border-2 border-black p-5 flex items-start gap-4"><span className="bg-brand-500 text-white font-bold px-3 py-1 flex-shrink-0">Few hours before</span><p className="m-0">For same-day services: "See you at [time], [name]. Text me if anything changes."</p></div>
+                </div>
+                <p>That "reply YES to confirm" line is the workhorse. It turns a passive reminder into a tiny commitment, and it surfaces the cancellations early so you can fill the slot.</p>
+
+                <h2>The other levers</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><DollarSign className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Deposits</div><p className="text-sm text-gray-600 mt-2">A small deposit for big jobs makes people show up.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><CheckCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Easy rescheduling</div><p className="text-sm text-gray-600 mt-2">If moving a booking is easy, people move it instead of ghosting.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Short lead times</div><p className="text-sm text-gray-600 mt-2">The further out a booking, the more likely it's forgotten.</p></div>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Reminders that send themselves"
+                    body="Flynn confirms every booking and sends the day-before reminder for you, in your voice. Fewer no-shows, no manual texting, slots filled when someone cancels early."
+                    mascot="point"
+                />
+
+                <p>Pair this with <Link to="/blog/how-to-take-bookings-over-text">taking bookings over text</Link> and grab the wording from our <Link to="/blog/customer-follow-up-text-templates">follow-up templates</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.5 Small business tax deductions (AU) ──────────────────────────────
+    "small-business-tax-deductions-australia": {
+        title: "Small Business Tax Deductions Checklist (Australia, 2026)",
+        date: "Jul 4, 2026",
+        datePublished: "2026-07-04",
+        readTime: "8 min read",
+        category: "Guide",
+        description: "A plain-English checklist of common small business tax deductions in Australia for 2026, from vehicle and tools to home office, so you don't leave money on the table.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Every dollar of legitimate business expense you claim is a dollar you're not taxed on. Plenty of small businesses miss claims simply because they didn't track them. Here's a plain-English checklist of common deductions so nothing slips through.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <p className="text-sm text-gray-500 italic">This is general information, not tax advice. Check your situation with your accountant or the ATO.</p>
+
+                <h2>The big categories</h2>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Vehicle & travel</h3><p className="text-gray-700 text-sm">Work-related km, fuel, servicing, registration, parking and tolls. Keep a logbook.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Tools & equipment</h3><p className="text-gray-700 text-sm">Tools, machinery, devices. Smaller items outright, bigger ones depreciated.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Home office</h3><p className="text-gray-700 text-sm">A portion of power, internet and a dedicated work area if you run things from home.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Phone & internet</h3><p className="text-gray-700 text-sm">The work-use portion of your phone and data plans.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Software & subscriptions</h3><p className="text-gray-700 text-sm">Accounting tools, scheduling apps, cloud storage, industry memberships.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Insurance & fees</h3><p className="text-gray-700 text-sm">Public liability, tool insurance, bank fees, merchant fees.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Marketing</h3><p className="text-gray-700 text-sm">Ads, website, signage, printing, business cards.</p></div>
+                    <div className="bg-white border-2 border-black p-6"><h3 className="text-lg font-bold mb-2">Education & super</h3><p className="text-gray-700 text-sm">Courses that relate to your work, and your own super contributions.</p></div>
+                </div>
+
+                <h2>The claims people forget</h2>
+                <ul>
+                    <li>Work clothing and protective gear (PPE, branded uniforms).</li>
+                    <li>The work-use share of a personal device or vehicle.</li>
+                    <li>Bank and payment processing fees, which add up over a year.</li>
+                    <li>Accounting and bookkeeping fees themselves.</li>
+                    <li>Small subscriptions you forgot you pay for.</li>
+                </ul>
+
+                <h2>Why most people under-claim</h2>
+                <p>It's not the rules, it's the records. The receipt for a $40 tool in March is long gone by tax time. The fix is logging expenses as they happen, not reconstructing the year in a panic in July. A photo of the receipt, logged the moment you buy, means every claim is there when you need it.</p>
+
+                <MessageFlynnCTA
+                    headline="Log every receipt the moment you spend"
+                    body="Snap a receipt and text it to Flynn. It logs the expense with date, amount and GST and files it to Xero, so nothing's missing come tax time."
+                    mascot="thumbsup"
+                />
+
+                <p>Keep the records straight with <Link to="/blog/how-to-track-business-expenses">how to track business expenses without a bookkeeper</Link>, and get the basics in <Link to="/blog/gst-bas-basics-sole-traders">GST and BAS for sole traders</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.6 How to track business expenses ──────────────────────────────────
+    "how-to-track-business-expenses": {
+        title: "How to Track Business Expenses Without a Bookkeeper",
+        date: "Jul 7, 2026",
+        datePublished: "2026-07-07",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "A simple system for tracking business expenses without hiring a bookkeeper, so your books stay tidy, your claims are complete, and tax time stops being a nightmare.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    You don't need a bookkeeper to keep clean records, you need a system you'll actually stick to. The reason expense tracking fails isn't laziness, it's that most systems take effort at the wrong moment. Here's one that doesn't.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>The one rule that fixes everything</h2>
+                <p>Capture the expense the second it happens, not later. The receipt you log at the counter is logged. The one you shove in the glovebox to "deal with later" is gone. Everything else is detail. Get this one habit right and your books stay 90% clean on their own.</p>
+
+                <h2>The three-tier setup</h2>
+                <div className="space-y-4 my-8">
+                    <div className="bg-white border-2 border-black p-5"><h3 className="font-bold mb-1">1. Separate business account</h3><p className="m-0 text-sm text-gray-700">Run business spending through one account or card. Instantly separates business from personal, no untangling later.</p></div>
+                    <div className="bg-white border-2 border-black p-5"><h3 className="font-bold mb-1">2. Capture receipts instantly</h3><p className="m-0 text-sm text-gray-700">Snap a photo at the moment of purchase. Paper fades and gets lost; a photo doesn't.</p></div>
+                    <div className="bg-white border-2 border-black p-5"><h3 className="font-bold mb-1">3. Log to one place</h3><p className="m-0 text-sm text-gray-700">A spreadsheet or your accounting tool, with vendor, date, amount, GST and category. One source of truth.</p></div>
+                </div>
+
+                <h2>Spreadsheet vs accounting app vs just texting it</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Method</th><th className="p-3 text-left font-display">Effort per expense</th><th className="p-3 text-left font-display">Best for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Spreadsheet</td><td className="p-3">Manual entry</td><td className="p-3">Very small / starting out</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Accounting app</td><td className="p-3">Open app, snap, categorise</td><td className="p-3">Established businesses</td></tr>
+                            <tr><td className="p-3 font-bold">Text a photo</td><td className="p-3">Send one message</td><td className="p-3">Anyone who hates admin</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <MessageFlynnCTA
+                    headline="Tracking expenses as easy as a text"
+                    body="Snap the receipt, text it to Flynn. It reads the vendor, amount and GST, logs it and files it to your accounting tool. No app, no spreadsheet, no shoebox."
+                    mascot="thumbsup"
+                />
+
+                <h2>Why this saves you more than time</h2>
+                <p>Clean records mean you claim every deduction you're owed (see the <Link to="/blog/small-business-tax-deductions-australia">deductions checklist</Link>), your <Link to="/blog/gst-bas-basics-sole-traders">BAS</Link> takes minutes not days, and you actually know if you're making money month to month. The habit is small. The payoff is real.</p>
+            </>
+        )
+    },
+
+    // ─── W2.7 What to do when a client won't pay ──────────────────────────────
+    "what-to-do-when-a-client-wont-pay": {
+        title: "What to Do When a Client Won't Pay (Australia)",
+        date: "Jul 8, 2026",
+        datePublished: "2026-07-08",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "A calm, step-by-step plan for when a client won't pay your invoice in Australia, from reminders to formal demand to your options for recovering the debt.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    A client who won't pay is stressful and, sometimes, expensive. But there's a clear path from polite nudge to last resort, and most cases get resolved long before the serious steps. Here's the calm, ordered plan.
+                </p>
+
+                <Hero pose="point" />
+
+                <p className="text-sm text-gray-500 italic">General information, not legal advice. For larger debts, consider speaking to a solicitor or your state's small business commissioner.</p>
+
+                <h2>Step 1: Rule out a simple miss</h2>
+                <p>Most late payments are oversight, not refusal. A friendly reminder with the invoice and a payment link resolves the majority. Send it before you assume the worst. Use the wording in our <Link to="/blog/late-payment-reminder-templates">late payment reminder templates</Link>.</p>
+
+                <h2>Step 2: Make contact and confirm</h2>
+                <p>If reminders go unanswered, call or text directly. Confirm they received the invoice, ask if there's an issue, and get a clear commitment: when will it be paid? Sometimes there's a genuine cash-flow problem and a short payment plan solves it for both of you.</p>
+
+                <h2>Step 3: A formal reminder in writing</h2>
+                <p>Put it in writing: the invoice number, amount, original due date, and a firm but professional request for payment by a specific date. Keep the tone businesslike. This becomes useful evidence if things escalate.</p>
+
+                <h2>Step 4: A letter of demand</h2>
+                <p>A letter of demand is a formal final notice stating you'll pursue recovery if it isn't paid by a set date. It often works on its own because it signals you're serious. You can write one yourself or have a solicitor send it.</p>
+
+                <h2>Step 5: Your recovery options</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Option</th><th className="p-3 text-left font-display">Best when</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Small business commissioner</td><td className="p-3">You want free help to mediate</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Debt collection agency</td><td className="p-3">You'd rather outsource the chase</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Small claims tribunal</td><td className="p-3">Smaller amounts, low cost, no lawyer needed</td></tr>
+                            <tr><td className="p-3 font-bold">Solicitor</td><td className="p-3">Larger debts worth the legal cost</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>The best fix is prevention</h2>
+                <p>Clear payment terms up front, deposits on big jobs, same-day invoicing, and consistent automatic reminders prevent most of this from ever reaching step three. The businesses that rarely get burned aren't tougher, they're just systematic about getting paid.</p>
+
+                <MessageFlynnCTA
+                    headline="Make slow payment rare"
+                    body="Flynn invoices the moment a job's done and chases overdue payments automatically, politely, on schedule. Most clients pay long before it ever gets awkward."
+                    mascot="thumbsup"
+                />
+
+                <p>Set it up right with <Link to="/blog/chase-unpaid-invoices-without-awkward-calls">automatic invoice chasing</Link> and <Link to="/blog/send-invoice-from-your-phone">same-day invoicing from your phone</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.8 Quote vs estimate vs invoice ────────────────────────────────────
+    "quote-vs-estimate-vs-invoice": {
+        title: "Quote vs Estimate vs Invoice: What's the Difference?",
+        date: "Jul 9, 2026",
+        datePublished: "2026-07-09",
+        readTime: "5 min read",
+        category: "Guide",
+        description: "Quote, estimate and invoice get mixed up all the time, and the difference matters legally and for getting paid. Here's a plain-English explainer for small business.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Quote, estimate and invoice sound interchangeable, but they're three different documents with three different jobs, and mixing them up can cost you money or land you in a dispute. Here's the plain-English difference.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <h2>The quick version</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black">
+                        <thead className="bg-black text-white"><tr><th className="p-4 text-left font-display">Document</th><th className="p-4 text-left font-display">What it is</th><th className="p-4 text-left font-display">Binding?</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Estimate</td><td className="p-4">A rough, good-faith ballpark of likely cost</td><td className="p-4">No</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-4 font-bold">Quote</td><td className="p-4">A fixed price for clearly defined work</td><td className="p-4">Usually yes, once accepted</td></tr>
+                            <tr><td className="p-4 font-bold">Invoice</td><td className="p-4">A request for payment for work done</td><td className="p-4">Yes, it's a debt</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>Estimate</h2>
+                <p>An estimate is your best guess before the details are nailed down. "Probably around $2,000 to $2,500, depending on what we find." It's useful early, but it isn't a promise. The risk is when clients treat an estimate as a fixed quote, so always label it clearly and explain it can change.</p>
+
+                <h2>Quote</h2>
+                <p>A quote is a firm price for a defined scope. Once the client accepts it, you're generally bound to that price for that work, which is why specifying what's included (and not) matters so much. A good quote protects both sides. Learn to write a strong one in <Link to="/blog/how-to-write-a-quote">how to write a quote that wins the job</Link>.</p>
+
+                <h2>Invoice</h2>
+                <p>An invoice comes after the work (or at agreed milestones) and is a formal request for payment. In Australia a tax invoice over $82.50 inc GST has required fields: your ABN, the words "tax invoice", the date, a description, and the GST amount. An unpaid invoice is a debt you can pursue.</p>
+
+                <h2>How they flow together</h2>
+                <p>The clean path is estimate (maybe), then quote, then on acceptance the job, then invoice. Done by hand you retype the same details three times. Done well, the quote rolls straight into the invoice with nothing re-entered.</p>
+
+                <MessageFlynnCTA
+                    headline="Quote and invoice without the double-entry"
+                    body="Flynn drafts quotes and invoices from a text, in your business name with GST handled, and rolls an accepted quote straight into an invoice. No retyping."
+                    mascot="write"
+                />
+
+                <p>Next: <Link to="/blog/how-to-write-a-quote">write a winning quote</Link>, then <Link to="/blog/send-invoice-from-your-phone">send the invoice from your phone</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.9 GST & BAS basics for sole traders ───────────────────────────────
+    "gst-bas-basics-sole-traders": {
+        title: "GST & BAS Basics for Sole Traders (Australia, 2026)",
+        date: "Jul 10, 2026",
+        datePublished: "2026-07-10",
+        readTime: "7 min read",
+        category: "Guide",
+        description: "A plain-English guide to GST and BAS for Australian sole traders: when to register, how GST works, what a BAS is, and how to make lodging it painless.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    GST and BAS sound more complicated than they are. For most sole traders it comes down to a few simple rules. Here's the plain-English version so you know what you have to do and when.
+                </p>
+
+                <Hero pose="thinking" />
+
+                <p className="text-sm text-gray-500 italic">General information, not tax advice. Check your situation with your accountant or the ATO.</p>
+
+                <h2>When do you have to register for GST?</h2>
+                <p>In Australia you must register for GST once your business turnover hits $75,000 a year (or you expect it to). Under that, registering is optional. Some sole traders register early so they can claim GST credits on purchases; others wait until they have to. If you drive for a rideshare or taxi service, you must register regardless of turnover.</p>
+
+                <h2>How GST actually works</h2>
+                <p>If you're registered, you add 10% GST to what you charge, collect it from customers, and pass it to the ATO. In return, you can claim back the GST you paid on business purchases. You're essentially a collector in the middle. The difference between GST collected and GST paid is what you owe (or get refunded).</p>
+
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Simple example:</strong> you charge $1,100 (that's $1,000 + $100 GST). You spent $220 on materials ($200 + $20 GST). You owe the ATO $100 minus $20 = $80.</p>
+                </div>
+
+                <h2>What is a BAS?</h2>
+                <p>A Business Activity Statement is the form where you report and pay that GST, usually quarterly. It tells the ATO how much GST you collected and paid, and sometimes other things like PAYG instalments. If your record-keeping is tidy, a BAS takes minutes. If it isn't, it's a weekend of pain.</p>
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Quarter</th><th className="p-3 text-left font-display">Period</th><th className="p-3 text-left font-display">Usually due</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3">Q1</td><td className="p-3">Jul to Sep</td><td className="p-3">28 Oct</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3">Q2</td><td className="p-3">Oct to Dec</td><td className="p-3">28 Feb</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3">Q3</td><td className="p-3">Jan to Mar</td><td className="p-3">28 Apr</td></tr>
+                            <tr><td className="p-3">Q4</td><td className="p-3">Apr to Jun</td><td className="p-3">28 Jul</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>The thing that makes BAS easy</h2>
+                <p>It's all in the records. If every sale and expense is logged with its GST as it happens, your BAS is basically a summary that already exists. If you're reconstructing months of receipts the night before, it's miserable. The fix is the same habit that helps everything else: capture as you go.</p>
+
+                <MessageFlynnCTA
+                    headline="Keep GST records without thinking about it"
+                    body="Flynn logs your invoices and expenses with GST as they happen and files them to Xero, so when BAS time comes the numbers are already there."
+                    mascot="thumbsup"
+                />
+
+                <p>Build the habit with <Link to="/blog/how-to-track-business-expenses">how to track business expenses</Link>, and don't miss claims in the <Link to="/blog/small-business-tax-deductions-australia">deductions checklist</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W2.10 How to get more Google reviews ─────────────────────────────────
+    "how-to-get-more-google-reviews": {
+        title: "How to Get More Google Reviews for Your Small Business",
+        date: "Jul 11, 2026",
+        datePublished: "2026-07-11",
+        readTime: "6 min read",
+        category: "How-To",
+        description: "More Google reviews mean more customers. Here's a simple system to get them: when to ask, exactly what to say, and the text templates that actually get reviews written.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Google reviews are the closest thing to free marketing there is. More reviews mean you rank higher locally and win more of the customers comparing you to the next business. The catch: happy customers rarely leave one unless you ask. Here's how to ask so they actually do.
+                </p>
+
+                <Hero pose="thumbsup" />
+
+                <h2>Timing is everything</h2>
+                <p>Ask right after the moment they're happiest: the job finished well, the problem solved, the "thank you so much" text. Wait a week and the warm glow is gone. The best review request goes out within hours of a great result.</p>
+
+                <h2>Make it one tap</h2>
+                <p>Every extra step loses people. Don't say "search for us on Google". Send a direct link straight to your review form. The easier it is, the more reviews you get. You can get your review link from your Google Business Profile.</p>
+
+                <h2>The templates that work</h2>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>After a great job:</strong> "So glad you're happy with it, [name]! If you've got 20 seconds, a quick Google review really helps a small business like mine. Here's the link: [link]. No worries at all if not."</p>
+                </div>
+                <div className="bg-surface-50 border-2 border-black p-6 my-6">
+                    <p className="m-0"><strong>Gentle follow-up:</strong> "Hey [name], no pressure, just popping the review link here again in case you had a sec: [link]. Really appreciate it either way."</p>
+                </div>
+
+                <h2>The rules</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Ask fast</div><p className="text-sm text-gray-600 mt-2">Within hours of a happy result, not days.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><MessageSquare className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Ask by text</div><p className="text-sm text-gray-600 mt-2">Texts get read and tapped. Emails get buried.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><CheckCircle className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Ask everyone</div><p className="text-sm text-gray-600 mt-2">Consistency is what builds a wall of reviews.</p></div>
+                </div>
+                <p>One note: don't offer payment or discounts for reviews, and never write fake ones. Google penalises it and customers can smell it. Just ask, genuinely, every time.</p>
+
+                <MessageFlynnCTA
+                    headline="Ask for reviews automatically"
+                    body="Flynn can send a review request with your link right after a job wraps, in your voice, to every happy customer. More reviews, zero remembering."
+                    mascot="thumbsup"
+                />
+
+                <p>It's the same habit as good <Link to="/blog/customer-follow-up-text-templates">customer follow-ups</Link>, and it compounds with replying fast to the new leads those reviews bring in (<Link to="/blog/reply-to-leads-faster-speed-to-lead">speed to lead</Link>).</p>
+            </>
+        )
+    },
+
+    // ─── W3.1 Cleaning businesses: admin ──────────────────────────────────────
+    "admin-tips-for-cleaning-businesses": {
+        title: "How Cleaning Businesses Can Cut Admin Time in Half",
+        date: "Jul 14, 2026",
+        datePublished: "2026-07-14",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "Cleaning businesses lose hours every week to quotes, recurring bookings and chasing payment. Here's how to cut that admin in half and spend more time on the tools.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Running a cleaning business is mostly logistics: quoting one-off deep cleans, juggling recurring weekly and fortnightly bookings, and chasing payment after the job. The cleaning is the easy part. Here's how to take the admin off your plate.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>Where the time actually goes</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><FileText className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Quoting</div><p className="text-sm text-gray-600 mt-2">Every enquiry wants a price for a different sized place.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><Calendar className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Recurring bookings</div><p className="text-sm text-gray-600 mt-2">Weekly, fortnightly, monthly, all needing reminders.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><DollarSign className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Getting paid</div><p className="text-sm text-gray-600 mt-2">Invoicing after each clean and chasing the slow ones.</p></div>
+                </div>
+
+                <h2>The fixes that matter most</h2>
+                <p><strong>Quote fast.</strong> Cleaning leads compare three or four quotes and book the first decent reply. Same-day quoting wins more work. See <Link to="/blog/how-to-write-a-quote">how to write a quote that wins</Link>.</p>
+                <p className="mt-4"><strong>Lock in the recurring clients.</strong> Confirmations and day-before reminders cut no-shows on regular jobs and keep the schedule full. More in <Link to="/blog/how-to-reduce-no-shows-small-business">reducing no-shows</Link>.</p>
+                <p className="mt-4"><strong>Invoice the moment you leave.</strong> The invoice sent from the driveway gets paid days sooner. Automate the chase so you never do it by hand.</p>
+
+                <MessageFlynnCTA
+                    headline="Let Flynn run the cleaning admin"
+                    body="Quote new jobs, manage recurring bookings, invoice after each clean and chase late payers, all from a text. Flynn learns your rates so it never asks twice."
+                    mascot="thumbsup"
+                />
+
+                <p>See the tools in <Link to="/blog/best-apps-for-cleaning-businesses">best apps for cleaning businesses</Link>, or run it all from your phone with <Link to="/blog/run-small-business-from-your-phone">the 2026 stack</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.2 Cleaning businesses: best apps ──────────────────────────────────
+    "best-apps-for-cleaning-businesses": {
+        title: "Best Apps for Cleaning Businesses in 2026",
+        date: "Jul 15, 2026",
+        datePublished: "2026-07-15",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best apps for cleaning businesses in 2026 for scheduling, quoting, invoicing and getting paid, plus the text-first option for cleaners who hate admin.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    The right app for a cleaning business depends on your size. A solo cleaner needs something different to a 10-van operation. Here's an honest sort of the options in 2026.
+                </p>
+
+                <Hero pose="point" />
+
+                <h2>The main categories</h2>
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">ZenMaid / Launch27</td><td className="p-3">Cleaning-specific scheduling for teams</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Jobber / ServiceM8</td><td className="p-3">Full job management for bigger crews</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Xero / QuickBooks</td><td className="p-3">The accounting underneath it all</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Solo & small teams who want admin handled by text</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>Run a big team with dispatching and staff tracking? A full platform like Jobber earns its keep. Solo or a small crew who just wants the quoting, booking and chasing to disappear? A dedicated platform is overkill and you'll fight the setup. That's where a text assistant wins: the bar to use it is "send a text", and it files into the accounting tool you already use.</p>
+
+                <MessageFlynnCTA
+                    headline="The no-app option for cleaners"
+                    body="Flynn quotes, books, invoices and chases payment from a text, and files into Xero. No new platform to learn between jobs."
+                    mascot="thumbsup"
+                />
+
+                <p>More on the workflow in <Link to="/blog/admin-tips-for-cleaning-businesses">how cleaning businesses can cut admin time</Link>, and the bigger comparison in <Link to="/blog/flynn-vs-tradify-jobber-servicem8">Flynn vs Tradify, Jobber and ServiceM8</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.3 Salons & barbers: admin ─────────────────────────────────────────
+    "admin-tips-for-salons-and-barbers": {
+        title: "How Salons and Barbers Can Cut Admin and No-Shows",
+        date: "Jul 16, 2026",
+        datePublished: "2026-07-16",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "No-shows and the booking back-and-forth quietly cost salons and barbers thousands. Here's how to cut both, keep the chair full and spend less time on the phone.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    For a salon or barber, every empty chair is lost money you can't get back. Between no-shows, the endless booking back-and-forth, and rebooking regulars, the admin adds up fast. Here's how to tighten it up.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>The no-show problem</h2>
+                <p>No-shows are the biggest silent cost in the chair. Most are forgetfulness, not rudeness, which means reminders fix the majority. A confirmation on booking and a day-before "reply YES to confirm" text dramatically cuts the empty slots, and surfaces cancellations early so you can fill them. Full playbook in <Link to="/blog/how-to-reduce-no-shows-small-business">how to reduce no-shows</Link>.</p>
+
+                <h2>The booking back-and-forth</h2>
+                <p>Clients text "any chance friday?" and you're mid-cut. By the time you reply they've booked elsewhere. Booking straight from the text, with real available times, captures those clients instead of losing them. See <Link to="/blog/how-to-take-bookings-over-text">how to take bookings over text</Link>.</p>
+
+                <h2>Rebooking regulars</h2>
+                <p>Your best clients come back on a rhythm. A simple "it's been about 5 weeks, want me to book your usual?" keeps the chair full and saves them thinking about it. Done consistently, rebooking is the cheapest growth there is.</p>
+
+                <MessageFlynnCTA
+                    headline="Keep the chair full, hands-free"
+                    body="Flynn books clients from the text, confirms and reminds them to cut no-shows, and nudges regulars to rebook, all in your voice. You stay on the tools."
+                    mascot="phone"
+                />
+
+                <p>Compare booking tools in <Link to="/blog/best-apps-for-hair-salons">best apps for salons and barbers</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.4 Salons & barbers: best apps ─────────────────────────────────────
+    "best-apps-for-hair-salons": {
+        title: "Best Apps for Hair Salons and Barbers (2026)",
+        date: "Jul 17, 2026",
+        datePublished: "2026-07-17",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best booking and admin apps for hair salons and barbers in 2026: Fresha, Square, Booksy and the text-first option, sorted by what fits your shop.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Salon software is a crowded space. Here's an honest sort of the main options in 2026, by the kind of shop you run.
+                </p>
+
+                <Hero pose="point" />
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Fresha</td><td className="p-3">Free booking + payments, big salon feature set</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Square Appointments</td><td className="p-3">Booking plus in-person card payments</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Booksy</td><td className="p-3">Marketplace exposure for new clients</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Booking from the text + reminders + rebooking, no app for clients</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>Want a public booking page and a marketplace to find new clients? Fresha or Booksy do that well. Most of your bookings come by text from existing clients, and you mainly need fewer no-shows and easy rebooking? Booking from the text fits how your clients already behave, and there's no app for them to download.</p>
+
+                <MessageFlynnCTA
+                    headline="Booking and reminders from the text"
+                    body="Flynn books clients in the conversation, sends confirmations and reminders to cut no-shows, and nudges regulars to rebook. No booking app for your clients."
+                    mascot="phone"
+                />
+
+                <p>More in <Link to="/blog/admin-tips-for-salons-and-barbers">how salons cut admin and no-shows</Link> and <Link to="/blog/flynn-vs-calendly-square-booking-by-text">Flynn vs Calendly and Square</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.5 Real estate agents: admin ───────────────────────────────────────
+    "admin-tips-for-real-estate-agents": {
+        title: "How Real Estate Agents Can Win More Leads With Less Admin",
+        date: "Jul 18, 2026",
+        datePublished: "2026-07-18",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "In real estate the fastest reply wins the lead. Here's how agents can respond instantly, book inspections, and follow up buyers and vendors without drowning in admin.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Real estate runs on speed and follow-up. The agent who replies first usually gets the appraisal, and the one who follows up consistently wins the listing. The problem is doing that while you're at an open or in the car. Here's how.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>Speed wins the lead</h2>
+                <p>Property enquiries go cold in minutes. A buyer messaging about a listing is messaging three agents. The first useful reply usually gets the inspection. Replying instantly, even while you're showing a property, is the single biggest lever. See <Link to="/blog/reply-to-leads-faster-speed-to-lead">why speed to lead wins</Link>.</p>
+
+                <h2>Booking inspections without the tag</h2>
+                <p>Coordinating inspection times by phone tag burns hours. Offering real times in the text and booking on the spot keeps buyers moving and your calendar full. More in <Link to="/blog/how-to-take-bookings-over-text">taking bookings over text</Link>.</p>
+
+                <h2>Follow-up is the whole job</h2>
+                <p>Most deals are won in the follow-up: the buyer who needed two weeks, the vendor still deciding. Consistent, personal follow-up is what separates top agents, and it's exactly the thing that slips when you're busy. Templates in <Link to="/blog/customer-follow-up-text-templates">customer follow-up texts</Link>.</p>
+
+                <MessageFlynnCTA
+                    headline="Reply first, follow up always"
+                    body="Flynn replies to enquiries instantly in your voice, books inspections from the text, and keeps buyers and vendors followed up, while you're out showing properties."
+                    mascot="phone"
+                />
+
+                <p>See the tools in <Link to="/blog/best-apps-for-real-estate-agents">best apps for real estate agents</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.6 Real estate agents: best apps ───────────────────────────────────
+    "best-apps-for-real-estate-agents": {
+        title: "Best Apps for Real Estate Agents in 2026",
+        date: "Jul 21, 2026",
+        datePublished: "2026-07-21",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best apps for real estate agents in 2026 for lead response, scheduling and follow-up, plus the text-first assistant that handles enquiries while you're at an open.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Agents drown in tools: a CRM, a scheduler, a dialer, a follow-up app. Here's what actually matters in 2026 and how to keep it simple.
+                </p>
+
+                <Hero pose="point" />
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">A real estate CRM</td><td className="p-3">Pipeline and contact management at scale</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Calendly</td><td className="p-3">Self-serve inspection / appraisal booking</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Your phone + texts</td><td className="p-3">Where buyers and vendors actually talk to you</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Instant replies, booking and follow-up from the text</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>A big team needs a proper CRM for the pipeline, no question. But the moment that decides whether you win a lead happens in a text while you're out, and that's where a CRM can't help, because you're not at a desk. A text assistant covers the live moment: instant reply, book the inspection, keep the follow-up going, then hand the record to your CRM.</p>
+
+                <MessageFlynnCTA
+                    headline="Never miss the live moment"
+                    body="Flynn replies to enquiries the instant they land, books inspections and follows up buyers and vendors, all from a text, while you're showing a property."
+                    mascot="phone"
+                />
+
+                <p>More in <Link to="/blog/admin-tips-for-real-estate-agents">how agents win more leads with less admin</Link> and <Link to="/blog/reply-to-leads-faster-speed-to-lead">speed to lead</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.7 Freelancers: admin ──────────────────────────────────────────────
+    "admin-tips-for-freelancers": {
+        title: "How Freelancers Can Spend Less Time on Admin and More on Work",
+        date: "Jul 22, 2026",
+        datePublished: "2026-07-22",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "Freelancers lose billable hours to proposals, invoicing and chasing late clients. Here's how to cut that admin down so you spend your time on paid work instead.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    As a freelancer, admin is time you don't get paid for. Every hour spent writing proposals, sending invoices and chasing late payers is an hour you can't bill. Here's how to shrink it.
+                </p>
+
+                <Hero pose="write" />
+
+                <h2>The three admin sinks</h2>
+                <div className="grid md:grid-cols-3 gap-6 my-8">
+                    <div className="bg-white border-2 border-black p-6 text-center"><FileText className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Proposals & quotes</div><p className="text-sm text-gray-600 mt-2">Re-writing the same scope and pricing for every lead.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><DollarSign className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Invoicing</div><p className="text-sm text-gray-600 mt-2">Formatting invoices and tracking what's been paid.</p></div>
+                    <div className="bg-white border-2 border-black p-6 text-center"><Clock className="text-brand-500 mx-auto mb-2" size={28} /><div className="font-bold">Chasing clients</div><p className="text-sm text-gray-600 mt-2">The awkward "just following up on that invoice" dance.</p></div>
+                </div>
+
+                <h2>The fixes</h2>
+                <p><strong>Quote fast and clearly.</strong> The freelancer who replies same-day with a tidy quote usually wins over the one who takes three days. See <Link to="/blog/how-to-write-a-quote">writing a winning quote</Link>.</p>
+                <p className="mt-4"><strong>Invoice on delivery.</strong> Send the invoice the moment you deliver, while the value is fresh. <Link to="/blog/send-invoice-from-your-phone">Even from your phone</Link>.</p>
+                <p className="mt-4"><strong>Automate the chase.</strong> Late-paying clients are a freelancer's biggest cash-flow risk. Consistent reminders get you paid without the awkward email. <Link to="/blog/late-payment-reminder-templates">Templates here</Link>.</p>
+
+                <MessageFlynnCTA
+                    headline="Bill more, admin less"
+                    body="Flynn drafts your quotes and invoices from a text and chases late clients automatically, in your voice. More billable hours, less unpaid admin."
+                    mascot="thumbsup"
+                />
+
+                <p>See the toolkit in <Link to="/blog/best-apps-for-freelancers">best apps for freelancers</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.8 Freelancers: best apps ──────────────────────────────────────────
+    "best-apps-for-freelancers": {
+        title: "Best Apps for Freelancers in 2026 (Invoicing, Quotes & Admin)",
+        date: "Jul 23, 2026",
+        datePublished: "2026-07-23",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best apps for freelancers in 2026 to handle invoicing, quotes, payments and chasing clients, plus the text-first assistant that does the admin for you.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Freelancers don't need a 20-app stack. You need to quote, invoice, get paid, and chase the stragglers. Here's what's worth using in 2026.
+                </p>
+
+                <Hero pose="point" />
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Wave / FreshBooks</td><td className="p-3">Invoicing and light accounting</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Bonsai</td><td className="p-3">Proposals, contracts and invoicing in one</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Xero</td><td className="p-3">Proper accounting as you grow</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Quotes, invoices and chasing, done from a text</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>If you want contracts and proposals built in, Bonsai is strong. If you just want clean invoicing, Wave or FreshBooks do it well. But all of them are apps you open and drive. If the admin is the bit you avoid, a text assistant that quotes, invoices and chases for you (and files into your accounting tool) removes the friction that makes you put it off.</p>
+
+                <MessageFlynnCTA
+                    headline="The admin layer for freelancers"
+                    body="Flynn turns a text into a quote or invoice, tracks what's unpaid, and chases late clients for you. Files into the accounting tool you already use."
+                    mascot="thumbsup"
+                />
+
+                <p>More in <Link to="/blog/admin-tips-for-freelancers">how freelancers can cut admin</Link> and <Link to="/blog/chatgpt-for-small-business">ChatGPT for small business</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.9 Personal trainers: admin ────────────────────────────────────────
+    "admin-tips-for-personal-trainers": {
+        title: "How Personal Trainers Can Cut No-Shows and Admin",
+        date: "Jul 24, 2026",
+        datePublished: "2026-07-24",
+        readTime: "6 min read",
+        category: "Guide",
+        description: "Personal trainers lose income to no-shows, session juggling and chasing payments. Here's how to keep sessions full, get paid on time, and spend less time on your phone.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    As a personal trainer your income is your calendar. A no-show is money gone, a missed rebooking is a client drifting away, and chasing session payments is the worst part of the week. Here's how to tighten all three.
+                </p>
+
+                <Hero pose="phone" />
+
+                <h2>No-shows are lost income</h2>
+                <p>An empty session slot is revenue you can't recover. Most no-shows are forgetfulness, so reminders fix the bulk of them: a confirmation on booking and a day-before nudge. Add a cancellation window and clients respect your time. Full guide in <Link to="/blog/how-to-reduce-no-shows-small-business">reducing no-shows</Link>.</p>
+
+                <h2>Keep sessions booked ahead</h2>
+                <p>The clients who book their next session before they leave are the ones who stick. A quick "same time next week?" in the text keeps your calendar full and your clients consistent, which is what gets them results and keeps them paying.</p>
+
+                <h2>Payments and packages</h2>
+                <p>Chasing for session or package payments is awkward when you see the client in person. Automatic, friendly reminders take you out of the uncomfortable part and get you paid on time. <Link to="/blog/late-payment-reminder-templates">Templates here</Link>.</p>
+
+                <MessageFlynnCTA
+                    headline="Keep every session booked and paid"
+                    body="Flynn books sessions from the text, sends reminders to cut no-shows, nudges clients to rebook, and chases package payments, all in your voice."
+                    mascot="phone"
+                />
+
+                <p>See the tools in <Link to="/blog/best-apps-for-personal-trainers">best apps for personal trainers</Link>.</p>
+            </>
+        )
+    },
+
+    // ─── W3.10 Personal trainers: best apps ───────────────────────────────────
+    "best-apps-for-personal-trainers": {
+        title: "Best Apps for Personal Trainers in 2026",
+        date: "Jul 25, 2026",
+        datePublished: "2026-07-25",
+        readTime: "6 min read",
+        category: "Comparison",
+        description: "The best apps for personal trainers in 2026 for programming, booking and payments, plus the text-first assistant that keeps sessions booked and paid for you.",
+        content: (
+            <>
+                <p className="text-xl text-gray-700 leading-relaxed mb-6">
+                    Trainer software splits into two jobs: programming and coaching, and the business admin around it. Here's what's worth using in 2026 for each.
+                </p>
+
+                <Hero pose="point" />
+
+                <div className="overflow-x-auto my-8">
+                    <table className="w-full border-2 border-black text-sm">
+                        <thead className="bg-black text-white"><tr><th className="p-3 text-left font-display">Tool</th><th className="p-3 text-left font-display">Good for</th></tr></thead>
+                        <tbody className="bg-white">
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Trainerize / TrueCoach</td><td className="p-3">Programming, tracking and client coaching</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Mindbody</td><td className="p-3">Studios with classes and memberships</td></tr>
+                            <tr className="border-b-2 border-black"><td className="p-3 font-bold">Square</td><td className="p-3">Booking plus taking payments</td></tr>
+                            <tr><td className="p-3 font-bold">Flynn (text-first)</td><td className="p-3">Booking, reminders, rebooking and payment chasing by text</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2>How to choose</h2>
+                <p>For programming and tracking workouts, a coaching tool like Trainerize is purpose-built and worth it. But those tools aren't built for the business admin, the booking, the no-show reminders, the chasing. That's the bit that eats your evenings, and it's exactly what a text assistant handles, alongside the tools you already coach in.</p>
+
+                <MessageFlynnCTA
+                    headline="The business side, handled"
+                    body="Flynn keeps sessions booked, cuts no-shows with reminders, nudges rebookings and chases payments, from a text, so you can focus on coaching."
+                    mascot="thumbsup"
+                />
+
+                <p>More in <Link to="/blog/admin-tips-for-personal-trainers">how personal trainers cut no-shows and admin</Link>.</p>
             </>
         )
     },
@@ -2338,8 +1943,8 @@ export const BlogList: React.FC = () => {
     return (
         <>
             <Helmet>
-                <title>Blog - Flynn AI | Insights for Service Businesses</title>
-                <meta name="description" content="Tips, strategies, and guides for Australian tradies and service businesses. Learn how to stop missing calls, book more jobs, and grow your business." />
+                <title>Blog - Flynn AI | Run Your Business From Text</title>
+                <meta name="description" content="Guides for tradies and service businesses on running the admin from your messages, booking jobs, sending invoices and quotes by text, chasing payments and winning more leads." />
             </Helmet>
 
             <div className="bg-white min-h-screen pt-20 pb-20 px-6">
@@ -2348,7 +1953,7 @@ export const BlogList: React.FC = () => {
                         The <span className="text-brand-500">Dispatch.</span>
                     </h1>
                     <p className="text-xl text-gray-600 max-w-2xl mx-auto font-medium">
-                        Insights, strategies, and guides for the modern tradesperson.
+                        How to run your whole business from a text message.
                     </p>
                 </div>
 
@@ -2429,7 +2034,7 @@ export const BlogPost: React.FC = () => {
                         </div>
                     </header>
 
-                    <div className="prose prose-lg prose-headings:font-display prose-headings:font-bold prose-a:text-brand-500 hover:prose-a:text-black">
+                    <div className="blog-content">
                         {post.content}
                     </div>
                 </div>

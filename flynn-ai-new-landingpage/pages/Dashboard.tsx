@@ -1,228 +1,273 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Phone, MessageSquare, Bell, ArrowUpRight, Plus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import DownloadAppPopup from '../components/DownloadAppPopup';
-import { getSession, getCurrentUser } from '../services/auth';
-import { getCalls, getJobs, getAnalytics } from '../services/api';
+import { Brain, Plug, CalendarDays, FileText, ArrowRight, Sparkles } from 'lucide-react';
+import { getSession } from '../services/auth';
+import {
+  getCurrentOrgId,
+  getUpcomingJobs,
+  getOpenQuotes,
+  getBrainSummary,
+  getIntegrations,
+  UpcomingJob,
+  OpenQuote,
+  BrainSummary,
+  IntegrationConnection,
+} from '../services/api';
+import { INTEGRATIONS } from '../data/integrations';
 
-// Helper function to format time ago
-const getTimeAgo = (timestamp: string): string => {
-    const now = new Date();
-    const then = new Date(timestamp);
-    const secondsAgo = Math.floor((now.getTime() - then.getTime()) / 1000);
+const ORANGE = '#FB5B1E';
 
-    if (secondsAgo < 60) return 'Just now';
-    if (secondsAgo < 3600) return `${Math.floor(secondsAgo / 60)} mins ago`;
-    if (secondsAgo < 86400) return `${Math.floor(secondsAgo / 3600)} hours ago`;
-    if (secondsAgo < 604800) return `${Math.floor(secondsAgo / 86400)} days ago`;
-    return then.toLocaleDateString();
-};
-
-const StatCard = ({ title, value, change, icon: Icon, onClick }: any) => (
-    <motion.div
-        whileHover={{ y: -5 }}
-        onClick={onClick}
-        className="bg-white p-6 border-2 border-transparent hover:border-black hover:shadow-[8px_8px_0px_0px_#000000] transition-all cursor-pointer rounded-xl shadow-sm"
-    >
-        <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-gray-50 rounded-lg">
-                <Icon size={24} className="text-gray-700" />
-            </div>
-            {change && (
-                <span className="flex items-center text-green-600 text-sm font-bold bg-green-50 px-2 py-1 rounded-full">
-                    <ArrowUpRight size={14} className="mr-1" /> {change}
-                </span>
-            )}
+function Card({
+  title,
+  icon: Icon,
+  action,
+  children,
+}: {
+  title: string;
+  icon: React.FC<{ size?: number; className?: string }>;
+  action?: { label: string; onClick: () => void };
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white border-2 border-black rounded-xl p-5 shadow-[3px_3px_0_black] flex flex-col">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Icon size={18} className="text-gray-700" />
+          <h2 className="font-bold text-[15px]">{title}</h2>
         </div>
-        <h3 className="text-gray-500 font-medium mb-1">{title}</h3>
-        <p className="text-4xl font-display font-bold">{value}</p>
-    </motion.div>
-);
-
-const ActivityItem = ({ type, title, time, isNew }: any) => (
-    <div className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-lg hover:border-gray-300 transition-colors">
-        <div className="flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${type === 'call' ? 'bg-blue-50 text-blue-600' : 'bg-brand-50 text-brand-500'}`}>
-                {type === 'call' ? <Phone size={18} /> : <MessageSquare size={18} />}
-            </div>
-            <div>
-                <h4 className="font-bold text-gray-900">{title}</h4>
-                <p className="text-xs text-gray-500">{time}</p>
-            </div>
-        </div>
-        {isNew && <span className="w-2 h-2 bg-brand-500 rounded-full"></span>}
+        {action && (
+          <button
+            onClick={action.onClick}
+            className="text-xs font-semibold inline-flex items-center gap-1 hover:underline"
+            style={{ color: ORANGE }}
+          >
+            {action.label} <ArrowRight size={13} />
+          </button>
+        )}
+      </div>
+      <div className="flex-1">{children}</div>
     </div>
-);
+  );
+}
+
+function fmtDate(d: string | null): string {
+  if (!d) return '';
+  const date = new Date(d + 'T00:00:00');
+  return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+}
 
 const Dashboard = () => {
-    const navigate = useNavigate();
-    const [showPopup, setShowPopup] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [orgId, setOrgId] = useState<string | null>(null);
-    const [analytics, setAnalytics] = useState({
-        missed_calls: 0,
-        new_leads: 0,
-        total_calls: 0,
-    });
-    const [recentCalls, setRecentCalls] = useState<any[]>([]);
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [jobs, setJobs] = useState<UpcomingJob[]>([]);
+  const [quotes, setQuotes] = useState<OpenQuote[]>([]);
+  const [brain, setBrain] = useState<BrainSummary | null>(null);
+  const [conns, setConns] = useState<IntegrationConnection[]>([]);
 
-    useEffect(() => {
-        const loadDashboardData = async () => {
-            try {
-                // Check if user is logged in
-                const session = await getSession();
-                if (!session) {
-                    navigate('/login');
-                    return;
-                }
+  useEffect(() => {
+    (async () => {
+      const session = await getSession();
+      if (!session) {
+        navigate('/login');
+        return;
+      }
+      const orgId = await getCurrentOrgId();
+      if (orgId) {
+        const [j, q, b, c] = await Promise.all([
+          getUpcomingJobs(orgId),
+          getOpenQuotes(orgId),
+          getBrainSummary(orgId),
+          getIntegrations(orgId),
+        ]);
+        setJobs(j);
+        setQuotes(q);
+        setBrain(b);
+        setConns(c);
+      }
+      setLoading(false);
+    })();
+  }, [navigate]);
 
-                const user = await getCurrentUser();
-                if (!user) {
-                    navigate('/login');
-                    return;
-                }
-
-                // Get user's organization ID from metadata or default
-                // This assumes org_id is stored in user metadata
-                const userOrgId = user.user_metadata?.org_id || user.id;
-                setOrgId(userOrgId);
-
-                // Load analytics
-                const analyticsData = await getAnalytics(userOrgId);
-                setAnalytics(analyticsData);
-
-                // Load recent calls
-                const calls = await getCalls(userOrgId, 5);
-                setRecentCalls(calls);
-
-                setLoading(false);
-            } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                setLoading(false);
-            }
-        };
-
-        loadDashboardData();
-    }, [navigate]);
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-                    <p className="text-gray-500">Loading dashboard...</p>
-                </div>
-            </div>
-        );
-    }
-
+  if (loading) {
     return (
-        <div className="space-y-8">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-display font-bold">Dashboard</h1>
-                    <p className="text-gray-500">Welcome back! Here's what's happening today.</p>
-                </div>
-                <button
-                    onClick={() => navigate('/dashboard/setup')}
-                    className="bg-black text-white px-6 py-3 font-bold font-display uppercase tracking-wider hover:bg-brand-500 transition-colors flex items-center gap-2"
-                >
-                    <Plus size={20} /> Setup Receptionist
-                </button>
-            </header>
-
-            {/* Stats Grid */}
-            <div className="grid md:grid-cols-3 gap-6">
-                <StatCard
-                    title="Missed Calls Handled"
-                    value={analytics.missed_calls}
-                    change={analytics.missed_calls > 0 ? `+${Math.round((analytics.missed_calls / analytics.total_calls) * 100)}%` : undefined}
-                    icon={Phone}
-                    onClick={() => setShowPopup(true)}
-                />
-                <StatCard
-                    title="New Leads"
-                    value={analytics.new_leads}
-                    change={analytics.new_leads > 0 ? `+${analytics.new_leads}` : undefined}
-                    icon={MessageSquare}
-                    onClick={() => setShowPopup(true)}
-                />
-                <StatCard
-                    title="Total Calls"
-                    value={analytics.total_calls}
-                    icon={Bell}
-                    onClick={() => setShowPopup(true)}
-                />
-            </div>
-
-            <div className="grid lg:grid-cols-3 gap-8">
-                {/* Recent Activity */}
-                <div className="lg:col-span-2 space-y-6">
-                    <h2 className="font-display font-bold text-xl">Recent Activity</h2>
-                    <div className="space-y-3">
-                        {recentCalls.length > 0 ? (
-                            recentCalls.map((call) => {
-                                const timeAgo = getTimeAgo(call.created_at);
-                                const isRecent = new Date().getTime() - new Date(call.created_at).getTime() < 3600000; // Less than 1 hour
-                                const callStatus = call.status === 'no-answer' ? 'Missed call' :
-                                                  call.status === 'completed' ? 'Call completed' :
-                                                  'Call forwarded';
-
-                                return (
-                                    <ActivityItem
-                                        key={call.id}
-                                        type="call"
-                                        title={`${callStatus} from ${call.from_number}`}
-                                        time={timeAgo}
-                                        isNew={isRecent}
-                                    />
-                                );
-                            })
-                        ) : (
-                            <div className="text-center py-12 text-gray-400">
-                                <Phone size={48} className="mx-auto mb-4 opacity-30" />
-                                <p className="font-medium">No calls yet</p>
-                                <p className="text-sm mt-1">Your call activity will appear here</p>
-                            </div>
-                        )}
-                    </div>
-                    {recentCalls.length > 0 && (
-                        <button
-                            onClick={() => setShowPopup(true)}
-                            className="w-full py-3 text-center text-sm font-bold text-gray-500 hover:text-black border-2 border-dashed border-gray-200 hover:border-black rounded-lg transition-all"
-                        >
-                            View All Activity
-                        </button>
-                    )}
-                </div>
-
-                {/* Quick Actions / Upsell */}
-                <div className="bg-brand-500 text-white p-8 rounded-2xl relative overflow-hidden flex flex-col justify-between">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full translate-x-1/2 -translate-y-1/2 blur-2xl"></div>
-
-                    <div className="relative z-10">
-                        <h3 className="font-display font-bold text-2xl mb-4">Go Mobile</h3>
-                        <p className="text-white/80 mb-8">
-                            Get instant push notifications for every missed call and new lead. Manage your business from anywhere.
-                        </p>
-                    </div>
-
-                    <button
-                        onClick={() => setShowPopup(true)}
-                        className="relative z-10 bg-white text-black px-6 py-3 font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors text-sm w-full"
-                    >
-                        Download App
-                    </button>
-                </div>
-            </div>
-
-            <DownloadAppPopup
-                isOpen={showPopup}
-                onClose={() => setShowPopup(false)}
-            />
-        </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black" />
+      </div>
     );
+  }
+
+  const connectedProviders = new Set(
+    conns.filter((c) => c.status === 'connected').map((c) => c.provider),
+  );
+  const connectedCount = connectedProviders.size;
+  const suggestions = INTEGRATIONS.filter(
+    (i) => i.available && !connectedProviders.has(i.provider),
+  ).slice(0, 3);
+
+  const businessLabel = brain?.business_type || 'your business';
+
+  return (
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-3xl font-display font-bold">Your business at a glance</h1>
+        <p className="text-gray-600 mt-1">
+          Flynn builds this up from your chats. The more you text, the more it knows.
+        </p>
+      </header>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* Brain summary — always present (it's the context layer) */}
+        <Card
+          title="What Flynn knows"
+          icon={Brain}
+          action={{ label: 'Edit brain', onClick: () => navigate('/app/settings/business-brain') }}
+        >
+          {brain && (brain.business_type || brain.services.length) ? (
+            <div className="space-y-2 text-sm">
+              <p>
+                <span className="text-gray-400">Business</span>{' '}
+                <span className="font-medium capitalize">{businessLabel}</span>
+              </p>
+              {brain.services.length > 0 && (
+                <p>
+                  <span className="text-gray-400">Services</span>{' '}
+                  <span className="font-medium">{brain.services.length} on file</span>
+                </p>
+              )}
+              {brain.service_areas.length > 0 && (
+                <p>
+                  <span className="text-gray-400">Area</span>{' '}
+                  <span className="font-medium">{brain.service_areas.slice(0, 3).join(', ')}</span>
+                </p>
+              )}
+              {brain.pricing_notes && (
+                <p className="text-gray-600 line-clamp-2">{brain.pricing_notes}</p>
+              )}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">
+              <p>Flynn doesn't know your business yet.</p>
+              <button
+                onClick={() => navigate('/app/settings/business-brain')}
+                className="mt-3 text-xs font-semibold text-white border-2 border-black rounded-lg px-3 py-2 shadow-[2px_2px_0_black]"
+                style={{ backgroundColor: ORANGE }}
+              >
+                Set up your brain
+              </button>
+            </div>
+          )}
+        </Card>
+
+        {/* Integrations — front and centre: integrations are the product */}
+        <Card
+          title="Integrations"
+          icon={Plug}
+          action={{ label: 'Manage', onClick: () => navigate('/dashboard/integrations') }}
+        >
+          <p className="text-sm mb-3">
+            {connectedCount > 0 ? (
+              <>
+                <span className="font-bold">{connectedCount}</span> connected
+              </>
+            ) : (
+              <span className="text-gray-500">Nothing connected yet.</span>
+            )}
+          </p>
+          {suggestions.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-400">Suggested next</p>
+              {suggestions.map((s) => (
+                <button
+                  key={s.provider}
+                  onClick={() => navigate('/dashboard/integrations')}
+                  className="w-full flex items-center gap-3 text-left border border-gray-200 rounded-lg px-3 py-2 hover:border-black transition-colors"
+                >
+                  <s.Icon className="w-7 h-7 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium">{s.name}</span>
+                    <span className="block text-xs text-gray-500 truncate">{s.value}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Upcoming jobs — adaptive: only when there are any */}
+        {jobs.length > 0 && (
+          <Card title="Upcoming" icon={CalendarDays}>
+            <ul className="divide-y divide-gray-100">
+              {jobs.slice(0, 6).map((j) => (
+                <li key={j.id} className="py-2.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {j.customer_name || j.service_type || j.summary || 'Booking'}
+                    </p>
+                    {(j.service_type || j.location) && (
+                      <p className="text-xs text-gray-500 truncate">
+                        {[j.service_type, j.location].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs font-medium text-gray-600 whitespace-nowrap">
+                    {fmtDate(j.scheduled_date)}
+                    {j.scheduled_time ? ` · ${j.scheduled_time.slice(0, 5)}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {/* Open quotes — adaptive: only when there are any */}
+        {quotes.length > 0 && (
+          <Card title="Open quotes" icon={FileText}>
+            <ul className="divide-y divide-gray-100">
+              {quotes.slice(0, 6).map((q) => (
+                <li key={q.id} className="py-2.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {q.client_name || q.quote_number || 'Quote'}
+                    </p>
+                    <p className="text-xs text-gray-500 capitalize">{q.status}</p>
+                  </div>
+                  {q.total != null && (
+                    <span className="text-sm font-bold whitespace-nowrap">
+                      ${Number(q.total).toLocaleString()}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </div>
+
+      {/* New / quiet account: steer toward connecting, not empty lists */}
+      {jobs.length === 0 && quotes.length === 0 && (
+        <div
+          className="border-2 border-black rounded-xl p-6 flex items-start gap-4"
+          style={{ backgroundColor: '#fff' }}
+        >
+          <Sparkles size={22} style={{ color: ORANGE }} className="shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">This fills in as you use Flynn.</p>
+            <p className="text-sm text-gray-600 mt-1 max-w-xl">
+              Text Flynn like you'd text a mate who runs your admin. Bookings, quotes and jobs show
+              up here automatically. Connect a few tools so Flynn can act on them for you.
+            </p>
+            <button
+              onClick={() => navigate('/dashboard/integrations')}
+              className="mt-4 text-sm font-semibold text-white border-2 border-black rounded-lg px-4 py-2 shadow-[2px_2px_0_black] hover:shadow-[1px_1px_0_black] hover:translate-x-0.5 hover:translate-y-0.5 transition-all"
+              style={{ backgroundColor: ORANGE }}
+            >
+              Connect integrations
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default Dashboard;

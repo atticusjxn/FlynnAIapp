@@ -41,9 +41,16 @@ final class AuthStore {
                 group.cancelAll()
                 return result
             }
+            // A keychain-restored session is trusted by the SDK without any server
+            // check, so a deleted/revoked user whose access token hasn't expired yet
+            // stays "signed in" indefinitely (and never sees the login screen).
+            // Validate it against the server before trusting it.
+            try await validateRestoredSession()
             setSignedIn(session: session)
         } catch {
-            FlynnLog.auth.info("No active session on launch")
+            FlynnLog.auth.info("No valid session on launch: \(error.localizedDescription, privacy: .public)")
+            // Clear any stale keychain session locally so the user lands on login.
+            try? await client.auth.signOut(scope: .local)
             state = .signedOut
         }
 
@@ -69,6 +76,31 @@ final class AuthStore {
 
     private func setSignedIn(session: Session) {
         state = .signedIn(userID: session.user.id, email: session.user.email)
+    }
+
+    /// Confirms the restored session still maps to a live user server-side by
+    /// fetching `/auth/v1/user`. Throws on a genuine auth rejection (user deleted
+    /// or token revoked) so the caller signs out; swallows transient/offline
+    /// failures so a flaky-network launch keeps the cached session.
+    private func validateRestoredSession() async throws {
+        do {
+            _ = try await withThrowingTaskGroup(of: User.self) { group in
+                group.addTask { try await self.client.auth.user() }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(6))
+                    throw CancellationError()
+                }
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
+        } catch is CancellationError {
+            return                              // validation timed out — trust cached session
+        } catch let error as URLError {
+            FlynnLog.auth.info("Session validation offline (\(error.code.rawValue, privacy: .public)); keeping cached session")
+            return                              // offline — don't kick the user
+        }
+        // Any other error (user not found / token revoked) propagates → sign out.
     }
 
     // MARK: - Public actions
@@ -134,15 +166,46 @@ final class AuthStore {
         }
     }
 
-    /// Called when the OS delivers `flynnai://auth/callback?code=...` (email
-    /// confirmation, magic link, password reset). Exchanges the URL for a
-    /// Supabase session.
+    /// Called when the OS delivers `flynnai://auth/callback?...`. Handles two flows:
+    ///  - Frictionless app sign-in: a `token_hash` magic link texted to the user by
+    ///    Flynn (no OTP typed) → exchanged via `verifyOTP(tokenHash:)`.
+    ///  - Legacy implicit flow (email confirmation / password reset) carrying a
+    ///    `code`/fragment → exchanged via `session(from:)`.
+    /// On success the auth state listener transitions the store to `.signedIn`.
     func handleAuthCallback(url: URL) async {
         guard url.absoluteString.hasPrefix("flynnai://auth/callback") else { return }
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let tokenHash = components?.queryItems?.first(where: { $0.name == "token_hash" })?.value
+
         await run {
-            try await self.client.auth.session(from: url)
+            if let tokenHash, !tokenHash.isEmpty {
+                _ = try await self.client.auth.verifyOTP(tokenHash: tokenHash, type: .magiclink)
+            } else {
+                try await self.client.auth.session(from: url)
+            }
             self.awaitingEmailConfirmation = false
         }
+    }
+
+    /// Asks the backend to text a single-use sign-in link to `phone`. Used by the
+    /// entry screen's "text me a link" path. No OTP — receipt of the link on that
+    /// phone is the proof of identity.
+    func requestAppLink(phone: String) async -> Bool {
+        var ok = false
+        await run {
+            let url = FlynnEnv.flynnAPIBaseURL.appendingPathComponent("api/auth/app-link")
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["phone": phone])
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
+                throw NSError(domain: "FlynnAuth", code: 1, userInfo: [NSLocalizedDescriptionKey: msg ?? "Couldn't send the link. Try again."])
+            }
+            ok = true
+        }
+        return ok
     }
 
     // MARK: - Helper

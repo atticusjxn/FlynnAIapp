@@ -18,56 +18,54 @@ struct ScreenshotDraftIntent: AppIntent {
         "Reads the message on your screen and gets replies ready in the Flynn keyboard."
     )
 
-    /// Run silently in the background — no app launch, latency hides in the switch
-    /// to the messaging app + keyboard.
     static let openAppWhenRun: Bool = false
 
-    @Parameter(title: "Screenshot", description: "The screenshot to read.", supportedContentTypes: [.image])
-    var screenshot: IntentFile
+    @Parameter(title: "Image Data", description: "Base64-encoded screenshot from the 'Base64 Encode' Shortcuts action.")
+    var imageBase64: String
 
-    /// Renders `screenshot` as an inline placeholder in the Shortcuts editor so the
-    /// "Take Screenshot" action's output attaches as a magic variable — instead of
-    /// the bare file-picker "Choose" row you get with no summary.
     static var parameterSummary: some ParameterSummary {
-        Summary("Draft a reply from \(\.$screenshot)")
+        Summary("Draft a reply from \(\.$imageBase64)")
     }
 
-    @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        // 1. OCR the screenshot on-device.
+        // Diagnostic ping — zero dependencies.
+        if let pingURL = URL(string: "https://flynnai-telephony.fly.dev/api/intent-ping") {
+            var pingReq = URLRequest(url: pingURL)
+            pingReq.httpMethod = "POST"
+            pingReq.timeoutInterval = 4
+            _ = try? await URLSession.shared.data(for: pingReq)
+        }
+
+        SharedStore.stageScreenshotDraft(.inFlight)
+
+        guard let imageData = Data(base64Encoded: imageBase64, options: .ignoreUnknownCharacters),
+              imageData.count > 1000 else {
+            SharedStore.ocrDebugLog = "bad-base64:\(imageBase64.count)chars"
+            SharedStore.stageScreenshotDraft(.unreadable)
+            return .result(dialog: "Couldn't read that screenshot — try again.")
+        }
+
         let text: String
         do {
-            text = try await ScreenshotOCR.recognizeText(from: screenshot.data)
+            text = try await KeyboardDraftClient.ocrScreenshot(imageData: imageData)
         } catch {
+            SharedStore.ocrDebugLog = "ocr-error:\(error)"
+            SharedStore.stageScreenshotDraft(.unreadable)
             return .result(dialog: "Couldn't read that screenshot — try copying the message instead.")
         }
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
+            SharedStore.ocrDebugLog = "ocr-empty"
+            SharedStore.stageScreenshotDraft(.unreadable)
             return .result(dialog: "No message text found in that screenshot.")
         }
-        let messages = [trimmed]
 
-        // 2. Generate drafts now if we can; otherwise stage the messages so the
-        //    keyboard drafts them. Either way the keyboard has work to show.
-        do {
-            let drafts = try await KeyboardDraftClient.fetchDrafts(messages: messages, source: "screenshot")
-            SharedStore.stageScreenshotDraft(
-                StagedScreenshotDraft(messages: messages, drafts: drafts)
-            )
-            return .result(dialog: "Replies are ready — open the Flynn keyboard.")
-        } catch KeyboardDraftClient.ClientError.limitReached {
-            SharedStore.stageScreenshotDraft(
-                StagedScreenshotDraft(messages: messages, limitReached: true)
-            )
-            return .result(dialog: "You're out of free drafts today — open Flynn to go unlimited.")
-        } catch {
-            // Missing token / network / decode — let the keyboard finish the draft.
-            SharedStore.stageScreenshotDraft(
-                StagedScreenshotDraft(messages: messages, needsDraft: true)
-            )
-            return .result(dialog: "Captured — open the Flynn keyboard to see your replies.")
-        }
+        SharedStore.ocrDebugLog = "ok:\(trimmed.count)c"
+        SharedStore.stageScreenshotDraft(
+            StagedScreenshotDraft(messages: [trimmed], needsDraft: true)
+        )
+        return .result(dialog: "Captured — open the Flynn keyboard.")
     }
 }
 

@@ -11,7 +11,12 @@ struct SettingsView: View {
                 NavigationLink {
                     IntegrationsView()
                 } label: {
-                    Label("Calendar & Keyboard", systemImage: "calendar.badge.plus")
+                    Label("Connected apps", systemImage: "square.stack.3d.up")
+                }
+                NavigationLink {
+                    KeyboardSetupFlow()
+                } label: {
+                    Label("Flynn Keyboard", systemImage: "keyboard")
                 }
             }
             Section("Preferences") {

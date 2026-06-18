@@ -101,10 +101,12 @@ const deriveLearnedPreferences = (pickedSamples = []) => {
  */
 const buildPrompt = ({
   businessBrainText = '',
+  rememberedContext = '',
   toneSamples = [],
   pickedSamples = [],
   messages = [],
   proposedSlots = [],
+  availabilityNote = '',
   draftCount = DEFAULT_DRAFT_COUNT,
   source = null,
 }) => {
@@ -114,9 +116,9 @@ const buildPrompt = ({
 
   if (toneSamples.length > 0) {
     systemParts.push(
-      "Match the owner's writing voice. These are examples of the owner's OWN past texts — study their slang, casing, punctuation, emoji use and vibe:",
+      "Match the owner's writing voice — their slang, casing, punctuation, emoji use and overall vibe. These are examples of the owner's OWN past texts, written in reply to DIFFERENT, unrelated conversations:",
       toneSamples.map((s, i) => `${i + 1}. "${s}"`).join('\n'),
-      'IMPORTANT: the examples above are STYLE references only. Never copy or reuse them. Every draft must directly respond to THIS customer.'
+      'Use these ONLY to copy the writing STYLE. Never reuse their words, phrases or questions — they answered other messages, not this one. For example, if a sample asks "what time?" but THIS customer already gave a time, do not ask "what time?". Each draft must answer what THIS customer actually said.'
     );
   } else {
     systemParts.push('Write in a warm, natural, casual human voice — never stiff or corporate.');
@@ -131,27 +133,51 @@ const buildPrompt = ({
     systemParts.push(businessBrainText);
   }
 
+  // Facts Flynn has remembered about THIS customer from past interactions.
+  if (rememberedContext) {
+    systemParts.push(rememberedContext);
+  }
+
   if (proposedSlots.length > 0) {
     systemParts.push(
-      `These calendar times are genuinely free — you may offer one if the customer is trying to book or asking when you can come: ${proposedSlots.join(', ')}.`
+      `These calendar times are genuinely free and checked against the owner's real calendar: ${proposedSlots.join(', ')}. If the customer is asking about availability, when you can come, or wants to book in, you MUST include at least two of these specific times in your reply (e.g. "I've got Wednesday 8am-10am free, or Thursday arvo around 2pm if that works better"). Never give a vague "I can fit you in" without naming real times.`
     );
+  }
+
+  // A concrete verdict on the exact time the customer named, checked against the
+  // owner's real calendar. Authoritative — overrides the generic time rule below.
+  if (availabilityNote) {
+    systemParts.push(availabilityNote);
   }
 
   systemParts.push(
     'Rules:',
-    '- Sound like a real person texting. Keep each reply to 1-2 short sentences.',
+    "- First work out what the customer's latest message actually needs: are they confirming or proposing a specific time, asking a question, or asking to be booked in? Reply to THAT.",
+    '- If there is a CALENDAR CHECK line above, follow it exactly — it reflects the owner\'s real availability and overrides everything else about timing.',
+    '- If the customer proposes or asks about a specific time (e.g. "does 10am suit?") and there is no CALENDAR CHECK, treat it as yes/no: confirm that time, or if it genuinely doesn\'t work suggest another. Never ask "what time?" when they already named one.',
+    '- Never ask for information the customer has already given.',
+    '- Reply length MUST match the substance of what the customer asked. A simple yes/no confirmation can be 1-2 sentences. But for anything more - availability questions, scheduling, quote requests, questions about services, or any message where the customer needs real information - write 2-4 sentences minimum. Include specifics: real times from the calendar, relevant service details, next steps, or a friendly follow-up question. One-liners like "Sure thing" or "I can do that" are NEVER acceptable when the customer asked a substantive question.',
+    '- Sound like a real person texting - warm, natural, slightly chatty. Use the occasional casual filler ("yeah", "for sure", "no worries") but always deliver actual information. Never stiff or corporate.',
+    '- NEVER use em dashes or en dashes (the long dashes like \u2014 or \u2013). Use a normal hyphen (-) or just rephrase. Em dashes are a dead giveaway for AI-written text.',
     '- Be helpful and move toward booking the job, but never pushy.',
     '- Only use pricing/services/hours from the business info above. Never invent prices or promises.',
     '- Do not include placeholders like [name]; write a complete, send-ready message.',
-    `Respond with ONLY a JSON object of the form {"drafts": ["reply 1", "reply 2", ...]} containing EXACTLY ${draftCount} distinct reply options. No other keys, no prose, no markdown.`
+    `When the customer is asking about a service, job, booking, or availability, make the ${draftCount} drafts meaningfully different in what they lead with and include:\n- Draft 1 (availability-led): open with 2-3 real specific times you can do it (from the calendar slots above if provided), then briefly confirm the job\n- Draft 2 (pricing-led): open with the likely cost or price range from your business info, then mention you're available\n- Draft 3 (full detail): the complete reply with specific times + price/service details + acknowledge the exact job they described. This should be the longest draft (3-5 sentences).\n- Draft 4 (brief): short and warm, just confirm you can help with one key anchor (either a time OR a price, whichever is more useful, not both)\nFor simple confirmations or non-service messages, vary by length and warmth instead of content.`,
+    `First, in a "read" field, state in a few words what the customer's latest message needs (e.g. "confirming 10am", "asking for a quote"). Then give the replies.`,
+    'If — and ONLY if — the conversation shows a specific appointment time has actually been AGREED (the customer named a concrete day+time and the reply is confirming it), also include a "booking" object describing the job for a calendar entry: {"customer": who the job is for if clearly named, "service": what the job is in a few words if clear, "location": the address if clearly stated}. Omit any field you are unsure about, and omit "booking" entirely if no firm time was agreed. Never invent a name, service or address. (The time itself is taken from the calendar, not from you.)',
+    `Respond with ONLY a JSON object of the form {"read": "...", "drafts": ["reply 1", ...], "booking": {...}} where "drafts" contains EXACTLY ${draftCount} distinct reply options and "booking" is optional. No other keys, no prose, no markdown.`
   );
 
   // Screenshot captures contain the whole visible conversation (both sides + app
   // chrome); clipboard captures are just the customer's copied message(s).
   const userText = source === 'screenshot'
     ? [
-        "This is the text Flynn read from a screenshot of the conversation — it may include BOTH the customer's messages and the owner's own earlier replies, plus app chrome like names and timestamps. Focus on the latest customer message and draft the owner's next reply:",
+        'The following is raw OCR text from a screenshot of a messaging app. It includes the full visible conversation — use it all as context so the reply doesn\'t repeat things already covered.',
+        'Ignore UI chrome (phone status bar, app navigation bar, contact name header, timestamps, "iMessage"/"Send" labels — anything that isn\'t a spoken message).',
+        'The conversation has two participants: the CUSTOMER and the OWNER (you are drafting the owner\'s reply). The owner\'s messages may be prefixed with "Me:" or appear on the right. Reply to the LATEST customer message, informed by the full conversation above it.',
+        '---',
         messages.join('\n'),
+        '---',
       ].join('\n')
     : [
         'The customer sent the following (it may arrive in fragments — treat it as one conversation):',
@@ -190,6 +216,31 @@ const parseDrafts = (content, draftCount) => {
 };
 
 /**
+ * Pull the optional "booking" metadata out of the model's JSON response. Purely
+ * descriptive enrichment for a calendar entry (customer/service/location) — the
+ * agreed TIME is never taken from here. Returns null when absent/garbage.
+ */
+const parseBooking = (content) => {
+  if (typeof content !== 'string') return null;
+  let obj;
+  try {
+    obj = JSON.parse(content);
+  } catch (_) {
+    const match = content.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try { obj = JSON.parse(match[0]); } catch (_) { return null; }
+  }
+  const b = obj?.booking;
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return null;
+  const str = (v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 120) : undefined);
+  const out = {};
+  if (str(b.customer)) out.customer = str(b.customer);
+  if (str(b.service)) out.service = str(b.service);
+  if (str(b.location)) out.location = str(b.location);
+  return Object.keys(out).length ? out : null;
+};
+
+/**
  * Generate reply drafts. Pure async function — no DB access here so it can be
  * unit-tested and reused. Caller supplies the profile row, tone samples, the
  * accumulated customer messages, and any proposed slots.
@@ -203,6 +254,8 @@ const generateDrafts = async ({
   pickedSamples = [],
   messages = [],
   proposedSlots = [],
+  availabilityNote = '',
+  rememberedContext = '',
   draftCount = DEFAULT_DRAFT_COUNT,
   source = null,
 } = {}) => {
@@ -217,10 +270,12 @@ const generateDrafts = async ({
   const businessBrainText = formatBusinessContext(profileRowToContext(profileRow));
   const { system, user } = buildPrompt({
     businessBrainText,
+    rememberedContext,
     toneSamples,
     pickedSamples,
     messages: cleanedMessages,
     proposedSlots,
+    availabilityNote,
     draftCount,
     source,
   });
@@ -230,7 +285,7 @@ const generateDrafts = async ({
     // Validated defaults for the drafting task (see flynn_draft_model memory).
     enable_thinking: false,
     temperature: 0.8,
-    max_tokens: 500,
+    max_tokens: 1200,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -240,7 +295,8 @@ const generateDrafts = async ({
 
   const content = response?.choices?.[0]?.message?.content ?? '';
   const drafts = parseDrafts(content, draftCount);
-  return { drafts, usage: response?.usage ?? null };
+  const booking = parseBooking(content);
+  return { drafts, booking, usage: response?.usage ?? null };
 };
 
 module.exports = {
@@ -249,5 +305,6 @@ module.exports = {
   deriveLearnedPreferences,
   buildPrompt,
   parseDrafts,
+  parseBooking,
   generateDrafts,
 };

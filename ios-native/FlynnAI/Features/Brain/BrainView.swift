@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Brain tab — the business knowledge Flynn cites in drafts. Saves in the shape
 /// the backend draft formatter consumes (see BrainStore).
@@ -17,13 +18,19 @@ struct BrainView: View {
 
             Section {
                 ForEach($store.services) { $svc in
-                    HStack {
-                        TextField("Service", text: $svc.name)
-                        TextField("Price", text: $svc.priceRange)
-                            .keyboardType(.numbersAndPunctuation)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 120)
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Service name", text: $svc.name)
+                        HStack(spacing: 8) {
+                            TextField("Price", text: $svc.priceRange)
+                                .keyboardType(.numbersAndPunctuation)
+                            Text("·")
+                                .foregroundColor(FlynnColor.textTertiary)
+                            TextField("Duration (e.g. 1-2 hrs)", text: $svc.typicalDuration)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(FlynnColor.textSecondary)
                     }
+                    .padding(.vertical, 2)
                 }
                 .onDelete { store.services.remove(atOffsets: $0) }
                 Button {
@@ -76,6 +83,26 @@ struct BrainView: View {
             }
 
             Section {
+                NavigationLink {
+                    RememberedContextView()
+                } label: {
+                    Label("What Flynn remembers", systemImage: "sparkles")
+                }
+                NavigationLink {
+                    QuoteStyleView()
+                } label: {
+                    Label("Your quote style", systemImage: "doc.text.magnifyingglass")
+                }
+                NavigationLink {
+                    CaptureHistoryView()
+                } label: {
+                    Label("Screenshot captures", systemImage: "camera.viewfinder")
+                }
+            } footer: {
+                Text("Facts Flynn has learned about your customers, how you quote, and your screenshot capture history — woven into future replies and quotes.")
+            }
+
+            Section {
                 TextField("https://yourbusiness.com", text: $store.websiteURL)
                     .textContentType(.URL)
                     .autocapitalization(.none)
@@ -99,15 +126,29 @@ struct BrainView: View {
             }
         }
         .navigationTitle("Brain")
+        .scrollDismissesKeyboard(.immediately)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Save") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil
+                    )
                     Task {
                         await store.save()
                         flash.success("Saved")
                     }
                 }
                 .disabled(store.saving)
+            }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil
+                    )
+                }
             }
         }
         .task { await store.load() }

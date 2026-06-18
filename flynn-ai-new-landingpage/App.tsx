@@ -13,13 +13,18 @@ import Contact from './pages/Contact';
 import Trial from './pages/Trial';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Integrations from './pages/Integrations';
 import Setup from './pages/Setup';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import Sprint from './pages/Sprint';
 import DashboardLayout from './components/DashboardLayout';
 
 import Features from './components/Features';
 import InstagramAd from './components/InstagramAd';
+import SettingsPage from './pages/app/SettingsPage';
+import AppLayout from './components/AppLayout';
+import { Navigate } from 'react-router-dom';
 
 // Component to handle external scripts like Analytics
 const Analytics = () => {
@@ -56,12 +61,22 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/instagram-ad" element={<InstagramAd />} />
 
+          {/* Founder content-sprint checklist — standalone, mobile, add-to-homescreen */}
+          <Route path="/sprint" element={<Sprint />} />
+
           <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
+          <Route path="/dashboard/integrations" element={<DashboardLayout><Integrations /></DashboardLayout>} />
           <Route path="/dashboard/setup" element={<DashboardLayout><Setup /></DashboardLayout>} />
           <Route path="/dashboard/*" element={<DashboardLayout><Dashboard /></DashboardLayout>} /> {/* Fallback for other dashboard items */}
 
           {/* Demo runs outside the main layout if needed, or inside. Keeping outside as it might have its own chrome */}
           <Route path="/demo" element={<DemoContainer />} />
+
+          {/* In-app settings — no marketing chrome, SSO token handoff from Mac app */}
+          <Route element={<SettingsPage />}>
+            <Route path="/app/settings" element={<Navigate to="/app/settings/business-brain" replace />} />
+            <Route path="/app/settings/:section" element={<AppLayout />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </HelmetProvider >

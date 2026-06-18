@@ -17,7 +17,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0.0</string>
+	<string>3.0.1</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -36,7 +36,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>88</string>
+	<string>113</string>
 	<key>FLYNN_API_BASE_URL</key>
 	<string>$(FLYNN_API_BASE_URL)</string>
 	<key>FacebookAdvertiserIDCollectionEnabled</key>
@@ -65,9 +65,9 @@
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Flynn adds your confirmed bookings to your calendar so you never miss a job.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Flynn needs your microphone to let you hear and talk to the AI receptionist demo.</string>
+	<string>Flynn uses your microphone for voice commands — hold the mic to create quotes, bookings, notes and replies by talking.</string>
 	<key>NSUserNotificationUsageDescription</key>
-	<string>Flynn notifies you when a missed call is captured or you're running low on AI minutes.</string>
+	<string>Flynn notifies you when a booking is added to your calendar or a draft is ready.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>FlynnAI uses this identifier to measure ad performance and show you more relevant ads.</string>
 	<key>SKAdNetworkItems</key>

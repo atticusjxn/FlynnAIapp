@@ -57,11 +57,19 @@ final class IntegrationsStore {
             FlynnLog.network.error("setAppleCalendar failed: \(error.localizedDescription, privacy: .public)")
         }
     }
+
+    /// Launch the Google OAuth flow. The backend persists the connection and
+    /// flips `google_calendar_connected`; reflect it locally on success.
+    func connectGoogleCalendar() async throws {
+        try await GoogleCalendarConnect.connect(client: client)
+        googleCalendarConnected = true
+    }
 }
 
 struct IntegrationsView: View {
     @Environment(FlashStore.self) private var flash
     @State private var store = IntegrationsStore()
+    @State private var isConnectingGoogle = false
 
     var body: some View {
         ScrollView {
@@ -83,17 +91,17 @@ struct IntegrationsView: View {
             .padding(FlynnSpacing.lg)
         }
         .background(FlynnColor.background)
-        .navigationTitle("Calendar & Keyboard")
+        .navigationTitle("Connected")
         .navigationBarTitleDisplayMode(.large)
         .task { await store.load() }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-            Text("Setup")
+            Text("Your apps")
                 .flynnType(FlynnTypography.overline)
                 .foregroundColor(FlynnColor.textTertiary)
-            Text("Keep Flynn connected to your calendar and keyboard")
+            Text("Connect the apps Flynn works with. Add more as you need them.")
                 .flynnType(FlynnTypography.h3)
                 .foregroundColor(FlynnColor.textPrimary)
         }
@@ -102,7 +110,7 @@ struct IntegrationsView: View {
     @ViewBuilder
     private var rows: some View {
         integrationRow(
-            icon: "calendar",
+            brand: .appleCalendar,
             title: "Apple Calendar",
             subtitle: store.appleCalendarConnected ? "Connected" : "Create events for confirmed bookings",
             toggle: Binding(
@@ -114,31 +122,68 @@ struct IntegrationsView: View {
             )
         )
 
-        integrationRow(
-            icon: "globe",
-            title: "Google Calendar",
-            subtitle: store.googleCalendarConnected
-                ? "Connected"
-                : "Sync confirmed bookings to your Google Calendar",
-            toggle: .constant(store.googleCalendarConnected),
-            disabled: true  // one-tap OAuth initiation lands in follow-up
-        )
+        googleRow
 
         keyboardRow
     }
 
+    private var googleRow: some View {
+        Button {
+            guard !store.googleCalendarConnected, !isConnectingGoogle else { return }
+            isConnectingGoogle = true
+            Task {
+                do {
+                    try await store.connectGoogleCalendar()
+                    flash.success("Google Calendar connected")
+                } catch GoogleCalendarConnect.ConnectError.cancelled {
+                    // User backed out of the sheet — stay quiet.
+                } catch {
+                    flash.error(error.localizedDescription)
+                }
+                isConnectingGoogle = false
+            }
+        } label: {
+            HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+                IntegrationLogoView(brand: .googleCalendar)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Google Calendar")
+                        .flynnType(FlynnTypography.h4)
+                        .foregroundColor(FlynnColor.textPrimary)
+                    Text(store.googleCalendarConnected
+                         ? "Connected"
+                         : "Offer real open slots and drop confirmed bookings onto your calendar")
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textSecondary)
+                }
+                Spacer()
+                if isConnectingGoogle {
+                    ProgressView()
+                } else {
+                    Image(systemName: store.googleCalendarConnected ? "checkmark.circle.fill" : "chevron.right")
+                        .foregroundColor(store.googleCalendarConnected ? FlynnColor.success : FlynnColor.textTertiary)
+                }
+            }
+            .padding(FlynnSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                    .fill(FlynnColor.backgroundSecondary)
+            )
+            .brutalistBorder(cornerRadius: FlynnRadii.md)
+        }
+        .buttonStyle(.plain)
+        .disabled(store.googleCalendarConnected)
+    }
+
     private func integrationRow(
-        icon: String,
+        brand: IntegrationBrand,
         title: String,
         subtitle: String,
         toggle: Binding<Bool>,
         disabled: Bool = false
     ) -> some View {
         HStack(alignment: .top, spacing: FlynnSpacing.sm) {
-            Image(systemName: icon)
-                .font(.system(size: 22))
-                .foregroundColor(disabled ? FlynnColor.textTertiary : FlynnColor.primary)
-                .frame(width: 32)
+            IntegrationLogoView(brand: brand)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .flynnType(FlynnTypography.h4)
@@ -169,10 +214,7 @@ struct IntegrationsView: View {
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
         } label: {
             HStack(alignment: .top, spacing: FlynnSpacing.sm) {
-                Image(systemName: "keyboard")
-                    .font(.system(size: 22))
-                    .foregroundColor(keyboardAdded ? FlynnColor.success : FlynnColor.primary)
-                    .frame(width: 32)
+                IntegrationLogoView(brand: .flynnKeyboard)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Flynn keyboard")
                         .flynnType(FlynnTypography.h4)
