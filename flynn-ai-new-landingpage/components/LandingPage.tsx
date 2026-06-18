@@ -302,8 +302,14 @@ export default function LandingPage() {
                 invoice henderson for today, $640, here's the before and afters
               </div>
               <div className="ml-auto flex gap-2 justify-end">
-                <div className="w-[72px] h-[72px] rounded-xl border-[3px] border-[#2C2018] bg-[#7C6F4F] shadow-[3px_3px_0_0_#2C2018] grid place-items-end p-1.5"><span className="text-[9px] text-white bg-black/35 rounded px-1.5 py-0.5">Before</span></div>
-                <div className="w-[72px] h-[72px] rounded-xl border-[3px] border-[#2C2018] bg-[#3F9B54] shadow-[3px_3px_0_0_#2C2018] grid place-items-end p-1.5"><span className="text-[9px] text-white bg-black/35 rounded px-1.5 py-0.5">After</span></div>
+                <div className="relative w-[92px] h-[92px] rounded-xl border-[3px] border-[#2C2018] shadow-[3px_3px_0_0_#2C2018] overflow-hidden">
+                  <img src="/before.jpg" alt="Before — overgrown side passage" className="w-full h-full object-cover" loading="lazy" />
+                  <span className="absolute bottom-1 left-1 text-[9px] font-semibold text-white bg-black/45 rounded px-1.5 py-0.5">Before</span>
+                </div>
+                <div className="relative w-[92px] h-[92px] rounded-xl border-[3px] border-[#2C2018] shadow-[3px_3px_0_0_#2C2018] overflow-hidden">
+                  <img src="/after.jpg" alt="After — cleared and raked" className="w-full h-full object-cover" loading="lazy" />
+                  <span className="absolute bottom-1 left-1 text-[9px] font-semibold text-white bg-black/45 rounded px-1.5 py-0.5">After</span>
+                </div>
               </div>
               {/* Flynn emails the invoice */}
               <div className="max-w-[88%] bg-[#FFFBF4] border-[3px] border-[#2C2018] rounded-2xl rounded-bl-md px-4 py-3 shadow-[4px_4px_0_0_#2C2018]">
