@@ -21,6 +21,7 @@ const googleCalendar = require('../googleCalendar');
 const appleCalendar = require('../appleCalendar');
 const xeroReceivables = require('../xeroReceivables');
 const imapEmail = require('../imapEmail');
+const photoInvoice = require('../photoInvoice');
 
 const GMAIL_BASE = 'https://gmail.googleapis.com/gmail/v1';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4';
@@ -703,6 +704,61 @@ async function updateQuote(ctx, args) {
 }
 
 // ---------------------------------------------------------------------------
+// Photo invoices — Flynn renders its own invoice with the job photos the user
+// texted embedded, returns a hosted link to forward, and (best-effort) mirrors
+// the invoice into Xero so the books match. Phone-keyed (agent_invoices), so
+// no third-party connection is required to send one (auth_kind: none).
+// ---------------------------------------------------------------------------
+async function createPhotoInvoice(ctx, args) {
+  const clientName = requireArg(args, 'client_name', 'who the invoice is for');
+  const totalCents = photoInvoice.computeTotalCents(args);
+  if (!Number.isFinite(totalCents) || totalCents <= 0) {
+    throw new ToolArgError('need a total — pass amount_cents, or line_items each with amount_cents');
+  }
+  let lineItems = Array.isArray(args.line_items) ? args.line_items.filter((li) => li && li.description) : [];
+  if (!lineItems.length) lineItems = [{ description: args.description || 'work completed', amount_cents: totalCents }];
+
+  const photos = await photoInvoice.takeBufferedPhotos({ supabase: ctx.supabase, userPhone: ctx.phone });
+  const { invoice, url } = await photoInvoice.saveInvoice(ctx, {
+    clientName,
+    clientHandle: String(clientName).toLowerCase().trim(),
+    clientEmail: args.client_email || null,
+    lineItems,
+    totalCents,
+    message: args.message || null,
+    dueDate: args.due_date || null,
+    photoUrls: photos.map((p) => p.url),
+  });
+
+  // Best-effort mirror to Xero so the books match — non-blocking, never holds
+  // up the link, and only fires if the user has a Xero login on file.
+  let xeroNote = '';
+  const xeroCreds = ctx.userIntegrations?.xero;
+  if (xeroCreds?.email && xeroCreds?.password) {
+    xeroNote = ' (logging it to your xero too)';
+    const description = args.description || lineItems.map((li) => li.description).join(', ');
+    browserbase.xeroInvoice(xeroCreds, {
+      clientName,
+      clientEmail: args.client_email,
+      description,
+      amountCents: totalCents,
+      date: new Date().toISOString().slice(0, 10),
+    }).then(
+      () => ctx.supabase?.from('agent_invoices').update({ xero_synced: true }).eq('id', invoice.id),
+      (e) => console.warn('[photo-invoice] xero mirror failed:', e?.message),
+    );
+  }
+
+  const amount = money(totalCents, ctx.currency);
+  const n = photos.length;
+  const photoBit = n ? ` with ${n} photo${n > 1 ? 's' : ''}` : '';
+  return {
+    result: `photo invoice for ${clientName} ${amount}${photoBit} created at ${url}. Give the user this link verbatim to forward to their client.`,
+    userFacing: `done. here's ${String(clientName).toLowerCase()}'s invoice for ${amount}${photoBit}, just forward it on:\n${url}${xeroNote}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Memory — passive context accumulation. The model saves any new fact or
 // preference the user states (rates, suppliers, where receipts go) so Flynn
 // never asks twice. Underscore-prefixed keys are internal bookkeeping and
@@ -1105,6 +1161,49 @@ const CAPABILITIES = [
     ],
   },
   {
+    capability: 'invoices',
+    provider: null,
+    auth_kind: 'none',
+    label: 'invoices',
+    tools: [
+      {
+        name: 'create_photo_invoice',
+        confirm: true,
+        description: "Create an invoice with the job photos the user recently texted embedded, and get a shareable link they can forward to their client. Use when the user asks to invoice a job, especially after they've sent photos. Photos sent in the last few hours attach automatically — never ask them to re-send. Pass line_items for itemised, or amount_cents for a single total (amounts are GST-inclusive).",
+        parameters: {
+          type: 'object',
+          properties: {
+            client_name: { type: 'string', description: 'who the invoice is for' },
+            amount_cents: { type: 'number', description: 'total in integer cents (GST-inclusive) if not itemised' },
+            description: { type: 'string', description: 'what the invoice is for, if not itemised' },
+            line_items: {
+              type: 'array',
+              description: 'optional itemised lines (GST-inclusive amounts)',
+              items: {
+                type: 'object',
+                properties: {
+                  description: { type: 'string' },
+                  amount_cents: { type: 'number' },
+                },
+                required: ['description'],
+              },
+            },
+            client_email: { type: 'string', description: "client's email, if known" },
+            due_date: { type: 'string', description: 'YYYY-MM-DD, optional' },
+            message: { type: 'string', description: 'optional short note to the client' },
+          },
+          required: ['client_name'],
+        },
+        executor: createPhotoInvoice,
+        confirmMessage: (args, ctx) => {
+          const total = photoInvoice.computeTotalCents(args);
+          const amt = Number.isFinite(total) ? money(total, ctx?.currency) : 'that';
+          return `i'll make ${args.client_name}'s invoice for ${amt} with the job photos and send you a link to forward. good?`;
+        },
+      },
+    ],
+  },
+  {
     capability: 'memory',
     provider: null,
     auth_kind: 'none',
@@ -1182,6 +1281,7 @@ const METERED_TOOLS = new Set([
   'xero_log_expense',
   'order_parts',
   'draft_quote',
+  'create_photo_invoice',
 ]);
 
 const TOOL_INDEX = new Map();

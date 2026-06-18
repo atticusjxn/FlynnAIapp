@@ -276,9 +276,11 @@ router.post('/inbound', async (req, res) => {
       try {
         const sharp = require('sharp');
         const { extractReceipt } = require('../services/receiptExtractor');
+        const { storeJobPhoto } = require('../services/photoInvoice');
         const MAX_IMAGES = Number(process.env.FLYNN_MAX_IMAGES_PER_MSG || 12);
         const receipts = [];
         const others = [];
+        let jobPhotoCount = 0;
 
         // Each photo is treated as its own receipt. Big iPhone/HEIC photos are
         // downscaled + re-encoded to a small legible JPEG (no hard size cap —
@@ -287,12 +289,14 @@ router.post('/inbound', async (req, res) => {
           let buf;
           try { buf = await downloadAttachment(att.guid); } catch { continue; }
           let dataUrl;
+          let jpegBuf = buf;
           try {
             const jpeg = await sharp(buf, { failOn: 'none' })
               .rotate()
               .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
               .jpeg({ quality: 82 })
               .toBuffer();
+            jpegBuf = jpeg;
             dataUrl = `data:image/jpeg;base64,${jpeg.toString('base64')}`;
           } catch {
             // Odd format sharp couldn't read — send raw unless absurdly large.
@@ -300,15 +304,30 @@ router.post('/inbound', async (req, res) => {
             dataUrl = `data:${att.mimeType || 'image/jpeg'};base64,${buf.toString('base64')}`;
           }
           const ex = await extractReceipt([dataUrl]);
-          if (ex?.is_receipt) receipts.push(ex);
-          else if (ex) others.push(ex.image_summary || 'a photo');
+          if (ex?.is_receipt) {
+            receipts.push(ex);
+          } else if (ex) {
+            const summary = ex.image_summary || 'a photo';
+            others.push(summary);
+            // Not a receipt → treat as a job photo: store it so a later
+            // "invoice the henderson job" can embed it.
+            try {
+              const stored = await storeJobPhoto({ supabase, userPhone: from, jpegBuffer: jpegBuf, summary });
+              if (stored) jobPhotoCount += 1;
+            } catch (e) {
+              console.warn('[iMessageInbound] job-photo store failed:', e?.message);
+            }
+          }
         }
 
         if (receipts.length) {
           const plural = receipts.length > 1;
           imageNote = `The user just sent ${receipts.length} receipt photo${plural ? 's' : ''}. Per-receipt extractions: ${JSON.stringify(receipts)}. Log EACH ONE to their expense destination: check their business details for expense_destination. If it's "xero", call xero_log_expense once per receipt; if it's the google sheet (or they say so), call sheets_log_expense once per receipt${plural ? ' (one tool call per receipt either way)' : ''}, using those values and don't re-ask amounts you already have. If you DON'T know where they keep expenses yet, ask once: xero, or a google sheet? Then call remember with expense_destination. (quickbooks and myob aren't hooked up yet, so if they ask for those, remember it and offer xero or the sheet meanwhile.)`;
         } else if (others.length) {
-          imageNote = `The user just sent ${others.length} photo(s) (not receipts): ${others.join('; ')}.`;
+          const savedBit = jobPhotoCount
+            ? ` ${jobPhotoCount} of them are saved and ready to attach to an invoice — if the user asks you to invoice this job, call create_photo_invoice and they'll be embedded automatically (don't ask them to re-send the photos).`
+            : '';
+          imageNote = `The user just sent ${others.length} job photo(s) (not receipts): ${others.join('; ')}.${savedBit}`;
         }
       } catch (err) {
         console.warn('[iMessageInbound] attachment processing failed:', err?.message);

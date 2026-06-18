@@ -1350,6 +1350,11 @@ if ((process.env.NANGO_SECRET_KEY || '').trim()) {
   app.use('/', connectPageRoutes);
 }
 
+// Public photo-invoice pages (/i/:token). Not gated on Nango — invoices are
+// phone-keyed and don't need any third-party connection to be viewable.
+const invoicePageRoutes = require('./routes/invoicePage');
+app.use('/', invoicePageRoutes);
+
 // ========================================
 // Frictionless app sign-in (no OTP) — text the user a single-use magic deep link
 // that opens the app already signed in. See services/authLink.js.
