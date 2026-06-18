@@ -85,24 +85,25 @@ const Card = ({ children, className = '' }: any) => (
 /* ===================== STEPS ===================== */
 const steps = [
   { n: '1', pose: 'wave', title: 'Text your number above', body: "Enter your mobile and Flynn texts you straight away. Save the contact card that arrives — that's Flynn in your phone." },
-  { n: '2', pose: 'write', title: 'Text what you need', body: "Order parts, draft a quote, send an invoice, book a job. Just text it in plain English. No app to navigate." },
+  { n: '2', pose: 'write', title: 'Text what you need', body: "Draft a quote, send an invoice, chase a late payment, book a job. Just text it in plain English. No app to navigate." },
   { n: '3', pose: 'thumbsup', title: "Flynn handles it, you confirm", body: "Flynn does the work and checks in before anything moves. You're always in the loop, always in control." },
 ];
 
 /* ===================== FEATURES ===================== */
 const features = [
-  { pose: 'write', tint: '#3C8A86', title: 'Drafts that sound like you', body: 'Paste a client message and get a reply in your actual voice — your slang, your sign-offs, your prices.' },
-  { pose: 'phone', tint: '#E0A436', title: 'Books jobs in your calendar', body: 'Tell Flynn to book a job and it checks your real availability, locks it in, and confirms with the client.' },
-  { pose: 'thinking', tint: '#C5532B', title: 'Knows your business', body: 'Your services, prices, suppliers, and clients live in Flynn\'s brain. Every quote and order comes out right.' },
+  { pose: 'write', tint: '#3C8A86', title: 'Invoices with the photos on them', body: 'Text Flynn the job and a couple of before/after pics. It sends a proper invoice with the photos right on it, ready to forward.' },
+  { pose: 'phone', tint: '#E0A436', title: 'Gets you paid by bank', body: 'Your client taps Pay and pays straight from their bank account. The money lands in yours, and Flynn tells you the second it does.' },
+  { pose: 'thinking', tint: '#C5532B', title: 'Chases the late ones', body: 'Flynn follows up on the unpaid invoices for you, so the money you\'re owed actually turns up without the awkward texts.' },
 ];
 
 /* ===================== FAQ ===================== */
 const faqs = [
   { q: 'How does Flynn work?', a: "Get your Flynn number from the app and save it as a contact on your phone. Then just text it what you need — order parts, draft a quote, send an invoice, book a job. Flynn handles it and confirms with you before anything moves." },
-  { q: 'What can I ask Flynn to do?', a: "Order from your trade suppliers, write and send invoices in Xero, draft quotes and replies in your voice, book jobs in your calendar, and more. If you'd normally have to stop what you're doing and open a computer — Flynn handles it from a text." },
+  { q: 'What can I ask Flynn to do?', a: "Send invoices with the job photos on them, get paid by bank, chase late payments, draft quotes and replies in your voice, book jobs in your calendar, order from your trade suppliers, and file receipts to your accounting. If you'd normally stop and open a computer for it — Flynn handles it from a text." },
+  { q: 'How do my clients pay me?', a: "Every invoice Flynn sends has a Pay button. Your client taps it and pays straight from their bank account — no card fees, and the money lands in yours in seconds. Flynn tells you the moment it's paid and stops chasing it." },
   { q: 'Does Flynn send things on its own?', a: "Never. Flynn drafts and asks before anything moves. Order parts? It shows you the cart total first. Send an invoice? It confirms before hitting send. You're always in the loop." },
   { q: 'Do I need to set anything up?', a: "Just a few minutes to tell Flynn your business basics: your services, prices, and which suppliers you use. After that, every text gets smarter." },
-  { q: 'What does it cost?', a: 'Free to start. Pro is unlimited actions, full voice tuning, supplier ordering, and accounting integrations, with a 14-day free trial.' },
+  { q: 'What does it cost?', a: 'Free to start. Pro is unlimited actions, invoices with photos, getting paid by bank, auto-chasing late payments, supplier ordering and accounting sync, with a 14-day free trial.' },
   { q: 'Is my data safe?', a: "Flynn only knows what you tell it. No scanning your contacts, no reading your messages. You control what it has access to." },
 ];
 
@@ -129,10 +130,10 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto px-5 sm:px-8 pt-10 pb-20 lg:py-24 grid lg:grid-cols-2 gap-12 items-center">
           <Reveal>
             <h1 className="font-display font-bold leading-[0.98] text-[clamp(2.6rem,7vw,4.6rem)] tracking-tight">
-              Text Flynn.<br /><span className="text-[#FB5B1E]">Get it done.</span>
+              Your admin,<br /><span className="text-[#FB5B1E]">done by text.</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-[#5A4A3C] max-w-xl leading-relaxed">
-              Your own iMessage business brain. Order parts, draft quotes, send invoices, book jobs — all from a text.
+              Flynn runs the money side of your business from one text thread — quotes, invoices, chasing late payments, receipts, and getting you paid. No app. No data entry. You just text it like a mate.
             </p>
             <p className="mt-5 text-sm font-medium text-[#8C7B6A]">Free to start · You confirm before anything moves · AU &amp; NZ</p>
           </Reveal>
@@ -192,7 +193,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-5 sm:px-8">
           <Reveal className="max-w-2xl mb-16">
             <SectionLabel>What Flynn can do</SectionLabel>
-            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">Order, invoice, quote, book — from your messages</h2>
+            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">From job done to money in the bank — by text</h2>
           </Reveal>
           <div className="grid md:grid-cols-3 gap-6">
             {features.map((f, i) => (
@@ -269,6 +270,60 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ===================== GET PAID ===================== */}
+      <section id="getpaid" className="relative py-20 sm:py-28 bg-[#FFFBF4] border-y-[3px] border-[#2C2018]">
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 grid lg:grid-cols-2 gap-12 items-center">
+          <Reveal>
+            <SectionLabel>Get paid</SectionLabel>
+            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.4rem)] leading-tight">Send the invoice. <span className="text-[#FB5B1E]">Get paid by bank.</span></h2>
+            <p className="mt-6 text-lg text-[#5A4A3C] leading-relaxed max-w-lg">
+              Text Flynn the job and a few photos. It sends your client an invoice with the before-and-afters on it and a Pay button. They pay straight from their bank, and Flynn lets you know the moment the money lands.
+            </p>
+            <ul className="mt-7 space-y-4">
+              <li className="flex items-start gap-3">
+                <span className="mt-0.5 text-xl">📸</span>
+                <span className="text-[#2C2018]">The <span className="font-semibold">photos from the job</span> go right on the invoice — proof your client's happy to share.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="mt-0.5 text-xl">🏦</span>
+                <span className="text-[#2C2018]">One tap to <span className="font-semibold text-[#FB5B1E]">pay by bank</span> — no card fees, money in your account in seconds.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="mt-0.5 text-xl">✅</span>
+                <span className="text-[#2C2018]">Flynn <span className="font-semibold">marks it paid and stops chasing</span> the second it clears.</span>
+              </li>
+            </ul>
+          </Reveal>
+
+          <Reveal delay={0.1} className="flex justify-center">
+            <div className="w-full max-w-sm space-y-3">
+              {/* user texts Flynn the job + photos */}
+              <div className="ml-auto max-w-[88%] bg-[#007AFF] text-white border-[3px] border-[#2C2018] rounded-2xl rounded-br-md px-4 py-3 shadow-[4px_4px_0_0_#2C2018]">
+                invoice henderson for today, $640, here's the before and afters
+              </div>
+              <div className="ml-auto flex gap-2 justify-end">
+                <div className="w-[72px] h-[72px] rounded-xl border-[3px] border-[#2C2018] bg-[#7C6F4F] shadow-[3px_3px_0_0_#2C2018] grid place-items-end p-1.5"><span className="text-[9px] text-white bg-black/35 rounded px-1.5 py-0.5">Before</span></div>
+                <div className="w-[72px] h-[72px] rounded-xl border-[3px] border-[#2C2018] bg-[#3F9B54] shadow-[3px_3px_0_0_#2C2018] grid place-items-end p-1.5"><span className="text-[9px] text-white bg-black/35 rounded px-1.5 py-0.5">After</span></div>
+              </div>
+              {/* Flynn sends the invoice */}
+              <div className="max-w-[88%] bg-[#FFFBF4] border-[3px] border-[#2C2018] rounded-2xl rounded-bl-md px-4 py-3 shadow-[4px_4px_0_0_#2C2018]">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[#FB5B1E] flex items-center gap-1.5 mb-1">✓ invoice sent · photos attached</span>
+                sent henderson an invoice for $640 with the photos on it. forward it on:
+                <span className="block mt-1 font-medium text-[#007AFF] underline decoration-[#007AFF]/30">flynnai.app/i/h7x2k9</span>
+              </div>
+              {/* paid event card */}
+              <div className="bg-[#2C2018] text-[#F4E6CE] rounded-2xl p-4 flex items-center gap-3 shadow-[4px_4px_0_0_#000]">
+                <div className="w-10 h-10 rounded-full bg-[#1FA36B] grid place-items-center text-white text-lg font-bold shrink-0">$</div>
+                <div className="flex-1">
+                  <p className="font-display font-bold text-[15px] flex items-center gap-2"><span className="text-[#7CD992]">✓</span> Henderson paid you $640</p>
+                  <p className="text-sm text-[#F4E6CE]/70">Paid by bank · just now · marked paid</p>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ===================== SHOWCASE — what can I text Flynn? ===================== */}
       <section className="relative py-20 sm:py-28">
         <Motifs variant={2} />
@@ -277,11 +332,11 @@ export default function LandingPage() {
             <div className="w-full max-w-sm space-y-3 relative">
               <Mascot pose="peek" className="absolute -bottom-8 -left-10 w-24 sm:w-28 drop-shadow-xl" />
               {[
-                "order 20 copper fittings from Reece asap",
-                "invoice Dave McKenzie for today, 3hrs + $180 parts",
+                "invoice henderson for today, $640 + the before/afters",
+                "chase the McKenzie invoice, it's a week overdue",
                 "draft a quote for Sarah, full kitchen repaint",
-                "book Henderson job Thursday 2pm, 3 hours",
-                "text receipt photo to Xero",
+                "order 20 copper fittings from Reece asap",
+                "book Henderson job Thursday 2pm",
               ].map((msg, i) => (
                 <div key={i} className="ml-auto max-w-[92%] bg-[#007AFF] text-white border-[3px] border-[#2C2018] rounded-2xl rounded-br-md px-4 py-3 shadow-[4px_4px_0_0_#2C2018] text-[15px]">
                   {msg}
@@ -294,11 +349,12 @@ export default function LandingPage() {
             <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.4rem)] leading-tight">If you'd normally open a laptop for it,<br /><span className="text-[#FB5B1E]">text Flynn instead.</span></h2>
             <ul className="mt-6 space-y-3">
               {[
-                'Order parts from your trade suppliers',
-                'Draft and send invoices',
+                'Send invoices with the job photos on them',
+                'Get paid by bank, right from the invoice',
+                'Chase the late payments for you',
                 'Write quotes and replies in your voice',
-                'Book jobs in your calendar',
-                'Text receipts straight to Xero',
+                'Order parts from your trade suppliers',
+                'Book jobs · file receipts to Xero',
               ].map(t => (
                 <li key={t} className="flex items-start gap-3 text-[#2C2018] font-medium">
                   <span className="mt-1 w-5 h-5 rounded-full bg-[#FB5B1E] text-white grid place-items-center text-xs shrink-0">✓</span>{t}
@@ -345,7 +401,7 @@ export default function LandingPage() {
                 <p className="font-display font-bold text-5xl mt-2">Unlimited</p>
                 <p className="text-white/80 mt-1 mb-6">for when it's part of your day</p>
                 <ul className="space-y-3">
-                  {['Unlimited actions', 'Supplier ordering', 'Invoicing and accounting sync', 'Full voice tuning', 'Your business brain (prices, hours, suppliers)'].map(t => (
+                  {['Unlimited actions', 'Invoices with photos + get paid by bank', 'Auto-chase unpaid invoices', 'Supplier ordering + accounting sync', 'Full voice tuning + your business brain'].map(t => (
                     <li key={t} className="flex gap-3"><span className="font-bold">✓</span>{t}</li>
                   ))}
                 </ul>
@@ -379,7 +435,7 @@ export default function LandingPage() {
               Your business runs from your phone.<br /><span className="text-[#FB5B1E]">Flynn makes it work for you.</span>
             </h2>
             <p className="mt-5 text-lg sm:text-xl text-[#5A4A3C] max-w-xl mx-auto">
-              Order parts, send invoices, book jobs — all from a text.
+              Quote it, invoice it, get paid — all from a text.
             </p>
             <div className="mt-8 flex justify-center"><StoreButtons /></div>
           </Reveal>
