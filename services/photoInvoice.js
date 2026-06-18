@@ -196,13 +196,16 @@ function renderInvoiceHTML(inv, business = {}) {
   } else if (inv.stripe_payment_url) {
     payBlock = `<a class="btn" href="${esc(inv.stripe_payment_url)}">Pay now · ${moneyFull(inv.total_cents, currency)}</a>`;
   } else if (bankBsb && bankAcct) {
+    const cp = (v) => `<button type="button" class="cp" data-c="${esc(v)}">${esc(v)}</button>`;
+    const amtPlain = (Math.round(inv.total_cents) / 100).toFixed(2);
     payBlock = `<div class="bank">
-          <div class="bank-h">Pay by bank transfer</div>
-          <div class="bank-row"><span>Name</span><span>${esc(bankName)}</span></div>
-          <div class="bank-row"><span>BSB</span><span>${esc(bankBsb)}</span></div>
-          <div class="bank-row"><span>Account</span><span>${esc(bankAcct)}</span></div>
-          ${payid ? `<div class="bank-row"><span>PayID</span><span>${esc(payid)}</span></div>` : ''}
-          <div class="bank-row"><span>Reference</span><span>${esc(ref)}</span></div>
+          <div class="bank-h">Pay by bank transfer <span class="bank-hint">tap a value to copy</span></div>
+          <div class="bank-row"><span>Name</span>${cp(bankName)}</div>
+          <div class="bank-row"><span>BSB</span>${cp(bankBsb)}</div>
+          <div class="bank-row"><span>Account</span>${cp(bankAcct)}</div>
+          ${payid ? `<div class="bank-row"><span>PayID</span>${cp(payid)}</div>` : ''}
+          <div class="bank-row"><span>Amount</span>${cp(amtPlain)}</div>
+          <div class="bank-row"><span>Reference</span>${cp(ref)}</div>
         </div>`;
   } else if (business.payment_details) {
     payBlock = `<div class="bank"><div class="bank-h">Payment</div><div class="paytext">${esc(business.payment_details)}</div></div>`;
@@ -254,6 +257,10 @@ ${ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />` : ''}
   .bank-h { font-size:12px; font-weight:600; color:#555; margin-bottom:6px; }
   .bank-row { display:flex; justify-content:space-between; gap:12px; font-size:13px; color:#3a3a3a; padding:3px 0; }
   .bank-row span:first-child { color:var(--muted); }
+  .bank-hint { font-weight:400; color:#b0b0b0; font-size:10.5px; }
+  .cp { background:none; border:none; padding:0; margin:0; font:inherit; font-weight:500; color:#1c1c1c;
+    cursor:pointer; text-decoration:underline; text-decoration-color:#dcdcdc; text-underline-offset:3px; }
+  .cp.ok { color:#1F7A4D; text-decoration:none; }
   .paytext { font-size:13px; color:#3a3a3a; line-height:1.5; }
   .ghost { display:block; width:100%; text-align:center; margin-top:9px; background:none; border:1px solid var(--line);
     color:#555; font-size:13px; font-weight:500; padding:11px; border-radius:11px; cursor:pointer; }
@@ -290,6 +297,15 @@ ${ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />` : ''}
     </div>
     <div class="foot">Sent via Flynn</div>
   </div>
+  <script>
+    function cpFallback(t, done){ try{ var ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, t.length); document.execCommand('copy'); document.body.removeChild(ta); done(); }catch(e){} }
+    document.addEventListener('click', function(e){
+      var b = e.target.closest && e.target.closest('.cp'); if(!b) return;
+      var t = b.getAttribute('data-c'); var o = b.textContent;
+      function done(){ b.classList.add('ok'); b.textContent='copied'; setTimeout(function(){ b.classList.remove('ok'); b.textContent=o; }, 1200); }
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done, function(){ cpFallback(t, done); }); } else { cpFallback(t, done); }
+    });
+  </script>
 </body>
 </html>`;
 }

@@ -752,9 +752,12 @@ async function createPhotoInvoice(ctx, args) {
   const amount = money(totalCents, ctx.currency);
   const n = photos.length;
   const photoBit = n ? ` with ${n} photo${n > 1 ? 's' : ''}` : '';
+  const offerEmail = args.client_email
+    ? ` You have the client's email (${args.client_email}) — offer to email them the link right now with send_email.`
+    : ' Tell the user to forward the link on, or offer to send it if they give you the client\'s email.';
   return {
-    result: `photo invoice for ${clientName} ${amount}${photoBit} created at ${url}. Give the user this link verbatim to forward to their client.`,
-    userFacing: `done. here's ${String(clientName).toLowerCase()}'s invoice for ${amount}${photoBit}, just forward it on:\n${url}${xeroNote}`,
+    result: `photo invoice for ${clientName} ${amount}${photoBit} created at ${url}. Reply with the link on its OWN line so it's one tap to forward.${offerEmail}`,
+    userFacing: `done. here's ${String(clientName).toLowerCase()}'s invoice for ${amount}${photoBit}:\n${url}\n\nforward that straight to them, or want me to send it for you?${xeroNote}`,
   };
 }
 
