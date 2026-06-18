@@ -758,6 +758,35 @@ async function createPhotoInvoice(ctx, args) {
   };
 }
 
+// Operator action — "henderson paid" flips the most recent unpaid invoice to
+// paid so it stops showing as outstanding (and won't be chased). Reversible
+// enough to skip the confirm gate, like update_quote.
+async function markInvoicePaid(ctx, args) {
+  if (!ctx.supabase) return { result: 'invoices unavailable' };
+  const handle = String(requireArg(args, 'client_name')).toLowerCase().trim();
+  const { data: found } = await ctx.supabase
+    .from('agent_invoices')
+    .select('id, client_name, total_cents, currency')
+    .eq('user_phone', ctx.phone)
+    .eq('client_handle', handle)
+    .neq('status', 'paid')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (!found || !found.length) {
+    return { result: `no unpaid invoice for ${handle}`, userFacing: `couldn't find an unpaid invoice for ${handle}` };
+  }
+  const inv = found[0];
+  await ctx.supabase
+    .from('agent_invoices')
+    .update({ status: 'paid', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', inv.id)
+    .then(() => {}, (e) => console.warn('[photo-invoice] mark paid failed:', e?.message));
+  return {
+    result: `marked ${inv.client_name} invoice paid (${money(inv.total_cents, inv.currency || ctx.currency)})`,
+    userFacing: `nice, marked ${String(inv.client_name).toLowerCase()}'s invoice as paid`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Memory — passive context accumulation. The model saves any new fact or
 // preference the user states (rates, suppliers, where receipts go) so Flynn
@@ -1200,6 +1229,19 @@ const CAPABILITIES = [
           const amt = Number.isFinite(total) ? money(total, ctx?.currency) : 'that';
           return `i'll make ${args.client_name}'s invoice for ${amt} with the job photos and send you a link to forward. good?`;
         },
+      },
+      {
+        name: 'mark_invoice_paid',
+        confirm: false,
+        description: "Mark a photo invoice you sent as paid so it stops showing as outstanding. Use when the user says a client has paid, e.g. \"henderson paid\". Matches the most recent unpaid invoice for that client.",
+        parameters: {
+          type: 'object',
+          properties: {
+            client_name: { type: 'string', description: 'the client who paid' },
+          },
+          required: ['client_name'],
+        },
+        executor: markInvoicePaid,
       },
     ],
   },

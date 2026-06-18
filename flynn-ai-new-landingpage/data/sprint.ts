@@ -1,8 +1,14 @@
 // Content-sprint data — the source for the interactive /sprint checklist.
-// Mirrors Flynn_Content_Sprint.docx + Flynn_Locked_Scripts.docx so the phone
-// checklist and the docs stay in sync. IDs are STABLE — never renumber, or saved
-// progress in localStorage detaches from its item. (A3 "farm" angle was removed;
-// its id 'a3' is retired, not reused — codes keep their gap on purpose.)
+// This page is the live source of truth (the old Flynn_Content_Sprint.docx /
+// Flynn_Locked_Scripts.docx are now stale — don't sync back to them). IDs are
+// STABLE — never renumber, or saved progress in localStorage detaches from its
+// item. (A3 "farm" angle was removed; its id 'a3' is retired, not reused — codes
+// keep their gap on purpose.)
+//
+// Voice rule for every script below: it's the TRUE story — interning full-time,
+// doing jobs after 6 (mowing, landscaping, tip runs), building Flynn late at
+// night. Talk like you'd text a mate. No "for a crust", no "it's called flynn",
+// no "no app, no login" feature-triads. Track D is the benchmark — match it.
 
 export interface SprintVideo {
   id: string;            // stable key, also the localStorage id prefix
@@ -30,41 +36,49 @@ export interface SprintGroup {
   items: SprintCheck[];
 }
 
+export interface ScheduleDay {
+  id: string;     // stable, also the localStorage id (a "posted" tick)
+  date: string;   // 'Wed 24 Jun'
+  code: string;   // which video card — A1, D1, ...
+  title: string;  // short label
+  why: string;    // why this one, this day — the posting note
+}
+
 export const TRACK_A: SprintVideo[] = [
   {
     id: 'a1', code: 'A1', title: 'The origin (operator-builder)', badge: '🟣 both', length: '~30-40s',
-    hook: 'i move furniture for a living and i built an ai that does my paperwork.',
+    hook: 'i intern all day, do jobs all night. so i built an ai to handle the admin.',
     script: [
-      'i move furniture for a crust. and i built an ai that does all my paperwork.',
-      'after a big day lugging lounges up three flights, the last thing i wanna do is sit down and invoice people.',
-      "so now i just text it. 'invoice the henderson job, 400 bucks.' done. snap a servo receipt, it's logged.",
-      "and it's not just me being slack. every solo operator i know is buried in this stuff.",
-      "it's called flynn. you literally just text it. no app, no login.",
+      "my days are a bit stupid right now. i intern full time, then i'm out doing jobs til it's dark. mowing, landscaping, whatever pays.",
+      "the bit that was actually breaking me wasn't the work. it was getting home at nine and still having to invoice people, sort receipts, chase the money.",
+      "so i built a thing i can just text. i tell it what i did and it sends the invoice, logs the receipt, chases whoever hasn't paid.",
+      "and i'm not special. everyone i know doing this on the side is drowning in the same admin.",
+      "you text it like you'd text a mate. that's the whole thing.",
     ],
     shots: [
       'You in the ute seat, straight to camera, deliver the hook (DJI mic).',
-      'CUT to removals B-roll: carrying furniture / loading the ute (real effort).',
-      'Back to you for the tired-of-paperwork line.',
+      'CUT to after-work job B-roll: mowing / whipper-snipping / hauling green waste (real effort, fading light).',
+      'Back to you for the "getting home at nine and still doing admin" line.',
       "Screen-record (tight): text Flynn 'invoice the henderson job $400' → 'sent', then snap a receipt → 'logged'.",
-      "Back to you: 'it is not just me. every solo operator is buried in this.'",
-      "End on you: 'you just text it.' (organic: stop. paid: Message Flynn end card.)",
+      "Back to you: 'everyone i know doing this on the side is buried in the same admin.'",
+      "End on you: 'you text it like you'd text a mate.' (organic: stop. paid: Message Flynn end card.)",
     ],
-    captions: 'ALL-CAPS karaoke, highlight PAPERWORK / $400 / JUST TEXT IT.',
+    captions: 'ALL-CAPS karaoke, highlight ADMIN / $400 / TEXT IT LIKE A MATE.',
     audio: 'Organic: VO + quiet bed. Paid: VO + Epidemic bed, mute-proof.',
-    editNote: 'Vary tempo: slower on the personal lines, snappy on the demo. The removals B-roll is un-fakeable, do not skip it.',
+    editNote: 'Vary tempo: slower on the personal lines, snappy on the demo. The after-work job B-roll is un-fakeable, do not skip it.',
   },
   {
     id: 'a2', code: 'A2', title: 'I built it for myself', badge: '🟣 both', length: '~20-25s',
     hook: 'i kept forgetting to invoice people. so i built a thing that does it when i text it.',
     script: [
-      "i kept forgetting to send invoices. like genuinely losing money cause i'd get home knackered and forget.",
-      'so i built something. now i just text it what i did and it sends the invoice for me.',
-      "that's it. no app, no logging in. just a text.",
+      "i kept forgetting to send invoices. like actually losing money, cause i'd get home wrecked and just not do it.",
+      'so i built something. now i text it what i did and it sends the invoice for me.',
+      "that's genuinely it. i text it like i'd text you.",
     ],
     shots: [
       'You, end-of-day tired, ute or couch, straight to cam, deliver the hook.',
       'CUT to screen-record: one text → invoice sent.',
-      "You: 'no app, no login. just a text.'",
+      "You: 'i text it like i'd text you.'",
     ],
     captions: 'ALL-CAPS karaoke, highlight INVOICES / JUST A TEXT.',
     audio: 'Original VO + low bed.',
@@ -106,16 +120,16 @@ export const TRACK_A: SprintVideo[] = [
   },
   {
     id: 'a6', code: 'A6', title: 'Day in the life (the fusion)', badge: '🟢 organic', length: '~30-45s',
-    hook: 'moving furniture till 3, building an ai company till midnight.',
+    hook: 'interning till 5, doing jobs till dark, building the app till midnight.',
     script: [
-      "mornings i'm on the tools. moving furniture, loading the ute, the usual.",
-      'then i get home and build the exact thing i wish i had when i\'m doing admin at 10pm.',
-      "tradie by day, building for tradies by night. weird mix, but it's the whole reason it actually works.",
+      "internship all day. then i go straight out and do jobs til i can't see anymore. mowing, hauling green waste to the tip.",
+      "then i get home and build the exact thing i needed an hour ago, when i was too cooked to do my own invoices.",
+      "working the jobs by day, building for people who work the jobs by night. it's a weird life, but it's the whole reason the thing actually works.",
     ],
     shots: [
-      'Morning: loading the ute, early start (gimbal walk-and-talk optional).',
-      'Midday: on a job, carrying, the team, the finish.',
-      'Evening: laptop, late, building (screen glow).',
+      'Morning: the commute / desk at the internship, early start (gimbal walk-and-talk optional).',
+      'Evening: out on a job, mowing / hauling, racing the light, the finish.',
+      'Night: laptop, late, building (screen glow).',
       'VO over the top tying the two halves together.',
     ],
     captions: 'Minimal captions, let the montage breathe, a few key lines.',
@@ -126,14 +140,14 @@ export const TRACK_A: SprintVideo[] = [
     id: 'a7', code: 'A7', title: 'The $1,500-in-4-days challenge', badge: '🟣 both', length: '~30-45s',
     hook: "i need $1,500 in 4 days for this trip. so i'm running my whole business off flynn to see if it holds up.",
     script: [
-      "okay i need fifteen hundred bucks in four days to get to europe. flight's already booked, slight problem.",
-      "so i'm running my entire business off flynn and seeing if it carries me.",
-      'i do the jobs. it does the quotes, chases the invoices, logs every receipt.',
+      "okay so i need fifteen hundred bucks in four days to get to europe. flight's already booked. slight problem.",
+      "so i'm doing every job i can after work and letting the app run everything else.",
+      'i mow, i haul, i do the actual work. it does the quotes, chases the invoices, logs every receipt.',
       "[day 4] fifteen sixty. made it. didn't open a spreadsheet once.",
     ],
     shots: [
       'You to cam, the stakes + the clock (keep it casual, not a movie trailer).',
-      'Montage of your existing hustle B-roll: jobs, loading the ute, grinding, fast cuts to a beat.',
+      'Montage of your real after-work hustle B-roll: mowing, hauling, the tip run, grinding, fast cuts to a beat.',
       "Cut-ins of Flynn running the back office: quote drafted, 'chase the henderson invoice' → sent, receipt logged.",
       'A running $ tally ticking up on screen ($420… $890… $1,310…).',
       "Day 4, the WIN: '$1,560. made it.' little real celebration (fist pump / cheers).",
@@ -151,8 +165,8 @@ export const TRACK_B: SprintVideo[] = [
     hook: 'watch me do my whole bookkeeping in one text.',
     script: [
       'watch me do my entire bookkeeping in one text.',
-      'grab a receipt off the pile in the ute. snap it, send it to flynn.',
-      "'logged $94.20 fuel, tax ready.' that's it. no app, no spreadsheet.",
+      'grab a receipt off the pile in the ute, snap it, send it.',
+      "'logged $94.20 fuel, tax ready.' done. didn't even open an app.",
     ],
     shots: [
       'Tight screen-record: grab a receipt from the ute console (real prop), drag into the Flynn thread.',
@@ -282,19 +296,19 @@ export const CHALLENGE: SprintVideo[] = [
     script: [
       'day three. [tally so far: "$___ of fifteen hundred."]',
       '[ONE real beat from tonight.]',
-      "here's the bit no one shows you — i'm too knackered after a full day plus this to sit and do receipts and invoices.",
-      "so i just text flynn what i did and it logs the receipt and chases the money for me. that's the only reason this is working.",
+      "here's the bit no one shows you — i'm too knackered after a full day plus this to sit and do invoices.",
+      "so before i pack up i just snap the before and afters, text the job to flynn, and it sends the client an invoice with the photos right on it. logs the lot, chases the money too. that's the only reason this is working.",
       'day three: $___ of $1,500.',
     ],
     shots: [
       '"DAY 3 · $___ / $1,500" tally on frame 1.',
-      "Tonight's real job beat.",
-      'Cut-in screen-record: snap a fuel/dump receipt → Flynn "logged"; "chase the [job] invoice" → sent.',
+      "Tonight's real job beat — and grab a clean before + after of the lawn (this is the hero shot for the invoice beat).",
+      'Cut-in screen-record: text Flynn the before/after pics + "invoice the job $___" → an invoice page with YOUR photos embedded on it, link ready to send.',
       'End on the tally.',
     ],
-    captions: 'Tally hero. On the Flynn beat, highlight LOGGED / CHASE THE INVOICE.',
+    captions: 'Tally hero. On the Flynn beat, highlight PHOTOS ON THE INVOICE / SENT.',
     audio: 'Same VO + bed. Keep the Flynn line casual, drop it into the story, do not pivot into an ad voice.',
-    editNote: 'FIRST Flynn appearance, mid-to-late in the video — by now the engaged viewers are the ones still watching, so this is who hears it. Frame Flynn as what makes the hustle survivable, NOT the hero. Keep it to ~6-8s of the cut.',
+    editNote: 'FIRST Flynn appearance, mid-to-late in the video — by now the engaged viewers are the ones still watching, so this is who hears it. The photos-on-the-invoice beat is the standout, let it land: the before/after the viewer just watched you do shows up ON the invoice. Frame Flynn as what makes the hustle survivable, NOT the hero. Keep it to ~6-8s of the cut.',
   },
   {
     id: 'd4', code: 'D4', title: 'Day 4 — (fill after you film)', badge: '🟢 organic', length: '~20-35s',
@@ -339,11 +353,11 @@ export const CHALLENGE: SprintVideo[] = [
 
 export const BROLL: SprintGroup[] = [
   {
-    id: 'broll-removals', title: 'Removals (un-fakeable proof)', items: [
-      { id: 'br-rem-1', label: 'Carrying / lifting furniture, sweat, real effort' },
-      { id: 'br-rem-2', label: 'Loading + strapping the ute' },
-      { id: 'br-rem-3', label: 'Before/after: full room → empty room' },
-      { id: 'br-rem-4', label: 'The team working, hands + detail shots' },
+    id: 'broll-removals', title: 'After-work jobs (un-fakeable proof)', items: [
+      { id: 'br-rem-1', label: 'Mowing + whipper-snipping, sweat, racing the light' },
+      { id: 'br-rem-2', label: 'Loading green waste into the ute' },
+      { id: 'br-rem-3', label: 'Before/after: overgrown → tidy lawn' },
+      { id: 'br-rem-4', label: 'Hands + detail shots of the actual work' },
       { id: 'br-rem-5', label: 'Hopping out of the ute at a job' },
     ],
   },
@@ -384,6 +398,27 @@ export const SCREEN_RECORDS: SprintCheck[] = [
   { id: 'sr-4', label: 'The Sunday money digest landing' },
   { id: 'sr-5', label: 'Send a quote/email from your Gmail/Outlook' },
   { id: 'sr-6', label: '"book the henderson job thursday 2pm" → booked' },
+  { id: 'sr-7', label: 'Before/after pics + "invoice the job $X" → invoice page with the photos embedded → share link (the hero demo)' },
+];
+
+// Posting plan — one drop a day, 24 Jun → 5 Jul. You leave Wed night (24th);
+// the challenge was filmed earlier, you're dripping it out while away so you can
+// scale off the winners. Track D runs as an UNBROKEN 5-day block (Fri 26 → Tue 30)
+// so the tally + "will he make it" tension actually works. Post to BOTH IG Reels
+// + TikTok each day. IDs are stable — never renumber.
+export const POST_PLAN: ScheduleDay[] = [
+  { id: 'post-1',  date: 'Wed 24 Jun', code: 'A1', title: 'The origin',          why: 'Departure day. Tell people who you are: intern by day, jobs by night, built Flynn. Sets up everyone who finds you later.' },
+  { id: 'post-2',  date: 'Thu 25 Jun', code: 'A6', title: 'Day in the life',     why: 'The fusion montage over trending audio. Highly shareable, reinforces yesterday\'s identity.' },
+  { id: 'post-3',  date: 'Fri 26 Jun', code: 'D1', title: 'Challenge · day 1',   why: 'Start the $1,500 series. Pure hustle, no Flynn. The tally + "will he make it" is the hook. Make it a playlist on your profile.' },
+  { id: 'post-4',  date: 'Sat 27 Jun', code: 'D2', title: 'Challenge · day 2',   why: 'Carry the tally forward. Still no Flynn. This is where the returning-viewer engine kicks in.' },
+  { id: 'post-5',  date: 'Sun 28 Jun', code: 'D3', title: 'Challenge · day 3',   why: 'First Flynn beat, mid-video. Frame it as the only reason the hustle is survivable, not an ad.' },
+  { id: 'post-6',  date: 'Mon 29 Jun', code: 'D4', title: 'Challenge · day 4',   why: 'Cutting it close. Lean into the gap left to $1,500. Build the tension for the finale.' },
+  { id: 'post-7',  date: 'Tue 30 Jun', code: 'D5', title: 'Challenge · day 5',   why: 'The payoff. Tally crosses $1,500. Your strongest, most earned Flynn plug — best single shot at a breakout.' },
+  { id: 'post-8',  date: 'Wed 1 Jul',  code: 'A2', title: 'I built it for myself', why: 'Founder note after the win. Short confessional hook, strong standalone.' },
+  { id: 'post-9',  date: 'Thu 2 Jul',  code: 'A5', title: 'Reaction in your lane', why: 'Opinionated, on-topic. Filters for builders and drives comment threads (comments = reach).' },
+  { id: 'post-10', date: 'Fri 3 Jul',  code: 'B5', title: '9pm admin',           why: 'Pain → relief, the most send-able one. "Tag your tradie mate." Friday = high-intent scrolling.' },
+  { id: 'post-11', date: 'Sat 4 Jul',  code: 'A4', title: 'Build update',        why: 'Raw build-in-public check-in. Keeps the series energy going without a whole new challenge.' },
+  { id: 'post-12', date: 'Sun 5 Jul',  code: 'B1', title: 'Receipt to books',    why: 'The clean one-text demo. Also your best paid-ad creative — note if it pops, that\'s the one to scale on Meta.' },
 ];
 
 export const EDIT_QA: string[] = [

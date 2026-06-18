@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
-  TRACK_A, TRACK_B, CHALLENGE, BROLL, SCREEN_RECORDS, EDIT_QA, PLAYBOOK,
+  TRACK_A, TRACK_B, CHALLENGE, BROLL, SCREEN_RECORDS, EDIT_QA, PLAYBOOK, POST_PLAN,
   type SprintVideo,
 } from '../data/sprint';
 
@@ -38,6 +38,104 @@ function loadState(): Record<string, boolean> {
   } catch {
     return {};
   }
+}
+
+// ── How to film it: the "film everything raw, edit on the plane" plan ──────────
+// Six phone albums. Bag content into each one this week, cut it all in transit.
+const CAPTURE_INTRO =
+  'The move: film everything raw this week into these 6 phone albums, then cut it all on the plane. Don\'t edit as you go.';
+const CAPTURE_OUTRO =
+  'Edit Mon/Tue/Wed — one video per sitting: pull that code\'s voice memo + hook take + job B-roll + screen-record, cut to the beat.';
+const CAPTURE_BUCKETS: { tag: string; desc: string }[] = [
+  { tag: 'HOOKS', desc: 'Just you talking to camera — the first line of each video. Film 3-4 takes of every hook below, ~10s each. Don\'t memorise it word for word, say it like you mean it.' },
+  { tag: 'VOICE MEMOS', desc: 'Record each script as a voice memo while you drive — that\'s your voiceover. One memo per video, name it by code (A1, A6…). Talking while driving = natural delivery.' },
+  { tag: 'ON THE JOB', desc: 'The real after-work work: mowing, whipper-snipping, hauling, the tip run, fading light. Un-fakeable proof. Grab way more than you think you need.' },
+  { tag: 'UTE', desc: 'Driver-seat talking head, driving POV, phone-in-hand texting Flynn, the receipt pile on the console.' },
+  { tag: 'BUILD / NIGHT', desc: 'You at the laptop, screen glow, the scrappy late-night setup. The other half of the fusion.' },
+  { tag: 'SCREEN-RECORDS', desc: 'The Flynn demos (list near the bottom). One clean take each — do these at home where it\'s quiet.' },
+];
+
+// ── Copy-for-Notes: serialise the sprint to clean plain text you can paste ─────
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* fall through to legacy path */ }
+  // iOS (esp. in "Add to Home Screen" standalone mode) often blocks the async
+  // clipboard API. This execCommand path needs the iOS-specific selection dance:
+  // a plain ta.select() is ignored, so use a range + setSelectionRange.
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.contentEditable = 'true';
+    ta.readOnly = false;
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.width = '1px';
+    ta.style.height = '1px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    const range = document.createRange();
+    range.selectNodeContents(ta);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    sel?.removeAllRanges();
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function videoToText(v: SprintVideo): string {
+  const head = `${v.code} — ${v.title}\n${v.badge} · ${v.length}${v.variants ? ' · ×5 hooks' : ''}`;
+  const hook = `HOOK (frame 1): ${v.hook}`;
+  const say = ['SAY THIS:', ...v.script.map((s) => `  • ${s}`)].join('\n');
+  const shots = ['SHOTS:', ...v.shots.map((s, i) => `  ${i + 1}. ${s}`)].join('\n');
+  const meta = `CAPTIONS: ${v.captions}\nAUDIO: ${v.audio}\nEDIT: ${v.editNote}`;
+  return [head, hook, '', say, '', shots, '', meta].join('\n');
+}
+
+const RULE = '\n\n— — — — — — — —\n\n';
+function tracksToText(title: string, vids: SprintVideo[]): string {
+  return `${title}\n\n${vids.map(videoToText).join(RULE)}`;
+}
+function brollToText(): string {
+  const groups = BROLL.map(
+    (g) => `${g.title}\n${g.items.map((i) => `  ☐ ${i.label}`).join('\n')}`,
+  ).join('\n\n');
+  return `B-ROLL TO GRAB\n\n${groups}`;
+}
+function srToText(): string {
+  return `SCREEN-RECORDS (one clean take each)\n\n${SCREEN_RECORDS.map((i) => `  ☐ ${i.label}`).join('\n')}`;
+}
+function bucketsToText(): string {
+  const body = CAPTURE_BUCKETS.map((b) => `${b.tag}\n  ${b.desc}`).join('\n\n');
+  return `HOW TO FILM THIS\n\n${CAPTURE_INTRO}\n\n${body}\n\n${CAPTURE_OUTRO}`;
+}
+function planToText(): string {
+  const rows = POST_PLAN.map(
+    (p) => `  ☐ ${p.date} — ${p.code} · ${p.title}\n      ${p.why}`,
+  ).join('\n\n');
+  return `POSTING PLAN — one a day, 24 Jun → 5 Jul (post to IG Reels + TikTok)\n\n${rows}`;
+}
+function allToText(): string {
+  return [
+    'FLYNN — CONTENT SPRINT',
+    planToText(),
+    bucketsToText(),
+    tracksToText('TRACK A — founder / organic (@atticusjxn)', TRACK_A),
+    tracksToText('TRACK B — demo / paid ads (→ Message Flynn)', TRACK_B),
+    tracksToText('TRACK D — the $1,500 challenge (daily series)', CHALLENGE),
+    brollToText(),
+    srToText(),
+  ].join('\n\n\n');
 }
 
 export default function Sprint() {
@@ -122,26 +220,32 @@ export default function Sprint() {
           </div>
         )}
 
-        <SectionLabel>🟣 Track A — founder / organic (@atticusjxn)</SectionLabel>
+        <CaptureCard />
+
+        <PostingPlan done={done} onToggle={toggle} />
+
+        <CopyAllBlock />
+
+        <SectionLabel copy={() => tracksToText('TRACK A — founder / organic (@atticusjxn)', TRACK_A)}>🟣 Track A — founder / organic (@atticusjxn)</SectionLabel>
         {TRACK_A.map((v) => (
           <VideoCard key={v.id} v={v} done={done} open={openVideo === v.id}
             onOpen={() => setOpenVideo(openVideo === v.id ? null : v.id)} onToggle={toggle} />
         ))}
 
-        <SectionLabel>🔵 Track B — demo / paid ads (→ Message Flynn)</SectionLabel>
+        <SectionLabel copy={() => tracksToText('TRACK B — demo / paid ads (→ Message Flynn)', TRACK_B)}>🔵 Track B — demo / paid ads (→ Message Flynn)</SectionLabel>
         {TRACK_B.map((v) => (
           <VideoCard key={v.id} v={v} done={done} open={openVideo === v.id}
             onOpen={() => setOpenVideo(openVideo === v.id ? null : v.id)} onToggle={toggle} />
         ))}
 
-        <SectionLabel>🟢 Track D — the $1,500 challenge (daily series, @atticusjxn)</SectionLabel>
+        <SectionLabel copy={() => tracksToText('TRACK D — the $1,500 challenge (daily series)', CHALLENGE)}>🟢 Track D — the $1,500 challenge (daily series, @atticusjxn)</SectionLabel>
         <p style={S.note}>Post each night, raw. Cold "day N of $1,500" open + running $ tally on frame 1. Fill the script after you film each day — don't pre-write nights that haven't happened.</p>
         {CHALLENGE.map((v) => (
           <VideoCard key={v.id} v={v} done={done} open={openVideo === v.id}
             onOpen={() => setOpenVideo(openVideo === v.id ? null : v.id)} onToggle={toggle} />
         ))}
 
-        <SectionLabel>🎬 B-roll to grab</SectionLabel>
+        <SectionLabel copy={brollToText}>🎬 B-roll to grab</SectionLabel>
         <p style={S.note}>Preferably the shot listed, but go with whatever you have best. Grab way more than you think you need.</p>
         {BROLL.map((g) => (
           <div key={g.id} style={S.group}>
@@ -152,7 +256,7 @@ export default function Sprint() {
           </div>
         ))}
 
-        <SectionLabel>📱 Screen-records — one clean take each</SectionLabel>
+        <SectionLabel copy={srToText}>📱 Screen-records — one clean take each</SectionLabel>
         <div style={S.group}>
           {SCREEN_RECORDS.map((i) => (
             <CheckRow key={i.id} checked={!!done[i.id]} label={i.label} onClick={() => toggle(i.id)} />
@@ -193,8 +297,132 @@ export default function Sprint() {
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <h2 style={S.section}>{children}</h2>;
+function SectionLabel({ children, copy }: { children: React.ReactNode; copy?: () => string }) {
+  return (
+    <div style={S.sectionRow}>
+      <h2 style={S.section}>{children}</h2>
+      {copy && <CopyBtn getText={copy} />}
+    </div>
+  );
+}
+
+// The whole-sprint copy. Programmatic copy first, but iOS standalone mode often
+// blocks it — so a "show as text" escape hatch reveals a selectable textarea the
+// user can long-press → Select All → Copy, which works everywhere, every time.
+function CopyAllBlock() {
+  const text = useMemo(allToText, []);
+  const [state, setState] = useState<'idle' | 'copied' | 'manual'>('idle');
+
+  const onCopy = async () => {
+    const ok = await copyText(text);
+    if (ok) {
+      setState('copied');
+      setTimeout(() => setState((s) => (s === 'copied' ? 'idle' : s)), 2200);
+    } else {
+      setState('manual');
+    }
+  };
+
+  return (
+    <div style={S.copyAllWrap}>
+      <button
+        onClick={onCopy}
+        style={{ ...S.copyBtn, ...S.copyBtnBig, ...(state === 'copied' ? S.copyBtnDone : {}) }}
+      >
+        {state === 'copied' ? '✓ copied — paste into Notes' : '⧉ copy the whole sprint to Notes'}
+      </button>
+      <button onClick={() => setState((s) => (s === 'manual' ? 'idle' : 'manual'))} style={S.copyAllLink}>
+        {state === 'manual' ? 'hide text' : 'not pasting? open as text →'}
+      </button>
+      {state === 'manual' && (
+        <div style={S.manualWrap}>
+          <div style={S.manualHint}>
+            Tap inside the box, <strong>Select All</strong>, <strong>Copy</strong>, then paste into Notes.
+          </div>
+          <textarea
+            readOnly
+            value={text}
+            style={S.manualArea}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CopyBtn({ getText, label = 'copy for Notes', big = false }: { getText: () => string; label?: string; big?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const onClick = async () => {
+    const ok = await copyText(getText());
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    }
+  };
+  return (
+    <button onClick={onClick} style={{ ...S.copyBtn, ...(big ? S.copyBtnBig : {}), ...(copied ? S.copyBtnDone : {}) }}>
+      {copied ? '✓ copied' : `⧉ ${label}`}
+    </button>
+  );
+}
+
+function CaptureCard() {
+  const [open, setOpen] = useState(true);
+  return (
+    <div style={S.capture}>
+      <button style={S.captureHead} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span style={S.captureTitle}>🎒 how to film this</span>
+        <span style={S.chev}>{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div style={S.captureBody}>
+          <p style={S.captureIntro}>{CAPTURE_INTRO}</p>
+          {CAPTURE_BUCKETS.map((b) => (
+            <div key={b.tag} style={S.bucketRow}>
+              <span style={S.bucketTag}>{b.tag}</span>
+              <span style={S.bucketDesc}>{b.desc}</span>
+            </div>
+          ))}
+          <p style={S.captureOutro}>{CAPTURE_OUTRO}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PostingPlan({ done, onToggle }: { done: Record<string, boolean>; onToggle: (id: string) => void }) {
+  const [open, setOpen] = useState(true);
+  const posted = POST_PLAN.filter((p) => done[p.id]).length;
+  return (
+    <div style={S.capture}>
+      <button style={S.captureHead} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span style={S.captureTitle}>🗓️ posting plan · {posted}/{POST_PLAN.length}</span>
+        <span style={S.chev}>{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div style={S.captureBody}>
+          <p style={S.captureIntro}>One drop a day, 24 Jun → 5 Jul. Post each to IG Reels + TikTok. Tick it once it's up.</p>
+          {POST_PLAN.map((p) => {
+            const up = !!done[p.id];
+            return (
+              <button key={p.id} style={S.planRow} onClick={() => onToggle(p.id)}>
+                <span style={{ ...S.box, background: up ? C.green : 'transparent', borderColor: up ? C.green : C.inkSoft, marginTop: 1 }}>{up ? '✓' : ''}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={S.planTop}>
+                    <span style={S.planDate}>{p.date}</span>
+                    <span style={S.planCode}>{p.code}</span>
+                    <span style={{ ...S.planTitle, textDecoration: up ? 'line-through' : 'none', color: up ? C.inkSoft : C.ink }}>{p.title}</span>
+                  </span>
+                  <span style={S.planWhy}>{p.why}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function VideoCard({
@@ -286,7 +514,31 @@ const S: Record<string, React.CSSProperties> = {
   main: { padding: '0 16px 64px', maxWidth: 640, margin: '0 auto' },
   hint: { display: 'flex', gap: 10, alignItems: 'flex-start', background: '#FFF3E6', border: `1px solid ${C.orange}`, borderRadius: 12, padding: '12px 14px', margin: '16px 0 8px', fontSize: 13, lineHeight: 1.4 },
   hintX: { background: 'none', border: 'none', fontSize: 22, lineHeight: 1, color: C.inkSoft, cursor: 'pointer', padding: 0 },
-  section: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, fontWeight: 700, margin: '26px 0 10px', color: C.ink },
+  section: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, fontWeight: 700, margin: 0, color: C.ink },
+  sectionRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, margin: '26px 0 10px' },
+  copyBtn: { flexShrink: 0, background: 'transparent', border: `1px solid ${C.line}`, color: C.inkSoft, fontSize: 11.5, fontWeight: 600, borderRadius: 999, padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap' },
+  copyBtnBig: { fontSize: 13, padding: '10px 16px', borderColor: C.orange, color: C.orange, fontWeight: 700 },
+  copyBtnDone: { borderColor: C.green, color: C.green },
+  copyAllWrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, margin: '14px 0 4px' },
+  copyAllLink: { background: 'none', border: 'none', color: C.inkSoft, fontSize: 12.5, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer', padding: 2 },
+  manualWrap: { width: '100%', marginTop: 4 },
+  manualHint: { fontSize: 12.5, lineHeight: 1.45, color: C.inkSoft, marginBottom: 6, textAlign: 'center' },
+  manualArea: { width: '100%', height: 260, boxSizing: 'border-box', border: `1px solid ${C.line}`, borderRadius: 12, padding: 12, fontSize: 13, lineHeight: 1.5, color: C.ink, background: C.card, fontFamily: 'ui-monospace, Menlo, monospace', WebkitUserSelect: 'text', userSelect: 'text' },
+  capture: { background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: '12px 14px', marginTop: 16 },
+  captureHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' },
+  captureTitle: { fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, fontWeight: 700, color: C.ink },
+  captureBody: { marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.line}` },
+  captureIntro: { fontSize: 13.5, lineHeight: 1.5, color: C.ink, margin: '0 0 12px', fontWeight: 600 },
+  bucketRow: { display: 'flex', gap: 10, marginBottom: 9, alignItems: 'baseline' },
+  bucketTag: { flexShrink: 0, width: 96, fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: C.orange },
+  bucketDesc: { fontSize: 13, lineHeight: 1.45, color: C.inkSoft },
+  captureOutro: { fontSize: 13, lineHeight: 1.5, color: C.ink, margin: '12px 0 2px', paddingTop: 10, borderTop: `1px dashed ${C.line}`, fontStyle: 'italic' },
+  planRow: { display: 'flex', gap: 11, width: '100%', background: 'none', border: 'none', borderTop: `1px solid ${C.line}`, padding: '11px 2px', cursor: 'pointer', textAlign: 'left', alignItems: 'flex-start' },
+  planTop: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 },
+  planDate: { fontSize: 12, fontWeight: 700, color: C.inkSoft, letterSpacing: 0.3 },
+  planCode: { fontSize: 11, fontWeight: 700, color: '#fff', background: C.ink, borderRadius: 5, padding: '2px 6px' },
+  planTitle: { fontSize: 14, fontWeight: 600 },
+  planWhy: { display: 'block', fontSize: 12.5, lineHeight: 1.45, color: C.inkSoft },
   note: { fontSize: 13, color: C.inkSoft, margin: '-4px 0 10px', lineHeight: 1.4 },
   card: { background: C.card, border: '1px solid', borderRadius: 14, padding: '14px 14px 12px', marginBottom: 12 },
   cardHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' },

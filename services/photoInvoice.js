@@ -182,8 +182,31 @@ function renderInvoiceHTML(inv, business = {}) {
   const gstRow = inv.tax_cents ? `
         <div class="row dim"><span>GST</span><span>${moneyFull(inv.tax_cents, currency)}</span></div>` : '';
 
-  const payBtn = inv.stripe_payment_url ? `
-        <a class="btn" href="${esc(inv.stripe_payment_url)}">Pay now · ${moneyFull(inv.total_cents, currency)}</a>` : '';
+  const isPaid = inv.status === 'paid';
+
+  // Payment: a real Stripe link if one's been attached, else bank-transfer
+  // details from the business brain (the AU/NZ norm). Never a fake button.
+  const bankBsb = business.bank_bsb || business.bsb;
+  const bankAcct = business.bank_account || business.account_number;
+  const bankName = business.bank_account_name || business.account_name || bizName;
+  const payid = business.payid || business.pay_id;
+  let payBlock = '';
+  if (isPaid) {
+    payBlock = '';
+  } else if (inv.stripe_payment_url) {
+    payBlock = `<a class="btn" href="${esc(inv.stripe_payment_url)}">Pay now · ${moneyFull(inv.total_cents, currency)}</a>`;
+  } else if (bankBsb && bankAcct) {
+    payBlock = `<div class="bank">
+          <div class="bank-h">Pay by bank transfer</div>
+          <div class="bank-row"><span>Name</span><span>${esc(bankName)}</span></div>
+          <div class="bank-row"><span>BSB</span><span>${esc(bankBsb)}</span></div>
+          <div class="bank-row"><span>Account</span><span>${esc(bankAcct)}</span></div>
+          ${payid ? `<div class="bank-row"><span>PayID</span><span>${esc(payid)}</span></div>` : ''}
+          <div class="bank-row"><span>Reference</span><span>${esc(ref)}</span></div>
+        </div>`;
+  } else if (business.payment_details) {
+    payBlock = `<div class="bank"><div class="bank-h">Payment</div><div class="paytext">${esc(business.payment_details)}</div></div>`;
+  }
 
   const ogImage = photos[0] || '';
   const title = `${esc(bizName)} · invoice ${moneyFull(inv.total_cents, currency)}`;
@@ -226,6 +249,12 @@ ${ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />` : ''}
   .pay { padding:6px 18px 16px; }
   .btn { display:block; text-align:center; text-decoration:none; background:var(--accent); color:#fff;
     font-size:15px; font-weight:600; padding:13px; border-radius:11px; }
+  .amt span.paid { color:#1F7A4D; font-weight:700; letter-spacing:0.5px; }
+  .bank { border:1px solid var(--line); border-radius:11px; padding:11px 13px; }
+  .bank-h { font-size:12px; font-weight:600; color:#555; margin-bottom:6px; }
+  .bank-row { display:flex; justify-content:space-between; gap:12px; font-size:13px; color:#3a3a3a; padding:3px 0; }
+  .bank-row span:first-child { color:var(--muted); }
+  .paytext { font-size:13px; color:#3a3a3a; line-height:1.5; }
   .ghost { display:block; width:100%; text-align:center; margin-top:9px; background:none; border:1px solid var(--line);
     color:#555; font-size:13px; font-weight:500; padding:11px; border-radius:11px; cursor:pointer; }
   .muted { color:var(--muted); }
@@ -245,7 +274,7 @@ ${ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />` : ''}
       <div class="head">
         <div class="logo">${esc(initials)}</div>
         <div class="biz"><b>${esc(bizName)}</b><span>Tax invoice · ${esc(ref)}</span></div>
-        <div class="amt"><b>${moneyFull(inv.total_cents, currency)}</b>${inv.due_date ? `<span>due ${esc(inv.due_date)}</span>` : ''}</div>
+        <div class="amt"><b>${moneyFull(inv.total_cents, currency)}</b>${isPaid ? '<span class="paid">PAID</span>' : (inv.due_date ? `<span>due ${esc(inv.due_date)}</span>` : '')}</div>
       </div>
       ${photoBlock}
       ${inv.message ? `<div class="msg">${esc(inv.message)}</div>` : ''}
@@ -255,7 +284,7 @@ ${ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />` : ''}
         <div class="row total"><span>Total${inv.tax_cents ? ' (incl GST)' : ''}</span><span>${moneyFull(inv.total_cents, currency)}</span></div>
       </div>
       <div class="pay">
-        ${payBtn}
+        ${payBlock}
         <button class="ghost" onclick="window.print()">Download / print PDF</button>
       </div>
     </div>
