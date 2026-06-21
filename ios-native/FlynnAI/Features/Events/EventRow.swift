@@ -12,7 +12,7 @@ struct EventRow: View {
                         .foregroundColor(FlynnColor.textPrimary)
                     Spacer()
                     if let status = event.status {
-                        FlynnBadge(label: status, variant: variant(for: status))
+                        FlynnBadge(label: label(for: status), variant: variant(for: status))
                     }
                 }
                 if let service = event.serviceType {
@@ -36,6 +36,18 @@ struct EventRow: View {
                     }
                 }
             }
+        }
+    }
+
+    private func label(for status: String) -> String {
+        switch status.lowercased() {
+        case "new": return "New"
+        case "pending": return "Pending"
+        case "in-progress", "in_progress": return "In Progress"
+        case "complete", "completed": return "Complete"
+        case "failed": return "Failed"
+        case "cancelled", "canceled": return "Cancelled"
+        default: return status.replacingOccurrences(of: "_", with: " ").capitalized
         }
     }
 
