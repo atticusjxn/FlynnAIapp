@@ -18,12 +18,14 @@
  * }
  */
 
+const crypto = require('crypto');
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const { processMessage } = require('../services/flynnSMS');
 const { sendMessage: bbSend, sendAttachment, downloadAttachment, setTyping, markRead } = require('../services/blueBubbles');
 const { sendToUser } = require('../services/flynnOutbound');
 const { sanitiseReply } = require('../services/flynnTone');
+const { provisionDemoAccount, isDemoCode } = require('../services/demoAccount');
 const { ensureAuthUser } = require('../services/authLink');
 const metaCapi = require('../services/metaCapi');
 const generator = require('../services/dashboard/manifestGenerator');
@@ -55,6 +57,101 @@ function verifyBBSignature(req) {
   if (!BB_WEBHOOK_SECRET) return true; // not configured — skip in dev
   const sig = req.headers['x-bb-signature'] || req.headers['authorization'] || '';
   return sig === BB_WEBHOOK_SECRET;
+}
+
+// ---------------------------------------------------------------------------
+// Demo control — gated to the founder's number(s) so a live demo can reset and
+// seed the time-gated quote-chase beat on cue (a real cold quote takes days to
+// ripen). NEVER acts for anyone else: the gate checks the sender is in
+// DEMO_ADMIN_PHONES. Three commands:
+//   demo reset  — wipe this number's data + re-arm onboarding (use between takes)
+//   demo quote  — seed one backdated cold quote and fire the chase nudge now
+//   demo loop   — same, plus a sent + a paid invoice for a fuller money-loop view
+// ---------------------------------------------------------------------------
+const DEMO_ADMIN_PHONES = (process.env.DEMO_ADMIN_PHONES || '+61497779071')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+
+const DEMO_CLIENT_NAME = 'The Hendersons';
+const DEMO_CLIENT_HANDLE = 'the hendersons';
+const DEMO_QUOTE_CENTS = 48000;
+
+function isDemoCommand(from, body) {
+  return DEMO_ADMIN_PHONES.includes(from) && /^\s*demo\s+(reset|quote|loop)\b/i.test(body || '');
+}
+
+async function seedColdQuote(from) {
+  // Clear any prior demo quote so re-runs stay clean, then insert one that's
+  // already "cold" (sent days ago, follow-up due an hour ago) so the chaser
+  // treats it as overdue immediately.
+  await supabase.from('agent_quotes').delete()
+    .eq('user_phone', from).eq('client_handle', DEMO_CLIENT_HANDLE).then(() => {}, () => {});
+  const sentAt = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase.from('agent_quotes').insert({
+    user_phone: from,
+    client_name: DEMO_CLIENT_NAME,
+    client_handle: DEMO_CLIENT_HANDLE,
+    client_email: process.env.DEMO_CLIENT_EMAIL || null,
+    amount_cents: DEMO_QUOTE_CENTS,
+    currency: 'AUD',
+    description: 'bathroom reno quote',
+    status: 'open',
+    followup_count: 0,
+    sent_at: sentAt,
+    next_followup_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+  }).select('id, user_phone, client_name, client_email, amount_cents, currency, followup_count').single();
+  return data;
+}
+
+async function seedDemoInvoices(from) {
+  const tok = () => crypto.randomBytes(9).toString('base64url');
+  const sentAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const paidAt = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+  await supabase.from('agent_invoices').delete()
+    .eq('user_phone', from).in('client_handle', [DEMO_CLIENT_HANDLE, 'dave']).then(() => {}, () => {});
+  await supabase.from('agent_invoices').insert([
+    {
+      user_phone: from, client_name: DEMO_CLIENT_NAME, client_handle: DEMO_CLIENT_HANDLE,
+      line_items: [{ description: 'bathroom reno', amount_cents: DEMO_QUOTE_CENTS }],
+      subtotal_cents: DEMO_QUOTE_CENTS, tax_cents: 0, total_cents: DEMO_QUOTE_CENTS, currency: 'AUD',
+      public_token: tok(), status: 'sent', sent_at: sentAt,
+    },
+    {
+      user_phone: from, client_name: 'Dave', client_handle: 'dave',
+      line_items: [{ description: 'hot water unit swap', amount_cents: 62000 }],
+      subtotal_cents: 62000, tax_cents: 0, total_cents: 62000, currency: 'AUD',
+      public_token: tok(), status: 'paid', sent_at: sentAt, paid_at: paidAt,
+    },
+  ]).then(() => {}, (e) => console.warn('[demo] invoice seed failed:', e?.message));
+}
+
+async function handleDemoCommand({ from, body }) {
+  const cmd = (body.match(/^\s*demo\s+(reset|quote|loop)\b/i) || [])[1].toLowerCase();
+
+  if (cmd === 'reset') {
+    // Wipe this number's data and re-arm onboarding. We update the users row
+    // rather than delete it (avoids FK orphans); the Flynn contact/vCard already
+    // saved on the device persists, so the next text starts a fresh brain build.
+    for (const table of ['pending_actions', 'agent_quotes', 'agent_invoices', 'job_photo_buffer', 'sms_messages']) {
+      await supabase.from(table).delete().eq('user_phone', from).then(() => {}, () => {});
+    }
+    await supabase.from('users')
+      .update({ onboarding_step: 'brain_pending', business_brain: null, reengagement_opted_out: false })
+      .eq('phone', from).then(() => {}, () => {});
+    await sendToUser(from, 'demo reset — text me fresh to start the onboarding run.', { channel: 'imessage', supabase });
+    return;
+  }
+
+  // quote | loop — seed the cold quote (+ invoices for loop) then fire the nudge
+  // now via the scheduler, which also parks the chase as a pending action so a
+  // plain "yep" runs it deterministically.
+  if (cmd === 'loop') await seedDemoInvoices(from);
+  const quote = await seedColdQuote(from);
+  if (!quote) {
+    await sendToUser(from, 'demo seed failed — quote insert returned nothing.', { channel: 'imessage', supabase });
+    return;
+  }
+  const scheduler = require('../services/quoteChaseScheduler');
+  await scheduler.chaseUser(from, [quote], new Date());
 }
 
 // POST /webhooks/imessage/inbound
@@ -132,6 +229,31 @@ router.post('/inbound', async (req, res) => {
 
   console.log('[iMessageInbound] Received', { from, bodyLength: body.length });
 
+  // Reviewer demo code (LATITUDE) — provision a fully-seeded James persona from
+  // any phone, before any normal processing. Re-texting it resets.
+  if (supabase && isDemoCode(body)) {
+    markRead(from);
+    try {
+      await provisionDemoAccount(from, { supabase, channel: 'imessage' });
+    } catch (e) {
+      console.error('[demo] provision failed:', e?.message || e);
+    }
+    return;
+  }
+
+  // Demo control commands (founder number only) — reset/seed the quote-chase
+  // beat on cue. Handled and returned before any normal processing.
+  if (supabase && isDemoCommand(from, body)) {
+    markRead(from);
+    try {
+      await handleDemoCommand({ from, body });
+    } catch (e) {
+      console.error('[demo] command failed:', e?.message || e);
+      await sendToUser(from, `demo command failed: ${e?.message || e}`, { channel: 'imessage', supabase }).catch(() => {});
+    }
+    return;
+  }
+
   // Read receipt + typing indicator — fire immediately, non-blocking
   markRead(from);
   setTyping(from, true);
@@ -142,7 +264,7 @@ router.post('/inbound', async (req, res) => {
     if (supabase) {
       const { data } = await supabase
         .from('users')
-        .select('id, phone, business_brain, onboarding_step, preferred_channel, subscription_status, trial_end_date, stripe_customer_id')
+        .select('id, phone, business_brain, onboarding_step, preferred_channel, subscription_status, trial_end_date, stripe_customer_id, is_demo')
         .eq('phone', from)
         .maybeSingle();
 
@@ -167,7 +289,7 @@ router.post('/inbound', async (req, res) => {
         }
         const { data: created } = await supabase
           .from('users')
-          .select('id, phone, business_brain, onboarding_step, preferred_channel, subscription_status, trial_end_date, stripe_customer_id')
+          .select('id, phone, business_brain, onboarding_step, preferred_channel, subscription_status, trial_end_date, stripe_customer_id, is_demo')
           .eq('phone', from)
           .maybeSingle();
         user = created;

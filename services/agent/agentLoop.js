@@ -47,6 +47,9 @@ function buildCtx({ user, phone, supabase, connections, userIntegrations, brain 
     nango,
     tz: registry.timezoneFromPhone(phone),
     currency: (brain || {}).currency || currencyFromPhone(phone),
+    // Reviewer demo accounts: tools behave as connected and external side
+    // effects (orders, emails) are simulated, never executed.
+    is_demo: Boolean(user?.is_demo),
   };
 }
 
@@ -140,6 +143,14 @@ Rules:
  * Execute one registry tool, normalising errors into model-readable results.
  */
 async function safeExecute(entry, ctx, args) {
+  // Reviewer demo accounts never hit real OAuth/Browserbase side effects —
+  // external tools return a realistic simulated success instead. Local tools
+  // (invoices, quotes, chasing, memory) still run for real so the hosted
+  // pages and chase flows the reviewer sees are genuine.
+  if (ctx.is_demo && registry.SIMULATED_TOOLS.has(entry.tool.name)) {
+    const sim = registry.demoResult(entry.tool.name, args, ctx);
+    return { ...sim, ok: true };
+  }
   try {
     const outcome = await entry.tool.executor(ctx, args);
     return { ...outcome, ok: true };
@@ -292,7 +303,7 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
 
       // Paywall gate — metered "doing" tools stop past the free budget (chat
       // and read-only tools stay free). No-op unless FLYNN_PAYWALL=1.
-      if (registry.METERED_TOOLS.has(entry.tool.name)) {
+      if (!ctx.is_demo && registry.METERED_TOOLS.has(entry.tool.name)) {
         const gate = await billingGate.isEntitled({ user: ctx.user, phone, supabase, toolName: entry.tool.name });
         if (!gate.entitled) {
           const bubble = await billingGate.upsellBubble({ user: ctx.user, phone, taskHook: taskHookFor(entry.tool.name, args) });
@@ -424,7 +435,7 @@ async function resumeParkedAction(phone, provider, supabase) {
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, phone, business_brain, onboarding_step, preferred_channel, subscription_status, trial_end_date, stripe_customer_id')
+    .select('id, phone, business_brain, onboarding_step, preferred_channel, subscription_status, trial_end_date, stripe_customer_id, is_demo')
     .eq('phone', phone)
     .maybeSingle();
 

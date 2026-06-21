@@ -22,6 +22,9 @@ const appleCalendar = require('../appleCalendar');
 const xeroReceivables = require('../xeroReceivables');
 const imapEmail = require('../imapEmail');
 const photoInvoice = require('../photoInvoice');
+const priceCompare = require('../priceCompare');
+const { createDashboardLoginLink } = require('../dashboardLink');
+const manifestGenerator = require('../dashboard/manifestGenerator');
 
 const GMAIL_BASE = 'https://gmail.googleapis.com/gmail/v1';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4';
@@ -576,6 +579,36 @@ async function orderParts(ctx, args) {
   };
 }
 
+// Real cross-supplier price comparison (SerpApi Google Shopping). Called before
+// ordering materials so Flynn can find who's got it cheapest/in stock. The data
+// is live and generalises to any product; only the eventual order is gated.
+async function findPrices(ctx, args = {}) {
+  const query = requireArg(args, 'query', 'what to price up, e.g. "17mm structural plywood 2400x1200"');
+  if (!priceCompare.isConfigured()) {
+    // No key set — tell the model to just proceed with a normal order.
+    return { result: 'price comparison not available (not configured); proceed straight to order_parts with the user\'s usual supplier' };
+  }
+  let data;
+  try {
+    data = await priceCompare.comparePrices(query);
+  } catch (e) {
+    console.warn('[find_prices] failed:', e?.message);
+    return { result: `price lookup failed; offer to just order it from their usual supplier via order_parts` };
+  }
+  const rows = data.results || [];
+  if (!rows.length) {
+    return { result: `no online prices found for "${query}"; offer to just order it from their usual supplier` };
+  }
+  const top = rows.slice(0, 4);
+  const cheapestInStock = top.find((r) => r.availability !== 'out_of_stock') || top[0];
+  const lines = top.map((r) => `${r.seller} ${r.price || money(r.priceCents, ctx.currency)}${r.availability === 'out_of_stock' ? ' (out of stock)' : ''}`);
+  return {
+    result: `Compared suppliers for "${query}" (cheapest first): ${lines.join('; ')}. `
+      + `Best pick: ${cheapestInStock.seller}${cheapestInStock.price ? ` at ${cheapestInStock.price}` : ''}. `
+      + `Tell the user the comparison in your own words, point out the best option (and flag if their first-choice supplier is dearer or out of stock), and offer to order it. When they say yes, call order_parts with supplier set to the chosen seller.`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Quotes — phone-keyed quote tracking (agent_quotes). Flynn drafts the quote
 // the operator sends to their client AND records it so the chaser can nudge
@@ -622,6 +655,7 @@ async function draftQuote(ctx, args) {
       user_phone: ctx.phone,
       client_name: clientName,
       client_handle: String(clientName).toLowerCase().trim(),
+      client_email: args.client_email || null,
       amount_cents: amountCents,
       currency: ctx.currency,
       description,
@@ -650,6 +684,7 @@ async function recordQuote(ctx, args) {
       user_phone: ctx.phone,
       client_name: clientName,
       client_handle: String(clientName).toLowerCase().trim(),
+      client_email: args.client_email || null,
       amount_cents: amountCents,
       currency: ctx.currency,
       description: args.description || null,
@@ -701,6 +736,106 @@ async function updateQuote(ctx, args) {
   }
   const q = data[0];
   return { result: `quote for ${q.client_name} marked ${status}`, userFacing: `marked ${q.client_name.toLowerCase()}'s quote as ${status}` };
+}
+
+// Is an email provider actually connected (vs resolveMailProvider's gmail
+// default)? Mirrors the connected checks resolveMailProvider uses up top.
+function mailProviderConnected(ctx) {
+  return ctx.connections.get('outlook')?.status === 'connected'
+    || ctx.connections.get('google-mail')?.status === 'connected'
+    || Boolean(ctx.userIntegrations?.['imap-email']?.email)
+    || ctx.connections.get('imap-email')?.status === 'connected';
+}
+
+// A short, on-tone follow-up the operator can send (or Flynn emails) when a
+// quote's gone quiet. No em dashes — passes sanitiseReply cleanly either way.
+function chaseEmailBody(ctx, clientName, amountCents, currency) {
+  const business = ctx.brain?.business_name || ctx.brain?.business_type || 'us';
+  const amount = money(amountCents, currency || ctx.currency);
+  return [
+    `Hi ${clientName},`,
+    '',
+    `Just following up on the quote we sent through for ${amount}. Happy to answer any questions, and let me know if you'd like to go ahead and we'll lock it in.`,
+    '',
+    'Cheers,',
+    business,
+  ].join('\n');
+}
+
+// chase_quote — runs after the operator says "yep" to the proactive nudge.
+// The scheduler parks a pending_actions row carrying the batch, so this gets
+// the exact quotes (no inference). For each: if the client's email is on file
+// and a mail provider is connected, Flynn emails the follow-up; otherwise it
+// hands the operator a ready-to-send draft. Then stamps last_followup_at.
+async function chaseQuote(ctx, args = {}) {
+  if (!ctx.supabase) return { result: 'quotes unavailable' };
+
+  // Prefer the parked batch; fall back to looking the client up by name if the
+  // model called this directly ("chase the hendersons").
+  let clients = Array.isArray(args.clients) ? args.clients.filter((c) => c && c.name) : [];
+  if (!clients.length && args.client_name) {
+    const handle = String(args.client_name).toLowerCase().trim();
+    const { data } = await ctx.supabase
+      .from('agent_quotes')
+      .select('id, client_name, client_email, amount_cents, currency')
+      .eq('user_phone', ctx.phone)
+      .eq('client_handle', handle)
+      .eq('status', 'open')
+      .order('sent_at', { ascending: false })
+      .limit(1);
+    clients = (data || []).map((q) => ({ quote_id: q.id, name: q.client_name, email: q.client_email, amount_cents: q.amount_cents, currency: q.currency }));
+  }
+  if (!clients.length) {
+    return { result: 'no matching open quote to chase', userFacing: "couldn't find that quote to chase, which client was it?" };
+  }
+
+  const canEmail = mailProviderConnected(ctx);
+  const emailed = [];
+  const drafts = [];
+  const nowIso = new Date().toISOString();
+
+  for (const c of clients) {
+    const name = String(c.name);
+    const amount = money(c.amount_cents, c.currency || ctx.currency);
+    const body = chaseEmailBody(ctx, name, c.amount_cents, c.currency);
+
+    if (canEmail && c.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email)) {
+      try {
+        await sendEmail(ctx, { to: c.email, subject: `Following up on your quote`, body });
+        emailed.push(`${name.toLowerCase()} (${amount})`);
+      } catch (e) {
+        console.warn('[chase_quote] email send failed:', e?.message);
+        drafts.push(`to ${name.toLowerCase()} (${amount}):\n${body}`);
+      }
+    } else {
+      drafts.push(`to ${name.toLowerCase()} (${amount}):\n${body}`);
+    }
+
+    // Stamp the chase. The nudge already advanced the followup cadence, so just
+    // record that the chase happened (don't double-bump the count).
+    const match = c.quote_id
+      ? ctx.supabase.from('agent_quotes').update({ last_followup_at: nowIso, updated_at: nowIso }).eq('id', c.quote_id)
+      : ctx.supabase.from('agent_quotes').update({ last_followup_at: nowIso, updated_at: nowIso })
+          .eq('user_phone', ctx.phone).eq('client_handle', name.toLowerCase().trim()).eq('status', 'open');
+    await match.then(() => {}, (e) => console.warn('[chase_quote] stamp failed:', e?.message));
+  }
+
+  const parts = [];
+  if (emailed.length) parts.push(`emailed the follow-up to ${emailed.join(', ')}`);
+  let userFacing;
+  if (emailed.length && !drafts.length) {
+    userFacing = `done, chased ${emailed.join(' and ')} by email. i'll flag when they reply.`;
+  } else if (drafts.length) {
+    const lead = emailed.length ? `chased ${emailed.join(', ')} by email. ` : '';
+    userFacing = `${lead}here's a follow-up you can send${drafts.length > 1 ? '' : ''}:\n\n${drafts.join('\n\n')}`;
+  } else {
+    userFacing = 'done, chased it.';
+  }
+
+  return {
+    result: `chase_quote ran: ${emailed.length} emailed, ${drafts.length} drafted`,
+    userFacing,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -787,6 +922,165 @@ async function markInvoicePaid(ctx, args) {
   return {
     result: `marked ${inv.client_name} invoice paid (${money(inv.total_cents, inv.currency || ctx.currency)})`,
     userFacing: `nice, marked ${String(inv.client_name).toLowerCase()}'s invoice as paid`,
+  };
+}
+
+// Reminder body for an unpaid invoice — plain, on-tone, no em dashes.
+function invoiceReminderBody(ctx, clientName, amountCents, currency, url) {
+  const business = ctx.brain?.business_name || ctx.brain?.business_type || 'us';
+  const amount = money(amountCents, currency || ctx.currency);
+  return [
+    `Hi ${clientName},`,
+    '',
+    `Just a quick reminder on the invoice for ${amount}.${url ? ` You can view and pay it here: ${url}` : ''} Let me know if you have any questions.`,
+    '',
+    'Cheers,',
+    business,
+  ].join('\n');
+}
+
+// chase_invoice — follows up on an unpaid photo invoice. Runs after the
+// operator says "yep" to the proactive overdue nudge (the demo parks the batch)
+// or when they ask directly ("chase the henderson invoice"). Emails the
+// reminder if the client's email is on file and a mail provider is connected;
+// in demo, simulates the send; otherwise hands the operator a draft.
+async function chaseInvoice(ctx, args = {}) {
+  if (!ctx.supabase) return { result: 'invoices unavailable' };
+
+  let invoices = Array.isArray(args.invoices) ? args.invoices.filter((i) => i && i.client_name) : [];
+  if (!invoices.length) {
+    const handle = String(requireArg(args, 'client_name', 'which client to chase')).toLowerCase().trim();
+    const { data } = await ctx.supabase
+      .from('agent_invoices')
+      .select('id, client_name, client_email, total_cents, currency, public_token')
+      .eq('user_phone', ctx.phone)
+      .eq('client_handle', handle)
+      .neq('status', 'paid')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    invoices = (data || []).map((inv) => ({
+      invoice_id: inv.id, client_name: inv.client_name, client_email: inv.client_email,
+      total_cents: inv.total_cents, currency: inv.currency, public_token: inv.public_token,
+    }));
+  }
+  if (!invoices.length) {
+    return { result: 'no matching unpaid invoice to chase', userFacing: "couldn't find an unpaid invoice for that client, which one was it?" };
+  }
+
+  const canEmail = mailProviderConnected(ctx); // false for demo (no real connection)
+  const emailed = [];
+  const drafts = [];
+  const nowIso = new Date().toISOString();
+
+  for (const c of invoices) {
+    const name = String(c.client_name);
+    const amount = money(c.total_cents, c.currency || ctx.currency);
+    const url = c.public_token ? photoInvoice.invoiceUrl(c.public_token) : '';
+    const body = invoiceReminderBody(ctx, name, c.total_cents, c.currency, url);
+
+    if (ctx.is_demo) {
+      emailed.push(`${name.toLowerCase()} (${amount})`); // simulated, no real send
+    } else if (canEmail && c.client_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.client_email)) {
+      try {
+        await sendEmail(ctx, { to: c.client_email, subject: 'Reminder: your invoice', body });
+        emailed.push(`${name.toLowerCase()} (${amount})`);
+      } catch (e) {
+        console.warn('[chase_invoice] email send failed:', e?.message);
+        drafts.push(`to ${name.toLowerCase()} (${amount}):\n${body}`);
+      }
+    } else {
+      drafts.push(`to ${name.toLowerCase()} (${amount}):\n${body}`);
+    }
+
+    if (c.invoice_id) {
+      await ctx.supabase.from('agent_invoices').update({ updated_at: nowIso }).eq('id', c.invoice_id).then(() => {}, () => {});
+    }
+  }
+
+  let userFacing;
+  if (emailed.length && !drafts.length) {
+    userFacing = `done, chased ${emailed.join(' and ')} for you. i'll flag when they pay.`;
+  } else if (drafts.length) {
+    const lead = emailed.length ? `chased ${emailed.join(', ')}. ` : '';
+    userFacing = `${lead}here's a reminder you can send:\n\n${drafts.join('\n\n')}`;
+  } else {
+    userFacing = 'done, chased it.';
+  }
+
+  // Demo only: close the loop a beat later — Flynn "sees" the payment land
+  // (the client emails back / it gets marked paid), flips the invoice to paid,
+  // and tells the operator. Real users keep the honest flow (chase, then a real
+  // payment, then mark_invoice_paid). Scoped to is_demo so there's no fake
+  // payment detection for anyone but the seeded reviewer persona.
+  if (ctx.is_demo) {
+    const ids = invoices.map((c) => c.invoice_id).filter(Boolean);
+    const paidName = String(invoices[0]?.client_name || 'your client');
+    const paidAmt = money(invoices[0]?.total_cents || 0, invoices[0]?.currency || ctx.currency);
+    const channel = ctx.user?.preferred_channel === 'sms' ? 'sms' : 'imessage';
+    setTimeout(async () => {
+      try {
+        if (ids.length) {
+          await ctx.supabase.from('agent_invoices')
+            .update({ status: 'paid', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+            .in('id', ids);
+        }
+        const { sendToUser } = require('../flynnOutbound');
+        await sendToUser(ctx.phone, `${paidName.toLowerCase()} just paid the ${paidAmt}. marked it off your books.`, { channel, supabase: ctx.supabase });
+      } catch (e) {
+        console.warn('[demo] paid-loop sim failed:', e?.message);
+      }
+    }, 25 * 1000);
+  }
+
+  return { result: `chase_invoice ran: ${emailed.length} emailed, ${drafts.length} drafted`, userFacing };
+}
+
+// reschedule_job — moves a rained-out job to the next clear day. Runs after the
+// operator says "yep" to the proactive weather nudge (the scheduler parks the
+// event id + new time). Demo accounts simulate; real Google-calendar users get
+// the event patched.
+async function rescheduleJob(ctx, args = {}) {
+  const label = args.clear_day_label || 'the next clear day';
+  const what = args.summary ? String(args.summary).toLowerCase() : 'the job';
+  if (ctx.is_demo || args.demo || args.provider === 'demo') {
+    return { result: `[demo] moved ${what} to ${label}`, userFacing: `done, moved ${what} to ${label}, and i let the client know.` };
+  }
+  if (args.provider === 'google-calendar' && args.event_id && args.new_start_iso) {
+    try {
+      const token = await nangoToken(ctx, 'google-calendar');
+      await googleCalendar.patchEvent(token, {
+        eventId: args.event_id,
+        startISO: args.new_start_iso,
+        endISO: args.new_end_iso || args.new_start_iso,
+        timeZone: ctx.tz,
+      });
+      return { result: `moved ${what} to ${label}`, userFacing: `done, moved ${what} to ${label}.` };
+    } catch (e) {
+      console.warn('[reschedule_job] patch failed:', e?.message);
+      return { result: 'reschedule failed', userFacing: "couldn't move it automatically, want me to try again or give me the new time?" };
+    }
+  }
+  return { result: 'no event to reschedule', userFacing: `tell me the new day and time and i'll move ${what}.` };
+}
+
+// send_app_link — when the user wants to view their own stuff (invoices, jobs,
+// quotes, receipts, schedule, "the dashboard", "open the app") Flynn points them
+// to the app and texts a single-use login link so they land already signed in.
+// Best-effort rebuilds their dashboard manifest first so there's something to
+// see; the link itself works regardless.
+async function sendAppLink(ctx) {
+  try {
+    await manifestGenerator.generateManifest({ phone: ctx.phone, supabase: ctx.supabase, force: false });
+  } catch (e) {
+    console.warn('[send_app_link] manifest gen failed:', e?.message);
+  }
+  const link = await createDashboardLoginLink({ userId: ctx.user?.id, phone: ctx.phone });
+  if (!link) {
+    return { result: 'could not mint a login link', userFacing: "couldn't pull your link up just now, give it another go in a sec" };
+  }
+  return {
+    result: `Tell the user their stuff lives in the app and give them this exact login link, verbatim and on its own line, unchanged: ${link}`,
+    userFacing: `it's all in your app, here's a link straight in:\n\n${link}`,
   };
 }
 
@@ -1116,6 +1410,27 @@ const CAPABILITIES = [
     ],
   },
   {
+    capability: 'pricing',
+    provider: null,
+    auth_kind: 'none', // global price-comparison API, no per-user login
+    label: 'price comparison',
+    tools: [
+      {
+        name: 'find_prices',
+        confirm: false,
+        description: "Compare what a product/material costs across suppliers (live prices from Google Shopping AU). ALWAYS call this first when the user asks to order or buy materials, BEFORE order_parts, so you can tell them who's cheapest or in stock and recommend the best supplier. Pass a specific product query.",
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'specific product to price up, e.g. "17mm structural plywood 2400x1200 sheet"' },
+          },
+          required: ['query'],
+        },
+        executor: findPrices,
+      },
+    ],
+  },
+  {
     capability: 'quotes',
     provider: null,
     auth_kind: 'none',
@@ -1143,6 +1458,7 @@ const CAPABILITIES = [
                 required: ['description'],
               },
             },
+            client_email: { type: 'string', description: "client's email, if known — lets Flynn email the chase if the quote goes quiet" },
             valid_days: { type: 'number', description: 'how many days the quote is valid, default 14' },
           },
           required: ['client_name', 'amount_cents'],
@@ -1159,6 +1475,7 @@ const CAPABILITIES = [
             client_name: { type: 'string' },
             amount_cents: { type: 'number', description: 'integer cents' },
             description: { type: 'string' },
+            client_email: { type: 'string', description: "client's email, if known — lets Flynn email the chase if the quote goes quiet" },
           },
           required: ['client_name', 'amount_cents'],
         },
@@ -1189,6 +1506,33 @@ const CAPABILITIES = [
           required: ['client_name', 'status'],
         },
         executor: updateQuote,
+      },
+      {
+        name: 'chase_quote',
+        confirm: false,
+        description: "Send a follow-up on a quote that's gone quiet. Use when the user says yes/yep to chasing a quote (e.g. after Flynn asked 'want me to chase them up?'), or asks you to chase or follow up a specific client. Emails the follow-up if the client's email is on file and an email account is connected, otherwise hands the user a ready-to-send draft.",
+        parameters: {
+          type: 'object',
+          properties: {
+            client_name: { type: 'string', description: 'the client to chase, if chasing one by name' },
+            clients: {
+              type: 'array',
+              description: 'optional batch of quotes to chase (normally supplied automatically when resuming a nudge)',
+              items: {
+                type: 'object',
+                properties: {
+                  quote_id: { type: 'string' },
+                  name: { type: 'string' },
+                  email: { type: 'string' },
+                  amount_cents: { type: 'number' },
+                  currency: { type: 'string' },
+                },
+                required: ['name'],
+              },
+            },
+          },
+        },
+        executor: chaseQuote,
       },
     ],
   },
@@ -1245,6 +1589,76 @@ const CAPABILITIES = [
           required: ['client_name'],
         },
         executor: markInvoicePaid,
+      },
+      {
+        name: 'chase_invoice',
+        confirm: false,
+        description: "Send a follow-up on an unpaid invoice. Use when the user says yes/yep to chasing an invoice (e.g. after Flynn flagged 'that invoice is overdue, want me to chase it?'), or asks to chase/follow up an invoice for a client, e.g. 'chase the henderson invoice'. Emails the reminder if the client's email is on file and email is connected, otherwise hands the user a ready-to-send draft.",
+        parameters: {
+          type: 'object',
+          properties: {
+            client_name: { type: 'string', description: 'the client whose unpaid invoice to chase' },
+            invoices: {
+              type: 'array',
+              description: 'optional batch (normally supplied automatically when resuming an overdue-invoice nudge)',
+              items: {
+                type: 'object',
+                properties: {
+                  invoice_id: { type: 'string' },
+                  client_name: { type: 'string' },
+                  client_email: { type: 'string' },
+                  total_cents: { type: 'number' },
+                  currency: { type: 'string' },
+                  public_token: { type: 'string' },
+                },
+                required: ['client_name'],
+              },
+            },
+          },
+        },
+        executor: chaseInvoice,
+      },
+    ],
+  },
+  {
+    capability: 'scheduling',
+    provider: null,
+    auth_kind: 'none',
+    label: 'scheduling',
+    tools: [
+      {
+        name: 'reschedule_job',
+        confirm: false,
+        description: "Move a job to a new day, e.g. after Flynn flags rain and the user says yes to rescheduling. Normally the event details are supplied automatically when resuming a weather nudge; if the user asks directly, pass the summary and the new day.",
+        parameters: {
+          type: 'object',
+          properties: {
+            summary: { type: 'string', description: 'short job title' },
+            clear_day_label: { type: 'string', description: 'the day to move it to, e.g. "friday"' },
+            event_id: { type: 'string' },
+            provider: { type: 'string' },
+            new_start_iso: { type: 'string' },
+            new_end_iso: { type: 'string' },
+            location: { type: 'string' },
+            demo: { type: 'boolean' },
+          },
+        },
+        executor: rescheduleJob,
+      },
+    ],
+  },
+  {
+    capability: 'dashboard',
+    provider: null,
+    auth_kind: 'none',
+    label: 'dashboard',
+    tools: [
+      {
+        name: 'send_app_link',
+        confirm: false,
+        description: "Text the user a single-use login link to their Flynn app/dashboard. Use whenever the user wants to view or check their own data rather than have Flynn do something — e.g. 'where can i see my invoices', 'how do i check my jobs', 'is there a dashboard', 'can i see my receipts somewhere', 'open the app', 'where's my schedule'. The link logs them straight in, no password.",
+        parameters: { type: 'object', properties: {} },
+        executor: sendAppLink,
       },
     ],
   },
@@ -1329,6 +1743,68 @@ const METERED_TOOLS = new Set([
   'create_photo_invoice',
 ]);
 
+// Tools that hit real OAuth/Browserbase side effects. For reviewer demo
+// accounts these are SIMULATED (realistic success text, no real call) so a
+// reviewer can experience parts ordering, emailing, calendar + accounting
+// without connecting anything. Local tools (invoices, quotes, chasing, memory)
+// are deliberately NOT here — they run for real so the hosted pages are genuine.
+const SIMULATED_TOOLS = new Set([
+  'send_email',
+  'find_emails',
+  'calendar_book_event',
+  'calendar_check_availability',
+  'sheets_log_expense',
+  'log_timesheet',
+  'xero_send_invoice',
+  'xero_log_expense',
+  'xero_list_invoices',
+  'order_parts',
+]);
+
+// Realistic canned outcomes for simulated tools, shaped from the call args so
+// the reviewer sees something concrete ("ordered 3 sheets of ply…").
+function demoResult(toolName, args = {}, ctx = {}) {
+  const cur = ctx.currency || 'AUD';
+  switch (toolName) {
+    case 'order_parts': {
+      let slug;
+      try { slug = resolveSupplier(ctx, args); } catch { slug = null; }
+      slug = slug || (Array.isArray(ctx.brain?.suppliers) && ctx.brain.suppliers[0]) || 'bunnings';
+      const items = Array.isArray(args.items) ? args.items : [];
+      const first = items[0];
+      const what = first
+        ? `${first.quantity || first.qty || ''} ${first.name || first.description || 'item'}`.trim()
+        : (args.description || 'the materials');
+      const price = money(18600, cur);
+      return {
+        result: `[demo] order placed at ${slug}: ${what}`,
+        userFacing: `ordered ${what} from ${slug}, ${price}, ready for pickup tomorrow.`,
+      };
+    }
+    case 'send_email':
+      return { result: `[demo] email sent to ${args.to || 'the client'}`, userFacing: `sent the email to ${String(args.to || 'them').toLowerCase()}.` };
+    case 'find_emails':
+      return { result: '[demo] no new emails match', userFacing: 'had a look, nothing new in there right now.' };
+    case 'calendar_book_event': {
+      const when = [args.date, args.start_time].filter(Boolean).join(' ');
+      return { result: `[demo] booked ${args.summary || 'job'} ${when}`, userFacing: `booked ${String(args.client_name || args.summary || 'the job').toLowerCase()} in${when ? ` for ${when}` : ''}.` };
+    }
+    case 'calendar_check_availability':
+      return { result: '[demo] free after 2pm thursday and all friday', userFacing: "you're free after 2pm thursday and all of friday." };
+    case 'sheets_log_expense':
+    case 'xero_log_expense':
+      return { result: `[demo] logged ${money(Number(args.total_cents) || 0, cur)} from ${args.vendor || 'supplier'}`, userFacing: `filed that ${money(Number(args.total_cents) || 0, cur)} receipt from ${String(args.vendor || 'the supplier').toLowerCase()}.` };
+    case 'log_timesheet':
+      return { result: '[demo] timesheet logged', userFacing: `logged ${args.hours || ''}h${args.worker ? ` for ${String(args.worker).toLowerCase()}` : ''}.` };
+    case 'xero_send_invoice':
+      return { result: `[demo] xero invoice sent to ${args.client_name || 'client'}`, userFacing: `invoice is away to ${String(args.client_name || 'them').toLowerCase()} and logged in xero.` };
+    case 'xero_list_invoices':
+      return { result: '[demo] 1 outstanding: Henderson $2,400 (4d overdue)', userFacing: "you've got one unpaid: henderson for $2,400, 4 days overdue." };
+    default:
+      return { result: `[demo] ${toolName} done`, userFacing: 'done.' };
+  }
+}
+
 const TOOL_INDEX = new Map();
 for (const cap of CAPABILITIES) {
   for (const tool of cap.tools) TOOL_INDEX.set(tool.name, { capability: cap, tool });
@@ -1351,6 +1827,9 @@ function providerFor(capability, ctx, args) {
  * The connected user_connections row for this capability+call, or null.
  */
 function connectionFor(capability, ctx, args) {
+  // Reviewer demo accounts behave as if everything's connected (no real OAuth);
+  // the actual external call is simulated in safeExecute.
+  if (ctx?.is_demo) return { status: 'connected' };
   if (capability.auth_kind === 'none') return { status: 'connected' };
   const provider = providerFor(capability, ctx, args);
   if (!provider) return null;
@@ -1406,6 +1885,8 @@ function getOpenAITools(ctx) {
 module.exports = {
   CAPABILITIES,
   METERED_TOOLS,
+  SIMULATED_TOOLS,
+  demoResult,
   ToolArgError,
   findTool,
   providerFor,

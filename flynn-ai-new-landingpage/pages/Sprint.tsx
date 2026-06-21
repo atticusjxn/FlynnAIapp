@@ -132,7 +132,7 @@ function allToText(): string {
     bucketsToText(),
     tracksToText('TRACK A — founder / organic (@atticusjxn)', TRACK_A),
     tracksToText('TRACK B — demo / paid ads (→ Message Flynn)', TRACK_B),
-    tracksToText('TRACK D — the $1,500 challenge (daily series)', CHALLENGE),
+    tracksToText('TRACK D — the $2,500 challenge (daily series)', CHALLENGE),
     brollToText(),
     srToText(),
   ].join('\n\n\n');
@@ -238,8 +238,8 @@ export default function Sprint() {
             onOpen={() => setOpenVideo(openVideo === v.id ? null : v.id)} onToggle={toggle} />
         ))}
 
-        <SectionLabel copy={() => tracksToText('TRACK D — the $1,500 challenge (daily series)', CHALLENGE)}>🟢 Track D — the $1,500 challenge (daily series, @atticusjxn)</SectionLabel>
-        <p style={S.note}>Post each night, raw. Cold "day N of $1,500" open + running $ tally on frame 1. Fill the script after you film each day — don't pre-write nights that haven't happened.</p>
+        <SectionLabel copy={() => tracksToText('TRACK D — the $2,500 challenge (daily series)', CHALLENGE)}>🟢 Track D — the $2,500 challenge (daily series, @atticusjxn)</SectionLabel>
+        <p style={S.note}>Post each day, raw. Cold "day N of $2,500" open + running $ tally on frame 1. Fill the script after you film each day — don't pre-write days that haven't happened.</p>
         {CHALLENGE.map((v) => (
           <VideoCard key={v.id} v={v} done={done} open={openVideo === v.id}
             onOpen={() => setOpenVideo(openVideo === v.id ? null : v.id)} onToggle={toggle} />
@@ -449,6 +449,7 @@ function VideoCard({
         {v.variants && (<><span style={S.dot}>·</span><span style={{ color: C.orange, fontWeight: 700 }}>×5 hooks</span></>)}
       </div>
 
+      <div style={S.hookLabel}>Hook · frame 1 (the line that lands on mute)</div>
       <div style={S.hook}>{v.hook}</div>
 
       {open && (
@@ -548,6 +549,7 @@ const S: Record<string, React.CSSProperties> = {
   chev: { color: C.inkSoft, fontSize: 14, paddingLeft: 8 },
   meta: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: C.inkSoft, margin: '8px 0 8px' },
   dot: { opacity: 0.5 },
+  hookLabel: { fontSize: 11, fontWeight: 700, letterSpacing: 1, color: C.orange, marginBottom: 4, textTransform: 'uppercase' as const },
   hook: { fontSize: 14.5, lineHeight: 1.45, color: C.ink, fontStyle: 'italic' },
   detail: { marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.line}` },
   detailLabel: { fontSize: 11, fontWeight: 700, letterSpacing: 1, color: C.orange, marginBottom: 4, marginTop: 4 },

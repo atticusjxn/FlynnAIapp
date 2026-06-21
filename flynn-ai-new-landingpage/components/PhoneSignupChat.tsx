@@ -8,9 +8,27 @@ const DEMO = [
   { out: false, text: "Invoice ready — $340 inc GST. Sending to Dave. Good?" },
 ];
 
-const FLYNN_NUMBER = '+61495023092';
+// iPhones reach Flynn over iMessage (BlueBubbles); Android can't, so it texts
+// the Twilio SMS number, which the backend handles identically.
+const FLYNN_IMESSAGE = '+61495023092';
+const FLYNN_SMS = '+61480891471';
+const FLYNN_NUMBER = FLYNN_IMESSAGE;
 const FLYNN_NUMBER_DISPLAY = '+61 495 023 092';
-const SMS_LINK = `sms:${FLYNN_NUMBER}&body=${encodeURIComponent('Hi Flynn')}`;
+const FLYNN_SMS_DISPLAY = '+61 480 891 471';
+
+function isAndroid() {
+  return typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent || '');
+}
+
+// iOS Messages wants sms:NUMBER&body=… ; Android wants sms:NUMBER?body=…
+function buildSmsLink(body: string) {
+  const android = isAndroid();
+  const number = android ? FLYNN_SMS : FLYNN_IMESSAGE;
+  const sep = android ? '?' : '&';
+  return `sms:${number}${sep}body=${encodeURIComponent(body)}`;
+}
+
+const SMS_LINK = `sms:${FLYNN_IMESSAGE}&body=${encodeURIComponent('Hi Flynn')}`;
 
 function IMessageIcon({ size = 28 }: { size?: number }) {
   return (
@@ -41,7 +59,7 @@ export default function PhoneSignupChat() {
   function handleMessageFlynn(e: React.MouseEvent<HTMLAnchorElement>) {
     try {
       const ref = trackMessagedFlynn();
-      const link = `sms:${FLYNN_NUMBER}&body=${encodeURIComponent(`Hi Flynn [${ref}]`)}`;
+      const link = buildSmsLink(`Hi Flynn [${ref}]`);
       e.preventDefault();
       window.location.href = link;
     } catch {
@@ -127,7 +145,7 @@ export default function PhoneSignupChat() {
         >
           {copied ? 'Copied!' : FLYNN_NUMBER_DISPLAY}
         </button>
-        {' '}from your phone.
+        {' '}from your iPhone, or {FLYNN_SMS_DISPLAY} from Android.
       </p>
     </div>
   );

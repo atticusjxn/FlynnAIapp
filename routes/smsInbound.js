@@ -5,6 +5,7 @@ const { processMessage } = require('../services/flynnSMS');
 const { sendToUser } = require('../services/flynnOutbound');
 const { sanitiseReply } = require('../services/flynnTone');
 const { ensureAuthUser, generateAppLink } = require('../services/authLink');
+const { provisionDemoAccount, isDemoCode } = require('../services/demoAccount');
 
 const router = express.Router();
 
@@ -56,13 +57,21 @@ router.post('/inbound', async (req, res) => {
 
   console.log('[SMSInbound] Received', { from, bodyLength: body.length });
 
+  // Reviewer demo code (LATITUDE) over SMS — provision the seeded James persona
+  // for Android reviewers, then return. Re-texting resets.
+  if (supabase && isDemoCode(body)) {
+    try { await provisionDemoAccount(from, { supabase, channel: 'sms' }); }
+    catch (e) { console.error('[demo] sms provision failed:', e?.message || e); }
+    return res.sendStatus(200);
+  }
+
   try {
     // Look up or create user
     let user = null;
     if (supabase) {
       const { data } = await supabase
         .from('users')
-        .select('id, phone, business_brain, onboarding_step, preferred_channel')
+        .select('id, phone, business_brain, onboarding_step, preferred_channel, is_demo')
         .eq('phone', from)
         .maybeSingle();
 
@@ -86,7 +95,7 @@ router.post('/inbound', async (req, res) => {
         }
         const { data: created } = await supabase
           .from('users')
-          .select('id, phone, business_brain, onboarding_step')
+          .select('id, phone, business_brain, onboarding_step, preferred_channel, is_demo')
           .eq('phone', from)
           .maybeSingle();
         user = created;
@@ -134,8 +143,9 @@ router.post('/inbound', async (req, res) => {
     // Load unexpired pending action + integrations in parallel
     let pendingAction = null;
     let userIntegrations = {};
+    let connections = new Map();
     if (supabase) {
-      const [pendingRes, integrationsRes] = await Promise.all([
+      const [pendingRes, integrationsRes, connectionsRes] = await Promise.all([
         supabase
           .from('pending_actions')
           .select('*')
@@ -148,6 +158,10 @@ router.post('/inbound', async (req, res) => {
           .from('user_integrations')
           .select('integration_type, credentials_encrypted')
           .eq('user_phone', from),
+        supabase
+          .from('user_connections')
+          .select('*')
+          .eq('user_phone', from),
       ]);
 
       pendingAction = pendingRes.data || null;
@@ -157,6 +171,7 @@ router.post('/inbound', async (req, res) => {
       for (const row of (integrationsRes.data || [])) {
         userIntegrations[row.integration_type] = decryptCredentials(row.credentials_encrypted);
       }
+      for (const row of (connectionsRes.data || [])) connections.set(row.provider, row);
     }
 
     // Log inbound message
@@ -176,6 +191,9 @@ router.post('/inbound', async (req, res) => {
       onboardingStep: user?.onboarding_step || 'brain_pending',
       pendingAction,
       userIntegrations,
+      user,
+      supabase,
+      connections,
     });
 
     // Update business brain if brain setup produced one
@@ -218,7 +236,8 @@ router.post('/inbound', async (req, res) => {
       }
 
       if (result.pendingAction) {
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        const expiresAt = result.pendingAction.expires_at
+          || new Date(Date.now() + 30 * 60 * 1000).toISOString();
         await supabase
           .from('pending_actions')
           .upsert({
@@ -227,6 +246,11 @@ router.post('/inbound', async (req, res) => {
             action_data: result.pendingAction.action_data,
             confirmation_message: result.pendingAction.confirmation_message,
             expires_at: expiresAt,
+            // Tool-loop fields: how the action resumes (yes/no vs connect-then-run)
+            status: result.pendingAction.status || 'awaiting_confirmation',
+            required_provider: result.pendingAction.required_provider || null,
+            tool_name: result.pendingAction.tool_name || null,
+            tool_args: result.pendingAction.tool_args || null,
           }, { onConflict: 'user_phone' })
           .then(() => {}).catch(() => {});
       }

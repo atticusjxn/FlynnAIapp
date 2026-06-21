@@ -6035,6 +6035,7 @@ if (require.main === module) {
   const groupDigestScheduler = require('./services/groupAgent/digestScheduler');
   const quoteChaseScheduler = require('./services/quoteChaseScheduler');
   const weeklyDigestScheduler = require('./services/weeklyDigestScheduler');
+  const weatherScheduler = require('./services/weatherScheduler');
 
   // Process reminders every minute
   setInterval(async () => {
@@ -6050,6 +6051,8 @@ if (require.main === module) {
       await quoteChaseScheduler.processTick();
       // Weekly money/admin digest at the operator's digest hour (throttled ~20 min).
       await weeklyDigestScheduler.processTick();
+      // Proactive weather reschedule nudge for outdoor jobs (throttled ~12h).
+      await weatherScheduler.processTick();
     } catch (error) {
       console.error('[Cron] Reminder processor error:', error);
     }

@@ -30,6 +30,11 @@ const DEFAULT_SOURCE_URL = process.env.META_CAPI_SOURCE_URL || 'https://flynnai.
 
 const EVENT_MESSAGED = process.env.META_CAPI_EVENT_MESSAGED || 'MessagedFlynn';
 const EVENT_ACTIVATED = process.env.META_CAPI_EVENT_ACTIVATED || 'Activated';
+// Standard Meta event fired alongside MessagedFlynn so the ad can optimise on it.
+// Custom events (MessagedFlynn) aren't selectable as an optimisation/conversion
+// event until they accrue volume; the standard Lead event is selectable instantly
+// and has rich optimisation signal. Same event_id => dedups with the browser Lead.
+const EVENT_LEAD = process.env.META_CAPI_EVENT_LEAD || 'Lead';
 
 function isConfigured() {
   return Boolean(PIXEL_ID && ACCESS_TOKEN);
@@ -107,8 +112,13 @@ async function track(eventName, opts = {}) {
 // MessagedFlynn — the CAPI mirror of the landing-page button tap. `ids` carries
 // the browser identifiers captured at the tap (event_id, fbp, fbc, fbclid, ip,
 // ua, source url) so this dedups against and reinforces the Pixel event.
+//
+// Fires TWO events with the SAME event_id (Meta dedups per event_name, so reusing
+// the id across names is fine): the custom MessagedFlynn (granular reporting) and
+// the standard Lead (selectable as the ad's optimisation event). Each dedups with
+// its matching browser Pixel event.
 function trackMessagedFlynn(ids = {}) {
-  return track(EVENT_MESSAGED, {
+  const common = {
     eventId: ids.eventId,
     actionSource: 'website',
     eventSourceUrl: ids.eventSourceUrl,
@@ -118,7 +128,11 @@ function trackMessagedFlynn(ids = {}) {
     clientIp: ids.clientIp,
     userAgent: ids.userAgent,
     phone: ids.phone,
-  });
+  };
+  return Promise.all([
+    track(EVENT_MESSAGED, common),
+    track(EVENT_LEAD, { ...common, customData: { content_name: 'message_flynn' } }),
+  ]);
 }
 
 // Activated — first value, fired from the iMessage side. `bridge` is the stored

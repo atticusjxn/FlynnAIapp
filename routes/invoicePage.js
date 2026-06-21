@@ -9,6 +9,9 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const { renderInvoiceHTML } = require('../services/photoInvoice');
+const ogImage = require('../services/ogImage');
+
+const OG_FALLBACK_IMAGE = 'https://flynnai.app/og-image.png';
 
 const router = express.Router();
 
@@ -26,6 +29,35 @@ function notFound(res) {
     + '<h2 style="font-weight:600">Invoice not found</h2><p>This link may have expired.</p></body>',
   );
 }
+
+// Dynamic OG card image for link previews. Renders a branded card showing the
+// amount + status; falls back to a static image if anything goes wrong so the
+// preview never breaks.
+router.get('/i/:token/og.png', async (req, res) => {
+  const token = String(req.params.token || '');
+  try {
+    if (!supabase || !token) throw new Error('no token');
+    const { data: inv } = await supabase
+      .from('agent_invoices')
+      .select('total_cents, currency, status, client_name, photo_urls, user_phone, public_token')
+      .eq('public_token', token)
+      .maybeSingle();
+    if (!inv) throw new Error('not found');
+
+    let business = {};
+    const { data: u } = await supabase
+      .from('users').select('business_brain').eq('phone', inv.user_phone).maybeSingle();
+    if (u?.business_brain) business = u.business_brain;
+
+    const png = await ogImage.renderCardPng(inv, business);
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=120'); // short — so it flips to Paid quickly
+    return res.send(png);
+  } catch (e) {
+    console.warn('[invoicePage] og.png failed, using fallback:', e?.message);
+    return res.redirect(302, OG_FALLBACK_IMAGE);
+  }
+});
 
 router.get('/i/:token', async (req, res) => {
   if (!supabase) return notFound(res);

@@ -126,8 +126,12 @@ export function trackMessagedFlynn(): string {
   const eventId = window.crypto?.randomUUID?.() || `${Date.now()}-${ref}`;
   const ids = metaIds();
 
-  // 1. Browser Pixel event (shares eventId with the server mirror for dedup).
+  // 1. Browser Pixel events (share eventId with the server mirror for dedup).
+  //    MessagedFlynn = granular custom event for reporting. Lead = the STANDARD
+  //    event the ad actually optimises on (custom events aren't selectable as an
+  //    optimisation event until they accrue volume; Lead is selectable instantly).
   window.fbq?.('trackCustom', 'MessagedFlynn', { ref }, { eventID: eventId });
+  window.fbq?.('track', 'Lead', { content_name: 'message_flynn' }, { eventID: eventId });
   window.ttq?.track('Contact', { content_id: 'message_flynn' });
   window.gtag?.('event', 'message_flynn');
   window.posthog?.capture('message_flynn_tapped', { ref });

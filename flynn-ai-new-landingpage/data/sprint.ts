@@ -99,7 +99,7 @@ export const TRACK_A: SprintVideo[] = [
     ],
     captions: "ALL-CAPS; big 'DAY 1' number on screen.",
     audio: 'Original VO; optional low bed.',
-    editNote: 'Front-load the goal in the first words (day-1-of format). Keep it RAW. Serialized → drives follows. This is the build-in-public sibling to Track D (the $1,500 challenge) — run whichever fits the week, don\'t overlap both at once.',
+    editNote: 'Front-load the goal in the first words (day-1-of format). Keep it RAW. Serialized → drives follows. This is the build-in-public sibling to Track D (the $2,500 challenge) — run whichever fits the week, don\'t overlap both at once.',
   },
   {
     id: 'a5', code: 'A5', title: 'Reaction in your lane', badge: '🟢 organic', length: '~25-40s',
@@ -137,25 +137,26 @@ export const TRACK_A: SprintVideo[] = [
     editNote: 'Montage cut to the music, vary shot length. Highly save/send-able. Plays to BOTH audiences.',
   },
   {
-    id: 'a7', code: 'A7', title: 'The $1,500-in-4-days challenge', badge: '🟣 both', length: '~30-45s',
-    hook: "i need $1,500 in 4 days for this trip. so i'm running my whole business off flynn to see if it holds up.",
+    id: 'a7', code: 'A7', title: 'The $2,500-before-Europe challenge', badge: '🟣 both', length: '~30-45s',
+    hook: "i finished my last exam thursday and i fly to europe wednesday. i need $2,500 by then.",
     script: [
-      "okay so i need fifteen hundred bucks in four days to get to europe. flight's already booked. slight problem.",
-      "so i'm doing every job i can after work and letting the app run everything else.",
-      'i mow, i haul, i do the actual work. it does the quotes, chases the invoices, logs every receipt.',
-      "[day 4] fifteen sixty. made it. didn't open a spreadsheet once.",
+      "i just sat my last exam and my flight to europe leaves wednesday. that gives me six days, and i'm about two and a half grand short.",
+      "so the deal i made with myself, every day this week i take whatever job i can get. mowing, hauling, a tip run, if it pays i'm doing it.",
+      "the one rule is i don't touch any admin. not a quote, not an invoice, not a single receipt. i just do the work and the money side sorts itself out.",
+      "[day 6] twenty-five sixty. made the lot with my hands and never once sat down to do paperwork.",
+      "the thing running all of that while i was out grafting, it's just a text thread. i text it like a mate and it does the rest. that's flynn.",
     ],
     shots: [
-      'You to cam, the stakes + the clock (keep it casual, not a movie trailer).',
-      'Montage of your real after-work hustle B-roll: mowing, hauling, the tip run, grinding, fast cuts to a beat.',
-      "Cut-ins of Flynn running the back office: quote drafted, 'chase the henderson invoice' → sent, receipt logged.",
-      'A running $ tally ticking up on screen ($420… $890… $1,310…).',
-      "Day 4, the WIN: '$1,560. made it.' little real celebration (fist pump / cheers).",
-      "End line: 'didn't open a spreadsheet once.' (organic: stop. paid: Message Flynn card.)",
+      "You to cam, just-finished-uni energy. The stakes + the clock, casual like you're telling a mate, not narrating a trailer.",
+      'The day\'s job — pull real footage from your camera roll (mowing, hauling, the tip run) and VO over it as if it happened this week. Fast cuts to the beat.',
+      "Cut-ins of the back office quietly running itself: a quote going out, an invoice getting chased, a receipt logged. DON'T name what's doing it yet.",
+      'A running $ tally ticking up across the days on screen ($640… $1,480… $2,150…).',
+      "Final day, the WIN: '$2,560. made it.' a real little celebration, not staged.",
+      "Only NOW the reveal — it was all one text thread, that's Flynn. (organic: end there. paid: Message Flynn card.)",
     ],
-    captions: 'ALL-CAPS karaoke; the running $ TALLY is the hero — animate it ticking up, highlight the final number.',
+    captions: "ALL-CAPS karaoke; the running $ TALLY is the hero — animate it ticking up day by day, highlight the final number. Don't put the word 'Flynn' on screen until the last line.",
     audio: 'Organic: upbeat trending bed building to the win. Paid: licensed build-up track, mute-proof.',
-    editNote: 'Stakes + payoff, but keep the delivery casual and real, NOT dramatic/cinematic. The tally carries watch-time. Mostly existing B-roll + VO.',
+    editNote: "Stakes + payoff, casual NOT cinematic. Framing: last exam Thursday, fly Wednesday = six days, grinding ALL DAY (NOT after-work). Backfill the daytime jobs with camera-roll footage + VO. Flynn is invisible until the final line — the whole video IS the challenge, Flynn is just the reveal of HOW it held up. Tally carries watch-time.",
   },
 ];
 
@@ -246,44 +247,43 @@ export const TRACK_B: SprintVideo[] = [
   },
 ];
 
-// Track D — the REAL serialized challenge. Daily drops, posted same-night, raw.
+// Track D — the REAL serialized challenge. Daily drops, posted same-day, raw.
 // The whole format runs on: cold "day N of [specific $ goal]" open + a running
 // $ tally on frame 1 + ONE real job beat. Flynn does NOT appear day 1 (day 1 earns
 // the follow on pure hustle); it surfaces day 3-4 as the admin you've got no time for,
-// and lands its cleanest plug on the day-5 payoff. Days 2-5 are scaffolded on purpose
-// — fill the script after you film each night. Do NOT pre-write days that haven't happened.
+// and lands its cleanest plug on the day-6 payoff. Days 2-6 are scaffolded on purpose
+// — fill the script after you film each day. Do NOT pre-write days that haven't happened.
 export const CHALLENGE: SprintVideo[] = [
   {
     id: 'd1', code: 'D1', title: 'Day 1 — mow + tip run (FILMED)', badge: '🟢 organic', length: '~25-35s',
-    hook: 'day 1 of making $1,500 in 5 days, only after work, so i can get to europe.',
+    hook: 'day 1 of making $2,500 in 6 days so i can get to europe. last exam done, flight booked.',
     script: [
-      'day one of trying to make fifteen hundred bucks in five days. only after work. so i can actually afford europe.',
-      "i'm interning full time, so all of this happens after six.",
-      'tonight i mowed and whipper-snipped a whole property, racing the light before it got too dark.',
-      'then a quick tip run to clear the green waste.',
-      'day one: $___ of $1,500.',
+      'day one of trying to make two and a half grand in six days. just sat my last exam, flight to europe leaves wednesday.',
+      "no real job to fall back on, so i'm just taking whatever work i can get, all day.",
+      'today i mowed and whipper-snipped a whole property, then a tip run to clear the green waste.',
+      'day one: $___ of $2,500.',
     ],
     shots: [
-      'Cold open straight to the goal — no intro, the running $ TALLY on frame 1 ("DAY 1 · $0 / $1,500").',
-      'The 6:30pm rush: mowing + whipper-snipping, beat-the-clock energy, fading light (un-fakeable).',
+      'Cold open straight to the goal — no intro, the running $ TALLY on frame 1 ("DAY 1 · $0 / $2,500").',
+      'The job: mowing + whipper-snipping (pull from your camera roll if needed, VO over it as today).',
       'The tip run: loading green waste, the drive, dumping it.',
-      'End on the tally updating to tonight\'s number.',
+      'End on the tally updating to today\'s number.',
     ],
-    captions: 'ALL-CAPS karaoke. Hero element is the persistent DAY + $ TALLY top-of-frame. Highlight $1,500 and EUROPE.',
-    audio: 'Original VO + low trending bed building under it. Same bed across all 5 = series signature.',
-    editNote: 'Day 1 = pure hustle, NO Flynn. It earns the follow before you sell anything. Fill the $___ with what you actually pulled. Keep it raw/handheld — polish kills the "will he make it" tension. Post same night.',
+    captions: 'ALL-CAPS karaoke. Hero element is the persistent DAY + $ TALLY top-of-frame. Highlight $2,500 and EUROPE.',
+    audio: 'Original VO + low trending bed building under it. Same bed across all 6 = series signature.',
+    editNote: 'Day 1 = pure hustle, NO Flynn. It earns the follow before you sell anything. Fill the $___ with what you actually pulled. Keep it raw/handheld — polish kills the "will he make it" tension. Post same day.',
   },
   {
     id: 'd2', code: 'D2', title: 'Day 2 — (fill after you film)', badge: '🟢 organic', length: '~20-35s',
-    hook: 'day 2 of $1,500 in 5 days, after work only. [running total: $___]',
+    hook: 'day 2 of $2,500 in 6 days for europe. [running total: $___]',
     script: [
-      'day two. [carry the tally forward: "$___ of fifteen hundred so far."]',
-      '[ONE or two real beats from tonight — whatever you actually did. do not dress it up.]',
-      'day two done: $___ of $1,500.',
+      'day two. [carry the tally forward: "$___ of twenty-five hundred so far."]',
+      '[ONE or two real beats from today — whatever you actually did. do not dress it up.]',
+      'day two done: $___ of $2,500.',
     ],
     shots: [
-      'Same cold-open structure: "DAY 2 · $___ / $1,500" tally on frame 1.',
-      "Tonight's real job beat(s) — handheld, racing the same after-work clock.",
+      'Same cold-open structure: "DAY 2 · $___ / $2,500" tally on frame 1.',
+      "Today's real job beat(s) — handheld, raw.",
       'End on the tally ticking up.',
     ],
     captions: 'Same tally treatment as D1 — consistency IS the series. Highlight the new running number.',
@@ -292,17 +292,17 @@ export const CHALLENGE: SprintVideo[] = [
   },
   {
     id: 'd3', code: 'D3', title: 'Day 3 — (fill after you film) · first Flynn beat', badge: '🟣 both', length: '~25-40s',
-    hook: 'day 3 of $1,500 in 5 days. [running total: $___] this is the one where i nearly forgot to invoice anyone.',
+    hook: 'day 3 of $2,500 in 6 days. [running total: $___] this is the one where i nearly forgot to invoice anyone.',
     script: [
-      'day three. [tally so far: "$___ of fifteen hundred."]',
-      '[ONE real beat from tonight.]',
-      "here's the bit no one shows you — i'm too knackered after a full day plus this to sit and do invoices.",
+      'day three. [tally so far: "$___ of twenty-five hundred."]',
+      '[ONE real beat from today.]',
+      "here's the bit no one shows you — by the end of a day this full i'm too knackered to sit and do invoices.",
       "so before i pack up i just snap the before and afters, text the job to flynn, and it sends the client an invoice with the photos right on it. logs the lot, chases the money too. that's the only reason this is working.",
-      'day three: $___ of $1,500.',
+      'day three: $___ of $2,500.',
     ],
     shots: [
-      '"DAY 3 · $___ / $1,500" tally on frame 1.',
-      "Tonight's real job beat — and grab a clean before + after of the lawn (this is the hero shot for the invoice beat).",
+      '"DAY 3 · $___ / $2,500" tally on frame 1.',
+      "Today's real job beat — and grab a clean before + after of the lawn (this is the hero shot for the invoice beat).",
       'Cut-in screen-record: text Flynn the before/after pics + "invoice the job $___" → an invoice page with YOUR photos embedded on it, link ready to send.',
       'End on the tally.',
     ],
@@ -312,40 +312,57 @@ export const CHALLENGE: SprintVideo[] = [
   },
   {
     id: 'd4', code: 'D4', title: 'Day 4 — (fill after you film)', badge: '🟢 organic', length: '~20-35s',
-    hook: 'day 4 of $1,500 in 5 days. [running total: $___] cutting it close.',
+    hook: 'day 4 of $2,500 in 6 days. [running total: $___] halfway-ish and the gap is real.',
     script: [
-      'day four. [tally — and lean into the gap: how far off $1,500 you still are.]',
-      '[ONE real beat from tonight.]',
+      'day four. [tally — and lean into the gap: how far off $2,500 you still are.]',
+      '[ONE real beat from today.]',
       '[optional light Flynn callback only if natural — e.g. "flynn already chased two invoices today" — otherwise leave it out.]',
-      'day four: $___ of $1,500. [the maths for tomorrow.]',
+      'day four: $___ of $2,500. [the maths for the days left.]',
     ],
     shots: [
-      '"DAY 4 · $___ / $1,500" tally on frame 1 — the gap is the tension now.',
-      "Tonight's real job beat.",
-      'End on the tally + a "need $___ tomorrow" beat to set up the finale.',
+      '"DAY 4 · $___ / $2,500" tally on frame 1 — the gap is the tension now.',
+      "Today's real job beat.",
+      'End on the tally + a "still need $___" beat to set up the back half.',
     ],
     captions: 'Tally hero. Highlight the GAP / how much left.',
     audio: 'Same VO + bed. Tempo can tighten — the deadline pressure is the story.',
-    editNote: 'Build the will-he-make-it tension. Flynn callback is optional and light — D3 already planted it, do not re-sell. This episode\'s job is to make day 5 feel uncertain.',
+    editNote: 'Build the will-he-make-it tension. Flynn callback is optional and light — D3 already planted it, do not re-sell. This episode\'s job is to make the back half feel uncertain.',
   },
   {
-    id: 'd5', code: 'D5', title: 'Day 5 — the payoff (fill after you film)', badge: '🟣 both', length: '~30-45s',
-    hook: 'day 5. did i make $1,500 in 5 days, only after work? [final tally reveal]',
+    id: 'd5', code: 'D5', title: 'Day 5 — cutting it close (fill after you film)', badge: '🟢 organic', length: '~20-35s',
+    hook: 'day 5 of $2,500 in 6 days. [running total: $___] one day left after this. cutting it close.',
     script: [
-      'day five. last chance. [where you started the day, how much you needed.]',
-      '[the final push — ONE real beat from tonight.]',
-      '[the reveal: the final number hitting / passing $1,500.]',
+      'day five. [tally — and the honest maths: how much you still need with one day to go.]',
+      '[the biggest grind day — ONE or two real beats from today.]',
+      'day five: $___ of $2,500. [set up the finale: "need $___ tomorrow or i don\'t make it."]',
+    ],
+    shots: [
+      '"DAY 5 · $___ / $2,500" tally on frame 1 — the gap is the whole story.',
+      "Today's real job beat(s) — the hardest push of the week.",
+      'End on the tally + a stark "need $___ tomorrow" card to cliffhang into D6.',
+    ],
+    captions: 'Tally hero. Highlight the GAP and the one-day-left pressure.',
+    audio: 'Same VO + bed. Tighten the tempo — this is the cliffhanger before the finale.',
+    editNote: 'Pure tension, NO Flynn re-sell. This episode\'s only job is to make D6 feel genuinely uncertain — end on the gap, not a resolution.',
+  },
+  {
+    id: 'd6', code: 'D6', title: 'Day 6 — the payoff (fill after you film)', badge: '🟣 both', length: '~30-45s',
+    hook: 'day 6. last day before i fly. did i make $2,500 in 6 days? [final tally reveal]',
+    script: [
+      'day six. last chance, i fly tonight. [where you started the day, how much you needed.]',
+      '[the final push — ONE real beat from today.]',
+      '[the reveal: the final number hitting / passing $2,500.]',
       "and the admin? didn't open a spreadsheet once. flynn logged every receipt and chased every invoice while i did the actual work.",
       '[real reaction to the result — win or near-miss, keep it honest.]',
     ],
     shots: [
-      '"DAY 5 · $___ / $1,500" tally on frame 1.',
+      '"DAY 6 · $___ / $2,500" tally on frame 1.',
       'The final job beat.',
-      'The tally crossing the line — animate it hitting $1,500 (the payoff frame).',
+      'The tally crossing the line — animate it hitting $2,500 (the payoff frame).',
       'A genuine real reaction (fist-pump / relief / "barely made it").',
       'Soft Flynn close + "Message Flynn" end card on the paid cut.',
     ],
-    captions: 'The FINAL NUMBER is the hero frame — biggest, brightest, Flynn orange. Highlight $1,500 crossing.',
+    captions: 'The FINAL NUMBER is the hero frame — biggest, brightest, Flynn orange. Highlight $2,500 crossing.',
     audio: 'Organic: VO + bed building to the win. Paid cut: licensed/mute-proof build-up.',
     editNote: 'The payoff carries the whole series, so this is the strongest, most legitimate place to plug Flynn — tie the win directly to "I did the work, Flynn did the books." If you fall short, post it honestly anyway; a real near-miss out-performs a fake win and keeps the series trustworthy.',
   },
@@ -401,24 +418,26 @@ export const SCREEN_RECORDS: SprintCheck[] = [
   { id: 'sr-7', label: 'Before/after pics + "invoice the job $X" → invoice page with the photos embedded → share link (the hero demo)' },
 ];
 
-// Posting plan — one drop a day, 24 Jun → 5 Jul. You leave Wed night (24th);
-// the challenge was filmed earlier, you're dripping it out while away so you can
-// scale off the winners. Track D runs as an UNBROKEN 5-day block (Fri 26 → Tue 30)
-// so the tally + "will he make it" tension actually works. Post to BOTH IG Reels
-// + TikTok each day. IDs are stable — never renumber.
+// Posting plan — one drop a day, 24 Jun → 6 Jul. Last exam Thu 25 Jun, you FLY
+// Wed 1 Jul. Track D runs as an UNBROKEN 6-day block (Fri 26 Jun → Wed 1 Jul, the
+// day you leave) so the tally + "will he make it" tension actually works, payoff
+// landing the morning you fly out. The A-track identity posts (A1/A6) still carry
+// the old "intern by day" framing — reconcile those separately. Post to BOTH IG
+// Reels + TikTok each day. IDs are stable — never renumber.
 export const POST_PLAN: ScheduleDay[] = [
   { id: 'post-1',  date: 'Wed 24 Jun', code: 'A1', title: 'The origin',          why: 'Departure day. Tell people who you are: intern by day, jobs by night, built Flynn. Sets up everyone who finds you later.' },
   { id: 'post-2',  date: 'Thu 25 Jun', code: 'A6', title: 'Day in the life',     why: 'The fusion montage over trending audio. Highly shareable, reinforces yesterday\'s identity.' },
-  { id: 'post-3',  date: 'Fri 26 Jun', code: 'D1', title: 'Challenge · day 1',   why: 'Start the $1,500 series. Pure hustle, no Flynn. The tally + "will he make it" is the hook. Make it a playlist on your profile.' },
+  { id: 'post-3',  date: 'Fri 26 Jun', code: 'D1', title: 'Challenge · day 1',   why: 'Start the $2,500 series. Pure hustle, no Flynn. The tally + "will he make it" is the hook. Make it a playlist on your profile.' },
   { id: 'post-4',  date: 'Sat 27 Jun', code: 'D2', title: 'Challenge · day 2',   why: 'Carry the tally forward. Still no Flynn. This is where the returning-viewer engine kicks in.' },
   { id: 'post-5',  date: 'Sun 28 Jun', code: 'D3', title: 'Challenge · day 3',   why: 'First Flynn beat, mid-video. Frame it as the only reason the hustle is survivable, not an ad.' },
-  { id: 'post-6',  date: 'Mon 29 Jun', code: 'D4', title: 'Challenge · day 4',   why: 'Cutting it close. Lean into the gap left to $1,500. Build the tension for the finale.' },
-  { id: 'post-7',  date: 'Tue 30 Jun', code: 'D5', title: 'Challenge · day 5',   why: 'The payoff. Tally crosses $1,500. Your strongest, most earned Flynn plug — best single shot at a breakout.' },
-  { id: 'post-8',  date: 'Wed 1 Jul',  code: 'A2', title: 'I built it for myself', why: 'Founder note after the win. Short confessional hook, strong standalone.' },
-  { id: 'post-9',  date: 'Thu 2 Jul',  code: 'A5', title: 'Reaction in your lane', why: 'Opinionated, on-topic. Filters for builders and drives comment threads (comments = reach).' },
-  { id: 'post-10', date: 'Fri 3 Jul',  code: 'B5', title: '9pm admin',           why: 'Pain → relief, the most send-able one. "Tag your tradie mate." Friday = high-intent scrolling.' },
-  { id: 'post-11', date: 'Sat 4 Jul',  code: 'A4', title: 'Build update',        why: 'Raw build-in-public check-in. Keeps the series energy going without a whole new challenge.' },
-  { id: 'post-12', date: 'Sun 5 Jul',  code: 'B1', title: 'Receipt to books',    why: 'The clean one-text demo. Also your best paid-ad creative — note if it pops, that\'s the one to scale on Meta.' },
+  { id: 'post-6',  date: 'Mon 29 Jun', code: 'D4', title: 'Challenge · day 4',   why: 'The gap is real. Lean into how far off $2,500 you still are. Build the tension.' },
+  { id: 'post-7',  date: 'Tue 30 Jun', code: 'D5', title: 'Challenge · day 5',   why: 'Cutting it close — one day left. End on the gap, not a resolution. Cliffhang into the finale.' },
+  { id: 'post-7b', date: 'Wed 1 Jul',  code: 'D6', title: 'Challenge · day 6',   why: 'The payoff, and the day you fly. Tally crosses $2,500. Your strongest, most earned Flynn plug — best single shot at a breakout.' },
+  { id: 'post-8',  date: 'Thu 2 Jul',  code: 'A2', title: 'I built it for myself', why: 'Founder note after the win. Short confessional hook, strong standalone.' },
+  { id: 'post-9',  date: 'Fri 3 Jul',  code: 'A5', title: 'Reaction in your lane', why: 'Opinionated, on-topic. Filters for builders and drives comment threads (comments = reach).' },
+  { id: 'post-10', date: 'Sat 4 Jul',  code: 'B5', title: '9pm admin',           why: 'Pain → relief, the most send-able one. "Tag your tradie mate." High-intent scrolling.' },
+  { id: 'post-11', date: 'Sun 5 Jul',  code: 'A4', title: 'Build update',        why: 'Raw build-in-public check-in. Keeps the series energy going without a whole new challenge.' },
+  { id: 'post-12', date: 'Mon 6 Jul',  code: 'B1', title: 'Receipt to books',    why: 'The clean one-text demo. Also your best paid-ad creative — note if it pops, that\'s the one to scale on Meta.' },
 ];
 
 export const EDIT_QA: string[] = [
@@ -485,7 +504,7 @@ export const PLAYBOOK: { heading: string; points: string[] }[] = [
     heading: 'Hook formats that convert (data-backed)',
     points: [
       'Front-load the goal in the FIRST words: "day 1 of [specific $ goal]" beats burying "day 1" at the end.',
-      'Always a specific number: "$1,500 in 5 days" / "logged $94.20" beats "make money" by ~5x.',
+      'Always a specific number: "$2,500 in 6 days" / "logged $94.20" beats "make money" by ~5x.',
       'Outcome-first is the single highest-performing hook: show the result in frame 1-2 (running $ tally, the sent invoice).',
       'Confessional / negative framing punches up: "i kept forgetting to invoice", "the bit no one shows you", "everyone says i\'m cooked".',
       'Serialize it: daily "day N" episodes build next-video intent + returning viewers. The carried-forward tally is the pull-back.',

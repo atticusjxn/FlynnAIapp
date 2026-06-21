@@ -51,7 +51,7 @@ class QuoteChaseScheduler {
 
     const { data: due, error } = await this.supabase
       .from('agent_quotes')
-      .select('id, user_phone, client_name, amount_cents, currency, followup_count')
+      .select('id, user_phone, client_name, client_email, amount_cents, currency, followup_count')
       .eq('status', 'open')
       .lte('next_followup_at', new Date(now).toISOString())
       .order('next_followup_at', { ascending: true })
@@ -98,6 +98,41 @@ class QuoteChaseScheduler {
       : `a few quotes have gone quiet:\n${quotes.map((q) => `${q.client_name} ${money(q.amount_cents, q.currency || currency)}`).join('\n')}\n\nwant me to chase any of them?`;
 
     await sendToUser(phone, sanitiseReply(message), { channel: 'imessage', supabase: this.supabase });
+
+    // Park the chase so a plain "yep" runs it deterministically — no inference,
+    // no re-asking for the client's email. The inbound confirm path picks up the
+    // most recent unexpired pending_actions row and runs chase_quote via the
+    // registry. Clear any stale parked chase first so we don't stack them.
+    await this.supabase
+      .from('pending_actions')
+      .delete()
+      .eq('user_phone', phone)
+      .eq('tool_name', 'chase_quote')
+      .eq('status', 'awaiting_confirmation')
+      .then(() => {}, () => {});
+    const toolArgs = {
+      quote_ids: quotes.map((q) => q.id),
+      clients: quotes.map((q) => ({
+        quote_id: q.id,
+        name: q.client_name,
+        email: q.client_email || null,
+        amount_cents: q.amount_cents,
+        currency: q.currency || currency,
+      })),
+    };
+    await this.supabase
+      .from('pending_actions')
+      .insert({
+        user_phone: phone,
+        action_type: 'chase_quote',
+        action_data: toolArgs,
+        confirmation_message: message,
+        status: 'awaiting_confirmation',
+        tool_name: 'chase_quote',
+        tool_args: toolArgs,
+        expires_at: new Date(now.getTime() + 24 * 60 * MINUTE).toISOString(),
+      })
+      .then(() => {}, (e) => console.warn('[QuoteChase] park pending failed:', e?.message));
 
     const nowIso = now.toISOString();
     const nextIso = new Date(now.getTime() + FOLLOWUP_GAP_DAYS * 24 * 60 * MINUTE).toISOString();

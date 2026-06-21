@@ -211,8 +211,12 @@ function renderInvoiceHTML(inv, business = {}) {
     payBlock = `<div class="bank"><div class="bank-h">Payment</div><div class="paytext">${esc(business.payment_details)}</div></div>`;
   }
 
-  const ogImage = photos[0] || '';
   const title = `${esc(bizName)} · invoice ${moneyFull(inv.total_cents, currency)}`;
+  // Link-preview card: status-aware text + a dynamic branded image that flips
+  // to "Paid" once marked. Absolute URL so crawlers can fetch it.
+  const ogTitle = `Invoice from ${bizName} — ${moneyFull(inv.total_cents, currency)}`;
+  const statusLine = isPaid ? 'Paid · thanks!' : 'Awaiting payment · tap to view and pay';
+  const ogImage = inv.public_token ? `${SERVER_URL}/i/${inv.public_token}/og.png` : (photos[0] || '');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -220,9 +224,16 @@ function renderInvoiceHTML(inv, business = {}) {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>${title}</title>
-<meta property="og:title" content="${title}" />
-<meta property="og:description" content="Invoice from ${esc(bizName)}${inv.client_name ? ` for ${esc(inv.client_name)}` : ''}" />
-${ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />` : ''}
+<meta property="og:type" content="website" />
+<meta property="og:title" content="${esc(ogTitle)}" />
+<meta property="og:description" content="${esc(statusLine)}" />
+${ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />` : ''}
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${esc(ogTitle)}" />
+<meta name="twitter:description" content="${esc(statusLine)}" />
+${ogImage ? `<meta name="twitter:image" content="${esc(ogImage)}" />` : ''}
 <meta name="theme-color" content="${accent}" />
 <style>
   :root { --ink:#1c1c1c; --muted:#8a8a8a; --line:#ECECEC; --accent:${accent}; }

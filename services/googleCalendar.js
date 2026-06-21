@@ -155,9 +155,59 @@ const insertEvent = async (accessToken, {
   return resp.json();
 };
 
+// List events (with titles + locations) in a window — used by the weather
+// nudge to find outdoor jobs that rain might wash out.
+const listEvents = async (accessToken, { timeMin, timeMax, calendarId = 'primary', maxResults = 25 }) => {
+  const params = new URLSearchParams({
+    timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: String(maxResults),
+  });
+  const resp = await fetch(
+    `${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    const err = new Error('Google events.list failed');
+    err.status = resp.status; err.body = body;
+    throw err;
+  }
+  const json = await resp.json();
+  return (json.items || [])
+    .filter((e) => e.start?.dateTime || e.start?.date)
+    .map((e) => ({
+      id: e.id,
+      summary: e.summary || '',
+      location: e.location || '',
+      startISO: e.start.dateTime || `${e.start.date}T08:00:00`,
+      endISO: e.end?.dateTime || e.end?.date || null,
+    }));
+};
+
+// Move an event to a new start/end (keeps everything else). Used to reschedule
+// a rained-out job to the next clear day.
+const patchEvent = async (accessToken, { eventId, startISO, endISO, timeZone = 'Australia/Sydney', calendarId = 'primary' }) => {
+  const resp = await fetch(
+    `${GOOGLE_CAL_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start: { dateTime: startISO, timeZone }, end: { dateTime: endISO, timeZone } }),
+    }
+  );
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    const err = new Error('Google event patch failed');
+    err.status = resp.status; err.body = body;
+    throw err;
+  }
+  return resp.json();
+};
+
 module.exports = {
   getConnectionForUser,
   ensureFreshAccessToken,
   queryFreeBusy,
   insertEvent,
+  listEvents,
+  patchEvent,
 };
