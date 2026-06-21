@@ -8,14 +8,14 @@ enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
     case dashboard
     case brain
     case events
+    case money
     case connected
     // Parked (not rendered as tabs; kept for deep links + future upsell).
     case calls
     case clients
-    case money
 
-    /// The four tabs actually shown in the bar, in order.
-    static let visibleTabs: [FlynnTab] = [.dashboard, .brain, .events, .connected]
+    /// The tabs actually shown in the bar, in order.
+    static let visibleTabs: [FlynnTab] = [.dashboard, .brain, .events, .money, .connected]
 
     var title: String {
         switch self {

@@ -26,6 +26,7 @@ struct MainTabView: View {
                 tab(.dashboard, path: $dashboardPath) { DashboardView() }
                 tab(.brain, path: $brainPath) { BrainView() }
                 tab(.events, path: $eventsPath) { EventsListView() }
+                tab(.money, path: $moneyPath) { MoneyView() }
                 tab(.connected, path: $connectedPath) { IntegrationsView() }
             }
 
