@@ -3,8 +3,9 @@ import { trackMessagedFlynn } from '../services/tracking';
 
 // Same number + link the landing-page hero uses. Conversions from the blog
 // should land in the exact same place: a text to Flynn.
-const FLYNN_NUMBER = '+61495023092';
-const FLYNN_NUMBER_DISPLAY = '+61 495 023 092';
+// Reverted to Twilio SMS number '+61480891471' for the Latitude 37 review to ensure reliability.
+const FLYNN_NUMBER = '+61480891471';
+const FLYNN_NUMBER_DISPLAY = '+61 480 891 471';
 const SMS_LINK = `sms:${FLYNN_NUMBER}&body=${encodeURIComponent('Hi Flynn')}`;
 
 function IMessageIcon({ size = 28 }: { size?: number }) {

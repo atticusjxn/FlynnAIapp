@@ -8,12 +8,13 @@ const DEMO = [
   { out: false, text: "Invoice ready — $340 inc GST. Sending to Dave. Good?" },
 ];
 
-// iPhones reach Flynn over iMessage (BlueBubbles); Android can't, so it texts
-// the Twilio SMS number, which the backend handles identically.
-const FLYNN_IMESSAGE = '+61495023092';
+// iPhones reach Flynn over iMessage; Android can't, so it texts the Twilio SMS
+// number, which the backend handles identically.
+// Reverted to Twilio SMS number '+61480891471' for the Latitude 37 review to ensure reliability.
+const FLYNN_IMESSAGE = '+61480891471';
 const FLYNN_SMS = '+61480891471';
 const FLYNN_NUMBER = FLYNN_IMESSAGE;
-const FLYNN_NUMBER_DISPLAY = '+61 495 023 092';
+const FLYNN_NUMBER_DISPLAY = '+61 480 891 471';
 const FLYNN_SMS_DISPLAY = '+61 480 891 471';
 
 function isAndroid() {
