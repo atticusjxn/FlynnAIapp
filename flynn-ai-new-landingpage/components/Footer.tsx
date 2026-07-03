@@ -51,8 +51,8 @@ const Footer: React.FC = () => (
         ])}
       </div>
       <div className="border-t-2 border-[#2C2018]/10 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">
-        <p className="text-[#8C7B6A] text-sm font-medium">© {new Date().getFullYear()} Flynn. All rights reserved.</p>
-        <p className="text-[#8C7B6A] text-sm font-medium">Made for anyone who texts to get booked.</p>
+        <p className="text-[#8C7B6A] text-sm font-medium">© {new Date().getFullYear()} Mates Rates Services Pty Ltd. All rights reserved.</p>
+        <p className="text-[#8C7B6A] text-sm font-medium">Flynn is a product of Mates Rates Services Pty Ltd.</p>
       </div>
     </div>
   </footer>
