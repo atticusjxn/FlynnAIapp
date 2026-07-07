@@ -1,19 +1,43 @@
 # Repository Guidelines
 
 ## Product Focus
-FlynnAI now centres on the flynn concierge experience—an AI receptionist that answers calls, captures event details, and hands structured summaries back to teams. Screens and copy should reflect “events” (formerly “jobs”) and highlight receptionist controls such as voice selection, greeting scripts, and intake questions.
+Flynn is an autonomous back-office employee for trade businesses and deskless operators (plumbers, electricians, builders, cleaners, etc.). Rather than forcing users to do data entry in complex SaaS dashboards, Flynn runs entirely over native text messaging (SMS/iMessage/WhatsApp) and handles invoicing, receipt logging, scheduling, supplier price comparisons, and payment chasing.
+
+We operate on a decoupled UI paradigm:
+*   **System of Action (iMessage/SMS/WhatsApp)**: The primary conversational interface. The user texts Flynn to execute tasks (e.g. sending invoices, logging expenses via receipt photos, rescheduling weather-impacted jobs).
+*   **System of Record & Viewing (Companion App & Web Portal)**: A visual cabinet that reflects what Flynn's agent has already done. Users open the app to review itemized quotes, manage credentials, or look at their business health dashboard, which dynamically reshapes itself based on text conversations.
+
+Flynn does not replace accounting systems like Xero or MYOB; it demotes them to "dumb ledgers" in the background. Flynn acts as the active billing and interface layer that generates native Flynn invoice links, collects payments (via PayTo/PayID/Airwallex/Stripe), and pushes clean journal entries to Xero automatically.
 
 ## Project Structure & Module Organization
-The Expo app lives in `src/`, with feature screens under `src/screens` and shared UI widgets in `src/components`. Domain data models sit in `src/data` and `src/types`, while API and Supabase accessors are under `src/services`. Theme tokens live in `src/theme` and cross-cutting helpers in `src/utils`. Native shells for device builds are kept in `android/` and `ios/`. Assets such as icons and fonts are in `assets/`, and product briefs plus integration notes live in `docs/`. Twilio helper functions are maintained separately in `flynnai-lookup/`; keep its dependencies isolated from the mobile app.
+*   `src/`: The Expo mobile app (companion app).
+    *   `src/screens/`: Feature screens (dashboard, onboarding, settings).
+    *   `src/components/`: Reusable UI widgets.
+    *   `src/theme/`: Theme tokens (designed with a mid-century, high-contrast, brutalist aesthetic using Space Grotesk + Inter).
+    *   `src/services/`: Supabase, API, and third-party accessors.
+*   `flynn-ai-new-landingpage/`: The marketing landing page (Vite + React + Tailwind, deployed on Cloudflare Pages via Wrangler).
+*   `services/`: Backend logic, AI tool loops (built with Claude Code, running agentic workflows), and API connectors (Xero, Google Calendar, Resend, Sendblue, senderZ, Twilio).
+*   `routes/`: Inbound webhooks for handling text messages and auth.
+*   `brand/`: Master logos, vector assets, and app store screenshots.
 
 ## Build, Test, and Development Commands
-Install dependencies with `npm install`. Use `npm start` (alias for `expo start`) for the Metro dev server, then pair with `npm run ios`, `npm run android`, or `npm run web` as needed. `expo start --clear` is helpful when Metro cache issues appear. When working inside `flynnai-lookup/`, run `npm install` and `npm run deploy` per its README before pushing lookup changes.
+*   **Mobile App**:
+    *   Install dependencies: `npm install`
+    *   Start Metro server: `npm start` (or `expo start`)
+    *   Run platform builds: `npm run ios`, `npm run android`, `npm run web`
+*   **Landing Page**:
+    *   Navigate: `cd flynn-ai-new-landingpage`
+    *   Install dependencies: `npm install`
+    *   Local dev: `npm run dev`
+    *   Deploy to Cloudflare Pages: `npm run cf:deploy`
 
 ## Coding Style & Naming Conventions
-The project is TypeScript-first. Use 2-space indentation, single quotes, and trailing commas where Prettier (shipped with Expo) formats automatically. Screens and components should be PascalCase (`ClientDetailsModal.tsx`), hooks camelCase, and util modules descriptive (e.g., `timeFormatter.ts`). Keep React state local to components unless shared context belongs in `src/context`. Update theme tokens rather than hard-coding colors.
+*   TypeScript-first codebase.
+*   Use 2-space indentation, single quotes, and trailing commas.
+*   Theme: Primary brand color is Orange/Coral (`#FB5B1E` / `#f46430`), secondary background is Cream (`#F4E6CE` / `#f5ebe0`), and text is Dark Ink/Charcoal (`#2C2018` / `#34302f`).
+*   Keep React state local to components unless shared context belongs in `src/context`.
 
 ## Testing Guidelines
-Automated testing is not yet wired; when adding Jest or React Native Testing Library, place specs beside the code within `__tests__` folders and expose them through an `npm test` script. Until then, exercise new flows through Expo Go or a development build on device. Document manual QA steps in PRs, especially around Supabase writes and Twilio lookups.
-
-## Commit & Pull Request Guidelines
-Commits in history are single-purpose, sentence-case summaries (e.g., “Improve communication modals”). Follow that style, keep bodies optional but include context when touching Supabase schemas or Twilio logic. PRs should link to Shortcut tickets, outline implementation notes, call out environment or schema changes, and attach screenshots or screen recordings for UI updates. Request review from the mobile lead and note any manual test coverage performed.
+*   Exercise new flows through Expo Go or local test suites.
+*   Before launching SMS/iMessage changes, test the webhook handling using local seed payloads.
+*   Test and verify vCard attachment payloads and photo-invoice rendering layouts.
