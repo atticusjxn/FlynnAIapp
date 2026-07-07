@@ -55,7 +55,7 @@ export default {
     splash: {
       image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
-      backgroundColor: "#3B82F6"
+      backgroundColor: "#34302f"
     },
     ios: {
       supportsTablet: true,
@@ -84,7 +84,7 @@ export default {
       ],
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
-        backgroundColor: "#FF6B35"
+        backgroundColor: "#34302f"
       },
       edgeToEdgeEnabled: true,
       package: "com.flynnai.app"
