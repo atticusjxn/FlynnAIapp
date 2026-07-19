@@ -9,13 +9,17 @@ enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
     case brain
     case events
     case money
-    case connected
-    // Parked (not rendered as tabs; kept for deep links + future upsell).
-    case calls
     case clients
+    case connected
+    // Parked (not rendered as a tab; kept for deep links + future upsell).
+    case calls
 
-    /// The tabs actually shown in the bar, in order.
-    static let visibleTabs: [FlynnTab] = [.dashboard, .brain, .events, .money, .connected]
+    /// The tabs actually shown in the bar, in order. `clients` joined the
+    /// payments-first pivot (~/.claude/plans/iridescent-floating-moore.md) —
+    /// its Swift feature (ClientsListView/ClientDetailView/ClientFormView) was
+    /// already fully built but parked because the backing `clients` table was
+    /// never created; see the org-spine migration for the fix.
+    static let visibleTabs: [FlynnTab] = [.dashboard, .brain, .events, .money, .clients, .connected]
 
     var title: String {
         switch self {

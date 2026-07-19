@@ -22,6 +22,7 @@ const nango = require('../services/nango');
 const { decryptCredentials } = require('../services/credentialCrypto');
 const generator = require('../services/dashboard/manifestGenerator');
 const { generateDashboardLink } = require('../services/authLink');
+const { processMessage } = require('../services/flynnSMS');
 
 const router = express.Router();
 
@@ -204,7 +205,7 @@ router.post('/api/dashboard/action', authenticateJwt, async (req, res) => {
     for (const row of integrations || []) {
       try { userIntegrations[row.integration_type] = decryptCredentials(row.credentials_encrypted); } catch { /* skip */ }
     }
-    const ctx = agentLoop.buildCtx({
+    const ctx = await agentLoop.buildCtx({
       user, phone: user.phone, supabase, connections, userIntegrations, brain: user.business_brain || {},
     });
 
@@ -234,6 +235,136 @@ router.post('/api/dashboard/action', authenticateJwt, async (req, res) => {
   } catch (err) {
     console.error('[dashboard] action failed:', err?.message || err);
     return res.status(500).json({ error: 'action failed' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/dashboard/agent-turn
+//
+// The Home screen's agent input bar (text or on-device voice transcript) —
+// "hold a button, talk or type" from the payments-first pivot
+// (~/.claude/plans/iridescent-floating-moore.md). Runs the SAME brain as
+// texting Flynn (processMessage, which internally picks the tool-loop or
+// legacy router per FLYNN_TOOL_LOOP), just over JSON instead of SMS/iMessage,
+// so a job created by voice in the app and one created by text land in the
+// exact same place. Mirrors the orchestration in routes/iMessageInbound.js
+// (pending action / integrations / connections load, brain persistence,
+// pending_actions upsert) minus the parts specific to SMS delivery.
+// ---------------------------------------------------------------------------
+router.post('/api/dashboard/agent-turn', authenticateJwt, async (req, res) => {
+  if (!requireDb(res)) return;
+  try {
+    const message = (req.body?.message || '').trim();
+    if (!message) return res.status(400).json({ error: 'message required' });
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, phone, business_brain, onboarding_step, preferred_channel, is_demo')
+      .eq('id', req.user.id)
+      .maybeSingle();
+    if (!user?.phone) return res.status(404).json({ error: 'user not found' });
+
+    const [pendingRes, integrationsRes, connectionsRes, openItemsRes] = await Promise.all([
+      supabase
+        .from('pending_actions')
+        .select('*')
+        .eq('user_phone', user.phone)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('user_integrations')
+        .select('integration_type, credentials_encrypted')
+        .eq('user_phone', user.phone),
+      supabase
+        .from('user_connections')
+        .select('*')
+        .eq('user_phone', user.phone),
+      supabase
+        .from('group_action_items')
+        .select('id, summary, category, suggested_tool, suggested_args, urgency')
+        .eq('owner_phone', user.phone)
+        .in('status', ['new', 'sent'])
+        .order('created_at', { ascending: true })
+        .limit(20),
+    ]);
+
+    const pendingAction = pendingRes.data || null;
+    const openActionItems = openItemsRes.data || [];
+    const userIntegrations = {};
+    for (const row of integrationsRes.data || []) {
+      try { userIntegrations[row.integration_type] = decryptCredentials(row.credentials_encrypted); } catch { /* skip */ }
+    }
+    const connections = new Map();
+    for (const row of connectionsRes.data || []) connections.set(row.provider, row);
+
+    await supabase.from('sms_messages').insert({
+      user_phone: user.phone,
+      direction: 'in',
+      body: message,
+      channel: 'app',
+    }).then(() => {}, () => {});
+
+    const result = await processMessage({
+      phone: user.phone,
+      message,
+      businessBrain: user.business_brain || null,
+      onboardingStep: user.onboarding_step || 'brain_pending',
+      pendingAction,
+      userIntegrations,
+      user,
+      supabase,
+      connections,
+      openActionItems,
+    });
+
+    if (result.updatedBrain && user.id) {
+      await supabase
+        .from('users')
+        .update({
+          business_brain: result.updatedBrain,
+          onboarding_step: result.updatedStep || user.onboarding_step,
+        })
+        .eq('id', user.id)
+        .then(() => {}, () => {});
+    }
+
+    if (result.clearPending && pendingAction?.id) {
+      await supabase.from('pending_actions').delete().eq('id', pendingAction.id).then(() => {}, () => {});
+    }
+    if (result.pendingAction) {
+      const expiresAt = result.pendingAction.expires_at || new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      await supabase
+        .from('pending_actions')
+        .upsert({
+          user_phone: user.phone,
+          action_type: result.pendingAction.action_type,
+          action_data: result.pendingAction.action_data,
+          confirmation_message: result.pendingAction.confirmation_message,
+          expires_at: expiresAt,
+          status: result.pendingAction.status || 'awaiting_confirmation',
+          required_provider: result.pendingAction.required_provider || null,
+          tool_name: result.pendingAction.tool_name || null,
+          tool_args: result.pendingAction.tool_args || null,
+        }, { onConflict: 'user_phone' })
+        .then(() => {}, () => {});
+    }
+
+    const bubbles = result.bubbles ?? (result.reply ? [result.reply] : []);
+    for (const bubble of bubbles) {
+      await supabase.from('sms_messages').insert({
+        user_phone: user.phone,
+        direction: 'out',
+        body: bubble,
+        channel: 'app',
+      }).then(() => {}, () => {});
+    }
+
+    return res.json({ bubbles, intent: result.intent || 'AGENT', pendingAction: result.pendingAction || null });
+  } catch (err) {
+    console.error('[dashboard] agent-turn failed:', err?.message || err);
+    return res.status(500).json({ error: 'agent turn failed' });
   }
 });
 

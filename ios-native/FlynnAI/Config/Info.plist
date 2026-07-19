@@ -66,6 +66,8 @@
 	<string>Flynn adds your confirmed bookings to your calendar so you never miss a job.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Flynn uses your microphone for voice commands — hold the mic to create quotes, bookings, notes and replies by talking.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Flynn turns your voice into text on-device so you can talk to it instead of typing — hold the mic and say what you need done.</string>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Flynn notifies you when a booking is added to your calendar or a draft is ready.</string>
 	<key>NSUserTrackingUsageDescription</key>

@@ -84,6 +84,7 @@ targets:
         NSCalendarsFullAccessUsageDescription: "Flynn adds your confirmed bookings to your calendar so you never miss a job."
         NSUserNotificationUsageDescription: "Flynn notifies you when a booking is added to your calendar or a draft is ready."
         NSMicrophoneUsageDescription: "Flynn uses your microphone for voice commands — hold the mic to create quotes, bookings, notes and replies by talking."
+        NSSpeechRecognitionUsageDescription: "Flynn turns your voice into text on-device so you can talk to it instead of typing — hold the mic and say what you need done."
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)

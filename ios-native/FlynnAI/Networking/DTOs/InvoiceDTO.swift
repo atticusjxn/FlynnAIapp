@@ -26,6 +26,13 @@ struct InvoiceDTO: Identifiable, Codable, Hashable, Sendable {
     let viewedAt: Date?
     let paidAt: Date?
     let paymentMethod: String?
+    // Added by the payments-first org-spine migration (20260718000000.100).
+    // applicationFeeCents is Flynn's own capped take on the payment — see
+    // memory flynn_payments_verified_facts for the PayID-rail economics this
+    // is built on. Not populated until the rail is wired server-side.
+    let applicationFeeCents: Int?
+    let paidAmountCents: Int?
+    let payidReference: String?
     let createdAt: Date
     let updatedAt: Date
 
@@ -55,6 +62,9 @@ struct InvoiceDTO: Identifiable, Codable, Hashable, Sendable {
         case viewedAt = "viewed_at"
         case paidAt = "paid_at"
         case paymentMethod = "payment_method"
+        case applicationFeeCents = "application_fee_cents"
+        case paidAmountCents = "paid_amount_cents"
+        case payidReference = "payid_reference"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }

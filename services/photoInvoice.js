@@ -7,7 +7,11 @@
  * photos, writes an `agent_invoices` row, and returns a hosted link. This module
  * owns: photo storage, the buffer, persistence, and rendering the public page.
  *
- * The agent is phone-keyed, so this never touches the org-based public.invoices.
+ * The agent is phone-keyed, so this never touches the org-based public.invoices
+ * (different shape entirely: decimal dollars vs cents, a generated
+ * invoice_number, no public_token). Rows ARE stamped with org_id where one can
+ * be resolved, so agent invoices are attributable to a business for the
+ * system-of-record spine without changing which table owns them.
  */
 
 const crypto = require('crypto');
@@ -37,7 +41,8 @@ function splitTax(totalCents, currency) {
 
 function moneyFull(cents, currency) {
   const sym = currency === 'GBP' ? '£' : '$';
-  return `${sym}${(Math.round(cents) / 100).toFixed(2)}`;
+  const n = (Math.round(cents) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${sym}${n}`;
 }
 
 // Sum line items if they all carry amounts, else fall back to amount_cents.
@@ -125,6 +130,10 @@ async function saveInvoice(ctx, {
   const row = {
     user_id: ctx.user?.id || null,
     user_phone: ctx.phone,
+    // Org attribution for the system-of-record spine. Resolved once per turn in
+    // agentLoop.buildCtx via the phone -> org_members lookup; null for users
+    // who aren't in an org yet, which the column allows.
+    org_id: ctx.orgId || null,
     client_name: clientName,
     client_handle: clientHandle,
     client_email: clientEmail || null,
@@ -158,6 +167,8 @@ function renderInvoiceHTML(inv, business = {}) {
   const currency = inv.currency || 'AUD';
   const bizName = business.business_name || business.business_type || 'My business';
   const initials = bizName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'F';
+  // A real logo if the business has one (URL or data URI), else an initials badge.
+  const logoUrl = business.logo_url || business.logoUrl || '';
   const ref = String(inv.public_token || '').slice(0, 6).toUpperCase();
   const photos = Array.isArray(inv.photo_urls) ? inv.photo_urls : [];
   const items = Array.isArray(inv.line_items) ? inv.line_items : [];
@@ -243,11 +254,12 @@ ${ogImage ? `<meta name="twitter:image" content="${esc(ogImage)}" />` : ''}
   .wrap { max-width:440px; margin:0 auto; padding:18px 14px 40px; }
   .card { background:#fff; border-radius:18px; overflow:hidden; }
   .head { padding:18px 18px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:11px; }
-  .logo { width:42px; height:42px; border-radius:10px; background:#1F7A4D; color:#fff;
+  .logo { width:44px; height:44px; border-radius:11px; background:#1F7A4D; color:#fff;
     display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600; flex-shrink:0; }
-  .biz { line-height:1.3; }
-  .biz b { font-size:15px; font-weight:600; }
-  .biz span { font-size:11.5px; color:var(--muted); }
+  .logo-img { background-position:center; background-size:cover; background-repeat:no-repeat; }
+  .biz { line-height:1.3; min-width:0; }
+  .biz b { font-size:15px; font-weight:600; display:block; }
+  .biz span { font-size:11.5px; color:var(--muted); display:block; }
   .amt { margin-left:auto; text-align:right; line-height:1.25; }
   .amt b { font-size:19px; font-weight:600; color:#1F7A4D; }
   .amt span { display:block; font-size:11px; color:#c0392b; }
@@ -290,9 +302,9 @@ ${ogImage ? `<meta name="twitter:image" content="${esc(ogImage)}" />` : ''}
   <div class="wrap">
     <div class="card">
       <div class="head">
-        <div class="logo">${esc(initials)}</div>
+        ${logoUrl ? `<div class="logo logo-img" style="background-image:url('${esc(logoUrl)}')"></div>` : `<div class="logo">${esc(initials)}</div>`}
         <div class="biz"><b>${esc(bizName)}</b><span>Tax invoice · ${esc(ref)}</span></div>
-        <div class="amt"><b>${moneyFull(inv.total_cents, currency)}</b>${isPaid ? '<span class="paid">PAID</span>' : (inv.due_date ? `<span>due ${esc(inv.due_date)}</span>` : '')}</div>
+        <div class="amt"><b>${moneyFull(inv.total_cents, currency)}</b>${isPaid ? '<span class="paid">PAID</span>' : (inv.due_date ? `<span>due ${esc(inv.due_date)}</span>` : '<span>Awaiting payment</span>')}</div>
       </div>
       ${photoBlock}
       ${inv.message ? `<div class="msg">${esc(inv.message)}</div>` : ''}

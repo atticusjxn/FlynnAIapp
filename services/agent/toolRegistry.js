@@ -22,6 +22,7 @@ const appleCalendar = require('../appleCalendar');
 const xeroReceivables = require('../xeroReceivables');
 const imapEmail = require('../imapEmail');
 const photoInvoice = require('../photoInvoice');
+const imessageTransport = require('../imessageTransport');
 const priceCompare = require('../priceCompare');
 const { createDashboardLoginLink } = require('../dashboardLink');
 const manifestGenerator = require('../dashboard/manifestGenerator');
@@ -380,12 +381,44 @@ async function logExpense(ctx, args) {
     },
   });
 
+  await recordExpenseOnSpine(ctx, {
+    vendor, totalCents, gstCents: gst, category: args.category, source: 'sms_receipt',
+  });
+
   const amount = money(totalCents, ctx.currency);
   const tail = created && sheetUrl ? `. made you a sheet for them: ${sheetUrl}` : '';
   return {
     result: `expense logged: ${date} ${vendor} ${amount}${created ? ' (new spreadsheet created)' : ''}`,
     userFacing: `logged ${amount} from ${vendor.toLowerCase()} to your expenses sheet${tail}`,
   };
+}
+
+/**
+ * Mirror a logged expense into the org-keyed `expenses` table so Flynn itself
+ * is the system of record, not just Google Sheets / Xero.
+ *
+ * Deliberately best-effort and non-blocking: expense logging already succeeded
+ * from the user's point of view by the time this runs, so a spine write
+ * failing (or the user having no org yet) must never turn a successful receipt
+ * log into an error. expenses.org_id is NOT NULL, so rows are only written
+ * when an org actually resolved.
+ */
+async function recordExpenseOnSpine(ctx, { vendor, totalCents, gstCents, category, receiptUrl, source }) {
+  if (!ctx.supabase || !ctx.orgId) return;
+  try {
+    await ctx.supabase.from('expenses').insert({
+      org_id: ctx.orgId,
+      vendor: vendor || null,
+      amount_cents: Math.round(Number(totalCents) || 0),
+      gst_cents: Number.isFinite(Number(gstCents)) && Number(gstCents) > 0 ? Math.round(Number(gstCents)) : 0,
+      category: category || null,
+      receipt_url: receiptUrl || null,
+      source: source || 'manual',
+      created_by: ctx.memberId || null,
+    });
+  } catch (e) {
+    console.warn('[expenses] spine mirror failed:', e?.message);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -529,6 +562,13 @@ async function xeroLogExpense(ctx, args) {
     tenantId,
   });
   const inv = res?.Invoices?.[0];
+
+  // Same mirror as the Sheets path — whichever destination the user chose,
+  // Flynn keeps its own record so the app's expense view is complete.
+  await recordExpenseOnSpine(ctx, {
+    vendor, totalCents, gstCents: gst, category: args.category, source: 'xero_sync',
+  });
+
   const amount = money(totalCents, ctx.currency);
   return {
     result: `xero draft bill ${inv?.InvoiceID || ''} created: ${date} ${vendor} ${amount}`,
@@ -584,6 +624,18 @@ async function orderParts(ctx, args) {
 // is live and generalises to any product; only the eventual order is gated.
 async function findPrices(ctx, args = {}) {
   const query = requireArg(args, 'query', 'what to price up, e.g. "17mm structural plywood 2400x1200"');
+
+  // Demo persona: return a deterministic, script-matching comparison so the
+  // parts beat never depends on live shopping results on camera. Their usual
+  // supplier (Bunnings) is dearer; a supplier near the Toowoomba job is cheaper.
+  if (ctx.is_demo) {
+    return {
+      result: `Compared suppliers for "${query}" (cheapest first): Mitre 10 Toowoomba $186 (in stock, near the job); Bunnings $210 (their usual supplier). `
+        + `Best pick: Mitre 10 Toowoomba at $186, the same materials $24 cheaper and right by the job. `
+        + `Tell the user in your own words: their usual at Bunnings is $210, but Mitre 10 near the Toowoomba job has the same for $186. Offer to order the cheaper one. When they say yes, call order_parts with supplier set to "Mitre 10".`,
+    };
+  }
+
   if (!priceCompare.isConfigured()) {
     // No key set — tell the model to just proceed with a normal order.
     return { result: 'price comparison not available (not configured); proceed straight to order_parts with the user\'s usual supplier' };
@@ -619,23 +671,75 @@ async function findPrices(ctx, args = {}) {
 const QUOTE_DEFAULT_VALID_DAYS = 14;
 const QUOTE_FIRST_FOLLOWUP_DAYS = 3;
 
-function formatQuote(ctx, { clientName, lineItems, description, amountCents, validDays }) {
+/**
+ * Load this owner's learned quoting style (`quote_templates.style_json`),
+ * captured by the app's Quote Style screen (`/api/quote-style`, which OCRs a
+ * quote/invoice they've already sent). Best-effort: no style just means the
+ * generic layout below.
+ *
+ * Wiring this in closes a real brain-first gap — the app could learn a style
+ * but the agent ignored it, so every agent-drafted quote came out generic even
+ * for owners who'd taught Flynn their format.
+ */
+async function loadQuoteStyle(ctx) {
+  if (!ctx.supabase || !ctx.user?.id) return null;
+  try {
+    const { data } = await ctx.supabase
+      .from('quote_templates')
+      .select('style_json')
+      .eq('user_id', ctx.user.id)
+      .maybeSingle();
+    return data?.style_json || null;
+  } catch (e) {
+    console.warn('[quotes] style load failed:', e?.message);
+    return null;
+  }
+}
+
+function formatQuote(ctx, { clientName, lineItems, description, amountCents, validDays, style }) {
   const business = ctx.brain?.business_name || ctx.brain?.business_type || 'us';
+
   const body = Array.isArray(lineItems) && lineItems.length
     ? lineItems.map((li) => {
       const amt = Number(li.amount_cents);
       return `- ${li.description || 'item'}${Number.isFinite(amt) && amt > 0 ? `  ${money(amt, ctx.currency)}` : ''}`;
     }).join('\n')
     : (description || '');
+
+  // Honour the owner's learned conventions where they have them, falling back
+  // to the generic layout field by field.
+  const title = style?.title_format
+    ? String(style.title_format).replace(/\{client\}/gi, clientName).replace(/\{job\}/gi, description || 'work')
+    : `Quote from ${business}`;
+
+  const taxLabel = style?.tax?.label && style.tax.label.toLowerCase() !== 'none'
+    ? style.tax.label
+    : (gstLabelFor(ctx.currency));
+  const totalLine = taxLabel
+    ? `Total: ${money(amountCents, ctx.currency)} inc ${taxLabel}`
+    : `Total: ${money(amountCents, ctx.currency)}`;
+
+  const validityLine = style?.validity || `Valid for ${validDays} days.`;
+
   return [
-    `Quote from ${business}`,
+    title,
     `For: ${clientName}`,
     '',
+    style?.intro_blurb || null,
+    style?.intro_blurb ? '' : null,
     body || null,
     body ? '' : null,
-    `Total: ${money(amountCents, ctx.currency)} inc GST`,
-    `Valid for ${validDays} days.`,
-  ].filter((v) => v !== null).join('\n');
+    totalLine,
+    validityLine,
+    style?.deposit || null,
+    style?.payment_terms || null,
+    style?.closing_notes || null,
+  ].filter((v) => v !== null && v !== undefined).join('\n');
+}
+
+// GST only applies in AU/NZ; other currencies get no tax label by default.
+function gstLabelFor(currency) {
+  return currency === 'AUD' || currency === 'NZD' ? 'GST' : null;
 }
 
 async function draftQuote(ctx, args) {
@@ -646,13 +750,17 @@ async function draftQuote(ctx, args) {
   const description = args.description
     || (Array.isArray(args.line_items) ? args.line_items.map((li) => li.description).filter(Boolean).join(', ') : null);
 
-  const quoteText = formatQuote(ctx, { clientName, lineItems: args.line_items, description, amountCents, validDays });
+  const style = await loadQuoteStyle(ctx);
+  const quoteText = formatQuote(ctx, { clientName, lineItems: args.line_items, description, amountCents, validDays, style });
 
   if (ctx.supabase) {
     const followupDays = Math.min(Math.max(Number(args.followup_days) || QUOTE_FIRST_FOLLOWUP_DAYS, 1), 30);
     await ctx.supabase.from('agent_quotes').insert({
       user_id: ctx.user?.id || null,
       user_phone: ctx.phone,
+      // Org attribution for the system-of-record spine (null when the user
+      // isn't in an org yet) — see agentLoop.buildCtx.
+      org_id: ctx.orgId || null,
       client_name: clientName,
       client_handle: String(clientName).toLowerCase().trim(),
       client_email: args.client_email || null,
@@ -682,6 +790,7 @@ async function recordQuote(ctx, args) {
     await ctx.supabase.from('agent_quotes').insert({
       user_id: ctx.user?.id || null,
       user_phone: ctx.phone,
+      org_id: ctx.orgId || null,
       client_name: clientName,
       client_handle: String(clientName).toLowerCase().trim(),
       client_email: args.client_email || null,
@@ -854,6 +963,12 @@ async function createPhotoInvoice(ctx, args) {
   if (!lineItems.length) lineItems = [{ description: args.description || 'work completed', amount_cents: totalCents }];
 
   const photos = await photoInvoice.takeBufferedPhotos({ supabase: ctx.supabase, userPhone: ctx.phone });
+  let photoUrls = photos.map((p) => p.url);
+  // Demo safety net: if no photo came through (e.g. an inbound-media hiccup mid
+  // shoot), embed the seeded deck photo so the invoice always looks complete.
+  if (ctx.is_demo && photoUrls.length === 0) {
+    photoUrls = [process.env.DEMO_JOB_PHOTO_URL || 'https://flynnai.app/img-03-768x768.jpg'];
+  }
   const { invoice, url } = await photoInvoice.saveInvoice(ctx, {
     clientName,
     clientHandle: String(clientName).toLowerCase().trim(),
@@ -862,7 +977,7 @@ async function createPhotoInvoice(ctx, args) {
     totalCents,
     message: args.message || null,
     dueDate: args.due_date || null,
-    photoUrls: photos.map((p) => p.url),
+    photoUrls,
   });
 
   // Best-effort mirror to Xero so the books match — non-blocking, never holds
@@ -885,15 +1000,73 @@ async function createPhotoInvoice(ctx, args) {
   }
 
   const amount = money(totalCents, ctx.currency);
-  const n = photos.length;
+  const n = photoUrls.length;
   const photoBit = n ? ` with ${n} photo${n > 1 ? 's' : ''}` : '';
-  const offerEmail = args.client_email
-    ? ` You have the client's email (${args.client_email}) — offer to email them the link right now with send_email.`
-    : ' Tell the user to forward the link on, or offer to send it if they give you the client\'s email.';
-  return {
-    result: `photo invoice for ${clientName} ${amount}${photoBit} created at ${url}. Reply with the link on its OWN line so it's one tap to forward.${offerEmail}`,
-    userFacing: `done. here's ${String(clientName).toLowerCase()}'s invoice for ${amount}${photoBit}:\n${url}\n\nforward that straight to them, or want me to send it for you?${xeroNote}`,
+  const label = String(clientName).toLowerCase();
+
+  // Send the invoice card as an INLINE IMAGE (the og.png, which is rendered to
+  // look like the invoice) rather than relying on iMessage to unfurl the link —
+  // a relay-sent link shows a "tap to load preview" placeholder, an image
+  // attachment renders instantly. The interactive link is delivered later at the
+  // send step (send_invoice), so we don't double-unfurl here.
+  const cardImageUrl = invoice.public_token ? `${url}/og.png` : null;
+  if (cardImageUrl) {
+    await imessageTransport.sendAttachment(ctx.phone, cardImageUrl, 'invoice.png')
+      .catch((e) => console.warn('[create_photo_invoice] card image send failed:', e?.message));
+  }
+
+  // Preview-then-send: show the invoice card now, park a send_invoice action so a
+  // "yep" sends it to the client. (terminal tool → userFacing returned verbatim.)
+  const sendArgs = {
+    invoice_id: invoice.id,
+    client_name: clientName,
+    client_email: args.client_email || null,
+    total_cents: totalCents,
+    currency: ctx.currency || 'AUD',
+    public_token: invoice.public_token || null,
   };
+  return {
+    result: `photo invoice for ${clientName} ${amount}${photoBit} created at ${url}; the invoice card was just sent to the user as an image. Ask if they want it sent to the client.`,
+    userFacing: `here's ${label}'s invoice for ${amount}${photoBit}. want me to send it to them?${xeroNote}`,
+    pendingAction: {
+      action_type: 'send_invoice',
+      action_data: sendArgs,
+      confirmation_message: `want me to send ${label}'s invoice?`,
+      status: 'awaiting_confirmation',
+      tool_name: 'send_invoice',
+      tool_args: sendArgs,
+      expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    },
+  };
+}
+
+// send_invoice — send a created photo invoice to the client. Parked by
+// create_photo_invoice and run on the user's "yep". Demo simulates the send;
+// real users get an email if the client's address is on file + a mail provider
+// is connected, otherwise Flynn hands back the link to forward.
+async function sendInvoice(ctx, args = {}) {
+  const clientName = String(args.client_name || 'your client');
+  const label = clientName.toLowerCase();
+  if (args.invoice_id && ctx.supabase) {
+    await ctx.supabase.from('agent_invoices')
+      .update({ status: 'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', args.invoice_id).then(() => {}, () => {});
+  }
+  if (ctx.is_demo) {
+    return { result: `simulated send of ${clientName}'s invoice`, userFacing: `sent it through to ${label}. i'll flag when they pay.` };
+  }
+  const email = args.client_email;
+  const url = args.public_token ? photoInvoice.invoiceUrl(args.public_token) : '';
+  if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && mailProviderConnected(ctx)) {
+    const body = `hi, here's the invoice for the work, ${money(args.total_cents, args.currency || ctx.currency)}. you can view and pay it here: ${url}. thanks!`;
+    try {
+      await sendEmail(ctx, { to: email, subject: 'Your invoice', body });
+      return { result: `emailed ${clientName}`, userFacing: `sent to ${label}. i'll flag when they pay.` };
+    } catch (e) {
+      return { result: `email failed: ${e?.message}`, userFacing: `couldn't email it just now, here's the link to forward to ${label}:\n${url}` };
+    }
+  }
+  return { result: 'no client email on file', userFacing: `i don't have ${label}'s email, so forward them the link, or send me their email and i'll fire it off.` };
 }
 
 // Operator action — "henderson paid" flips the most recent unpaid invoice to
@@ -1544,8 +1717,9 @@ const CAPABILITIES = [
     tools: [
       {
         name: 'create_photo_invoice',
-        confirm: true,
-        description: "Create an invoice with the job photos the user recently texted embedded, and get a shareable link they can forward to their client. Use when the user asks to invoice a job, especially after they've sent photos. Photos sent in the last few hours attach automatically — never ask them to re-send. Pass line_items for itemised, or amount_cents for a single total (amounts are GST-inclusive).",
+        confirm: false,
+        terminal: true,
+        description: "Create an invoice with the job photos the user recently texted embedded, and show them the shareable invoice card as a preview. Call this IMMEDIATELY when the user asks to invoice a job and you have a client/address + an amount — do NOT first ask for the client's email or how they get paid. Photos sent in the last few hours attach automatically — never ask them to re-send. Pass line_items for itemised, or amount_cents for a single total (amounts are GST-inclusive). client_email is OPTIONAL — omit it if you don't have it. After this runs, Flynn shows the invoice card and asks if they want it sent to the client; a 'yes' runs send_invoice.",
         parameters: {
           type: 'object',
           properties: {
@@ -1571,11 +1745,24 @@ const CAPABILITIES = [
           required: ['client_name'],
         },
         executor: createPhotoInvoice,
-        confirmMessage: (args, ctx) => {
-          const total = photoInvoice.computeTotalCents(args);
-          const amt = Number.isFinite(total) ? money(total, ctx?.currency) : 'that';
-          return `i'll make ${args.client_name}'s invoice for ${amt} with the job photos and send you a link to forward. good?`;
+      },
+      {
+        name: 'send_invoice',
+        confirm: false,
+        description: "Send a created photo invoice to the client. Normally parked automatically by create_photo_invoice and run when the user confirms they want it sent. Emails the client if their address is on file and a mail provider is connected; otherwise hands back the link to forward.",
+        parameters: {
+          type: 'object',
+          properties: {
+            invoice_id: { type: 'string', description: 'id of the invoice to send' },
+            client_name: { type: 'string', description: 'who the invoice is for' },
+            client_email: { type: 'string', description: "client's email, if known" },
+            total_cents: { type: 'number', description: 'invoice total in integer cents' },
+            currency: { type: 'string', description: 'currency code, e.g. AUD' },
+            public_token: { type: 'string', description: 'public token for the hosted invoice link' },
+          },
+          required: ['client_name'],
         },
+        executor: sendInvoice,
       },
       {
         name: 'mark_invoice_paid',

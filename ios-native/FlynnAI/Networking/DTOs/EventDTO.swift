@@ -13,6 +13,13 @@ struct EventDTO: Identifiable, Codable, Hashable, Sendable {
     let location: String?
     let notes: String?
     let createdAt: Date?
+    // Added by the payments-first org-spine migration (20260718000000). A job
+    // may have a linked `clients` row (clientId) in addition to the free-text
+    // clientName above — the text field is what's shown/edited today; the FK
+    // is what JobDetailView's client-link section resolves against.
+    let clientId: UUID?
+    let title: String?
+    let scheduledAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -24,5 +31,8 @@ struct EventDTO: Identifiable, Codable, Hashable, Sendable {
         case location
         case notes
         case createdAt = "created_at"
+        case clientId = "client_id"
+        case title
+        case scheduledAt = "scheduled_at"
     }
 }

@@ -32,7 +32,7 @@ struct InvoiceDetailView: View {
                     totalsCard(invoice: invoice)
                     timelineCard(invoice: invoice)
                     if let urlString = invoice.stripePaymentLinkUrl, let url = URL(string: urlString) {
-                        paymentLinkCard(url: url)
+                        paymentLinkCard(invoice: invoice, url: url)
                     }
                     if let notes = invoice.notes, !notes.isEmpty {
                         notesCard(notes: notes)
@@ -190,18 +190,74 @@ struct InvoiceDetailView: View {
         }
     }
 
-    private func paymentLinkCard(url: URL) -> some View {
+    private func paymentLinkCard(invoice: InvoiceDTO, url: URL) -> some View {
         FlynnCard(shadow: .sm) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-                Text("Payment")
-                    .flynnType(FlynnTypography.overline)
-                    .foregroundColor(FlynnColor.textTertiary)
+                HStack {
+                    Text("Payment")
+                        .flynnType(FlynnTypography.overline)
+                        .foregroundColor(FlynnColor.textTertiary)
+                    Spacer()
+                    if invoice.paidAt != nil {
+                        FlynnBadge(label: "Paid", variant: .success)
+                    }
+                }
+
+                HStack(spacing: FlynnSpacing.xs) {
+                    Image(systemName: paymentMethodIcon(invoice.paymentMethod))
+                        .foregroundColor(FlynnColor.primary)
+                    Text(paymentMethodLabel(invoice.paymentMethod))
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(FlynnColor.textPrimary)
+                }
+
+                if let ref = invoice.payidReference, !ref.isEmpty {
+                    Text("PayID reference \(ref)")
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textTertiary)
+                }
+
                 Link(destination: url) {
-                    Label("Open Stripe payment link", systemImage: "link")
+                    Label("Open payment link", systemImage: "link")
                         .flynnType(FlynnTypography.bodyLarge)
                         .foregroundColor(FlynnColor.primary)
                 }
+
+                // Flynn's own capped fee on this payment (see the PayID-rail
+                // pricing model in memory flynn_payments_verified_facts) — only
+                // ever shown once a payment has actually cleared on-rail.
+                if let feeCents = invoice.applicationFeeCents, feeCents > 0, invoice.paidAt != nil {
+                    Divider()
+                    HStack {
+                        Text("Flynn fee")
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.textTertiary)
+                        Spacer()
+                        Text(FlynnFormatter.currency(Double(feeCents) / 100))
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.textTertiary)
+                    }
+                }
             }
+        }
+    }
+
+    private func paymentMethodLabel(_ method: String?) -> String {
+        switch method {
+        case "payid": return "Pay by bank (PayID)"
+        case "card": return "Card"
+        case "apple_pay": return "Apple Pay"
+        case "bank_transfer": return "Bank transfer"
+        default: return "Payment link"
+        }
+    }
+
+    private func paymentMethodIcon(_ method: String?) -> String {
+        switch method {
+        case "payid", "bank_transfer": return "building.columns"
+        case "card": return "creditcard"
+        case "apple_pay": return "apple.logo"
+        default: return "link"
         }
     }
 

@@ -17,6 +17,8 @@ final class ClientsRepository: ClientsRepositoryType {
     }
 
     func list(limit: Int = 100) async throws -> [ClientDTO] {
+        // No explicit org filter needed — RLS (`is_org_member(org_id)`) already
+        // scopes every row to orgs the caller belongs to.
         try await client
             .from("clients")
             .select()
@@ -37,9 +39,25 @@ final class ClientsRepository: ClientsRepositoryType {
     }
 
     func insert(_ input: ClientInput) async throws -> ClientDTO {
-        try await client
+        var payload = input
+
+        // user_id is NOT NULL with no default/trigger — an insert without it
+        // fails, so always stamp it from the current session.
+        if payload.userId == nil {
+            payload.userId = try await client.auth.session.user.id
+        }
+
+        // org_id is nullable. Populate it when the user actually has an org so
+        // the row joins the org spine, but don't block client creation for
+        // users who aren't in one yet (OrgResolver throws missingDefaultOrg) —
+        // the pre-existing user-scoped RLS policies still cover them.
+        if payload.orgId == nil {
+            payload.orgId = try? await OrgResolver.current(client: client)
+        }
+
+        return try await client
             .from("clients")
-            .insert(input, returning: .representation)
+            .insert(payload, returning: .representation)
             .select()
             .single()
             .execute()

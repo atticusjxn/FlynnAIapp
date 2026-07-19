@@ -22,6 +22,7 @@ const nango = require('../nango');
 const registry = require('./toolRegistry');
 const billingGate = require('../billingGate');
 const { logToolEvent } = require('./toolEvents');
+const { resolveOrgMember } = require('../orgPhoneResolver');
 
 const QWEN_MODEL = process.env.SMS_LLM_MODEL || process.env.DRAFT_LLM_MODEL || 'qwen3.5-flash';
 const MAX_TOOL_ITERATIONS = 6; // headroom to log a batch of receipts in one turn
@@ -36,8 +37,64 @@ function currencyFromPhone(phone = '') {
   return 'AUD';
 }
 
-function buildCtx({ user, phone, supabase, connections, userIntegrations, brain }) {
+/**
+ * Best-effort org-context resolution for the payments-first org spine (see
+ * ~/.claude/plans/iridescent-floating-moore.md). Deliberately swallows errors:
+ * org_members.member_phone (and the rest of the org-spine migrations) may not
+ * be applied yet in a given environment — until they are, this must stay a
+ * silent no-op rather than break the live agent loop. Once applied, ctx.orgId
+ * starts resolving and tool executors can be re-pointed at org-keyed tables.
+ */
+async function resolveOrgContext(phone, supabase) {
+  if (!supabase || !phone) return { orgId: null, memberId: null, role: null };
+  try {
+    const member = await resolveOrgMember(phone, supabase);
+    if (!member) return { orgId: null, memberId: null, role: null };
+    return { orgId: member.orgId, memberId: member.memberId, role: member.role };
+  } catch (err) {
+    // Expect this to fire in any environment that hasn't run the org-spine
+    // migrations yet (e.g. "column org_members.member_phone does not exist").
+    console.warn('[AgentLoop] org context resolution skipped:', err?.message || err);
+    return { orgId: null, memberId: null, role: null };
+  }
+}
+
+/**
+ * The operator's own writing, so anything Flynn drafts for a client sounds like
+ * them. Same `tone_samples` table the keyboard drafter learns from (onboarding
+ * samples + drafts the user actually accepted), so the two surfaces stay in one
+ * voice instead of diverging. Best-effort — no samples just means the default
+ * house style from the system prompt.
+ */
+async function loadToneSamples(supabase, userId) {
+  if (!supabase || !userId) return [];
+  try {
+    const { data } = await supabase
+      .from('tone_samples')
+      .select('sample_text, source')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(40);
+    const onboarding = [];
+    const accepted = [];
+    for (const row of data || []) {
+      if (!row?.sample_text) continue;
+      (row.source === 'accepted' ? accepted : onboarding).push(row.sample_text);
+    }
+    return [...onboarding, ...accepted.slice(0, 8)].slice(0, 12);
+  } catch (e) {
+    console.warn('[AgentLoop] tone sample load skipped:', e?.message || e);
+    return [];
+  }
+}
+
+async function buildCtx({ user, phone, supabase, connections, userIntegrations, brain }) {
+  const [org, toneSamples] = await Promise.all([
+    resolveOrgContext(phone, supabase),
+    loadToneSamples(supabase, user?.id),
+  ]);
   return {
+    toneSamples,
     user: user || {},
     phone,
     supabase,
@@ -50,6 +107,13 @@ function buildCtx({ user, phone, supabase, connections, userIntegrations, brain 
     // Reviewer demo accounts: tools behave as connected and external side
     // effects (orders, emails) are simulated, never executed.
     is_demo: Boolean(user?.is_demo),
+    // Org spine context — null until the org-spine migrations are applied and
+    // this phone resolves to an org_members row. Tool executors should treat
+    // orgId as optional (fall back to phone-keyed tables) until this is
+    // reliably populated everywhere.
+    orgId: org.orgId,
+    memberId: org.memberId,
+    orgRole: org.role,
   };
 }
 
@@ -109,6 +173,13 @@ function openItemsBlock(openActionItems) {
 ${lines}\n`;
 }
 
+function toneBlock(ctx) {
+  const samples = Array.isArray(ctx.toneSamples) ? ctx.toneSamples.filter(Boolean) : [];
+  if (!samples.length) return '';
+  const lines = samples.map((s) => `- ${String(s).replace(/\s+/g, ' ').trim().slice(0, 240)}`).join('\n');
+  return `\nHow this person actually writes to their customers (real messages of theirs — match this voice, phrasing and level of formality whenever you draft something a client will read, e.g. a reply, a quote note, a payment chase):\n${lines}\n`;
+}
+
 function buildSystemPrompt(ctx, imageNote, openActionItems) {
   const now = new Date();
   const today = now.toLocaleDateString('en-CA', { timeZone: ctx.tz }); // YYYY-MM-DD
@@ -122,7 +193,7 @@ Their business (use these real details, never invent prices or contacts):
 ${JSON.stringify(ctx.brain, null, 2)}
 
 Tool connections right now: ${connectionSummary(ctx)}
-${imageNote ? `\n${imageNote}\n` : ''}${openItemsBlock(openActionItems)}
+${toneBlock(ctx)}${imageNote ? `\n${imageNote}\n` : ''}${openItemsBlock(openActionItems)}
 Rules:
 - Use the tools to actually do things. Don't describe what you could do, do it. If a tool's account isn't connected, call it anyway: the user gets a 10-second connect link and the action runs right after.
 - Resolve relative dates ("thursday", "tomorrow arvo") to real YYYY-MM-DD dates using today's date above before calling a tool. Morning ~08:00, midday 12:00, arvo ~14:00 unless they said a time.
@@ -132,7 +203,7 @@ Rules:
 - Calendar can be Google or Apple/iCloud. If they say they use Apple Calendar or iCloud, call remember with calendar_provider set to "apple" before booking, so it goes to the right calendar. Otherwise assume Google.
 - Email can be Gmail, Outlook/Microsoft 365, or another provider (Bigpond, iCloud, Optus, or their own business domain). Gmail and Outlook are one-tap sign-ins; everything else needs their email address and an app password. If they tell you which they use, call remember with email_provider (e.g. "gmail", "outlook", "bigpond") before sending so the connect prompt and the send go to the right place. If you don't know yet and they ask you to email someone, ask once which email they use.
 - When a task could go to more than one place (e.g. a receipt could go to a spreadsheet or their accounting software) and their business details don't say which, ask once what they'd prefer, then remember the answer.
-- Invoicing is built in, so treat it like any other thing you just do. You can write and send a real invoice yourself with create_photo_invoice (no account needed); it returns a link they forward to the client, and any job photos they've texted recently get embedded automatically. So when someone wants to invoice and hasn't set up accounting software, don't send them off to connect anything, just offer: "that's fine, i can write the invoice and send it out." For work where before/after shots matter (landscaping, cleaning, painting, detailing, renos, pressure washing), offer to put the photos on it. If you don't know how they get paid yet, offer to add their bank details (bsb + account, or payid) so it shows on the invoice, then remember them. If they've got Xero connected it's logged there too. After you make an invoice, send the link on its own line so it's one tap to forward, and if you've got the client's email offer to email it to them right now. When they say a client paid, call mark_invoice_paid.
+- Invoicing is built in, so treat it like any other thing you just do. When someone asks you to invoice a job and gives you a client (or address) and an amount, CALL create_photo_invoice STRAIGHT AWAY. Do NOT ask for the client's email, their bank details, or how they get paid first, and do NOT reply with "got it, i'll create it" and then stop. Just create it: the tool shows them the finished invoice card and then asks if they want it sent, so any sending/email step happens AFTER, only if they say yes. Any job photos they've texted recently get embedded automatically. So when someone wants to invoice and hasn't set up accounting software, don't send them off to connect anything. If they've got Xero connected it's logged there too. When they say a client paid, call mark_invoice_paid.
 - If the user seems to be forwarding a customer message they received, draft the reply they should send, in their voice, using their real pricing.
 - Texting style: sound like a sharp mate. Casual, lowercase starts where natural, contractions always. One or two short sentences. Separate thoughts with a blank line to send as separate bubbles, max 3.
 - No em dashes, no bullet points, no "Sure!", no "Absolutely!", no sign-offs.
@@ -246,7 +317,7 @@ async function gatedLinkBubble(capability, ctx, provider) {
  */
 async function runAgentTurn({ phone, user, message, supabase, connections, userIntegrations, pendingAction, imageNote, openActionItems }) {
   const brain = user?.business_brain || {};
-  const ctx = buildCtx({ user, phone, supabase, connections, userIntegrations, brain });
+  const ctx = await buildCtx({ user, phone, supabase, connections, userIntegrations, brain });
   const client = getLLMClient('compatible');
 
   // Open group-chat items the boss may act on this turn. Mutated as items are
@@ -359,6 +430,19 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
       // Execute.
       const outcome = await safeExecute(entry, ctx, args);
       recordToolEvent(entry, ctx, args, outcome, 'llm');
+
+      // Terminal tools end the turn with their userFacing text VERBATIM (no model
+      // paraphrase) and may park a follow-up confirm. Used by create_photo_invoice
+      // to show the invoice preview card + "want me to send it?" deterministically,
+      // then park the send_invoice action that a "yep" resolves.
+      if (entry.tool.terminal && outcome.ok !== false) {
+        return {
+          reply: outcome.userFacing || outcome.result || 'done',
+          intent: 'AGENT_DONE',
+          pendingAction: outcome.pendingAction || undefined,
+        };
+      }
+
       respond(outcome.result || 'done');
 
       // save_login can unblock a parked action in the same turn.
@@ -401,7 +485,7 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
 async function executePendingTool({ pendingAction, phone, user, supabase, connections, userIntegrations }) {
   const entry = registry.findTool(pendingAction.tool_name);
   if (!entry) return null; // legacy row — caller falls back to executeConfirmed()
-  const ctx = buildCtx({
+  const ctx = await buildCtx({
     user, phone, supabase, connections, userIntegrations,
     brain: user?.business_brain || {},
   });
@@ -448,7 +532,7 @@ async function resumeParkedAction(phone, provider, supabase) {
   const { decryptCredentials } = require('../credentialCrypto');
   for (const row of integrations || []) userIntegrations[row.integration_type] = decryptCredentials(row.credentials_encrypted);
 
-  const ctx = buildCtx({
+  const ctx = await buildCtx({
     user, phone, supabase, connections, userIntegrations,
     brain: user?.business_brain || {},
   });
