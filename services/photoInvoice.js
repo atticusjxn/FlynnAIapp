@@ -57,8 +57,11 @@ function computeTotalCents(args) {
   return NaN;
 }
 
+// 6 bytes -> 8 url-safe chars (~2.8e14 combinations). Short enough to read out
+// or fit neatly in an SMS, still far too large to guess, and the unique index
+// on public_token catches any collision.
 function newToken() {
-  return crypto.randomBytes(9).toString('base64url'); // ~12 url-safe chars
+  return crypto.randomBytes(6).toString('base64url');
 }
 
 function invoiceUrl(token) {
@@ -221,175 +224,312 @@ function normalizeInvoiceRow(inv) {
   };
 }
 
+// Flynn wordmark, inlined from flynn-ai-new-landingpage/assets/flynn-logo.svg
+// (verified as the current full-word logo: charcoal #34302f + orange dot).
+// Tight viewBox crops the 512-square artboard to the wordmark itself.
+const FLYNN_WORDMARK = `<svg viewBox="40 128 432 258" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flynn">
+  <g fill="#34302f">
+    <path d="M 52.3 217.5 L 118.0 217.5 L 119.1 218.3 L 119.4 219.1 L 119.4 243.5 L 118.8 244.3 L 84.2 244.6 L 83.7 245.1 L 83.7 280.3 L 116.7 280.8 L 117.5 282.2 L 117.5 306.1 L 117.0 307.1 L 115.9 307.7 L 84.8 307.7 L 83.9 308.2 L 83.7 373.7 L 83.1 374.5 L 81.8 375.0 L 53.3 375.0 L 52.3 374.8 L 51.2 373.4 L 51.2 218.8 L 52.3 217.5 Z"/>
+    <path d="M 130.4 217.5 L 160.4 217.5 L 161.8 218.6 L 162.1 347.4 L 175.7 347.9 L 199.9 347.9 L 200.4 348.5 L 200.4 350.9 L 198.6 370.5 L 198.3 373.2 L 197.2 374.8 L 131.2 375.0 L 129.3 373.7 L 129.3 218.6 L 130.4 217.5 Z"/>
+    <path d="M 183.5 217.5 L 216.3 217.5 L 217.6 218.6 L 224.6 261.8 L 227.5 286.2 L 228.1 287.0 L 228.9 286.2 L 229.7 281.6 L 239.4 218.6 L 240.4 217.5 L 271.6 217.5 L 272.6 218.6 L 272.4 221.0 L 244.5 324.0 L 244.5 372.9 L 244.2 374.0 L 243.4 374.8 L 214.1 375.0 L 213.1 374.8 L 212.0 373.4 L 212.0 324.8 L 187.3 234.7 L 182.7 219.4 L 182.7 218.3 L 183.5 217.5 Z"/>
+    <path d="M 281.0 217.5 L 312.9 217.5 L 314.2 218.6 L 327.9 276.5 L 335.2 311.4 L 336.3 315.5 L 336.8 316.0 L 337.6 315.7 L 337.6 305.5 L 336.0 249.2 L 336.0 218.3 L 337.1 217.5 L 362.0 217.5 L 363.1 218.3 L 363.4 373.4 L 362.8 374.5 L 361.5 375.0 L 332.0 375.0 L 329.8 374.0 L 329.0 372.1 L 328.2 367.3 L 318.5 325.9 L 307.8 275.7 L 307.0 274.7 L 306.2 275.2 L 306.2 288.9 L 307.0 312.8 L 307.3 373.4 L 306.2 374.8 L 305.1 375.0 L 281.5 375.0 L 280.2 374.2 L 279.9 218.6 L 281.0 217.5 Z"/>
+    <path d="M 377.9 217.5 L 410.3 217.5 L 411.4 218.3 L 417.9 244.1 L 428.3 290.2 L 433.2 314.4 L 434.0 316.0 L 435.0 315.5 L 435.0 307.9 L 434.5 299.3 L 433.7 263.9 L 433.4 218.8 L 434.5 217.5 L 459.5 217.5 L 460.8 218.6 L 460.8 373.7 L 460.3 374.5 L 458.9 375.0 L 429.4 375.0 L 428.1 374.8 L 426.7 373.7 L 422.1 355.4 L 405.2 277.9 L 404.7 275.7 L 403.9 274.7 L 403.1 275.2 L 403.1 290.0 L 404.2 324.6 L 404.2 373.4 L 403.1 374.8 L 401.7 375.0 L 378.9 375.0 L 377.1 374.2 L 376.5 372.9 L 376.5 219.1 L 376.8 218.3 L 377.9 217.5 Z"/>
+  </g>
+  <circle cx="368.7" cy="169.0" r="32.0" fill="#f46430"/>
+</svg>`;
+
+// Payment-method marks.
+//
+// NOTE: these are clean in-house renditions so the page is complete and
+// on-brand today. Apple Pay and PayID are trademarks whose owners require
+// their OFFICIAL artwork and specific clear-space/sizing rules in production
+// (Apple Pay Marketing Guidelines; NPP Australia's PayID brand assets).
+// Swap these for the official files before this page is used commercially.
+const MARK_PAYID = `<svg viewBox="0 0 64 24" xmlns="http://www.w3.org/2000/svg" aria-label="PayID"><rect width="64" height="24" rx="6" fill="#7d3cf8"/><text x="32" y="16.5" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing=".2">PayID</text></svg>`;
+const MARK_APPLEPAY = `<svg viewBox="0 0 64 24" xmlns="http://www.w3.org/2000/svg" aria-label="Apple Pay"><rect width="64" height="24" rx="6" fill="#111"/><path d="M20.6 9.1c-.5.6-1.3 1-2 .9-.1-.8.3-1.6.7-2.1.5-.6 1.3-1 2-1 .1.8-.2 1.6-.7 2.2zm.7 1.1c-1.1-.1-2 .6-2.5.6s-1.3-.6-2.2-.6c-1.1 0-2.2.7-2.7 1.7-1.2 2-.3 5 .8 6.6.6.8 1.2 1.7 2.1 1.7.8 0 1.1-.5 2.1-.5s1.3.5 2.2.5 1.5-.8 2.1-1.6c.7-.9.9-1.8 1-1.8 0 0-1.9-.8-1.9-2.9 0-1.8 1.5-2.7 1.5-2.7-.8-1.2-2.1-1.3-2.5-1.3z" fill="#fff"/><text x="43" y="16.5" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="11" font-weight="600" fill="#fff" text-anchor="middle">Pay</text></svg>`;
+const MARK_CARD = `<svg viewBox="0 0 64 24" xmlns="http://www.w3.org/2000/svg" aria-label="Card"><rect width="64" height="24" rx="6" fill="#eef0f4"/><rect x="12" y="8" width="40" height="9" rx="2" fill="#98a2b3"/><rect x="12" y="8" width="40" height="3" rx="1.5" fill="#667085"/></svg>`;
+
 function renderInvoiceHTML(rawInv, business = {}) {
   const inv = normalizeInvoiceRow(rawInv);
   const currency = inv.currency || 'AUD';
   const bizName = business.business_name || business.business_type || 'My business';
-  const initials = bizName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'F';
-  // A real logo if the business has one (URL or data URI), else an initials badge.
-  const logoUrl = business.logo_url || business.logoUrl || '';
   const ref = String(inv.public_token || '').slice(0, 6).toUpperCase();
   const photos = Array.isArray(inv.photo_urls) ? inv.photo_urls : [];
   const items = Array.isArray(inv.line_items) ? inv.line_items : [];
-  const accent = '#FB5B1E';
-
-  const itemRows = items.map((li) => `
-        <div class="row">
-          <span>${esc(li.description || 'item')}</span>
-          <span>${li.amount_cents != null ? moneyFull(li.amount_cents, currency) : ''}</span>
-        </div>`).join('');
-
-  const photoTiles = photos.map((url) => `
-          <a class="tile" href="${esc(url)}" target="_blank" rel="noopener" style="background-image:url('${esc(url)}')"></a>`).join('');
-
-  const photoBlock = photos.length ? `
-      <div class="section">
-        <div class="muted small">The job${inv.client_name ? ` · ${esc(inv.client_name)}` : ''}</div>
-        <div class="photos">${photoTiles}</div>
-        <div class="muted small center">${photos.length} photo${photos.length > 1 ? 's' : ''} from the job</div>
-      </div>` : '';
-
-  const gstRow = inv.tax_cents ? `
-        <div class="row dim"><span>GST</span><span>${moneyFull(inv.tax_cents, currency)}</span></div>` : '';
-
   const isPaid = inv.status === 'paid';
 
-  // Payment: a real Stripe link if one's been attached, else bank-transfer
-  // details from the business brain (the AU/NZ norm). Never a fake button.
   const bankBsb = business.bank_bsb || business.bsb;
   const bankAcct = business.bank_account || business.account_number;
   const bankName = business.bank_account_name || business.account_name || bizName;
   const payid = business.payid || business.pay_id;
-  let payBlock = '';
-  if (isPaid) {
-    payBlock = '';
-  } else if (inv.stripe_payment_url) {
-    payBlock = `<a class="btn" href="${esc(inv.stripe_payment_url)}">Pay now · ${moneyFull(inv.total_cents, currency)}</a>`;
-  } else if (bankBsb && bankAcct) {
-    const cp = (v) => `<button type="button" class="cp" data-c="${esc(v)}">${esc(v)}</button>`;
-    const amtPlain = (Math.round(inv.total_cents) / 100).toFixed(2);
-    payBlock = `<div class="bank">
-          <div class="bank-h">Pay by bank transfer <span class="bank-hint">tap a value to copy</span></div>
-          <div class="bank-row"><span>Name</span>${cp(bankName)}</div>
-          <div class="bank-row"><span>BSB</span>${cp(bankBsb)}</div>
-          <div class="bank-row"><span>Account</span>${cp(bankAcct)}</div>
+  const hasBank = Boolean(bankBsb && bankAcct) || Boolean(payid);
+
+  // Line items tolerate both shapes: the app's {unit_price,total} and the
+  // agent's {amount_cents}.
+  const itemRows = items.map((li) => {
+    const c = li.amount_cents != null
+      ? Number(li.amount_cents)
+      : Math.round(Number(li.total != null ? li.total : li.unit_price || 0) * 100);
+    const qty = Number(li.quantity);
+    const qtyBit = Number.isFinite(qty) && qty > 1
+      ? `<span class="qty">${qty} &times; ${moneyFull(Math.round(c / qty), currency)}</span>` : '';
+    return `<li class="item">
+        <div class="item-main"><span class="item-desc">${esc(li.description || 'Item')}</span>${qtyBit}</div>
+        <span class="item-amt">${moneyFull(c, currency)}</span>
+      </li>`;
+  }).join('');
+
+  const photoTiles = photos.slice(0, 8).map((u) => `<img src="${esc(u)}" alt="Job photo" loading="lazy">`).join('');
+
+  const cp = (v) => `<button class="copy" data-copy="${esc(v)}" type="button"><span>${esc(v)}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
+
+  const payMethods = `
+      <div class="methods">
+        <div class="method">${MARK_PAYID}<span>Pay by bank, instantly</span></div>
+        <div class="method">${MARK_APPLEPAY}<span>One tap on iPhone</span></div>
+        <div class="method">${MARK_CARD}<span>Any debit or credit card</span></div>
+      </div>`;
+
+  const payBlock = isPaid
+    ? `<div class="paid-banner"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg> Paid in full &mdash; thank you</div>`
+    : `<section class="pay card">
+        <h2>Pay this invoice</h2>
+        ${inv.stripe_payment_url
+          ? `<a class="btn btn-primary" href="${esc(inv.stripe_payment_url)}">Pay ${moneyFull(inv.total_cents, currency)}</a>`
+          : `<button class="btn btn-primary" type="button" data-pay disabled>Pay ${moneyFull(inv.total_cents, currency)}</button>
+             <p class="pay-soon">Card, Apple&nbsp;Pay and PayID are switching on shortly. In the meantime you can pay by bank transfer below.</p>`}
+        ${payMethods}
+      </section>`;
+
+  const bankBlock = hasBank && !isPaid ? `
+      <section class="card">
+        <h2>Or pay by bank transfer</h2>
+        <div class="bank">
           ${payid ? `<div class="bank-row"><span>PayID</span>${cp(payid)}</div>` : ''}
-          <div class="bank-row"><span>Amount</span>${cp(amtPlain)}</div>
+          ${bankBsb ? `<div class="bank-row"><span>BSB</span>${cp(bankBsb)}</div>` : ''}
+          ${bankAcct ? `<div class="bank-row"><span>Account</span>${cp(bankAcct)}</div>` : ''}
+          <div class="bank-row"><span>Name</span><b>${esc(bankName)}</b></div>
           <div class="bank-row"><span>Reference</span>${cp(ref)}</div>
-        </div>`;
-  } else if (business.payment_details) {
-    payBlock = `<div class="bank"><div class="bank-h">Payment</div><div class="paytext">${esc(business.payment_details)}</div></div>`;
-  }
+        </div>
+      </section>` : '';
 
-  const title = `${esc(bizName)} · invoice ${moneyFull(inv.total_cents, currency)}`;
-  // Link-preview card: status-aware text + a dynamic branded image that flips
-  // to "Paid" once marked. Absolute URL so crawlers can fetch it.
-  const ogTitle = `Invoice from ${bizName} — ${moneyFull(inv.total_cents, currency)}`;
-  const statusLine = isPaid ? 'Paid · thanks!' : 'Awaiting payment · tap to view and pay';
-  const ogImage = inv.public_token ? `${SERVER_URL}/i/${inv.public_token}/og.png` : (photos[0] || '');
+  const title = `${bizName} · invoice ${moneyFull(inv.total_cents, currency)}`;
+  const ogDesc = isPaid ? 'Paid · thanks!' : `Awaiting payment · due ${inv.due_date || 'on receipt'}`;
+  const ogImg = inv.public_token ? `${SERVER_URL}/i/${inv.public_token}/og.png` : '';
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>${title}</title>
-<meta property="og:type" content="website" />
-<meta property="og:title" content="${esc(ogTitle)}" />
-<meta property="og:description" content="${esc(statusLine)}" />
-${ogImage ? `<meta property="og:image" content="${esc(ogImage)}" />
-<meta property="og:image:width" content="1200" />
-<meta property="og:image:height" content="630" />` : ''}
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="${esc(ogTitle)}" />
-<meta name="twitter:description" content="${esc(statusLine)}" />
-${ogImage ? `<meta name="twitter:image" content="${esc(ogImage)}" />` : ''}
-<meta name="theme-color" content="${accent}" />
+  return `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>${esc(title)}</title>
+<meta name="theme-color" content="#ffffff">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(ogDesc)}">
+${ogImg ? `<meta property="og:image" content="${esc(ogImg)}">` : ''}
+<meta name="twitter:card" content="summary_large_image">
 <style>
-  :root { --ink:#1c1c1c; --muted:#8a8a8a; --line:#ECECEC; --accent:${accent}; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:#EEE9DF; color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; -webkit-font-smoothing:antialiased; }
-  .wrap { max-width:440px; margin:0 auto; padding:18px 14px 40px; }
-  .card { background:#fff; border-radius:18px; overflow:hidden; }
-  .head { padding:18px 18px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:11px; }
-  .logo { width:44px; height:44px; border-radius:11px; background:#1F7A4D; color:#fff;
-    display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600; flex-shrink:0; }
-  .logo-img { background-position:center; background-size:cover; background-repeat:no-repeat; }
-  .biz { line-height:1.3; min-width:0; }
-  .biz b { font-size:15px; font-weight:600; display:block; }
-  .biz span { font-size:11.5px; color:var(--muted); display:block; }
-  .amt { margin-left:auto; text-align:right; line-height:1.25; }
-  .amt b { font-size:19px; font-weight:600; color:#1F7A4D; }
-  .amt span { display:block; font-size:11px; color:#c0392b; }
-  .section { padding:14px 18px 6px; }
-  .photos { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0 6px; }
-  .photos .tile { display:block; height:120px; border-radius:10px; background:#d9d4c7 center/cover no-repeat; }
-  .photos .tile:only-child { grid-column:1 / -1; height:200px; }
-  .items { padding:8px 18px 4px; }
-  .row { display:flex; justify-content:space-between; gap:12px; font-size:13.5px; color:#3a3a3a;
-    padding:7px 0; border-bottom:1px solid #F2F2F2; }
-  .row.dim { color:var(--muted); font-size:12px; border-bottom:none; }
-  .row.total { font-size:15.5px; font-weight:600; color:var(--ink); border-bottom:none; padding-top:10px; }
-  .pay { padding:6px 18px 16px; }
-  .btn { display:block; text-align:center; text-decoration:none; background:var(--accent); color:#fff;
-    font-size:15px; font-weight:600; padding:13px; border-radius:11px; }
-  .amt span.paid { color:#1F7A4D; font-weight:700; letter-spacing:0.5px; }
-  .bank { border:1px solid var(--line); border-radius:11px; padding:11px 13px; }
-  .bank-h { font-size:12px; font-weight:600; color:#555; margin-bottom:6px; }
-  .bank-row { display:flex; justify-content:space-between; gap:12px; font-size:13px; color:#3a3a3a; padding:3px 0; }
-  .bank-row span:first-child { color:var(--muted); }
-  .bank-hint { font-weight:400; color:#b0b0b0; font-size:10.5px; }
-  .cp { background:none; border:none; padding:0; margin:0; font:inherit; font-weight:500; color:#1c1c1c;
-    cursor:pointer; text-decoration:underline; text-decoration-color:#dcdcdc; text-underline-offset:3px; }
-  .cp.ok { color:#1F7A4D; text-decoration:none; }
-  .paytext { font-size:13px; color:#3a3a3a; line-height:1.5; }
-  .ghost { display:block; width:100%; text-align:center; margin-top:9px; background:none; border:1px solid var(--line);
-    color:#555; font-size:13px; font-weight:500; padding:11px; border-radius:11px; cursor:pointer; }
-  .muted { color:var(--muted); }
-  .small { font-size:11.5px; }
-  .center { text-align:center; margin-top:6px; }
-  .foot { text-align:center; font-size:11px; color:#b0b0b0; margin-top:14px; }
-  .msg { padding:0 18px 8px; font-size:13px; color:#555; line-height:1.5; }
-  @media print {
-    body { background:#fff; } .wrap { max-width:none; padding:0; } .card { border-radius:0; }
-    .ghost { display:none; }
+  *,*::before,*::after{box-sizing:border-box}
+  :root{
+    --ink:#101828; --muted:#667085; --line:#e7e9ee; --bg:#ffffff;
+    --brand:#f46430; --brand-deep:#d94e1c;
   }
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  body{padding:0 0 56px}
+  .wrap{max-width:560px;margin:0 auto;padding:0 20px}
+
+  /* top bar */
+  .top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.82);
+    backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);
+    border-bottom:1px solid rgba(16,24,40,.06)}
+  .top .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
+  .brand{display:inline-flex;align-items:center}
+  .brand svg{height:24px;width:auto;display:block}
+  .secure{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+    background:#f6f7f9;border:1px solid var(--line);padding:5px 10px;border-radius:999px}
+
+  /* hero */
+  .hero{padding:34px 0 8px;text-align:center}
+  .from{font-size:13px;color:var(--muted);margin:0 0 6px}
+  .biz{font-size:19px;font-weight:650;margin:0 0 18px}
+  .amount{font-size:52px;font-weight:760;letter-spacing:-1.6px;line-height:1;margin:0}
+  .status{display:inline-flex;align-items:center;gap:7px;margin-top:14px;font-size:13px;font-weight:560;
+    padding:7px 14px;border-radius:999px}
+  .status.due{background:#fff5ed;color:#b54708;border:1px solid #fde3cd}
+  .status.paid{background:#ecfdf3;color:#027a48;border:1px solid #abefc6}
+
+  /* cards */
+  .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;margin-top:16px;
+    box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .card h2{font-size:13px;font-weight:620;text-transform:uppercase;letter-spacing:.55px;
+    color:var(--muted);margin:0 0 14px}
+
+  /* items */
+  ul.items{list-style:none;margin:0;padding:0}
+  .item{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid #f2f4f7}
+  .item:last-child{border-bottom:0}
+  .item-main{display:flex;flex-direction:column;gap:3px}
+  .item-desc{font-size:15px;line-height:1.35}
+  .qty{font-size:12.5px;color:var(--muted)}
+  .item-amt{font-size:15px;font-weight:560;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .totals{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .trow{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);padding:4px 0;
+    font-variant-numeric:tabular-nums}
+  .trow.grand{color:var(--ink);font-size:19px;font-weight:720;padding-top:10px}
+
+  /* glassy buttons — translucent gradient, inner top sheen, soft outer glow */
+  .btn{position:relative;display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;min-height:56px;padding:0 22px;border-radius:16px;border:1px solid rgba(255,255,255,.28);
+    font-size:17px;font-weight:640;letter-spacing:.1px;color:#fff;text-decoration:none;cursor:pointer;
+    isolation:isolate;overflow:hidden;
+    transition:transform .16s cubic-bezier(.2,.8,.3,1),box-shadow .16s,filter .16s}
+  .btn::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,255,255,.42) 0%,rgba(255,255,255,.10) 42%,rgba(255,255,255,0) 62%)}
+  .btn::after{content:"";position:absolute;left:0;right:0;top:0;height:1px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent)}
+  .btn-primary{background:linear-gradient(180deg,#ff8a4c 0%,var(--brand) 52%,var(--brand-deep) 100%);
+    box-shadow:0 10px 26px -6px rgba(244,100,48,.55),0 2px 6px rgba(16,24,40,.14),
+      inset 0 -10px 20px rgba(255,255,255,.10)}
+  .btn-primary:hover{transform:translateY(-1px);
+    box-shadow:0 14px 32px -6px rgba(244,100,48,.62),0 3px 8px rgba(16,24,40,.16)}
+  .btn-primary:active{transform:translateY(0) scale(.994)}
+  /* "not wired yet" state: keep the full brand gradient (a washed-out button
+     reads as broken), just drop the lift + glow so it doesn't invite a tap. */
+  .btn[disabled]{cursor:default;box-shadow:0 2px 6px rgba(16,24,40,.12)}
+  .btn[disabled]:hover{transform:none;box-shadow:0 2px 6px rgba(16,24,40,.12)}
+  .btn-ghost{color:var(--ink);background:linear-gradient(180deg,#fff 0%,#f6f7f9 100%);
+    border:1px solid var(--line);box-shadow:0 1px 2px rgba(16,24,40,.05);min-height:50px;font-size:15.5px}
+  .btn-ghost::before{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,0) 60%)}
+  .btn-ghost::after{display:none}
+  .btn-ghost:hover{transform:translateY(-1px);box-shadow:0 6px 16px -6px rgba(16,24,40,.18)}
+
+  .pay-soon{font-size:12.5px;color:var(--muted);margin:12px 2px 0;line-height:1.5;text-align:center}
+  .methods{display:flex;flex-direction:column;gap:10px;margin-top:16px;padding-top:16px;
+    border-top:1px solid var(--line)}
+  .method{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--muted)}
+  .method svg{height:22px;width:auto;flex:none;border-radius:6px}
+  .paid-banner{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:16px;
+    padding:16px;border-radius:16px;font-weight:620;font-size:15.5px;
+    background:linear-gradient(180deg,#f0fdf5,#ecfdf3);color:#027a48;border:1px solid #abefc6}
+
+  /* bank */
+  .bank-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;
+    border-bottom:1px solid #f2f4f7;font-size:14.5px}
+  .bank-row:last-child{border-bottom:0}
+  .bank-row>span:first-child{color:var(--muted)}
+  .copy{display:inline-flex;align-items:center;gap:7px;background:#f6f7f9;border:1px solid var(--line);
+    border-radius:9px;padding:5px 9px;font:inherit;font-size:14px;font-weight:560;color:var(--ink);
+    cursor:pointer;font-variant-numeric:tabular-nums}
+  .copy:hover{background:#eef0f3}
+  .copy svg{color:var(--muted);flex:none}
+
+  /* photos */
+  .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+  .photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;border:1px solid var(--line);
+    display:block}
+
+  /* email */
+  .email-row{display:flex;gap:9px;margin-bottom:10px}
+  .email-row input{flex:1;min-width:0;height:50px;padding:0 14px;border-radius:13px;
+    border:1px solid var(--line);font:inherit;font-size:15.5px;color:var(--ink);background:#fbfbfc}
+  .email-row input:focus{outline:none;border-color:var(--brand);background:#fff;
+    box-shadow:0 0 0 4px rgba(244,100,48,.12)}
+  .email-row .btn-ghost{width:auto;padding:0 18px;flex:none}
+  .hint{font-size:12.5px;color:var(--muted);margin:0;line-height:1.5}
+  .ok{color:#027a48;font-weight:560}
+  .err{color:#b42318;font-weight:560}
+
+  /* footer */
+  footer{margin-top:26px;text-align:center}
+  .compat{font-size:12.5px;color:var(--muted);line-height:1.6;margin:0 0 16px}
+  .powered{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);
+    text-decoration:none;padding:9px 15px;border-radius:999px;border:1px solid var(--line);background:#fbfbfc}
+  .powered:hover{background:#f4f5f7}
+  .powered svg{height:13px;width:auto}
+  @media print{.top,.pay,.email,.powered,.btn{display:none!important}
+    .card{break-inside:avoid;box-shadow:none}}
 </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="head">
-        ${logoUrl ? `<div class="logo logo-img" style="background-image:url('${esc(logoUrl)}')"></div>` : `<div class="logo">${esc(initials)}</div>`}
-        <div class="biz"><b>${esc(bizName)}</b><span>Tax invoice · ${esc(ref)}</span></div>
-        <div class="amt"><b>${moneyFull(inv.total_cents, currency)}</b>${isPaid ? '<span class="paid">PAID</span>' : (inv.due_date ? `<span>due ${esc(inv.due_date)}</span>` : '<span>Awaiting payment</span>')}</div>
-      </div>
-      ${photoBlock}
-      ${inv.message ? `<div class="msg">${esc(inv.message)}</div>` : ''}
-      <div class="items">
-        ${itemRows}
-        ${gstRow}
-        <div class="row total"><span>Total${inv.tax_cents ? ' (incl GST)' : ''}</span><span>${moneyFull(inv.total_cents, currency)}</span></div>
-      </div>
-      <div class="pay">
-        ${payBlock}
-        <button class="ghost" onclick="window.print()">Download / print PDF</button>
-      </div>
-    </div>
-    <div class="foot">Sent via Flynn</div>
+</head><body>
+
+<header class="top"><div class="wrap">
+  <a class="brand" href="https://flynnai.app" target="_blank" rel="noopener" aria-label="Flynn — go to flynnai.app">${FLYNN_WORDMARK}</a>
+  <span class="secure"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Secure invoice</span>
+</div></header>
+
+<main class="wrap">
+  <div class="hero">
+    <p class="from">Invoice from</p>
+    <p class="biz">${esc(bizName)}</p>
+    <p class="amount">${moneyFull(inv.total_cents, currency)}</p>
+    <span class="status ${isPaid ? 'paid' : 'due'}">
+      ${isPaid ? 'Paid' : (inv.due_date ? `Due ${esc(inv.due_date)}` : 'Awaiting payment')}
+    </span>
   </div>
-  <script>
-    function cpFallback(t, done){ try{ var ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, t.length); document.execCommand('copy'); document.body.removeChild(ta); done(); }catch(e){} }
-    document.addEventListener('click', function(e){
-      var b = e.target.closest && e.target.closest('.cp'); if(!b) return;
-      var t = b.getAttribute('data-c'); var o = b.textContent;
-      function done(){ b.classList.add('ok'); b.textContent='copied'; setTimeout(function(){ b.classList.remove('ok'); b.textContent=o; }, 1200); }
-      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done, function(){ cpFallback(t, done); }); } else { cpFallback(t, done); }
+
+  ${payBlock}
+  ${bankBlock}
+
+  <section class="card">
+    <h2>${items.length ? 'What this covers' : 'Invoice'}</h2>
+    <ul class="items">${itemRows || '<li class="item"><span class="item-desc">Work completed</span></li>'}</ul>
+    <div class="totals">
+      ${inv.tax_cents ? `<div class="trow"><span>Subtotal</span><span>${moneyFull(inv.total_cents - inv.tax_cents, currency)}</span></div>
+      <div class="trow"><span>GST</span><span>${moneyFull(inv.tax_cents, currency)}</span></div>` : ''}
+      <div class="trow grand"><span>Total</span><span>${moneyFull(inv.total_cents, currency)}</span></div>
+    </div>
+  </section>
+
+  ${photos.length ? `<section class="card"><h2>The job</h2><div class="photos">${photoTiles}</div></section>` : ''}
+  ${inv.message ? `<section class="card"><h2>Note</h2><p style="margin:0;font-size:15px;line-height:1.55">${esc(inv.message)}</p></section>` : ''}
+
+  <section class="card email">
+    <h2>Send a copy</h2>
+    <div class="email-row">
+      <input type="email" id="em" placeholder="you@example.com" autocomplete="email" inputmode="email">
+      <button class="btn btn-ghost" type="button" id="emBtn">Email it</button>
+    </div>
+    <p class="hint" id="emMsg">Email it to yourself, your bookkeeper, or anyone else. Includes a PDF that imports into Xero, MYOB, QuickBooks and the rest.</p>
+    <button class="btn btn-ghost" type="button" onclick="window.print()" style="margin-top:10px">Save as PDF</button>
+  </section>
+
+  <footer>
+    <p class="compat">Reference ${esc(ref)} &middot; Works with Xero, MYOB &amp; QuickBooks</p>
+    <a class="powered" href="https://flynnai.app" target="_blank" rel="noopener">
+      Invoiced with ${FLYNN_WORDMARK}
+    </a>
+  </footer>
+</main>
+
+<script>
+  document.querySelectorAll('.copy').forEach(function(b){
+    b.addEventListener('click',function(){
+      var v=b.getAttribute('data-copy');
+      navigator.clipboard&&navigator.clipboard.writeText(v).then(function(){
+        var s=b.querySelector('span'),o=s.textContent;s.textContent='Copied';
+        setTimeout(function(){s.textContent=o;},1200);
+      });
     });
-  </script>
-</body>
-</html>`;
+  });
+  (function(){
+    var btn=document.getElementById('emBtn'),inp=document.getElementById('em'),msg=document.getElementById('emMsg');
+    if(!btn) return;
+    btn.addEventListener('click',function(){
+      var to=(inp.value||'').trim();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){msg.textContent='That email doesn\'t look right.';msg.className='hint err';return;}
+      btn.disabled=true;msg.textContent='Sending…';msg.className='hint';
+      fetch(location.pathname.replace(/\/$/,'')+'/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:to})})
+        .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})})
+        .then(function(res){
+          if(res.ok&&res.j.sent){msg.textContent='Sent to '+to;msg.className='hint ok';inp.value='';}
+          else {msg.textContent=(res.j&&res.j.error)||'Couldn\'t send that just now.';msg.className='hint err';}
+        })
+        .catch(function(){msg.textContent='Couldn\'t send that just now.';msg.className='hint err';})
+        .finally(function(){btn.disabled=false;});
+    });
+  })();
+</script>
+</body></html>`;
 }
 
 module.exports = {
