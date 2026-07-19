@@ -4,7 +4,7 @@
  * Flow: the user texts Flynn job photos (stored to the `documents` bucket +
  * buffered per-phone by the inbound route), then says "invoice the henderson job
  * $180". The create_photo_invoice tool (toolRegistry.js) claims the buffered
- * photos, writes an `agent_invoices` row, and returns a hosted link. This module
+ * photos, writes a `public.invoices` row, and returns a hosted link. This module
  * owns: photo storage, the buffer, persistence, and rendering the public page.
  *
  * The agent is phone-keyed, so this never touches the org-based public.invoices
@@ -121,39 +121,74 @@ async function takeBufferedPhotos({ supabase, userPhone, maxAgeHours = BUFFER_MA
 // Persist
 // ---------------------------------------------------------------------------
 
+const cents = (c) => Math.round(Number(c) || 0) / 100;
+
+/**
+ * Persist a photo invoice to `public.invoices` — the single invoice table.
+ *
+ * Agent invoices used to live in a separate phone-keyed `agent_invoices` table
+ * that never synced with the app's `public.invoices`, so an invoice Flynn
+ * created over text was invisible in the app. invoices now carries the columns
+ * that made that split necessary (public_token, photo_urls, currency,
+ * user_phone) and has nullable org_id/invoice_number so an operator who isn't
+ * in an org yet can still invoice.
+ *
+ * Money is stored as decimal dollars here (the app's shape) rather than the
+ * integer cents the agent works in, and line items are written in the app's
+ * {description, quantity, unit_price, total} shape so InvoiceDTO decodes them.
+ */
 async function saveInvoice(ctx, {
   clientName, clientHandle, clientEmail, lineItems, totalCents, message, dueDate, photoUrls,
 }) {
   const currency = ctx.currency || 'AUD';
   const { subtotalCents, taxCents } = splitTax(totalCents, currency);
   const token = newToken();
+
+  const items = (Array.isArray(lineItems) ? lineItems : []).map((li) => {
+    const amount = cents(li.amount_cents);
+    return {
+      description: li.description || 'item',
+      quantity: 1,
+      unit_price: amount,
+      total: amount,
+      // Kept so the hosted page and anything else still reading the agent's
+      // native shape keeps working without a translation layer.
+      amount_cents: Math.round(Number(li.amount_cents) || 0),
+    };
+  });
+
   const row = {
-    user_id: ctx.user?.id || null,
-    user_phone: ctx.phone,
-    // Org attribution for the system-of-record spine. Resolved once per turn in
-    // agentLoop.buildCtx via the phone -> org_members lookup; null for users
-    // who aren't in an org yet, which the column allows.
     org_id: ctx.orgId || null,
+    user_phone: ctx.phone,
     client_name: clientName,
     client_handle: clientHandle,
     client_email: clientEmail || null,
-    line_items: lineItems,
-    subtotal_cents: subtotalCents,
-    tax_cents: taxCents,
-    total_cents: totalCents,
+    client_phone: null,
+    title: clientName || 'Invoice',
+    line_items: items,
+    subtotal: cents(subtotalCents),
+    tax_rate: subtotalCents > 0 ? Math.round((taxCents / subtotalCents) * 10000) / 100 : 0,
+    tax_amount: cents(taxCents),
+    total: cents(totalCents),
+    amount_paid: 0,
+    amount_due: cents(totalCents),
     currency,
     photo_urls: photoUrls || [],
-    message: message || null,
+    notes: message || null,
     due_date: dueDate || null,
+    issued_date: new Date().toISOString().slice(0, 10),
     public_token: token,
     status: 'sent',
   };
+
   if (ctx.supabase) {
-    const { data, error } = await ctx.supabase.from('agent_invoices').insert(row).select('*').single();
+    const { data, error } = await ctx.supabase.from('invoices').insert(row).select('*').single();
     if (error) throw new Error(`invoice save failed: ${error.message}`);
-    return { invoice: data, url: invoiceUrl(token) };
+    // client_email isn't a column on invoices; carry it back in-memory for the
+    // send step, which only needs it for this turn.
+    return { invoice: { ...data, client_email: clientEmail || null }, url: invoiceUrl(token) };
   }
-  return { invoice: { ...row, id: null }, url: invoiceUrl(token) };
+  return { invoice: { ...row, id: null, client_email: clientEmail || null }, url: invoiceUrl(token) };
 }
 
 // ---------------------------------------------------------------------------
@@ -163,7 +198,31 @@ async function saveInvoice(ctx, {
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-function renderInvoiceHTML(inv, business = {}) {
+/**
+ * Present either invoice row shape to the renderers in the integer-cents shape
+ * they were written against.
+ *
+ * New rows live in public.invoices (decimal dollars, stripe_payment_link_url);
+ * legacy rows in agent_invoices (integer cents, stripe_payment_url). Rather
+ * than fork the HTML/OG renderers, normalise once here so both render
+ * identically and old links keep working.
+ */
+function normalizeInvoiceRow(inv) {
+  if (!inv) return inv;
+  const toCents = (v) => (v == null ? null : Math.round(Number(v) * 100));
+  return {
+    ...inv,
+    total_cents: inv.total_cents != null ? inv.total_cents : toCents(inv.total),
+    subtotal_cents: inv.subtotal_cents != null ? inv.subtotal_cents : toCents(inv.subtotal),
+    tax_cents: inv.tax_cents != null ? inv.tax_cents : toCents(inv.tax_amount),
+    stripe_payment_url: inv.stripe_payment_url || inv.stripe_payment_link_url || null,
+    // invoices.notes carries what agent_invoices called `message`.
+    message: inv.message != null ? inv.message : (inv.notes || null),
+  };
+}
+
+function renderInvoiceHTML(rawInv, business = {}) {
+  const inv = normalizeInvoiceRow(rawInv);
   const currency = inv.currency || 'AUD';
   const bizName = business.business_name || business.business_type || 'My business';
   const initials = bizName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'F';
@@ -338,6 +397,7 @@ module.exports = {
   takeBufferedPhotos,
   saveInvoice,
   renderInvoiceHTML,
+  normalizeInvoiceRow,
   computeTotalCents,
   invoiceUrl,
   moneyFull,

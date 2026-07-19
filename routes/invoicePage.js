@@ -8,7 +8,7 @@
 
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
-const { renderInvoiceHTML } = require('../services/photoInvoice');
+const { renderInvoiceHTML, normalizeInvoiceRow } = require('../services/photoInvoice');
 const ogImage = require('../services/ogImage');
 
 const OG_FALLBACK_IMAGE = 'https://flynnai.app/og-image.png';
@@ -21,6 +21,27 @@ const supabaseServiceKey =
 const supabase = supabaseUrl && supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } })
   : null;
+
+/**
+ * Look a public token up in the unified invoice table, falling back to the
+ * legacy agent_invoices table.
+ *
+ * Photo invoices now write to public.invoices; agent_invoices is retained
+ * read-only so links already in the wild (and any row that predates the
+ * migration) keep resolving. Returns a row normalised to the shape the
+ * renderers expect, plus which table it came from.
+ */
+async function findInvoiceByToken(token, columns = '*') {
+  if (!supabase || !token) return null;
+  const { data: current } = await supabase
+    .from('invoices').select(columns).eq('public_token', token).maybeSingle();
+  if (current) return { row: normalizeInvoiceRow(current), table: 'invoices' };
+
+  const { data: legacy } = await supabase
+    .from('agent_invoices').select(columns).eq('public_token', token).maybeSingle();
+  if (legacy) return { row: normalizeInvoiceRow(legacy), table: 'agent_invoices' };
+  return null;
+}
 
 function notFound(res) {
   res.status(404).set('Content-Type', 'text/html; charset=utf-8').send(
@@ -37,12 +58,9 @@ router.get('/i/:token/og.png', async (req, res) => {
   const token = String(req.params.token || '');
   try {
     if (!supabase || !token) throw new Error('no token');
-    const { data: inv } = await supabase
-      .from('agent_invoices')
-      .select('total_cents, currency, status, client_name, photo_urls, user_phone, public_token')
-      .eq('public_token', token)
-      .maybeSingle();
-    if (!inv) throw new Error('not found');
+    const found = await findInvoiceByToken(token);
+    if (!found) throw new Error('not found');
+    const inv = found.row;
 
     let business = {};
     const { data: u } = await supabase
@@ -64,23 +82,20 @@ router.get('/i/:token', async (req, res) => {
   const token = String(req.params.token || '');
   if (!token) return notFound(res);
 
-  let inv;
+  let found;
   try {
-    const { data } = await supabase
-      .from('agent_invoices')
-      .select('*')
-      .eq('public_token', token)
-      .maybeSingle();
-    inv = data;
+    found = await findInvoiceByToken(token);
   } catch (e) {
     console.warn('[invoicePage] lookup failed:', e?.message);
     return notFound(res);
   }
-  if (!inv) return notFound(res);
+  if (!found) return notFound(res);
+  const inv = found.row;
 
-  // Best-effort first-view stamp (fire and forget).
+  // Best-effort first-view stamp (fire and forget), against whichever table
+  // the row actually came from.
   if (!inv.viewed_at) {
-    supabase.from('agent_invoices')
+    supabase.from(found.table)
       .update({ viewed_at: new Date().toISOString() })
       .eq('id', inv.id)
       .is('viewed_at', null)

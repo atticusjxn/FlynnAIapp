@@ -950,7 +950,8 @@ async function chaseQuote(ctx, args = {}) {
 // ---------------------------------------------------------------------------
 // Photo invoices — Flynn renders its own invoice with the job photos the user
 // texted embedded, returns a hosted link to forward, and (best-effort) mirrors
-// the invoice into Xero so the books match. Phone-keyed (agent_invoices), so
+// the invoice into Xero so the books match. Writes to public.invoices (the
+// single invoice table) but needs no third-party connection to send one, so
 // no third-party connection is required to send one (auth_kind: none).
 // ---------------------------------------------------------------------------
 async function createPhotoInvoice(ctx, args) {
@@ -994,7 +995,7 @@ async function createPhotoInvoice(ctx, args) {
       amountCents: totalCents,
       date: new Date().toISOString().slice(0, 10),
     }).then(
-      () => ctx.supabase?.from('agent_invoices').update({ xero_synced: true }).eq('id', invoice.id),
+      () => ctx.supabase?.from('invoices').update({ xero_synced: true }).eq('id', invoice.id),
       (e) => console.warn('[photo-invoice] xero mirror failed:', e?.message),
     );
   }
@@ -1048,7 +1049,7 @@ async function sendInvoice(ctx, args = {}) {
   const clientName = String(args.client_name || 'your client');
   const label = clientName.toLowerCase();
   if (args.invoice_id && ctx.supabase) {
-    await ctx.supabase.from('agent_invoices')
+    await ctx.supabase.from('invoices')
       .update({ status: 'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', args.invoice_id).then(() => {}, () => {});
   }
@@ -1076,8 +1077,8 @@ async function markInvoicePaid(ctx, args) {
   if (!ctx.supabase) return { result: 'invoices unavailable' };
   const handle = String(requireArg(args, 'client_name')).toLowerCase().trim();
   const { data: found } = await ctx.supabase
-    .from('agent_invoices')
-    .select('id, client_name, total_cents, currency')
+    .from('invoices')
+    .select('id, client_name, total, currency')
     .eq('user_phone', ctx.phone)
     .eq('client_handle', handle)
     .neq('status', 'paid')
@@ -1087,13 +1088,23 @@ async function markInvoicePaid(ctx, args) {
     return { result: `no unpaid invoice for ${handle}`, userFacing: `couldn't find an unpaid invoice for ${handle}` };
   }
   const inv = found[0];
+  const nowIso = new Date().toISOString();
   await ctx.supabase
-    .from('agent_invoices')
-    .update({ status: 'paid', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .from('invoices')
+    // invoices tracks part-payment, so settle the balance too rather than only
+    // flipping status (agent_invoices had no amount columns).
+    .update({
+      status: 'paid',
+      paid_at: nowIso,
+      amount_paid: inv.total,
+      amount_due: 0,
+      updated_at: nowIso,
+    })
     .eq('id', inv.id)
     .then(() => {}, (e) => console.warn('[photo-invoice] mark paid failed:', e?.message));
+  const totalCents = Math.round(Number(inv.total || 0) * 100);
   return {
-    result: `marked ${inv.client_name} invoice paid (${money(inv.total_cents, inv.currency || ctx.currency)})`,
+    result: `marked ${inv.client_name} invoice paid (${money(totalCents, inv.currency || ctx.currency)})`,
     userFacing: `nice, marked ${String(inv.client_name).toLowerCase()}'s invoice as paid`,
   };
 }
@@ -1124,16 +1135,20 @@ async function chaseInvoice(ctx, args = {}) {
   if (!invoices.length) {
     const handle = String(requireArg(args, 'client_name', 'which client to chase')).toLowerCase().trim();
     const { data } = await ctx.supabase
-      .from('agent_invoices')
-      .select('id, client_name, client_email, total_cents, currency, public_token')
+      .from('invoices')
+      .select('id, client_name, client_email, total, currency, public_token')
       .eq('user_phone', ctx.phone)
       .eq('client_handle', handle)
       .neq('status', 'paid')
       .order('created_at', { ascending: false })
       .limit(1);
     invoices = (data || []).map((inv) => ({
-      invoice_id: inv.id, client_name: inv.client_name, client_email: inv.client_email,
-      total_cents: inv.total_cents, currency: inv.currency, public_token: inv.public_token,
+      invoice_id: inv.id,
+      client_name: inv.client_name,
+      client_email: inv.client_email,
+      total_cents: Math.round(Number(inv.total || 0) * 100),
+      currency: inv.currency,
+      public_token: inv.public_token,
     }));
   }
   if (!invoices.length) {
@@ -1166,7 +1181,7 @@ async function chaseInvoice(ctx, args = {}) {
     }
 
     if (c.invoice_id) {
-      await ctx.supabase.from('agent_invoices').update({ updated_at: nowIso }).eq('id', c.invoice_id).then(() => {}, () => {});
+      await ctx.supabase.from('invoices').update({ updated_at: nowIso }).eq('id', c.invoice_id).then(() => {}, () => {});
     }
   }
 
@@ -1193,7 +1208,7 @@ async function chaseInvoice(ctx, args = {}) {
     setTimeout(async () => {
       try {
         if (ids.length) {
-          await ctx.supabase.from('agent_invoices')
+          await ctx.supabase.from('invoices')
             .update({ status: 'paid', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
             .in('id', ids);
         }
