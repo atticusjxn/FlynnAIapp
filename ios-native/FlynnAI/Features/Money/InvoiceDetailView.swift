@@ -87,12 +87,14 @@ struct InvoiceDetailView: View {
 
     private func actionsCard(invoice: InvoiceDTO) -> some View {
         VStack(spacing: FlynnSpacing.sm) {
+            // Getting the invoice out is the money moment, so it gets the
+            // glass treatment that matches the client-facing payment page.
+            FlynnGlassButton(
+                title: "Send via SMS",
+                action: { sendToPhone = ""; showingSendPrompt = true },
+                icon: Image(systemName: "paperplane.fill")
+            )
             HStack(spacing: FlynnSpacing.sm) {
-                FlynnButton(
-                    title: "Send via SMS",
-                    action: { sendToPhone = ""; showingSendPrompt = true },
-                    fullWidth: true
-                )
                 FlynnButton(
                     title: "Share PDF",
                     action: { Task { await sharePDF() } },

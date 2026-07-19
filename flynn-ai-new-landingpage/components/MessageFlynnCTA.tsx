@@ -74,7 +74,7 @@ const MessageFlynnCTA: React.FC<MessageFlynnCTAProps> = ({
                     <a
                         href={SMS_LINK}
                         onClick={handleMessageFlynn}
-                        className="inline-flex items-center gap-3 bg-white rounded-full px-6 py-3.5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:scale-105 active:scale-95 transition-all"
+                        className="flynn-glass flynn-glass--light !rounded-full inline-flex items-center gap-3 px-6 py-3.5"
                     >
                         <IMessageIcon size={28} />
                         <span className="text-[17px] font-semibold text-[#1A1A1A]">Message Flynn</span>

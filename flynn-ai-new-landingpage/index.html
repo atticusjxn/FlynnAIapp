@@ -118,6 +118,71 @@
       font-family: 'Space Grotesk', sans-serif;
     }
 
+    /* ---------------------------------------------------------------
+       Glassmorphic buttons.
+       Translucent gradient fill + bright inner sheen along the top edge
+       + hairline specular highlight + soft coloured glow. Mirrors
+       FlynnGlassButton.swift in the iOS app and the CSS on the hosted
+       invoice page, so all three surfaces read as one product.
+       --------------------------------------------------------------- */
+    .flynn-glass {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, .28);
+      transition: transform .16s cubic-bezier(.2, .8, .3, 1), box-shadow .16s;
+    }
+    /* inner sheen */
+    .flynn-glass::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: linear-gradient(180deg,
+        rgba(255, 255, 255, .42) 0%,
+        rgba(255, 255, 255, .10) 42%,
+        rgba(255, 255, 255, 0) 62%);
+    }
+    /* hairline specular highlight */
+    .flynn-glass::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      height: 1px;
+      pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .75), transparent);
+    }
+    .flynn-glass:hover { transform: translateY(-1px); }
+    .flynn-glass:active { transform: translateY(0) scale(.994); }
+
+    .flynn-glass--primary {
+      background: linear-gradient(180deg, #ff8a4c 0%, #ff4500 52%, #d94e1c 100%);
+      color: #fff;
+      box-shadow: 0 10px 26px -6px rgba(255, 69, 0, .55), 0 2px 6px rgba(16, 24, 40, .14);
+    }
+    .flynn-glass--primary:hover {
+      box-shadow: 0 14px 32px -6px rgba(255, 69, 0, .62), 0 3px 8px rgba(16, 24, 40, .16);
+    }
+
+    .flynn-glass--light {
+      background: linear-gradient(180deg, #ffffff 0%, #f4f5f7 100%);
+      color: #1A1A1A;
+      border-color: rgba(16, 24, 40, .08);
+      box-shadow: 0 8px 24px -8px rgba(44, 32, 24, .28), 0 1px 2px rgba(16, 24, 40, .06);
+    }
+    .flynn-glass--light::after { display: none; }
+    .flynn-glass--light:hover {
+      box-shadow: 0 12px 30px -8px rgba(44, 32, 24, .34), 0 2px 4px rgba(16, 24, 40, .08);
+    }
+
+    .flynn-glass--dark {
+      background: linear-gradient(180deg, #3b3b42 0%, #1c1c21 100%);
+      color: #fff;
+      box-shadow: 0 10px 26px -6px rgba(0, 0, 0, .38), 0 2px 6px rgba(16, 24, 40, .18);
+    }
+
     /* Custom Scrollbar */
     ::-webkit-scrollbar {
       width: 6px;

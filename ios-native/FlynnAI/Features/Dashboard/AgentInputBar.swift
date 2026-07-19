@@ -112,7 +112,27 @@ struct AgentInputBar: View {
             Image(systemName: "arrow.up")
                 .foregroundColor(FlynnColor.white)
                 .frame(width: 44, height: 44)
-                .background(Circle().fill(FlynnColor.primary))
+                // Glass treatment to match FlynnGlassButton / the hosted
+                // invoice page: brand gradient, inner top sheen, soft glow.
+                .background(
+                    ZStack {
+                        LinearGradient(
+                            colors: [Color(hex: "#ff8a4c"), FlynnColor.primary, Color(hex: "#d94e1c")],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        LinearGradient(
+                            stops: [
+                                .init(color: .white.opacity(0.42), location: 0),
+                                .init(color: .white.opacity(0.08), location: 0.45),
+                                .init(color: .white.opacity(0), location: 0.62),
+                            ],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    }
+                )
+                .clipShape(Circle())
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
+                .shadow(color: FlynnColor.primary.opacity(0.42), radius: 10, x: 0, y: 4)
         }
         .disabled(conversation.isSending)
     }
