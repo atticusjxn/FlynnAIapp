@@ -130,12 +130,18 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto px-5 sm:px-8 pt-10 pb-20 lg:py-24 grid lg:grid-cols-2 gap-12 items-center">
           <Reveal>
             <h1 className="font-display font-bold leading-[0.98] text-[clamp(2.6rem,7vw,4.6rem)] tracking-tight">
-              Your admin,<br /><span className="text-[#FB5B1E]">done by text.</span>
+              Never miss<br />another job.<br /><span className="text-[#FB5B1E]">Flynn answers.</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-[#5A4A3C] max-w-xl leading-relaxed">
-              Flynn does your back-office admin from one text thread — invoices, quotes, ordering parts at the best price, receipts. And it's proactive: it chases your late payers and flags the rained-out job before you do. No app, no data entry — you just text it like a mate.
+              When you're on the tools, Flynn picks up — a receptionist that sounds like a real person, books the job, and texts the client back in seconds. Then it does the rest: the invoice with the photos on it, the pay link, and the chasing until the money lands.
             </p>
-            <p className="mt-5 text-sm font-medium text-[#8C7B6A]">Free to start · You confirm before anything moves · AU &amp; NZ</p>
+            <p className="mt-5 text-sm font-medium text-[#8C7B6A]">Sounds like a real person · Free to start · AU &amp; NZ</p>
+            <div className="mt-7">
+              <a href="https://apps.apple.com/au/app/flynnai/id6752254950" target="_blank" rel="noopener noreferrer"
+                className="flynn-glass flynn-glass--primary flynn-pill inline-flex items-center gap-2.5 px-8 py-4 font-display font-bold text-lg">
+                Get Flynn free
+              </a>
+            </div>
           </Reveal>
 
           <Reveal delay={0.1} className="relative flex flex-col items-center lg:items-end gap-4">

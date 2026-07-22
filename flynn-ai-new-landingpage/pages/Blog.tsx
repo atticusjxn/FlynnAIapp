@@ -1939,6 +1939,29 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
     },
 };
 
+/*
+ * Expired posts — off-vertical SEO spray (salons, real estate, freelancers,
+ * PTs) and generic "AI for small business" listicles that no longer match the
+ * AI-receptionist-for-tradies direction (2026-07-22 pivot). Content stays in
+ * the record as dormant data; these slugs are hidden from the index here, and
+ * public/_redirects 301s their URLs to /blog so Google drops them cleanly.
+ * Also removed from public/sitemap.xml.
+ */
+const EXPIRED_POSTS = new Set([
+    'chatgpt-for-small-business',
+    'best-ai-tools-for-small-business',
+    'ai-tools-small-business-admin',
+    'best-appointment-scheduling-app-small-business',
+    'admin-tips-for-salons-and-barbers',
+    'best-apps-for-hair-salons',
+    'admin-tips-for-real-estate-agents',
+    'best-apps-for-real-estate-agents',
+    'admin-tips-for-freelancers',
+    'best-apps-for-freelancers',
+    'admin-tips-for-personal-trainers',
+    'best-apps-for-personal-trainers',
+]);
+
 export const BlogList: React.FC = () => {
     return (
         <>
@@ -1958,7 +1981,7 @@ export const BlogList: React.FC = () => {
                 </div>
 
                 <div className="max-w-4xl mx-auto grid gap-12">
-                    {Object.entries(blogPosts).map(([slug, post]) => (
+                    {Object.entries(blogPosts).filter(([slug]) => !EXPIRED_POSTS.has(slug)).map(([slug, post]) => (
                         <Link key={slug} to={`/blog/${slug}`} className="group block bg-surface-50 border-2 border-transparent hover:border-black p-8 transition-all hover:shadow-[8px_8px_0px_0px_#000000]">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                 <div>
@@ -1980,7 +2003,9 @@ export const BlogList: React.FC = () => {
 
 export const BlogPost: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
-    const post = blogPosts[slug || ""];
+    // Expired slugs 301 at the edge (_redirects); this guard covers client-side
+    // navigation and any cached SPA shell.
+    const post = EXPIRED_POSTS.has(slug || "") ? undefined : blogPosts[slug || ""];
 
     if (!post) {
         return <Navigate to="/blog" replace />;
