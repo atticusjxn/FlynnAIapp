@@ -4,27 +4,44 @@ html,body { width:1024px; height:500px; }
 body { position:relative; overflow:hidden; background:#F4E6CE;
   font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; color:#2C2018; }
 .sh { position:absolute; border-radius:50%; }
+.wordmark { position:absolute; left:64px; top:56px; display:flex; align-items:flex-start; gap:6px; z-index:6; }
+.wordmark .txt { font-weight:800; font-size:34px; letter-spacing:1px; }
+.wordmark .dot { width:11px; height:11px; border-radius:50%; background:#FB5B1E; margin-top:5px; }
 .copy { position:absolute; left:64px; top:0; height:500px; width:600px; display:flex; flex-direction:column; justify-content:center; z-index:5; }
-.eyebrow { color:#FB5B1E; font-weight:800; font-size:20px; letter-spacing:3px; margin-bottom:14px; }
-.head { font-weight:800; font-size:60px; line-height:62px; letter-spacing:-1.5px; }
+.eyebrow { color:#FB5B1E; font-weight:800; font-size:19px; letter-spacing:3px; margin-bottom:12px; }
+.head { font-weight:800; font-size:56px; line-height:58px; letter-spacing:-1.5px; }
 .head .o { color:#FB5B1E; }
-.sub { margin-top:20px; font-size:23px; line-height:31px; color:#5a4f42; font-weight:500; max-width:520px; }
-.mascot { position:absolute; right:48px; top:50%; transform:translateY(-50%); width:300px; z-index:6;
-  filter:drop-shadow(0 10px 18px rgba(0,0,0,.18)); }
-.chip { position:absolute; right:30px; bottom:40px; z-index:6; background:#FFFBF4; border:2px solid #FB5B1E;
-  border-radius:14px; padding:12px 18px; font-size:18px; font-weight:700; color:#2C2018;
+.sub { margin-top:18px; font-size:21px; line-height:29px; color:#5a4f42; font-weight:500; max-width:500px; }
+.chip { position:absolute; right:30px; bottom:34px; z-index:6; background:#FFFBF4; border:2px solid #FB5B1E;
+  border-radius:14px; padding:10px 16px; font-size:16px; font-weight:700; color:#2C2018;
   box-shadow:0 8px 18px rgba(0,0,0,.12); }
 .chip .o { color:#FB5B1E; }
+.phonepeek { position:absolute; right:36px; top:50%; transform:translateY(-50%); width:230px; height:470px;
+  background:#111113; border-radius:52px; padding:9px; box-shadow:0 20px 40px -10px rgba(20,14,10,.35); }
+.phonepeek .s { width:100%; height:100%; border-radius:44px; background:linear-gradient(160deg,#2b2320,#0d0b09);
+  position:relative; overflow:hidden; }
+.phonepeek .bar { position:absolute; top:64px; left:8%; right:8%; background:#2FBD5A; border-radius:10px;
+  padding:8px 10px; text-align:center; color:#fff; font-size:13px; font-weight:700; }
+.phonepeek .notif { position:absolute; left:6%; right:6%; top:120px; background:rgba(40,36,32,.75);
+  border-radius:16px; padding:14px; border:1px solid rgba(255,255,255,.14); }
+.phonepeek .notif b { display:block; color:#fff; font-size:13px; margin-bottom:4px; }
+.phonepeek .notif span { color:rgba(255,255,255,.85); font-size:12px; line-height:16px; display:block; }
 </style></head><body>
   <div class="sh" style="width:300px;height:300px;background:#3BA8A8;top:-120px;right:-90px"></div>
   <div class="sh" style="width:150px;height:150px;background:#E8A93B;bottom:-70px;left:38%"></div>
   <div class="sh" style="width:110px;height:110px;background:#B85C38;top:-40px;left:44%"></div>
   <div class="sh" style="width:90px;height:90px;background:#FB5B1E;bottom:40px;left:-30px"></div>
+  <div class="wordmark"><span class="txt">FLYNN</span><span class="dot"></span></div>
   <div class="copy">
-    <div class="eyebrow">YOUR REPLY CO-PILOT</div>
-    <div class="head">Reply in your<br><span class="o">voice in seconds</span></div>
-    <div class="sub">Flynn drafts texts that sound like you — and books the agreed time, right where you already message.</div>
+    <div class="eyebrow">NEVER MISS A JOB</div>
+    <div class="head">Flynn answers<br><span class="o">when you can't.</span></div>
+    <div class="sub">A receptionist that sounds like a real person, books the job, and gets you paid — invoice, pay link, and the chasing all handled.</div>
   </div>
-  <img class="mascot" src="MASCOT" >
-  <div class="chip">Tap to insert · <span class="o">never auto-sends</span></div>
+  <div class="phonepeek">
+    <div class="s">
+      <div class="bar">● Flynn is on the call</div>
+      <div class="notif"><b>Flynn</b><span>Booked Thursday 2pm — texted a confirmation.</span></div>
+    </div>
+  </div>
+  <div class="chip">You confirm · <span class="o">never auto-sends</span></div>
 </body></html>
