@@ -116,6 +116,7 @@
 		A03714CD8FE8735D243219B5 /* DeviceCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BEED2AD81D1FF35BC339A71 /* DeviceCapability.swift */; };
 		A1E5763BDB639FBFF702B336 /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3C99159E29A5470FC5FFE4 /* Route.swift */; };
 		A40D43C4DF6D41C58C9D5554 /* AgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624FE48EEBC56261D9DBC61C /* AgentClient.swift */; };
+		A5F10CAFD059ADCFA9F884FC /* VoiceOnboardingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3877C4B8799F263E94966490 /* VoiceOnboardingClient.swift */; };
 		A87962A6CFDC4D43572F7C99 /* SharedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC95E1BB05DA267B68B1DAD5 /* SharedStore.swift */; };
 		AB1C7957E48C068C58433894 /* KeyboardBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B365FA41D5A0F5059A8D535C /* KeyboardBridge.swift */; };
 		AD00462FBF475C0761B2E489 /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA0CC728032A673861C27D2 /* Spacing.swift */; };
@@ -149,6 +150,7 @@
 		D0AE92B5498A1510D9F801E2 /* JobPhotoDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC5614B707DBDA619371B4A0 /* JobPhotoDTO.swift */; };
 		D1131F9E3247C0FB572BF923 /* InvoicesListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CE3EEEC6B1D518F200C23D /* InvoicesListStore.swift */; };
 		D129C788573531EE371ED44F /* PaywallPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A853CD7DA4C44732339D25 /* PaywallPresentation.swift */; };
+		D42B1F47842D624BE97C875B /* ReceptionistClaimFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA8964C002FC2C37A4DA3AE /* ReceptionistClaimFlow.swift */; };
 		D5A8C3376081E4AE0496C82F /* UsageBarCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8F8558954CA2340B538CB /* UsageBarCard.swift */; };
 		D6D64D4469B779958EDAED8E /* BusinessProfileDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E8AC6AF62FDF61D781DBDB /* BusinessProfileDTO.swift */; };
 		D730594479780D35F9B16E02 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18C1E534FA43BCF2637F6D9 /* Formatters.swift */; };
@@ -241,6 +243,7 @@
 		312A0A151B052FD4DCB18274 /* AppleSearchAdsAttributionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSearchAdsAttributionStore.swift; sourceTree = "<group>"; };
 		3284EEA9F7EA3080348CEA6B /* QuoteStyleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteStyleModels.swift; sourceTree = "<group>"; };
 		3642B3195654DB0D3B3A2259 /* CallRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallRow.swift; sourceTree = "<group>"; };
+		3877C4B8799F263E94966490 /* VoiceOnboardingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceOnboardingClient.swift; sourceTree = "<group>"; };
 		39D87686ACB6D633F1CF99BE /* FlynnAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnAIApp.swift; sourceTree = "<group>"; };
 		3A3C99159E29A5470FC5FFE4 /* Route.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Route.swift; sourceTree = "<group>"; };
 		3A5206B5E4FA23E5C1844F63 /* SubscriptionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStore.swift; sourceTree = "<group>"; };
@@ -315,6 +318,7 @@
 		9E8C35B740660515C2D64307 /* KeyboardDraftClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardDraftClient.swift; sourceTree = "<group>"; };
 		9F4140E64E0EE99D79F45DEA /* JobNotesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobNotesRepository.swift; sourceTree = "<group>"; };
 		9F6947106A91B0B5B184CF75 /* ClientsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientsListView.swift; sourceTree = "<group>"; };
+		9FA8964C002FC2C37A4DA3AE /* ReceptionistClaimFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceptionistClaimFlow.swift; sourceTree = "<group>"; };
 		A0071B3CAD5D420349D2A782 /* IvrTemplatesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IvrTemplatesRepository.swift; sourceTree = "<group>"; };
 		A18624D4E02F257EF6666E19 /* OnboardingDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDesign.swift; sourceTree = "<group>"; };
 		A7942C482A2E3AA2C1330B25 /* BookingDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingDTO.swift; sourceTree = "<group>"; };
@@ -556,6 +560,7 @@
 				0C3F4420F2732C1ABA658B94 /* DTOs */,
 				DF1D1E5FF664BAF47BAF3538 /* Supabase */,
 				624FE48EEBC56261D9DBC61C /* AgentClient.swift */,
+				3877C4B8799F263E94966490 /* VoiceOnboardingClient.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -728,6 +733,7 @@
 				A18624D4E02F257EF6666E19 /* OnboardingDesign.swift */,
 				731E3C4A9179C783D08F7C00 /* OnboardingSteps.swift */,
 				60228C9A9D753E9CC0B00D0A /* PracticeStepView.swift */,
+				9FA8964C002FC2C37A4DA3AE /* ReceptionistClaimFlow.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -1106,6 +1112,7 @@
 				53B0F90C4201CBC6225598B2 /* QuotesListStore.swift in Sources */,
 				77E21D6DCE21314681974A75 /* QuotesListView.swift in Sources */,
 				59C346B5A2A6D7E1BF53F6BA /* QuotesRepository.swift in Sources */,
+				D42B1F47842D624BE97C875B /* ReceptionistClaimFlow.swift in Sources */,
 				D828C0D93555F2B5F64F633C /* RememberedContextView.swift in Sources */,
 				44F7992657C7084523D1E2DE /* RootView.swift in Sources */,
 				A1E5763BDB639FBFF702B336 /* Route.swift in Sources */,
@@ -1134,6 +1141,7 @@
 				35322A42150BF7C820F99A23 /* UsageRepository.swift in Sources */,
 				93CF8EAE4D728E30FB15B9D8 /* UsageStore.swift in Sources */,
 				F4A6C13D01C56E7B43ECC6EE /* VoiceCaptureManager.swift in Sources */,
+				A5F10CAFD059ADCFA9F884FC /* VoiceOnboardingClient.swift in Sources */,
 				C88376E25A212CEB09B7AFCA /* VoiceProfileDTO.swift in Sources */,
 				6ADF0BF2F246C41298FB8691 /* VoiceProfilesRepository.swift in Sources */,
 			);

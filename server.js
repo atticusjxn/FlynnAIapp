@@ -20,6 +20,7 @@ const fs = require('fs');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
 const attachRealtimeServer = require('./telephony/realtimeServer');
+const funnelIntake = require('./telephony/funnelIntake');
 const { getLLMClient, PROVIDERS } = require('./llmClient');
 const jwt = require('jsonwebtoken');
 const { generateDrafts, profileRowToContext } = require('./services/draftReplies');
@@ -1099,6 +1100,83 @@ const respondWithAiReceptionist = ({ req, res, inboundParams, profile, callSid }
   res.send(twimlOutput);
 };
 
+/**
+ * Voice front-door funnel: a prospect ringing the ad number. No tenant, no
+ * org — the AI receptionist runs an intake interview and the extracted config
+ * is staged for claim in the app (telephony/funnelIntake.js).
+ */
+const respondWithFunnelIntake = async ({ req, res, inboundParams, callSid, fromNumber, toNumber }) => {
+  const funnelAvailable = Boolean(deepgramClient) && Boolean(process.env.GEMINI_API_KEY);
+
+  if (!funnelAvailable || !fromNumber) {
+    console.warn('[Telephony] Funnel intake unavailable, routing to voicemail.', {
+      callSid,
+      hasDeepgram: Boolean(deepgramClient),
+      hasGemini: Boolean(process.env.GEMINI_API_KEY),
+      hasCallerNumber: Boolean(fromNumber),
+    });
+    return respondWithVoicemail(req, res, inboundParams);
+  }
+
+  if (callSid) {
+    await upsertCallRecord({
+      callSid,
+      userId: null,
+      orgId: null,
+      fromNumber,
+      toNumber,
+      status: 'ai_engaged',
+    }).catch((error) => {
+      console.warn('[Telephony] Failed to upsert funnel call record.', { callSid, error });
+    });
+  }
+
+  await logCallEvent({
+    orgId: null,
+    callSid,
+    eventType: 'funnel_call_received',
+    direction: 'inbound',
+    payload: { fromNumber, toNumber },
+  });
+
+  // Second call from the same number resumes the interview instead of restarting.
+  let existingConfig = null;
+  try {
+    const existingSession = await funnelIntake.getFunnelSession(fromNumber);
+    existingConfig = existingSession?.business_config || null;
+  } catch (error) {
+    console.warn('[Telephony] Failed to load existing funnel session.', { fromNumber, error });
+  }
+
+  receptionistSessionCache.set(callSid, {
+    callSid,
+    mode: 'funnel',
+    callerPhone: fromNumber,
+    existingConfig,
+    toNumber,
+    startedAt: Date.now(),
+  });
+
+  console.log('[Telephony] Starting funnel intake for call.', {
+    callSid,
+    fromNumber,
+    resuming: Boolean(existingConfig),
+  });
+
+  const response = new twilio.twiml.VoiceResponse();
+  const connect = response.connect();
+  const stream = connect.stream({
+    url: buildRealtimeStreamUrl(req, callSid, null),
+    track: 'inbound_track',
+    statusCallback: `${req.protocol}://${req.get('host')}/telephony/stream-status`,
+    statusCallbackMethod: 'POST',
+  });
+  stream.parameter({ name: 'callSid', value: callSid || '' });
+
+  res.type('text/xml');
+  return res.send(response.toString());
+};
+
 const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, transcript, turns, reason }) => {
   if (!callSid) {
     return;
@@ -1318,6 +1396,9 @@ app.post('/webhooks/playbilling/rtdn', handlePlayRtdn);
 // ========================================
 const webSignupRoutes = require('./routes/webSignup');
 app.use('/api/signup', webSignupRoutes);
+
+const voiceOnboardingRoutes = require('./routes/voiceOnboarding');
+app.use('/api/voice-onboarding', voiceOnboardingRoutes);
 
 // ========================================
 // Inbound SMS from Flynn number (+61480891471)
@@ -4256,6 +4337,12 @@ const handleInboundVoice = async (req, res) => {
     const stageDecision = req.query?.decision || null;
     const profileUserId = req.query?.user || null;
 
+    // Ad/funnel number: prospect calling from a Meta ad. Handled before any
+    // tenant lookup — the caller is a stranger and the call is the onboarding.
+    if (funnelIntake.isFunnelNumber(toNumber)) {
+      return respondWithFunnelIntake({ req, res, inboundParams, callSid, fromNumber, toNumber });
+    }
+
     let receptionistProfile = null;
 
     if (toNumber) {
@@ -6060,6 +6147,9 @@ if (require.main === module) {
       await weeklyDigestScheduler.processTick();
       // Proactive weather reschedule nudge for outdoor jobs (throttled ~12h).
       await weatherScheduler.processTick();
+      // Voice-funnel prospects who never claimed: +24h/+72h nudge, max 2
+      // (throttled ~10 min).
+      await funnelIntake.processFunnelReengage();
     } catch (error) {
       console.error('[Cron] Reminder processor error:', error);
     }
