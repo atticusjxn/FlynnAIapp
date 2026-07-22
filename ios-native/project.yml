@@ -52,8 +52,8 @@ targets:
       properties:
         CFBundleName: $(PRODUCT_NAME)
         CFBundleDisplayName: Flynn
-        CFBundleShortVersionString: "3.0.1"
-        CFBundleVersion: "113"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         UILaunchScreen:
           UIColorName: ""
