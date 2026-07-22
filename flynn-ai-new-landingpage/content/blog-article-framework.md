@@ -7,6 +7,58 @@
 
 ---
 
+## ⚠️ 2026-07-22 UPDATE — PRODUCT TRUTH (read before writing anything)
+
+The article briefs below were written for the earlier missed-call/IVR product. The keyword
+research and internal-linking structure are still gold; the product description is not.
+**When writing or updating any article, translate every product mention to today's truth:**
+
+- Flynn is an **AI receptionist that actually answers the phone and talks** — a natural
+  Australian voice, not "press 1" IVR, not just an auto-SMS. It has a conversation, books
+  the job, and texts the caller a confirmation.
+- After the call, Flynn runs the money side: **invoice with the job photos on it, a pay
+  link, and automatic chasing until it's paid.** This loop is a differentiator no
+  missed-call app has — mention it in every article's "what Flynn does" section.
+- Setup story: download the iOS app, and divert your missed calls to your Flynn number
+  with your carrier's conditional-forwarding code (the Telstra/Optus articles are the
+  authoritative how-tos and every article should link to them).
+- **Do NOT mention:** "press 1" IVR menus, booking-link-only SMS as the core product,
+  hard pricing figures (say "free to start"), voicemail transcription, or iMessage as
+  the primary interface.
+- **Positioning line (reuse freely):** "Flynn answers when you're on the tools —
+  sounds like a real person, books the job, then invoices it and chases the payment."
+
+## Writer spec — how an article ships (for AI writing agents)
+
+**File format:** articles are entries in a `Record<string, BlogPostEntry>` (type exported
+from `pages/Blog.tsx`). New receptionist-cluster articles live in
+`pages/blogReceptionistA.tsx` / `pages/blogReceptionistB.tsx` (default export the record).
+Content is JSX using the same conventions as existing posts in `pages/Blog.tsx`
+(`.blog-content` styles h2/h3/p/ul automatically; use `className="not-prose"` wrappers for
+custom blocks).
+
+**Every article must have:**
+1. `title` ≤ 62 chars, primary keyword near the front; `description` 140–158 chars with
+   the keyword and a reason to click; `datePublished` (ISO) + `date` + honest `readTime`.
+2. A lead paragraph (`<p className="text-xl ...">`) that answers the search intent in two
+   sentences before any scene-setting.
+3. H2 sections matching the brief's key sections; short paragraphs; concrete AUD numbers.
+4. **Internal links** per the brief's map (react-router `<Link to="/blog/...">`) — minimum
+   three, only to live posts in the same build.
+5. One `<SmartStoreCTA headline="..." body="..." />` mid-article and rely on the layout for
+   nothing else — no hand-rolled CTAs.
+6. `faqs: [{q, a}]` — 3–5 real questions (they render on-page and emit FAQPage JSON-LD).
+   Answers 2–4 sentences, plain text.
+7. Tone: sharp tradie-adjacent Australian English, no hype adjectives, no em dashes in
+   body copy, contractions always. Stats framed honestly ("industry studies put it
+   around…") — never invent a precise citation.
+
+**Ship checklist (done by the integrating engineer, not the writer):** remove the slug's
+301 line from `public/_redirects`, add the URL to `public/sitemap.xml` with `lastmod`,
+mark the article `[DONE]` below, `npm run build`, deploy, then request indexing in GSC.
+
+---
+
 ## Why We're Writing These
 
 Competitor research (May 2025) found:

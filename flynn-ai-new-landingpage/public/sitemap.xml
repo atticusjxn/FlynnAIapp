@@ -15,6 +15,16 @@
   <url><loc>https://flynnai.app/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://flynnai.app/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 
+  <!-- Blog: 2026 receptionist cluster -->
+  <url><loc>https://flynnai.app/blog/missed-calls-cost-australian-tradies</loc><lastmod>2026-07-22</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/call-forwarding-telstra-missed-call-sms</loc><lastmod>2026-07-23</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/call-forwarding-optus-missed-call-sms</loc><lastmod>2026-07-24</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/missed-call-text-back-vs-voicemail</loc><lastmod>2026-07-25</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/ai-receptionist-for-plumbers-australia</loc><lastmod>2026-07-26</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/ai-receptionist-for-electricians-australia</loc><lastmod>2026-07-27</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/ai-receptionist-vs-virtual-receptionist-plumbers</loc><lastmod>2026-07-28</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://flynnai.app/blog/best-missed-call-app-small-business-australia</loc><lastmod>2026-07-29</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
+
   <!-- Blog: Flynn text agent -->
   <url><loc>https://flynnai.app/blog/run-your-business-from-imessage</loc><lastmod>2026-06-14</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://flynnai.app/blog/send-invoices-and-quotes-by-text</loc><lastmod>2026-06-10</lastmod><changefreq>monthly</changefreq><priority>0.9</priority></url>
