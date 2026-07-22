@@ -32,16 +32,18 @@ claim code. Different-number signup recovers via `POST /claim {code}`.
 
 ## Ops checklist (human, do first)
 
-1. Buy a Twilio **AU local number** on the prod account (regulatory bundle: business address +
-   ABN docs; allow days). Point its Voice webhook at
-   `https://flynnai-telephony.fly.dev/telephony/inbound-voice` (POST).
-2. `fly secrets set FLYNN_FUNNEL_NUMBERS=+61xxxxxxxxx` (comma-separated if several ad numbers).
-3. Confirm `GEMINI_API_KEY`, `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`,
-   `CARTESIA_VOICE_AU_FEMALE` are set on Fly (funnel routes to voicemail without the first two).
-4. Buy 5–10 more AU numbers into the pool (step: Number pool below).
-5. Register "FlynnAI" on the ACMA SMS Sender ID Register (ABN direct or via Twilio) — not
+The approved AU Mobile regulatory bundle already exists (`TWILIO_AU_BUNDLE_SID` +
+`TWILIO_AU_ADDRESS_SID`, used by the per-user provisioning endpoint) — no waiting on compliance.
+
+1. `node scripts/buy-pool-numbers.js 6 --yes` (with prod env) — buys AU Mobile numbers with
+   webhooks pre-pointed at `/telephony/inbound-voice` and pools them.
+2. Pick one as the ad number: `fly secrets set FLYNN_FUNNEL_NUMBERS=+614xxxxxxxx`, and mark
+   that row `quarantined` in `voice_number_pool` so it's never assigned to a tenant.
+3. Confirm Fly secrets: `GEMINI_API_KEY`, `DEEPGRAM_API_KEY` (funnel voicemails without them),
+   and TTS: `FLYNN_TTS_PROVIDER` + provider key + AU voice-id envs.
+4. Register "FlynnAI" on the ACMA SMS Sender ID Register (ABN direct or via Twilio) — not
    blocking; onboarding SMS goes from the mobile long code `+61480891471`.
-6. Meta: call-button ad creative pointing at the funnel number (existing ad account/pixel).
+5. Meta: call-button ad creative pointing at the funnel number (existing ad account/pixel).
 
 ## 1. Barge-in acceptance test (gate before spending on ads)
 
@@ -138,14 +140,14 @@ directly" as the primary framing (skips carrier-code friction; weaker "on your n
   `handleRealtimeConversationComplete`); enforcement at 250 min/mo is a follow-up — build the
   counter query now, the block later. **HUMAN DECISION:** overage price vs $129 tier.
 
-## 5. Cost telemetry
+## 5. Cost telemetry — DONE
 
-`handleRealtimeConversationComplete` currently logs a flat 40¢/call into `ai_call_usage`.
-Replace with computed estimate: `duration_seconds/60 × (deepgram 0.0065 + gemini ~0.01 +
-cartesia ~0.03 + twilio ~0.025) × 100` cents, and add a `funnel` boolean (funnel calls are CAC,
-not COGS — exclude from tenant margin dashboards). Funnel calls don't hit that path today
-(completion goes through `funnelIntake.completeFunnelCall`); add the same cost insert there
-with `funnel: true` (needs an `ai_call_usage` column or a metadata jsonb — column preferred).
+`telephony/callCostEstimate.js` (env-overridable per-component rates, ~8.2¢/min) feeds both
+paths: tenant calls in `handleRealtimeConversationComplete` (replacing the flat 40¢) and funnel
+calls in `completeFunnelCall` with `funnel: true` and null tenant ids
+(migration `202607221600` — `cost_breakdown` jsonb, `funnel` flag, relaxed NOT NULLs with a
+check constraint). Remaining: true up the rates against real provider invoices after the first
+month, and build the 250-min/mo usage counter query when the paywall lands.
 
 ## 6. Ordered task list
 

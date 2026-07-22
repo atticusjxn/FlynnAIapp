@@ -21,6 +21,7 @@ const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
 const attachRealtimeServer = require('./telephony/realtimeServer');
 const funnelIntake = require('./telephony/funnelIntake');
+const { estimateCallCost } = require('./telephony/callCostEstimate');
 const { getLLMClient, PROVIDERS } = require('./llmClient');
 const jwt = require('jsonwebtoken');
 const { generateDrafts, profileRowToContext } = require('./services/draftReplies');
@@ -1193,7 +1194,7 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
   if (orgId && userId) {
     try {
       const durationSeconds = callContext?.call_duration || 0;
-      const callCostCents = 40; // $0.40 AUD per call
+      const { totalCents: callCostCents, breakdown } = estimateCallCost(durationSeconds);
       const billingMonth = new Date();
       billingMonth.setDate(1);
       billingMonth.setHours(0, 0, 0, 0);
@@ -1204,6 +1205,8 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
         call_sid: callSid,
         call_duration_seconds: durationSeconds,
         call_cost_cents: callCostCents,
+        cost_breakdown: breakdown,
+        funnel: false,
         billing_period_month: billingMonth.toISOString().split('T')[0],
       }).then(({ error }) => {
         if (error) {

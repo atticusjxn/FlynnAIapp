@@ -15,6 +15,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 const { normalizePhone, generateAppLink } = require('../services/authLink');
+const { estimateCallCost } = require('./callCostEstimate');
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey =
@@ -305,6 +306,29 @@ const completeFunnelCall = async ({ callerPhone, callSid, transcript }) => {
   if (!supabase) return;
   const phone = normalizePhone(callerPhone);
   if (!phone) return;
+
+  // Cost telemetry: funnel calls are CAC, not COGS (funnel: true, no tenant).
+  if (callSid && Array.isArray(transcript) && transcript.length > 1) {
+    try {
+      const durationSeconds = Math.max(0, Math.floor(
+        (new Date(transcript[transcript.length - 1].timestamp) - new Date(transcript[0].timestamp)) / 1000,
+      ));
+      const { totalCents, breakdown } = estimateCallCost(durationSeconds);
+      const billingMonth = new Date();
+      billingMonth.setDate(1);
+      billingMonth.setHours(0, 0, 0, 0);
+      await supabase.from('ai_call_usage').insert({
+        call_sid: callSid,
+        call_duration_seconds: durationSeconds,
+        call_cost_cents: totalCents,
+        cost_breakdown: breakdown,
+        funnel: true,
+        billing_period_month: billingMonth.toISOString().split('T')[0],
+      });
+    } catch (err) {
+      console.warn('[FunnelIntake] Failed to log funnel call cost.', { callSid, error: err.message });
+    }
+  }
 
   const session = await getFunnelSession(phone);
   if (!session) {
