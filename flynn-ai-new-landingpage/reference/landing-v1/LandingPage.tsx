@@ -158,8 +158,8 @@ export default function LandingPage() {
       </section>
 
       {/* ===================== APP STORE CTA (secondary) ===================== */}
-      <section className="py-10 border-b-[3px] border-[#2C2018]">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col items-center justify-center gap-4">
+      <section className="py-8 border-b-[3px] border-[#2C2018]">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <span className="text-sm font-medium text-[#8C7B6A]">Prefer the app?</span>
           <StoreButtons />
         </div>
@@ -415,10 +415,6 @@ export default function LandingPage() {
                     <li key={t} className="flex gap-3"><span className="font-bold">✓</span>{t}</li>
                   ))}
                 </ul>
-                <a href="https://apps.apple.com/au/app/flynnai/id6752254950" target="_blank" rel="noopener noreferrer"
-                  className="flynn-glass flynn-glass--light flynn-pill mt-8 flex items-center justify-center px-6 py-3.5 font-display font-bold text-[#2C2018]">
-                  Start the free trial
-                </a>
               </div>
             </Reveal>
           </div>
@@ -451,7 +447,7 @@ export default function LandingPage() {
             <p className="mt-5 text-lg sm:text-xl text-[#5A4A3C] max-w-xl mx-auto">
               Quote it, invoice it, chase it — all from a text.
             </p>
-            <div className="mt-9 flex justify-center"><StoreButtons variant="hero" /></div>
+            <div className="mt-8 flex justify-center"><StoreButtons /></div>
           </Reveal>
         </div>
       </section>

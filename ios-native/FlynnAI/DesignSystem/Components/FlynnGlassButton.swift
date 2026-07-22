@@ -74,7 +74,6 @@ struct FlynnGlassButton: View {
 
     @State private var isPressed = false
 
-    private let corner: CGFloat = 16
     private let height: CGFloat = 56
 
     var body: some View {
@@ -96,9 +95,13 @@ struct FlynnGlassButton: View {
             .frame(height: height)
             .padding(.horizontal, FlynnSpacing.lg)
             .background(glassBackground)
-            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-            // Coloured glow sits outside the clip so it can bloom.
-            .shadow(color: isPressed ? .clear : variant.glow, radius: 18, x: 0, y: 8)
+            // Full capsule — the 2026 pill language, shared with the landing
+            // page (.flynn-pill) and the hosted invoice page's .btn.
+            .clipShape(Capsule(style: .continuous))
+            // Coloured glow sits outside the clip so it can bloom: one tight
+            // layer for lift, one wide soft layer for the "lit from within" read.
+            .shadow(color: isPressed ? .clear : variant.glow, radius: 16, x: 0, y: 8)
+            .shadow(color: isPressed ? .clear : variant.glow.opacity(0.55), radius: 36, x: 0, y: 20)
             .shadow(color: Color.black.opacity(0.12), radius: 4, x: 0, y: 2)
             .scaleEffect(isPressed ? 0.985 : 1)
             .offset(y: isPressed ? 1 : 0)
@@ -138,7 +141,7 @@ struct FlynnGlassButton: View {
             }
         }
         .overlay(
-            RoundedRectangle(cornerRadius: corner, style: .continuous)
+            Capsule(style: .continuous)
                 .strokeBorder(Color.white.opacity(variant.strokeOpacity), lineWidth: 1)
         )
     }

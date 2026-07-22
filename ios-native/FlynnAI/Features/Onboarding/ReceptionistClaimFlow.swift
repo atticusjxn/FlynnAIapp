@@ -66,18 +66,12 @@ struct ReceptionistClaimFlow: View {
 
             Spacer()
 
-            Button(action: { Task { await claim() } }) {
-                HStack {
-                    if working { ProgressView().tint(.white) }
-                    Text(working ? "Setting up…" : "Bring her to life")
-                        .font(.headline)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(FlynnColor.primary, in: RoundedRectangle(cornerRadius: 14))
-                .foregroundStyle(.white)
-            }
-            .disabled(working || (showCodeField && code.count < 6))
+            FlynnGlassButton(
+                title: "Bring her to life",
+                action: { Task { await claim() } },
+                isLoading: working,
+                isDisabled: showCodeField && code.count < 6
+            )
 
             Button("Not now") { onFinished() }
                 .font(.subheadline)
@@ -204,27 +198,17 @@ struct ReceptionistClaimFlow: View {
                 .frame(maxWidth: .infinity)
                 .background(FlynnColor.backgroundSecondary, in: RoundedRectangle(cornerRadius: 14))
 
-                Button(action: { callNumber(number) }) {
-                    Label("Give her a test call", systemImage: "phone.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(FlynnColor.primary, in: RoundedRectangle(cornerRadius: 14))
-                        .foregroundStyle(.white)
-                }
+                FlynnGlassButton(
+                    title: "Give her a test call",
+                    action: { callNumber(number) },
+                    icon: Image(systemName: "phone.fill")
+                )
             }
 
             Spacer()
 
-            Button(action: onFinished) {
-                Text("Done")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(FlynnColor.backgroundTertiary, in: RoundedRectangle(cornerRadius: 14))
-                    .foregroundStyle(FlynnColor.textPrimary)
-            }
-            .padding(.bottom, 8)
+            FlynnGlassButton(title: "Done", action: onFinished, variant: .neutral)
+                .padding(.bottom, 8)
         }
         .padding(.horizontal, 24)
     }

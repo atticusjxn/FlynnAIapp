@@ -139,7 +139,7 @@ router.post('/i/:token/email', express.json(), async (req, res) => {
   <p style="font-size:13px;color:#667085;margin:0 0 6px">${paid ? 'Receipt from' : 'Invoice from'}</p>
   <p style="font-size:19px;font-weight:650;margin:0 0 18px">${bizName}</p>
   <p style="font-size:42px;font-weight:750;letter-spacing:-1.2px;margin:0 0 20px">${amount}</p>
-  <a href="${link}" style="display:inline-block;background:#f46430;color:#fff;text-decoration:none;font-weight:620;font-size:16px;padding:15px 26px;border-radius:14px">${paid ? 'View receipt' : 'View & pay invoice'}</a>
+  <a href="${link}" style="display:inline-block;background:linear-gradient(180deg,#ff9a5c 0%,#f46430 46%,#d94e1c 100%);color:#fff;text-decoration:none;font-weight:620;font-size:16px;padding:15px 30px;border-radius:9999px;box-shadow:0 8px 24px -6px rgba(244,100,48,.5)">${paid ? 'View receipt' : 'View & pay invoice'}</a>
   <p style="font-size:13px;color:#667085;line-height:1.6;margin:22px 0 0">Open the link to see the full breakdown, job photos and payment options. You can save it as a PDF for Xero, MYOB or QuickBooks from there.</p>
   <p style="font-size:12px;color:#98a2b3;margin:22px 0 0">Sent via Flynn · flynnai.app</p>
 </div>`;

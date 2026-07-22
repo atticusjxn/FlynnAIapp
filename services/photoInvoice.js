@@ -378,9 +378,11 @@ ${ogImg ? `<meta property="og:image" content="${esc(ogImg)}">` : ''}
     font-variant-numeric:tabular-nums}
   .trow.grand{color:var(--ink);font-size:19px;font-weight:720;padding-top:10px}
 
-  /* glassy buttons — translucent gradient, inner top sheen, soft outer glow */
+  /* glassy pill buttons — 2026 language shared with the landing page
+     (.flynn-pill) and FlynnGlassButton.swift: full capsule, translucent
+     gradient, inner top sheen, and a wide soft colour bloom underneath */
   .btn{position:relative;display:flex;align-items:center;justify-content:center;gap:8px;
-    width:100%;min-height:56px;padding:0 22px;border-radius:16px;border:1px solid rgba(255,255,255,.28);
+    width:100%;min-height:56px;padding:0 22px;border-radius:9999px;border:1px solid rgba(255,255,255,.28);
     font-size:17px;font-weight:640;letter-spacing:.1px;color:#fff;text-decoration:none;cursor:pointer;
     isolation:isolate;overflow:hidden;
     transition:transform .16s cubic-bezier(.2,.8,.3,1),box-shadow .16s,filter .16s}
@@ -388,11 +390,12 @@ ${ogImg ? `<meta property="og:image" content="${esc(ogImg)}">` : ''}
     background:linear-gradient(180deg,rgba(255,255,255,.42) 0%,rgba(255,255,255,.10) 42%,rgba(255,255,255,0) 62%)}
   .btn::after{content:"";position:absolute;left:0;right:0;top:0;height:1px;pointer-events:none;
     background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent)}
-  .btn-primary{background:linear-gradient(180deg,#ff8a4c 0%,var(--brand) 52%,var(--brand-deep) 100%);
-    box-shadow:0 10px 26px -6px rgba(244,100,48,.55),0 2px 6px rgba(16,24,40,.14),
-      inset 0 -10px 20px rgba(255,255,255,.10)}
+  .btn-primary{background:linear-gradient(180deg,#ff9a5c 0%,var(--brand) 46%,var(--brand-deep) 100%);
+    box-shadow:0 10px 28px -6px rgba(244,100,48,.60),0 28px 72px -18px rgba(244,100,48,.38),
+      0 2px 6px rgba(16,24,40,.14),inset 0 -10px 20px rgba(255,255,255,.10)}
   .btn-primary:hover{transform:translateY(-1px);
-    box-shadow:0 14px 32px -6px rgba(244,100,48,.62),0 3px 8px rgba(16,24,40,.16)}
+    box-shadow:0 14px 34px -6px rgba(244,100,48,.68),0 34px 88px -18px rgba(244,100,48,.46),
+      0 3px 8px rgba(16,24,40,.16)}
   .btn-primary:active{transform:translateY(0) scale(.994)}
   /* "not wired yet" state: keep the full brand gradient (a washed-out button
      reads as broken), just drop the lift + glow so it doesn't invite a tap. */

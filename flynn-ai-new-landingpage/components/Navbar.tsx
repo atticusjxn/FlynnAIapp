@@ -38,7 +38,7 @@ const Navbar: React.FC = () => {
               <a key={l.href} href={l.href} className="text-[#2C2018] hover:text-[#FB5B1E] transition-colors text-sm font-semibold font-display tracking-wide">{l.label}</a>
             ))}
             <a href={APP_STORE} target="_blank" rel="noopener noreferrer"
-              className="bg-[#FB5B1E] text-white px-6 py-3 rounded-full text-sm font-bold font-display border-2 border-[#2C2018] shadow-[3px_3px_0_0_#2C2018] hover:shadow-none hover:translate-x-[3px] hover:translate-y-[3px] transition-all">
+              className="flynn-glass flynn-glass--primary flynn-pill text-white px-6 py-3 text-sm font-bold font-display inline-flex items-center">
               Get the app
             </a>
           </div>
@@ -60,7 +60,7 @@ const Navbar: React.FC = () => {
                   className="block text-3xl font-display font-bold text-[#2C2018] hover:text-[#FB5B1E]">{l.label}</a>
               ))}
               <a href={APP_STORE} target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}
-                className="block text-center mt-6 bg-[#FB5B1E] text-white px-5 py-4 rounded-full font-bold text-xl font-display border-2 border-[#2C2018]">
+                className="flynn-glass flynn-glass--primary flynn-pill block text-center mt-6 text-white px-5 py-4 font-bold text-xl font-display">
                 Get the app
               </a>
             </div>
