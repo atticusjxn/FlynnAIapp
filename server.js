@@ -20,16 +20,14 @@ const fs = require('fs');
 const { ensureJobForTranscript } = require('./telephony/jobCreation');
 const authenticateJwt = require('./middleware/authenticateJwt');
 const attachRealtimeServer = require('./telephony/realtimeServer');
+const funnelIntake = require('./telephony/funnelIntake');
+const { estimateCallCost } = require('./telephony/callCostEstimate');
 const { getLLMClient, PROVIDERS } = require('./llmClient');
 const jwt = require('jsonwebtoken');
 const { generateDrafts, profileRowToContext } = require('./services/draftReplies');
 const { understandBusiness, FALLBACK_PROMPTS } = require('./services/onboarding');
 const googleCalendar = require('./services/googleCalendar');
 const { findOpenSlots, parseProposedTime, checkProposedTime, findNearestOpenSlot, buildAgreedEvent } = require('./services/slotProposer');
-const { transcribeAudio } = require('./services/asrClient');
-const { classifyIntent } = require('./services/intentRouter');
-const { extractQuote } = require('./services/quoteExtractor');
-const { composeOutbound } = require('./services/voiceCompose');
 const { formatBusinessContext } = require('./services/businessContextFormatter');
 const { extractFacts, matchFactsToConversation, formatRememberedContext } = require('./services/contextMemory');
 const { extractQuoteStyle } = require('./services/quoteStyleExtractor');
@@ -1103,6 +1101,83 @@ const respondWithAiReceptionist = ({ req, res, inboundParams, profile, callSid }
   res.send(twimlOutput);
 };
 
+/**
+ * Voice front-door funnel: a prospect ringing the ad number. No tenant, no
+ * org — the AI receptionist runs an intake interview and the extracted config
+ * is staged for claim in the app (telephony/funnelIntake.js).
+ */
+const respondWithFunnelIntake = async ({ req, res, inboundParams, callSid, fromNumber, toNumber }) => {
+  const funnelAvailable = Boolean(deepgramClient) && Boolean(process.env.GEMINI_API_KEY);
+
+  if (!funnelAvailable || !fromNumber) {
+    console.warn('[Telephony] Funnel intake unavailable, routing to voicemail.', {
+      callSid,
+      hasDeepgram: Boolean(deepgramClient),
+      hasGemini: Boolean(process.env.GEMINI_API_KEY),
+      hasCallerNumber: Boolean(fromNumber),
+    });
+    return respondWithVoicemail(req, res, inboundParams);
+  }
+
+  if (callSid) {
+    await upsertCallRecord({
+      callSid,
+      userId: null,
+      orgId: null,
+      fromNumber,
+      toNumber,
+      status: 'ai_engaged',
+    }).catch((error) => {
+      console.warn('[Telephony] Failed to upsert funnel call record.', { callSid, error });
+    });
+  }
+
+  await logCallEvent({
+    orgId: null,
+    callSid,
+    eventType: 'funnel_call_received',
+    direction: 'inbound',
+    payload: { fromNumber, toNumber },
+  });
+
+  // Second call from the same number resumes the interview instead of restarting.
+  let existingConfig = null;
+  try {
+    const existingSession = await funnelIntake.getFunnelSession(fromNumber);
+    existingConfig = existingSession?.business_config || null;
+  } catch (error) {
+    console.warn('[Telephony] Failed to load existing funnel session.', { fromNumber, error });
+  }
+
+  receptionistSessionCache.set(callSid, {
+    callSid,
+    mode: 'funnel',
+    callerPhone: fromNumber,
+    existingConfig,
+    toNumber,
+    startedAt: Date.now(),
+  });
+
+  console.log('[Telephony] Starting funnel intake for call.', {
+    callSid,
+    fromNumber,
+    resuming: Boolean(existingConfig),
+  });
+
+  const response = new twilio.twiml.VoiceResponse();
+  const connect = response.connect();
+  const stream = connect.stream({
+    url: buildRealtimeStreamUrl(req, callSid, null),
+    track: 'inbound_track',
+    statusCallback: `${req.protocol}://${req.get('host')}/telephony/stream-status`,
+    statusCallbackMethod: 'POST',
+  });
+  stream.parameter({ name: 'callSid', value: callSid || '' });
+
+  res.type('text/xml');
+  return res.send(response.toString());
+};
+
 const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, transcript, turns, reason }) => {
   if (!callSid) {
     return;
@@ -1119,7 +1194,7 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
   if (orgId && userId) {
     try {
       const durationSeconds = callContext?.call_duration || 0;
-      const callCostCents = 40; // $0.40 AUD per call
+      const { totalCents: callCostCents, breakdown } = estimateCallCost(durationSeconds);
       const billingMonth = new Date();
       billingMonth.setDate(1);
       billingMonth.setHours(0, 0, 0, 0);
@@ -1130,6 +1205,8 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
         call_sid: callSid,
         call_duration_seconds: durationSeconds,
         call_cost_cents: callCostCents,
+        cost_breakdown: breakdown,
+        funnel: false,
         billing_period_month: billingMonth.toISOString().split('T')[0],
       }).then(({ error }) => {
         if (error) {
@@ -1323,6 +1400,9 @@ app.post('/webhooks/playbilling/rtdn', handlePlayRtdn);
 const webSignupRoutes = require('./routes/webSignup');
 app.use('/api/signup', webSignupRoutes);
 
+const voiceOnboardingRoutes = require('./routes/voiceOnboarding');
+app.use('/api/voice-onboarding', voiceOnboardingRoutes);
+
 // ========================================
 // Inbound SMS from Flynn number (+61480891471)
 // ========================================
@@ -1331,6 +1411,17 @@ app.use('/webhooks/sms', smsInboundRoutes);
 
 const iMessageInboundRoutes = require('./routes/iMessageInbound');
 app.use('/webhooks/imessage', iMessageInboundRoutes);
+
+// Sendblue managed-relay inbound (alternative iMessage provider). Translates the
+// Sendblue webhook into the BlueBubbles shape and reuses the same brain flow.
+// Active outbound provider is chosen by FLYNN_IMESSAGE_PROVIDER=sendblue.
+const sendblueInboundRoutes = require('./routes/sendblueInbound');
+app.use('/webhooks/sendblue', sendblueInboundRoutes);
+
+// Demo "director" — secret-gated endpoint to fire each proactive demo beat on
+// cue for a choreographed shoot (see routes/demoDirector.js).
+const demoDirectorRoutes = require('./routes/demoDirector');
+app.use('/webhooks/demo-director', demoDirectorRoutes);
 
 // Meta CAPI attribution beacon from the landing-page "Message Flynn" tap.
 const trackingRoutes = require('./routes/trackingRoutes');
@@ -4249,6 +4340,12 @@ const handleInboundVoice = async (req, res) => {
     const stageDecision = req.query?.decision || null;
     const profileUserId = req.query?.user || null;
 
+    // Ad/funnel number: prospect calling from a Meta ad. Handled before any
+    // tenant lookup — the caller is a stranger and the call is the onboarding.
+    if (funnelIntake.isFunnelNumber(toNumber)) {
+      return respondWithFunnelIntake({ req, res, inboundParams, callSid, fromNumber, toNumber });
+    }
+
     let receptionistProfile = null;
 
     if (toNumber) {
@@ -6053,6 +6150,9 @@ if (require.main === module) {
       await weeklyDigestScheduler.processTick();
       // Proactive weather reschedule nudge for outdoor jobs (throttled ~12h).
       await weatherScheduler.processTick();
+      // Voice-funnel prospects who never claimed: +24h/+72h nudge, max 2
+      // (throttled ~10 min).
+      await funnelIntake.processFunnelReengage();
     } catch (error) {
       console.error('[Cron] Reminder processor error:', error);
     }
@@ -6323,187 +6423,6 @@ app.post('/api/invoices/:id/send', authenticateJwt, async (req, res) => {
   } catch (err) {
     console.error('[Invoices] Send failed', err);
     res.status(500).json({ error: err.message });
-  }
-});
-
-// ---- Voice command surface ----
-// One universal endpoint behind the app's floating mic: transcribe → classify the
-// intent → do it. Vertical-agnostic (quote / calendar / reply / note). Reuses the
-// quote+PDF stack, the calendar slot parser, the draft model, and the memory store.
-const _voiceMulter = require('multer');
-const voiceAudioUpload = _voiceMulter({
-  storage: _voiceMulter.memoryStorage(),
-  limits: { fileSize: 12 * 1024 * 1024 }, // a held mic clip is small; 12MB is generous
-});
-
-/**
- * POST /api/voice/command  (multipart: field "audio")
- * Returns { intent, transcript, summary, ...intent-specific fields }.
- */
-app.post('/api/voice/command', authenticateJwt, voiceAudioUpload.single('audio'), async (req, res) => {
-  const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ error: 'Authentication required' });
-  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
-  const buffer = req.file?.buffer;
-  if (!buffer || !buffer.length) return res.status(400).json({ error: 'No audio provided' });
-  const mimeType = req.file.mimetype || 'audio/m4a';
-  // Text field set by the iOS client when this is a follow-up to a needsInfo response.
-  const priorContext = req.body?.context?.trim() || null;
-
-  try {
-    // Value-first gate: a shared daily free quota across Flynn's AI actions; Pro is
-    // unlimited. Reuses the same counter as keyboard drafts.
-    const entitled = await isUserEntitled(userId);
-    if (!entitled) {
-      const used = await draftsUsedToday(userId);
-      if (used >= FREE_DRAFTS_PER_DAY) {
-        return res.status(402).json({
-          limitReached: true,
-          error: 'Free daily limit reached',
-          freeDraftsPerDay: FREE_DRAFTS_PER_DAY,
-        });
-      }
-    }
-
-    const { data: profileRow } = await supabaseStorageClient
-      .from('business_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    const businessName = profileRow?.business_name || null;
-    const timeZone = profileRow?.timezone || process.env.DEFAULT_TIMEZONE || 'Australia/Sydney';
-
-    // 1) Transcribe (Qwen3-ASR by default; business name biases recognition).
-    const { text: transcript } = await transcribeAudio({ buffer, mimeType, context: businessName });
-    if (!transcript) {
-      return res.json({ intent: 'unknown', transcript: '', summary: '', message: "Didn't catch that — try again." });
-    }
-
-    // 2) Classify the spoken command into one intent + fields.
-    // For follow-up commands, prepend the prior turn so the model has full context.
-    const fullContext = priorContext ? `${priorContext}\n${transcript}` : transcript;
-    const routed = await classifyIntent({ transcript: fullContext, businessName });
-
-    // Count this command against the shared free quota (entitled users unlimited).
-    if (!entitled) {
-      try { await supabaseStorageClient.rpc('bump_draft_usage', { p_user_id: userId }); } catch (_) {}
-    }
-
-    const result = { intent: routed.intent, transcript, summary: routed.summary };
-
-    // 3) Dispatch.
-    if (routed.intent === 'calendar') {
-      const proposed = routed.datetimeText
-        ? parseProposedTime(routed.datetimeText, { now: new Date(), timeZone })
-        : null;
-      if (proposed) {
-        // Same shape the keyboard booking uses → the app reuses the confirm card.
-        result.event = {
-          title: routed.title || (routed.customer ? `Booking — ${routed.customer}` : 'Booking'),
-          startISO: proposed.start.toISOString(),
-          durationMin: 60,
-          location: null,
-          customer: routed.customer,
-        };
-      } else {
-        result.needsTime = true; // app asks the user to confirm/pick a time
-      }
-    } else if (routed.intent === 'quote') {
-      // The owner's learned quoting style (any vertical) shapes wording, units, tax
-      // and terms. Best-effort — absent table just means a generic quote.
-      let quoteStyle = null;
-      try {
-        const { data: tmpl } = await supabaseStorageClient
-          .from('quote_templates').select('style_json').eq('user_id', userId).maybeSingle();
-        quoteStyle = tmpl?.style_json || null;
-      } catch (_) { /* no style learned yet */ }
-
-      const pricingContext = formatBusinessContext(profileRowToContext(profileRow || {}));
-      const quote = await extractQuote({ transcript: fullContext, pricingContext, defaultTaxRate: 10, quoteStyle });
-      // If every line item is a $0 placeholder the command was too sparse — ask one focused question.
-      const allPlaceholder = !quote || quote.lineItems.length === 0 ||
-        quote.lineItems.every((li) => li.description?.startsWith('[set price]'));
-      if (allPlaceholder) {
-        const who = routed.customer ? ` for ${routed.customer}` : '';
-        return res.json({
-          intent: 'needsInfo',
-          transcript,
-          question: `What's the job${who}? E.g. "3hrs at $60/hr" or "full clean, flat rate $200"`,
-        });
-      }
-      const { orgId } = await resolveUserOrg(userId);
-      const { data: quoteNumber } = await supabaseStorageClient.rpc('generate_quote_number', { p_org_id: orgId });
-      const { data: inserted, error: insertErr } = await supabaseStorageClient
-        .from('quotes')
-        .insert({
-          org_id: orgId,
-          quote_number: quoteNumber,
-          title: quote.title,
-          client_name: quote.clientName,
-          line_items: quote.lineItems,
-          subtotal: quote.subtotal,
-          tax_rate: quote.taxRate,
-          tax_amount: quote.taxAmount,
-          total: quote.total,
-          notes: quote.notes || quoteStyle?.closing_notes || null,
-          terms: quoteStyle?.terms_text || null,
-          status: 'draft',
-          created_by: userId,
-        })
-        .select('*')
-        .single();
-      if (insertErr) throw insertErr;
-      result.quoteId = inserted.id;
-      result.quote = {
-        number: inserted.quote_number,
-        title: inserted.title,
-        clientName: inserted.client_name,
-        lineItems: inserted.line_items,
-        total: Number(inserted.total),
-      };
-    } else if (routed.intent === 'reply') {
-      const businessContext = formatBusinessContext(profileRowToContext(profileRow || {}));
-      const { data: sampleRows } = await supabaseStorageClient
-        .from('tone_samples')
-        .select('sample_text')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      const toneSamples = (sampleRows || []).map((r) => r.sample_text).filter(Boolean);
-      const { drafts } = await composeOutbound({
-        instruction: transcript,
-        recipient: routed.recipient,
-        businessContext,
-        toneSamples,
-      });
-      result.drafts = drafts;
-      result.recipient = routed.recipient;
-    } else if (routed.intent === 'note') {
-      const fact = routed.note || transcript;
-      const subjectLabel = routed.customer;
-      const subjectHandle = subjectLabel ? subjectLabel.toLowerCase().replace(/\s+/g, ' ').trim() : null;
-      const { data: noteRow } = await supabaseStorageClient
-        .from('customer_context')
-        .insert({
-          user_id: userId,
-          subject_handle: subjectHandle,
-          subject_label: subjectLabel,
-          fact,
-          confidence: 0.9,
-          status: 'confirmed', // the owner spoke it deliberately
-          source: 'voice',
-        })
-        .select('id')
-        .single();
-      result.noteId = noteRow?.id || null;
-      result.note = fact;
-      result.subject = subjectLabel;
-    }
-
-    res.json(result);
-  } catch (error) {
-    console.error('[Voice] command failed:', error?.status || '', error?.message);
-    res.status(500).json({ error: 'Voice command failed' });
   }
 });
 

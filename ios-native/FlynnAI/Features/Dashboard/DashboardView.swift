@@ -8,6 +8,7 @@ import UIKit
 /// Flynn and connect the apps it works with.
 struct DashboardView: View {
     @State private var store = DashboardStore()
+    @State private var conversation = AgentConversationStore()
     @State private var showingAddReply = false
     @State private var showingKeyboardSetup = false
     @State private var showingPractice = false
@@ -18,31 +19,46 @@ struct DashboardView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: FlynnSpacing.lg) {
-                greeting
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: FlynnSpacing.lg) {
+                    greeting
 
-                switch store.state {
-                case .idle, .loading:
-                    loadingCard
-                case .error(let message):
-                    errorCard(message: message)
-                case .loaded:
-                    if !store.awaitingConfirmation.isEmpty { awaitingSection }
-                    if !store.events.isEmpty { upcomingSection }
-                    if !store.recentActivity.isEmpty { activitySection }
-                    if !hasActivity { emptyStateCard }
-                    quickActionsCard
-                    if !store.keyboardAdded { keyboardCard }
+                    switch store.state {
+                    case .idle, .loading:
+                        loadingCard
+                    case .error(let message):
+                        errorCard(message: message)
+                    case .loaded:
+                        if !store.awaitingConfirmation.isEmpty { awaitingSection }
+                        if !store.events.isEmpty { upcomingSection }
+                        if !store.recentActivity.isEmpty { activitySection }
+                        if !hasActivity && conversation.turns.isEmpty { emptyStateCard }
+                        quickActionsCard
+                        if !store.keyboardAdded { keyboardCard }
+                    }
+
+                    // Live turns from the agent bar below — what you just said/typed
+                    // and what Flynn did about it, newest at the bottom.
+                    if !conversation.turns.isEmpty {
+                        agentTurnsSection
+                    }
+                    Color.clear.frame(height: 1).id("bottom")
                 }
+                .padding(.horizontal, FlynnSpacing.lg)
+                .padding(.top, FlynnSpacing.md)
+                .padding(.bottom, FlynnSpacing.md)
             }
-            .padding(.horizontal, FlynnSpacing.lg)
-            .padding(.top, FlynnSpacing.md)
-            .padding(.bottom, FlynnSpacing.xxl)
+            .onChange(of: conversation.turns.count) { _, _ in
+                withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
         }
         .background(FlynnColor.background)
         .navigationTitle("Home")
         .navigationBarTitleDisplayMode(.large)
+        .safeAreaInset(edge: .bottom) {
+            AgentInputBar(conversation: conversation)
+        }
         .sheet(isPresented: $showingAddReply) {
             AddReplySheet { Task { await store.load() } }
         }
@@ -57,6 +73,50 @@ struct DashboardView: View {
         }
         .task { await store.load() }
         .refreshable { await store.load() }
+    }
+
+    // MARK: – Agent turns (live, from the bottom input bar)
+
+    private var agentTurnsSection: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+            ForEach(conversation.turns) { turn in
+                VStack(alignment: .trailing, spacing: FlynnSpacing.xxs) {
+                    Text(turn.message)
+                        .flynnType(FlynnTypography.bodySmall)
+                        .foregroundColor(FlynnColor.white)
+                        .padding(.horizontal, FlynnSpacing.sm)
+                        .padding(.vertical, FlynnSpacing.xs)
+                        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.primary))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+
+                if turn.isPending {
+                    HStack(spacing: FlynnSpacing.xs) {
+                        ProgressView().controlSize(.small)
+                        Text("Flynn's on it…")
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.textTertiary)
+                    }
+                } else if let error = turn.errorMessage {
+                    Text(error)
+                        .flynnType(FlynnTypography.bodySmall)
+                        .foregroundColor(FlynnColor.error)
+                        .padding(FlynnSpacing.sm)
+                        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.errorLight))
+                } else {
+                    ForEach(Array(turn.bubbles.enumerated()), id: \.offset) { _, bubble in
+                        Text(bubble)
+                            .flynnType(FlynnTypography.bodySmall)
+                            .foregroundColor(FlynnColor.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(FlynnSpacing.sm)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
+                            .brutalistBorder(cornerRadius: FlynnRadii.md)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: – Greeting

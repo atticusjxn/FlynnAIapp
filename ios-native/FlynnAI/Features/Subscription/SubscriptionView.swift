@@ -135,10 +135,10 @@ struct SubscriptionView: View {
     }
 
     private var ctaButton: some View {
-        FlynnButton(
+        // Paywall is a hero moment — glass treatment, matching the invoice page.
+        FlynnGlassButton(
             title: ctaTitle,
             action: startPurchase,
-            fullWidth: true,
             isLoading: isPurchasing
         )
     }

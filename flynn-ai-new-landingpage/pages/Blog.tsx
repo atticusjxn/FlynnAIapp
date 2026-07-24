@@ -3,6 +3,8 @@ import { Link, useParams, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, Clock, Calendar, CheckCircle, XCircle, MessageSquare, Zap, FileText, DollarSign } from 'lucide-react';
 import MessageFlynnCTA from '../components/MessageFlynnCTA';
+import receptionistPostsA from './blogReceptionistA';
+import receptionistPostsB from './blogReceptionistB';
 
 // Small mascot banner shown near the top of each article. The mascots in
 // /public/mascots are the "Flynn guy" used across the landing page.
@@ -19,7 +21,26 @@ const Hero = ({ pose }: { pose: string }) => (
     </div>
 );
 
-const blogPosts: Record<string, { title: string; date: string; readTime: string; content: React.ReactNode; category: string; description: string; image?: string; datePublished?: string }> = {
+/** One blog article. `faqs` (optional) renders an on-page FAQ block and emits
+ *  FAQPage JSON-LD — use it on comparison and how-to articles. */
+export interface BlogPostEntry {
+    title: string;
+    date: string;
+    readTime: string;
+    content: React.ReactNode;
+    category: string;
+    description: string;
+    image?: string;
+    datePublished?: string;
+    faqs?: { q: string; a: string }[];
+}
+
+const blogPosts: Record<string, BlogPostEntry> = {
+    // 2026 receptionist cluster (see content/blog-article-framework.md).
+    // Listed first so The Dispatch leads with the on-strategy content.
+    ...receptionistPostsA,
+    ...receptionistPostsB,
+
 
     // ─── 1. Flagship: run your business from iMessage ─────────────────────────
     "run-your-business-from-imessage": {
@@ -1939,6 +1960,29 @@ const blogPosts: Record<string, { title: string; date: string; readTime: string;
     },
 };
 
+/*
+ * Expired posts — off-vertical SEO spray (salons, real estate, freelancers,
+ * PTs) and generic "AI for small business" listicles that no longer match the
+ * AI-receptionist-for-tradies direction (2026-07-22 pivot). Content stays in
+ * the record as dormant data; these slugs are hidden from the index here, and
+ * public/_redirects 301s their URLs to /blog so Google drops them cleanly.
+ * Also removed from public/sitemap.xml.
+ */
+const EXPIRED_POSTS = new Set([
+    'chatgpt-for-small-business',
+    'best-ai-tools-for-small-business',
+    'ai-tools-small-business-admin',
+    'best-appointment-scheduling-app-small-business',
+    'admin-tips-for-salons-and-barbers',
+    'best-apps-for-hair-salons',
+    'admin-tips-for-real-estate-agents',
+    'best-apps-for-real-estate-agents',
+    'admin-tips-for-freelancers',
+    'best-apps-for-freelancers',
+    'admin-tips-for-personal-trainers',
+    'best-apps-for-personal-trainers',
+]);
+
 export const BlogList: React.FC = () => {
     return (
         <>
@@ -1958,7 +2002,7 @@ export const BlogList: React.FC = () => {
                 </div>
 
                 <div className="max-w-4xl mx-auto grid gap-12">
-                    {Object.entries(blogPosts).map(([slug, post]) => (
+                    {Object.entries(blogPosts).filter(([slug]) => !EXPIRED_POSTS.has(slug)).map(([slug, post]) => (
                         <Link key={slug} to={`/blog/${slug}`} className="group block bg-surface-50 border-2 border-transparent hover:border-black p-8 transition-all hover:shadow-[8px_8px_0px_0px_#000000]">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                 <div>
@@ -1980,7 +2024,9 @@ export const BlogList: React.FC = () => {
 
 export const BlogPost: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
-    const post = blogPosts[slug || ""];
+    // Expired slugs 301 at the edge (_redirects); this guard covers client-side
+    // navigation and any cached SPA shell.
+    const post = EXPIRED_POSTS.has(slug || "") ? undefined : blogPosts[slug || ""];
 
     if (!post) {
         return <Navigate to="/blog" replace />;
@@ -2005,6 +2051,16 @@ export const BlogPost: React.FC = () => {
         "image": post.image || "https://flynnai.app/og-image.png"
     });
 
+    const faqSchema = post.faqs?.length ? JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": post.faqs.map(({ q, a }) => ({
+            "@type": "Question",
+            "name": q,
+            "acceptedAnswer": { "@type": "Answer", "text": a },
+        })),
+    }) : null;
+
     return (
         <>
             <Helmet>
@@ -2015,6 +2071,7 @@ export const BlogPost: React.FC = () => {
                 <meta property="og:type" content="article" />
                 {post.image && <meta property="og:image" content={post.image} />}
                 <script type="application/ld+json">{articleSchema}</script>
+                {faqSchema && <script type="application/ld+json">{faqSchema}</script>}
             </Helmet>
 
             <article className="bg-white min-h-screen pt-20 pb-32 px-6">
@@ -2037,6 +2094,20 @@ export const BlogPost: React.FC = () => {
                     <div className="blog-content">
                         {post.content}
                     </div>
+
+                    {post.faqs?.length ? (
+                        <section className="mt-16">
+                            <h2 className="text-3xl font-bold font-display mb-8">Frequently asked questions</h2>
+                            <div className="space-y-6">
+                                {post.faqs.map(({ q, a }) => (
+                                    <div key={q} className="bg-surface-50 border-2 border-black p-6">
+                                        <h3 className="font-display font-bold text-xl mb-2">{q}</h3>
+                                        <p className="text-gray-600 leading-relaxed">{a}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    ) : null}
                 </div>
             </article>
         </>

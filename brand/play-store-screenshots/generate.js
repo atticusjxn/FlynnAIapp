@@ -1,24 +1,19 @@
 /*
- * Generates Google Play phone screenshots for Flynn, mirroring the 5 Apple App Store shots but
- * Android-flavoured (Flynn keyboard draft panel, Bookings + Brain screens). Output is rendered by
- * headless Chrome at 1080x1920 (9:16) — Play-compliant: 24-bit PNG, ratio within 2:1..1:2.
+ * Generates Google Play phone screenshots for Flynn — mirrors the Apple App
+ * Store set (../app-store-screenshots/generate.js) at 1080x1920 (Play-
+ * compliant 9:16), same real device frame (../phone-mock/iphoneFrame.js),
+ * same content, same big-phone / natural-bleed / stacked-pill treatment.
+ * Android is currently parked (Swift-only pivot) but kept in sync in case
+ * the listing is revived.
  *
  * Run:  node generate.js   (writes ./html/*.html)
  * Then the sibling render.sh screenshots each with Chrome.
  */
 const fs = require('fs');
 const path = require('path');
+const { iphoneFrame } = require('../phone-mock/iphoneFrame.js');
 
-const DRAWABLE = path.resolve(
-  __dirname,
-  '../../android-native/app/src/main/res/drawable',
-);
 const OUT = path.join(__dirname, 'html');
-
-const mascot = (name) => {
-  const b64 = fs.readFileSync(path.join(DRAWABLE, `${name}.png`)).toString('base64');
-  return `data:image/png;base64,${b64}`;
-};
 
 const C = {
   cream: '#F4E6CE',
@@ -29,59 +24,81 @@ const C = {
   teal: '#3BA8A8',
   terra: '#B85C38',
   olive: '#7A8C3A',
-  incoming: '#ECE7DD',
-  reply: '#FFFFFF',
   line: '#E7E0D3',
   sub: '#9A8E7C',
 };
 
-// Decorative scattered corner shapes — varied per screen, behind the content.
 function shapes(variant) {
   const sets = [
-    `<div class="sh" style="width:240px;height:240px;border-radius:50%;background:${C.teal};top:-90px;left:-70px"></div>
-     <div class="sh" style="width:160px;height:160px;border-radius:50%;background:${C.mustard};bottom:60px;right:-60px"></div>
-     <div class="sh" style="width:120px;height:120px;border-radius:50%;background:${C.terra};bottom:-40px;left:90px"></div>`,
-    `<div class="sh" style="width:200px;height:200px;border-radius:50%;background:${C.teal};top:-70px;right:-60px"></div>
-     <div class="sh" style="width:120px;height:120px;border-radius:50%;background:${C.orange};bottom:120px;left:-50px"></div>
-     <div class="sh" style="width:200px;height:200px;border-radius:50%;background:${C.mustard};bottom:-90px;right:60px"></div>`,
-    `<div class="sh" style="width:150px;height:150px;border-radius:50%;background:${C.terra};top:-50px;left:-40px"></div>
-     <div class="sh" style="width:230px;height:230px;border-radius:50%;background:${C.teal};top:-80px;right:-80px"></div>
-     <div class="sh" style="width:130px;height:130px;border-radius:50%;background:${C.orange};bottom:30px;left:-40px"></div>
-     <div class="sh" style="width:170px;height:170px;border-radius:50%;background:${C.olive};bottom:-60px;right:40px"></div>`,
-    `<div class="sh" style="width:180px;height:180px;border-radius:50%;background:${C.mustard};top:-70px;right:-50px"></div>
-     <div class="sh" style="width:130px;height:130px;border-radius:50%;background:${C.terra};bottom:-50px;right:-30px"></div>`,
-    `<div class="sh" style="width:150px;height:150px;border-radius:50%;background:${C.orange};bottom:40px;left:-50px"></div>
-     <div class="sh" style="width:210px;height:210px;border-radius:50%;background:${C.mustard};bottom:-80px;right:-60px"></div>
-     <div class="sh" style="width:150px;height:150px;border-radius:50%;background:${C.teal};top:-60px;right:60px"></div>`,
+    `<div class="sh" style="width:201px;height:201px;border-radius:50%;background:${C.teal};top:-75px;left:-59px"></div>
+     <div class="sh" style="width:134px;height:134px;border-radius:50%;background:${C.mustard};bottom:50px;right:-50px"></div>
+     <div class="sh" style="width:100px;height:100px;border-radius:50%;background:${C.terra};bottom:-33px;left:75px"></div>`,
+    `<div class="sh" style="width:167px;height:167px;border-radius:50%;background:${C.teal};top:-59px;right:-50px"></div>
+     <div class="sh" style="width:100px;height:100px;border-radius:50%;background:${C.orange};bottom:100px;left:-42px"></div>
+     <div class="sh" style="width:167px;height:167px;border-radius:50%;background:${C.mustard};bottom:-75px;right:50px"></div>`,
+    `<div class="sh" style="width:126px;height:126px;border-radius:50%;background:${C.terra};top:-42px;left:-33px"></div>
+     <div class="sh" style="width:193px;height:193px;border-radius:50%;background:${C.teal};top:-67px;right:-67px"></div>
+     <div class="sh" style="width:109px;height:109px;border-radius:50%;background:${C.orange};bottom:25px;left:-33px"></div>
+     <div class="sh" style="width:142px;height:142px;border-radius:50%;background:${C.olive};bottom:-50px;right:33px"></div>`,
+    `<div class="sh" style="width:151px;height:151px;border-radius:50%;background:${C.mustard};top:-59px;right:-42px"></div>
+     <div class="sh" style="width:109px;height:109px;border-radius:50%;background:${C.terra};bottom:-42px;right:-25px"></div>`,
+    `<div class="sh" style="width:126px;height:126px;border-radius:50%;background:${C.orange};bottom:33px;left:-42px"></div>
+     <div class="sh" style="width:176px;height:176px;border-radius:50%;background:${C.mustard};bottom:-67px;right:-50px"></div>
+     <div class="sh" style="width:126px;height:126px;border-radius:50%;background:${C.teal};top:-50px;right:50px"></div>`,
   ];
   return sets[variant];
 }
 
-const statusBar = () => `
-  <div class="status">
+// Time/signal/battery row. The chassis SVG draws the dynamic island ON TOP of
+// this (it's a sibling painted after the screen content), so this can just
+// flow full-bleed underneath it like a real iOS status bar does.
+const statusBar = (variant = 'dark') => `
+  <div class="status ${variant}">
     <span class="time">9:41</span>
     <span class="sysicons">
-      <svg width="22" height="14" viewBox="0 0 22 14"><path fill="${C.ink}" d="M1 9l2-2a9 9 0 0 1 16 0l2 2-1.5 1.5a7 7 0 0 0-17 0z" opacity=".0"/></svg>
-      <span class="dot">●●●</span>
-      <span class="wifi">⌃</span>
+      <span class="signal">ıll</span>
+      <span class="wifi">ᯤ</span>
       <span class="batt"></span>
     </span>
   </div>`;
 
-// ── chat screen (screens 1–3) ──────────────────────────────────────────────
-function chatScreen({ avatar, name, sub, incoming, bizLabel, replies, hint }) {
-  const bubbles = incoming
-    .map((t) => `<div class="inbub">${t}</div>`)
-    .join('');
-  const replyCards = replies
-    .map(
-      (t, i) => `<div class="rcard${i === 0 ? ' first' : ''}">${t}${
-        i === 0 ? `<div class="insert">Tap to insert →</div>` : ''
-      }</div>`,
-    )
+function lockScreen({ note }) {
+  return `
+    ${statusBar('light')}
+    <div class="callbar"><span class="dot"></span>Flynn is on the call · 0:24</div>
+    <div class="lockdate">Thursday, 12 June</div>
+    <div class="locktime">9:41</div>
+    <div class="notif">
+      <div class="notif-icon">F<span class="notif-dot"></span></div>
+      <div class="notif-body">
+        <div class="notif-top"><span class="notif-app">Flynn</span><span class="notif-time">now</span></div>
+        <div class="notif-msg">${note}</div>
+      </div>
+    </div>
+    <div class="notif2">
+      <div class="notif2-icon">✓</div>
+      <div class="notif2-body">
+        <div class="notif2-title">Deck repaint — booked</div>
+        <div class="notif2-sub">Thu 12 Jun · 2:00 PM · 14 Marine Pde</div>
+      </div>
+    </div>`;
+}
+
+function chatScreen({ avatar, name, bubbles }) {
+  const renderedBubbles = bubbles
+    .map((b) => {
+      if (b.type === 'photo') {
+        return `
+          <div class="photo-grid">
+            <div class="photo-box" style="background-image:url(data:image/jpeg;base64,${before})"><span>Before</span></div>
+            <div class="photo-box" style="background-image:url(data:image/jpeg;base64,${after})"><span>After</span></div>
+          </div>`;
+      }
+      return `<div class="bubble ${b.out ? 'out' : 'in'}">${b.text}</div>`;
+    })
     .join('');
   return `
-    ${statusBar()}
+    ${statusBar('dark')}
     <div class="nav">
       <span class="back">‹</span>
       <div class="navc">
@@ -91,32 +108,19 @@ function chatScreen({ avatar, name, sub, incoming, bizLabel, replies, hint }) {
       <span class="info">ⓘ</span>
     </div>
     <div class="day">Today 9:41 AM</div>
-    <div class="msgs">${bubbles}</div>
-    <div class="inputrow">
-      <div class="inputfield">Message…</div>
-      <div class="send">↑</div>
-    </div>
-    <div class="kb">
-      <div class="kbhead">
-        <span class="kbbiz">Flynn · ${bizLabel}</span>
-        <span class="kbactions"><span class="redraft">↻ Redraft</span><span class="globe">🌐</span></span>
-      </div>
-      <div class="kbhint">${hint}</div>
-      ${replyCards}
-    </div>`;
+    <div class="msgs">${renderedBubbles}</div>`;
 }
 
-// ── bookings screen (screen 4) ─────────────────────────────────────────────
 function bookingsScreen() {
   return `
-    ${statusBar()}
+    ${statusBar('dark')}
     <div class="screenpad">
       <div class="bigtitle">Bookings</div>
       <div class="sectionlabel">UPCOMING</div>
       <div class="bookcard green">
         <div class="bc-check">✓</div>
         <div>
-          <div class="bc-title">Booked from your reply</div>
+          <div class="bc-title">Booked on the call</div>
           <div class="bc-sub">Flynn added it to your calendar</div>
         </div>
       </div>
@@ -132,135 +136,151 @@ function bookingsScreen() {
         <div class="bc-meta">Sat 14 Jun · 11:30 AM</div>
         <div class="bc-sub">Geelong West</div>
       </div>
+      <div class="bookcard">
+        <div class="bc-row"><span class="bc-title">Anthony · Reef St Cafe</span><span class="badge blue">Booked</span></div>
+        <div class="bc-sub">Shopfront repaint — quote</div>
+        <div class="bc-meta">Mon 16 Jun · 7:30 AM</div>
+        <div class="bc-sub">Ocean Grove</div>
+      </div>
       <div class="sectionlabel">PAST</div>
       <div class="bookcard">
         <div class="bc-row"><span class="bc-title">Mike</span><span class="badge green-b">Done</span></div>
         <div class="bc-sub">Fence repair — done</div>
         <div class="bc-meta">Completed · 6 Jun</div>
       </div>
-    </div>`;
-}
-
-// ── brain screen (screen 5) ────────────────────────────────────────────────
-function brainScreen() {
-  const price = (name, val) =>
-    `<div class="prow"><span>${name}</span><span class="pval">${val}</span></div>`;
-  return `
-    ${statusBar()}
-    <div class="screenpad">
-      <div class="bigtitle">Brain</div>
-      <div class="braindesc">Flynn cites these when it drafts.</div>
-      <div class="bcard">
-        <div class="blabel">WHAT YOU DO</div>
-        <div class="bbig">Coastal Painting — int. &amp; exterior</div>
-      </div>
-      <div class="bcard">
-        <div class="blabel">SERVICES &amp; PRICING</div>
-        ${price('Interior repaint', '$3.5–5k')}
-        ${price('Exterior repaint', '$6–9k')}
-        ${price('Feature wall', 'from $450')}
-        ${price('Free quote', '$0')}
-      </div>
-      <div class="bcard">
-        <div class="blabel">HOURS</div>
-        <div class="bhours">Mon–Fri&nbsp;&nbsp;7 AM – 5 PM<br>Sat&nbsp;&nbsp;8 AM – 12 PM</div>
-      </div>
-      <div class="bcard">
-        <div class="blabel">SERVICE AREA</div>
-        <div class="bbig">Surf Coast — Torquay to Lorne</div>
+      <div class="bookcard">
+        <div class="bc-row"><span class="bc-title">Coastal Rentals</span><span class="badge green-b">Done</span></div>
+        <div class="bc-sub">Handrail repaint — done</div>
+        <div class="bc-meta">Completed · 3 Jun</div>
       </div>
     </div>`;
 }
 
-function page({ file, variant, eyebrow, l1, l2, mascotName, mascotTop, screen, phoneClass = '' }) {
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
+// Big phone, deliberately bled off the true canvas bottom edge (not an
+// internal crop line — the page boundary itself clips it, same as how the
+// device's own rounded corners would just continue unseen past the edge).
+// That reads as an intentional, Apple-marketing-style crop instead of the
+// "chopped mid-content" look a fake crop window gave.
+const PHONE_W = 780;
+const PHONE_LEFT = (1080 - PHONE_W) / 2;
+const PHONE_TOP = 640;
+const STATS_TOP = 470;
+
+const before = fs.readFileSync(path.join(__dirname, '../../flynn-ai-new-landingpage/public/before.jpg')).toString('base64');
+const after = fs.readFileSync(path.join(__dirname, '../../flynn-ai-new-landingpage/public/after.jpg')).toString('base64');
+
+const SHARED_CSS = `
   * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
   html,body { width:1080px; height:1920px; }
   body { position:relative; overflow:hidden; background:${C.cream};
     font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; color:${C.ink}; }
   .shapes { position:absolute; inset:0; z-index:0; }
-  .sh { position:absolute; }
-  .eyebrow { position:absolute; top:72px; left:80px; z-index:5; color:${C.orange};
-    font-weight:800; font-size:26px; letter-spacing:3px; }
-  .headline { position:absolute; top:132px; left:78px; z-index:5; font-weight:800;
-    font-size:78px; line-height:84px; letter-spacing:-1.5px; }
+  .sh { position:absolute; border:7px solid ${C.ink}; box-sizing:border-box; }
+  .wordmark { position:absolute; top:94px; left:109px; z-index:5; display:flex; align-items:flex-start; gap:5px; }
+  .wordmark .txt { font-weight:800; font-size:33px; letter-spacing:1px; color:${C.ink}; }
+  .wordmark .dot { width:12px; height:12px; border-radius:50%; background:${C.orange}; margin-top:3px; }
+  .eyebrow { position:absolute; top:167px; left:109px; z-index:5; color:${C.orange};
+    font-weight:800; font-size:28px; letter-spacing:3px; }
+  .headline { position:absolute; top:224px; left:105px; z-index:5; font-weight:800;
+    font-size:84px; line-height:89px; letter-spacing:-2px; }
   .headline .o { color:${C.orange}; }
-  .mascot { position:absolute; right:34px; width:236px; z-index:30; filter:drop-shadow(0 8px 14px rgba(0,0,0,.18)); }
-  .phone { position:absolute; left:180px; width:720px; top:430px; height:1452px;
-    background:#0E0E10; border-radius:60px; padding:13px 13px 0; z-index:20;
-    box-shadow:0 30px 60px rgba(0,0,0,.28); }
-  .screen { width:100%; height:100%; background:#F3F1EC; border-radius:48px 48px 0 0; overflow:hidden;
-    position:relative; }
-  .screen.chat { background:#FFFFFF; display:flex; flex-direction:column; }
-  .screen.chat .msgs { flex:0 0 auto; min-height:230px; }
-  .screen.chat .kb { flex:1 1 auto; }
-  .status { height:54px; display:flex; align-items:center; justify-content:space-between;
-    padding:0 36px; font-weight:700; font-size:24px; }
-  .status .sysicons { display:flex; align-items:center; gap:8px; font-size:20px; }
-  .status .dot { letter-spacing:-2px; }
-  .status .batt { width:30px; height:15px; border:2px solid ${C.ink}; border-radius:4px; position:relative; }
-  .status .batt:after { content:''; position:absolute; inset:2px; right:8px; background:${C.ink}; border-radius:1px; }
-  /* chat */
-  .nav { display:flex; align-items:center; justify-content:space-between; padding:6px 28px 14px; }
-  .nav .back { color:#0a7aff; font-size:40px; font-weight:500; }
-  .nav .info { color:#0a7aff; font-size:30px; }
-  .navc { text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px; }
-  .avatar { width:64px; height:64px; border-radius:50%; background:#C9C2B6; color:#fff; font-weight:700;
-    font-size:26px; display:flex; align-items:center; justify-content:center; }
-  .navname { font-weight:700; font-size:26px; }
-  .day { text-align:center; color:${C.sub}; font-size:21px; margin:4px 0 18px; }
-  .msgs { padding:0 26px; }
-  .inbub { background:${C.incoming}; color:${C.ink}; font-size:27px; line-height:35px; padding:18px 22px;
-    border-radius:24px; border-bottom-left-radius:8px; margin-bottom:12px; max-width:80%; }
-  .inputrow { display:flex; align-items:center; gap:12px; padding:14px 26px 16px; }
-  .inputfield { flex:1; border:2px solid ${C.line}; border-radius:26px; padding:14px 22px; color:${C.sub};
-    font-size:25px; }
-  .send { width:48px; height:48px; border-radius:50%; background:#D9D3C7; color:#fff; display:flex;
-    align-items:center; justify-content:center; font-size:28px; }
-  /* keyboard panel */
-  .kb { background:${C.cream}; border-top:1px solid ${C.line}; padding:18px 22px 26px; }
-  .kbhead { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  .kbbiz { color:${C.sub}; font-size:23px; font-weight:600; }
-  .kbactions { display:flex; align-items:center; gap:14px; }
-  .redraft { color:${C.orange}; font-weight:700; font-size:23px; }
-  .globe { font-size:24px; }
-  .kbhint { color:${C.sub}; font-size:21px; margin-bottom:14px; }
-  .rcard { background:${C.reply}; border:1.5px solid ${C.line}; border-radius:20px; padding:20px 22px;
-    font-size:26px; line-height:34px; color:${C.ink}; margin-bottom:12px; }
-  .rcard.first { border-color:${C.orange}; border-width:2.5px; }
-  .insert { color:${C.orange}; font-weight:700; font-size:21px; margin-top:10px; }
-  /* generic screens */
-  .screenpad { padding:14px 34px 0; }
-  .bigtitle { font-weight:800; font-size:52px; letter-spacing:-1px; margin:6px 0 22px; }
-  .sectionlabel { color:${C.sub}; font-weight:700; font-size:21px; letter-spacing:1.5px; margin:18px 4px 12px; }
-  .bookcard { background:#fff; border:1.5px solid ${C.line}; border-radius:22px; padding:22px 24px; margin-bottom:14px;
-    box-shadow:0 4px 10px rgba(0,0,0,.04); }
-  .bookcard.green { background:#E4F6EA; border-color:#BCE7CC; display:flex; align-items:center; gap:18px; }
-  .bc-check { width:46px; height:46px; border-radius:50%; background:#22A35A; color:#fff; display:flex;
-    align-items:center; justify-content:center; font-size:26px; font-weight:700; flex:none; }
-  .bc-title { font-weight:700; font-size:28px; }
-  .bc-sub { color:${C.sub}; font-size:24px; line-height:32px; }
-  .bc-meta { font-size:25px; margin:4px 0 2px; }
+
+  .stat-row { position:absolute; left:109px; right:109px; z-index:5; display:flex; flex-direction:column;
+    gap:15px; align-items:center; }
+  .stat-pill { background:${C.card}; border:3px solid ${C.ink}; border-radius:836px; padding:18px 28px;
+    font-weight:800; font-size:28px; display:flex; align-items:center; gap:12px; white-space:nowrap;
+    box-shadow:5px 5px 0 0 ${C.ink}; }
+
+  /* screen content — all percentages are of the SCREEN box, not the phone */
+  .status { position:absolute; top:2.6%; left:8%; right:8%; display:flex; align-items:center;
+    justify-content:space-between; font-weight:700; font-size:25px; z-index:3; }
+  .status.dark { color:${C.ink}; }
+  .status.light { color:#fff; }
+  .status .sysicons { display:flex; align-items:center; gap:10px; font-size:20px; font-family:sans-serif; }
+  .status .batt { width:30px; height:15px; border:3px solid currentColor; border-radius:4px; position:relative; opacity:.95; }
+  .status .batt:after { content:''; position:absolute; inset:2px; right:8px; background:currentColor; border-radius:1px; }
+
+  .lockbg { position:absolute; inset:0; background:
+    radial-gradient(120% 90% at 15% 0%, #ffb27a 0%, transparent 55%),
+    radial-gradient(120% 100% at 85% 100%, ${C.teal} 0%, transparent 60%),
+    linear-gradient(160deg, #2b2320 0%, #171310 60%, #0d0b09 100%); }
+  .callbar { position:absolute; top:9%; left:8%; right:8%; z-index:3; background:#2FBD5A;
+    border-radius:15px; padding:16px 18px; display:flex; align-items:center; justify-content:center;
+    gap:10px; color:#fff; font-weight:700; font-size:24px; box-shadow:0 7px 17px -5px rgba(0,0,0,.35); }
+  .callbar .dot { width:10px; height:10px; border-radius:50%; background:#fff; opacity:.92; }
+  .lockdate { position:absolute; top:14.8%; left:0; right:0; text-align:center; z-index:3;
+    color:rgba(255,255,255,.85); font-weight:600; font-size:28px; }
+  .locktime { position:absolute; top:18%; left:0; right:0; text-align:center; z-index:3;
+    color:#fff; font-weight:700; font-size:127px; letter-spacing:-2px; text-shadow:0 2px 20px rgba(0,0,0,.25); }
+  .notif { position:absolute; left:6%; right:6%; top:35%; z-index:3; background:rgba(42,38,34,.82);
+    border-radius:28px; padding:27px 25px; display:flex; gap:18px; align-items:flex-start;
+    border:1px solid rgba(255,255,255,.16); }
+  .notif-icon { width:64px; height:64px; border-radius:18px; background:${C.ink}; flex:none;
+    display:flex; align-items:center; justify-content:center; color:#f5ebe0; font-weight:800;
+    font-size:32px; position:relative; }
+  .notif-dot { position:absolute; top:8px; right:11px; width:8px; height:8px; border-radius:50%; background:${C.orange}; }
+  .notif-body { flex:1; }
+  .notif-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .notif-app { color:#fff; font-weight:700; font-size:27px; letter-spacing:.2px; }
+  .notif-time { color:rgba(255,255,255,.58); font-size:21px; }
+  .notif-msg { color:rgba(255,255,255,.97); font-size:35px; line-height:45px; font-weight:500; }
+  .notif-msg b { font-weight:700; }
+  .notif2 { position:absolute; left:6%; right:6%; top:57%; z-index:3; background:rgba(255,255,255,.97);
+    border-radius:27px; padding:25px 27px; display:flex; gap:17px; align-items:center; }
+  .notif2-icon { width:54px; height:54px; border-radius:50%; background:#22A35A; color:#fff; flex:none;
+    display:flex; align-items:center; justify-content:center; font-size:27px; font-weight:800; }
+  .notif2-title { color:${C.ink}; font-weight:800; font-size:27px; margin-bottom:4px; }
+  .notif2-sub { color:${C.sub}; font-size:22px; font-weight:600; }
+
+  .nav { position:absolute; top:8.6%; left:0; right:0; display:flex; align-items:center;
+    justify-content:space-between; padding:0 7% 20px; background:#fff; border-bottom:1px solid ${C.line}; z-index:3; }
+  .nav .back { color:#0a7aff; font-size:39px; font-weight:500; }
+  .nav .info { color:#0a7aff; font-size:28px; }
+  .navc { text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px; padding-top:13px; }
+  .avatar { width:60px; height:60px; border-radius:50%; background:${C.orange}; color:#fff; font-weight:700;
+    font-size:25px; display:flex; align-items:center; justify-content:center; }
+  .navname { font-weight:700; font-size:28px; }
+  .day { position:absolute; top:20%; left:0; right:0; text-align:center; color:${C.sub}; font-size:25px; z-index:2; }
+  .msgs { position:absolute; top:23.5%; left:0; right:0; padding:0 5% 33px; z-index:2; }
+  .bubble { font-size:35px; line-height:45px; padding:20px 25px; border-radius:27px; margin-bottom:23px; max-width:85%; word-wrap:break-word; font-weight:500; background:#fff; }
+  .bubble.in { background:#ECE7DD; color:#141416; border-bottom-left-radius:7px; }
+  .bubble.out { background:#007AFF; color:#FFFFFF; border-bottom-right-radius:7px; margin-left:auto; }
+  .photo-grid { display:flex; gap:12px; margin-bottom:23px; justify-content:flex-end; }
+  .photo-box { width:209px; height:209px; border-radius:18px; border:3px solid #2C2018; background-size:cover;
+    background-position:center; position:relative; overflow:hidden; box-shadow:0 5px 12px rgba(0,0,0,.15); }
+  .photo-box span { position:absolute; bottom:12px; left:12px; font-weight:700; font-size:18px; color:white;
+    text-shadow:0 2px 5px rgba(0,0,0,.7); background:rgba(0,0,0,.35); padding:3px 10px; border-radius:7px; }
+
+  .screenpad { position:absolute; top:9%; left:0; right:0; bottom:0; padding:0 7%; z-index:2; }
+  .bigtitle { font-weight:800; font-size:57px; letter-spacing:-1px; margin:7px 0 23px; }
+  .sectionlabel { color:${C.sub}; font-weight:700; font-size:22px; letter-spacing:1px; margin:20px 3px 13px; }
+  .bookcard { background:#fff; border:1px solid ${C.line}; border-radius:20px; padding:23px 25px; margin-bottom:15px;
+    box-shadow:0 3px 8px rgba(0,0,0,.04); }
+  .bookcard.green { background:#E4F6EA; border-color:#BCE7CC; display:flex; align-items:center; gap:17px; }
+  .bc-check { width:44px; height:44px; border-radius:50%; background:#22A35A; color:#fff; display:flex;
+    align-items:center; justify-content:center; font-size:25px; font-weight:700; flex:none; }
+  .bc-title { font-weight:700; font-size:33px; }
+  .bc-sub { color:${C.sub}; font-size:28px; line-height:35px; }
+  .bc-meta { font-size:29px; margin:5px 0 3px; }
   .bc-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
-  .badge { font-size:20px; font-weight:700; padding:6px 16px; border-radius:999px; }
+  .badge { font-size:23px; font-weight:700; padding:7px 15px; border-radius:836px; }
   .badge.blue { background:#E2ECFF; color:#2563EB; }
   .badge.green-b { background:#DDF3E5; color:#1E9E54; }
-  /* brain */
-  .braindesc { color:${C.sub}; font-size:25px; margin-bottom:22px; }
-  .bcard { background:#fff; border:1.5px solid ${C.line}; border-radius:20px; padding:22px 24px; margin-bottom:16px; }
-  .blabel { color:${C.sub}; font-weight:700; font-size:20px; letter-spacing:1.5px; margin-bottom:12px; }
-  .bbig { font-weight:700; font-size:30px; line-height:38px; }
-  .prow { display:flex; justify-content:space-between; align-items:center; font-size:28px; padding:11px 0;
-    border-top:1px solid ${C.line}; }
-  .prow:first-of-type { border-top:none; }
-  .pval { color:${C.orange}; font-weight:700; }
-  .bhours { font-size:29px; line-height:42px; }
-  </style></head><body>
+`;
+
+function page({ variant, eyebrow, l1, l2, screenHtml, screenBg = '#fff', stats = [] }) {
+  const frame = iphoneFrame({ left: PHONE_LEFT, top: PHONE_TOP, width: PHONE_W, contentHtml: screenHtml, screenBg });
+  const statsRow = stats.length
+    ? `<div class="stat-row" style="top:${STATS_TOP}px">${stats.map((s) => `<div class="stat-pill">${s}</div>`).join('')}</div>`
+    : '';
+
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${SHARED_CSS}</style></head><body>
     <div class="shapes">${shapes(variant)}</div>
+    <div class="wordmark"><span class="txt">FLYNN</span><span class="dot"></span></div>
     <div class="eyebrow">${eyebrow}</div>
     <div class="headline">${l1}<br><span class="o">${l2}</span></div>
-    <img class="mascot" style="top:${mascotTop}px" src="${mascot(mascotName)}">
-    <div class="phone"><div class="screen ${phoneClass}">${screen}</div></div>
+    ${statsRow}
+    ${frame.html}
   </body></html>`;
 }
 
@@ -268,94 +288,75 @@ const pages = [
   {
     file: '01-hero',
     variant: 0,
-    eyebrow: 'REPLY IN YOUR VOICE',
-    l1: 'Reply in your',
-    l2: 'voice in seconds',
-    mascotName: 'mascot_wave',
-    mascotTop: 250,
-    phoneClass: 'chat',
-    screen: chatScreen({
-      avatar: 'S',
-      name: 'Sam',
-      incoming: [
-        'Hi! Do you do quotes? How much to repaint a 3-bed, and when could you start?',
-      ],
-      bizLabel: 'Coastal Painting',
-      hint: 'Tap a reply to insert it.',
-      replies: [
-        'Yeah for sure! A 3-bed’s usually $3.5–4.5k. Could swing by Thurs to quote — what time suits?',
-        'Happy to help — ballpark’s about $4k depending on prep. Free Saturday morning?',
-        'Definitely do quotes! When’s good for a quick look this week?',
-      ],
+    eyebrow: 'NEVER MISS A JOB',
+    l1: 'Flynn answers',
+    l2: 'when you can’t',
+    stats: ['🎙️ Sounds like a real person', '✅ Books the job on the call'],
+    screenBg: 'linear-gradient(160deg,#2b2320 0%,#171310 60%,#0d0b09 100%)',
+    screenHtml: lockScreen({
+      note: 'Booked the caller in for <b>Thursday 2pm</b> — deck repaint, 14 Marine Pde.',
     }),
   },
   {
     file: '02-voice',
     variant: 1,
-    eyebrow: 'YOUR VOICE',
-    l1: 'Sounds exactly',
-    l2: 'like you',
-    mascotName: 'mascot_write',
-    mascotTop: 235,
-    phoneClass: 'chat',
-    screen: chatScreen({
-      avatar: 'J',
-      name: 'Jordan',
-      incoming: [
-        'hey you round this wkend for a cut + colour? and roughly how much?',
-      ],
-      bizLabel: 'Bella Hair Studio',
-      hint: 'Even the slang, casing &amp; emojis are yours.',
-      replies: [
-        'heya! yep got sat arvo free ✂️ cut + colour’s around $180. want me to lock you in?',
-        'omg yes would love to! sat or sun works. it’s $180ish depending on length x',
-        'hey lovely! free this wknd — $180 for both. what time suits you?',
+    eyebrow: 'BOOKED ON THE CALL',
+    l1: 'Books the job,',
+    l2: 'confirms with you',
+    screenHtml: chatScreen({
+      avatar: 'F',
+      name: 'Flynn',
+      bubbles: [
+        { out: false, text: "Just answered a call from 0412 345 678 — booked them in." },
+        { out: false, text: "Thursday 2pm, deck repaint, 14 Marine Pde. Sound right?" },
+        { out: true, text: "yep all good" },
+        { out: false, text: "Added to your calendar and texted them a confirmation." },
       ],
     }),
   },
   {
     file: '03-anyone',
     variant: 2,
-    eyebrow: 'FOR ANYONE',
-    l1: 'Work, side gigs',
-    l2: 'or the group chat',
-    mascotName: 'mascot_thumbsup',
-    mascotTop: 250,
-    phoneClass: 'chat',
-    screen: chatScreen({
-      avatar: 'FL',
-      name: 'Footy Lads',
-      incoming: [
-        'oi you free sat arvo for a hit + bbq after? bringing the fam?',
-      ],
-      bizLabel: 'WhatsApp',
-      hint: 'Works for clients, side gigs — or just mates.',
-      replies: [
-        'yeah I’m keen! sat arvo works 🍺 I’ll bring the snags — what time?',
-        'count me in 🔥 sat’s good, fam’s coming too. what do you need me to grab?',
-        'for sure mate, locked in for sat — text me the addy?',
+    eyebrow: 'PHOTO INVOICES',
+    l1: 'Invoices with',
+    l2: 'photos on them',
+    screenHtml: chatScreen({
+      avatar: 'F',
+      name: 'Flynn',
+      bubbles: [
+        { out: true, type: 'photo' },
+        { out: true, text: 'invoice Sarah $650 for the deck repaint' },
+        { out: false, text: 'Invoice ready with photos. Sent to sarah@jenkins.com. View: flynnai.app/i/abc' },
+        { out: false, text: 'Sarah just viewed the invoice.' },
       ],
     }),
   },
   {
     file: '04-booking',
     variant: 3,
-    eyebrow: 'BOOKED',
-    l1: 'Agree a time —',
-    l2: 'Flynn books it',
-    mascotName: 'mascot_phone',
-    mascotTop: 232,
-    screen: bookingsScreen(),
+    eyebrow: 'AUTO-CHASING',
+    l1: 'Chases it',
+    l2: 'till it’s paid',
+    screenHtml: chatScreen({
+      avatar: 'F',
+      name: 'Flynn',
+      bubbles: [
+        { out: true, text: 'invoice Dave $340' },
+        { out: false, text: 'Sent to Dave.' },
+        { out: false, text: "Heads up — Dave's invoice is 3 days late. I've sent a friendly reminder." },
+        { out: false, text: 'Dave just paid $340 via bank transfer.' },
+        { out: true, text: 'awesome thanks' },
+      ],
+    }),
   },
   {
     file: '05-brain',
     variant: 4,
-    eyebrow: 'BUSINESS BRAIN',
-    l1: 'Knows your prices,',
-    l2: 'hours &amp; services',
-    mascotName: 'mascot_thinking',
-    mascotTop: 232,
-    screen: brainScreen(),
+    eyebrow: 'ALL SORTED',
+    l1: 'Every job,',
+    l2: 'booked & tracked',
+    stats: ['📅 Every job in one place', '✓ Booked straight off the call'],
+    screenHtml: bookingsScreen(),
   },
 ];
 

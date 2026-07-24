@@ -1,0 +1,53 @@
+/* Realistic iPhone frame — corrected proportions (was too tall/thick-bezel before).
+   Reference: iPhone 15/16 Pro Max panel ratio ~19.5:9 (2.168 height:width).
+   Bezel 12px (was 24), radius follows Apple's ~55pt squircle scaled up. */
+.rp-shell {
+  position: relative;
+  width: var(--rp-w, 420px);
+  aspect-ratio: 1 / 2.168;
+  background: #111113;
+  border-radius: calc(var(--rp-w, 420px) * 0.225);
+  padding: var(--rp-bezel, 12px);
+  box-shadow:
+    0 2px 0 rgba(255,255,255,.06) inset,
+    0 40px 80px -24px rgba(20,14,10,.45),
+    0 8px 24px -8px rgba(20,14,10,.3);
+}
+.rp-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--rp-w, 420px) * 0.195);
+  overflow: hidden;
+  background: #000;
+}
+.rp-island {
+  position: absolute;
+  top: 2.6%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28%;
+  height: 3.6%;
+  min-height: 20px;
+  background: #000;
+  border-radius: 999px;
+  z-index: 40;
+}
+.rp-status {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 7.5%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 7%;
+  font-weight: 600;
+  font-size: calc(var(--rp-w, 420px) * 0.038);
+  z-index: 30;
+  font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+.rp-status.light { color: #fff; }
+.rp-status.dark { color: #111; }
+.rp-status .rp-sysicons { display: flex; align-items: center; gap: 6px; font-size: 0.85em; }
+.rp-status .rp-batt { width: 1.5em; height: 0.75em; border: 1.5px solid currentColor; border-radius: 3px; position: relative; opacity: .95; }
+.rp-status .rp-batt:after { content:''; position:absolute; inset:1.5px; right:3px; background:currentColor; border-radius:1px; }

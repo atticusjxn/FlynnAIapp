@@ -22,7 +22,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const { processMessage } = require('../services/flynnSMS');
-const { sendMessage: bbSend, sendAttachment, downloadAttachment, setTyping, markRead } = require('../services/blueBubbles');
+const { sendMessage: bbSend, sendAttachment, downloadAttachment, setTyping, markRead } = require('../services/imessageTransport');
 const { sendToUser } = require('../services/flynnOutbound');
 const { sanitiseReply } = require('../services/flynnTone');
 const { provisionDemoAccount, isDemoCode } = require('../services/demoAccount');
@@ -106,20 +106,26 @@ async function seedDemoInvoices(from) {
   const tok = () => crypto.randomBytes(9).toString('base64url');
   const sentAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
   const paidAt = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-  await supabase.from('agent_invoices').delete()
+  const today = new Date().toISOString().slice(0, 10);
+  const dollars = (c) => Math.round(c) / 100;
+  await supabase.from('invoices').delete()
     .eq('user_phone', from).in('client_handle', [DEMO_CLIENT_HANDLE, 'dave']).then(() => {}, () => {});
-  await supabase.from('agent_invoices').insert([
+  await supabase.from('invoices').insert([
     {
       user_phone: from, client_name: DEMO_CLIENT_NAME, client_handle: DEMO_CLIENT_HANDLE,
-      line_items: [{ description: 'bathroom reno', amount_cents: DEMO_QUOTE_CENTS }],
-      subtotal_cents: DEMO_QUOTE_CENTS, tax_cents: 0, total_cents: DEMO_QUOTE_CENTS, currency: 'AUD',
-      public_token: tok(), status: 'sent', sent_at: sentAt,
+      title: DEMO_CLIENT_NAME,
+      line_items: [{ description: 'bathroom reno', quantity: 1, unit_price: dollars(DEMO_QUOTE_CENTS), total: dollars(DEMO_QUOTE_CENTS), amount_cents: DEMO_QUOTE_CENTS }],
+      subtotal: dollars(DEMO_QUOTE_CENTS), tax_rate: 0, tax_amount: 0, total: dollars(DEMO_QUOTE_CENTS),
+      amount_paid: 0, amount_due: dollars(DEMO_QUOTE_CENTS), currency: 'AUD',
+      public_token: tok(), status: 'sent', sent_at: sentAt, issued_date: today,
     },
     {
       user_phone: from, client_name: 'Dave', client_handle: 'dave',
-      line_items: [{ description: 'hot water unit swap', amount_cents: 62000 }],
-      subtotal_cents: 62000, tax_cents: 0, total_cents: 62000, currency: 'AUD',
-      public_token: tok(), status: 'paid', sent_at: sentAt, paid_at: paidAt,
+      title: 'Dave',
+      line_items: [{ description: 'hot water unit swap', quantity: 1, unit_price: 620, total: 620, amount_cents: 62000 }],
+      subtotal: 620, tax_rate: 0, tax_amount: 0, total: 620,
+      amount_paid: 620, amount_due: 0, currency: 'AUD',
+      public_token: tok(), status: 'paid', sent_at: sentAt, paid_at: paidAt, issued_date: today,
     },
   ]).then(() => {}, (e) => console.warn('[demo] invoice seed failed:', e?.message));
 }
@@ -131,7 +137,7 @@ async function handleDemoCommand({ from, body }) {
     // Wipe this number's data and re-arm onboarding. We update the users row
     // rather than delete it (avoids FK orphans); the Flynn contact/vCard already
     // saved on the device persists, so the next text starts a fresh brain build.
-    for (const table of ['pending_actions', 'agent_quotes', 'agent_invoices', 'job_photo_buffer', 'sms_messages']) {
+    for (const table of ['pending_actions', 'agent_quotes', 'agent_invoices', 'invoices', 'job_photo_buffer', 'sms_messages']) {
       await supabase.from(table).delete().eq('user_phone', from).then(() => {}, () => {});
     }
     await supabase.from('users')
@@ -164,8 +170,17 @@ router.post('/inbound', async (req, res) => {
     return;
   }
 
-  const payload = req.body;
+  await processInbound(req.body).catch((err) =>
+    console.error('[iMessageInbound] Unhandled error:', err?.message || err));
+});
 
+/**
+ * Process one normalised inbound iMessage event (BlueBubbles `new-message`
+ * shape). Exported so an alternate provider route (e.g. Sendblue) can translate
+ * its own webhook into this shape and reuse the exact same brain/reply flow.
+ * @param {object} payload BlueBubbles-shaped { type:'new-message', data:{...} }
+ */
+async function processInbound(payload) {
   // BlueBubbles sends various event types; only process new inbound messages
   if (payload?.type !== 'new-message') return;
 
@@ -659,6 +674,7 @@ router.post('/inbound', async (req, res) => {
     await sendToUser(from, sanitiseReply("sorry, something went wrong on my end. give it another go in a moment."), { channel: 'imessage', supabase })
       .catch(() => {});
   }
-});
+}
 
 module.exports = router;
+module.exports.processInbound = processInbound;

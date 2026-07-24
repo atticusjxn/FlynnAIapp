@@ -52,8 +52,8 @@ targets:
       properties:
         CFBundleName: $(PRODUCT_NAME)
         CFBundleDisplayName: Flynn
-        CFBundleShortVersionString: "3.0.1"
-        CFBundleVersion: "113"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
         UILaunchScreen:
           UIColorName: ""
@@ -84,6 +84,7 @@ targets:
         NSCalendarsFullAccessUsageDescription: "Flynn adds your confirmed bookings to your calendar so you never miss a job."
         NSUserNotificationUsageDescription: "Flynn notifies you when a booking is added to your calendar or a draft is ready."
         NSMicrophoneUsageDescription: "Flynn uses your microphone for voice commands — hold the mic to create quotes, bookings, notes and replies by talking."
+        NSSpeechRecognitionUsageDescription: "Flynn turns your voice into text on-device so you can talk to it instead of typing — hold the mic and say what you need done."
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)
@@ -102,8 +103,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app
-        MARKETING_VERSION: "3.0.1"
-        CURRENT_PROJECT_VERSION: "113"
+        MARKETING_VERSION: "3.0.2"
+        CURRENT_PROJECT_VERSION: "114"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
         DEVELOPMENT_TEAM: "69T5H7R46N"
@@ -135,8 +136,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app.keyboard
         PRODUCT_NAME: FlynnKeyboard
-        MARKETING_VERSION: "3.0.1"
-        CURRENT_PROJECT_VERSION: "113"
+        MARKETING_VERSION: "3.0.2"
+        CURRENT_PROJECT_VERSION: "114"
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: "69T5H7R46N"
         CODE_SIGN_STYLE: Automatic

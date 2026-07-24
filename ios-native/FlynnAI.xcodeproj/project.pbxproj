@@ -69,6 +69,7 @@
 		637F7A8AB48D8A7CDD0976EF /* PendingCalendarEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B17438BE2C2653EA3675C9D /* PendingCalendarEvent.swift */; };
 		63C1A2856B22C9D68039449B /* ClientsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6947106A91B0B5B184CF75 /* ClientsListView.swift */; };
 		63EB7578A083FF536A647620 /* ScreenshotOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 766975A5FBA5BDF7513C1EA2 /* ScreenshotOCR.swift */; };
+		64F11F132E0C77D46F755498 /* FlynnGlassButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55054A58264A1F32D51D8D44 /* FlynnGlassButton.swift */; };
 		675C304A45A248BFF2A61E07 /* PlanDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = B21C19CE5158405CB7902797 /* PlanDTO.swift */; };
 		6865D1A8F7161D69132F937A /* LineItemEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCB6CEB71C56CE019A3560D0 /* LineItemEditorView.swift */; };
 		69352FAC0C7BC063FCCE3483 /* KeyboardDraftClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8C35B740660515C2D64307 /* KeyboardDraftClient.swift */; };
@@ -85,6 +86,7 @@
 		7802F897F0DEF7E818BF4322 /* InvoiceDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 138F3BE6B171CF1E52F147CB /* InvoiceDTO.swift */; };
 		7B8F6FCE4A083E90A1013FF5 /* EventRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C5DE7CC45E466A7A05AC3E /* EventRow.swift */; };
 		7C3F23E5884A27494F808482 /* IvrTemplatesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0071B3CAD5D420349D2A782 /* IvrTemplatesRepository.swift */; };
+		7D3A6CD9007E06BD042CCD5D /* JobNotesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F4140E64E0EE99D79F45DEA /* JobNotesRepository.swift */; };
 		7DB180B73D673E2DCB68CE91 /* DraftModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8344EF26D2743F88999101 /* DraftModels.swift */; };
 		7E5D1A8CF3765BD8609FCEA2 /* ClientsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE98A8EB1889B76C73D38CE5 /* ClientsRepository.swift */; };
 		7F02708B30387743CF2DFAC0 /* BusinessProfileEditorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7136EDB81E28083036459F5 /* BusinessProfileEditorStore.swift */; };
@@ -96,6 +98,7 @@
 		852CA9FEAA1851D1E14273EE /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = D344EBBADA2984B3CB5CD4BB /* Logger.swift */; };
 		85718D69566AFE41EF4BAD91 /* FlynnTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F551B5B74E08F33E87350FF5 /* FlynnTextField.swift */; };
 		891174ECB56A17A7BAF78B6A /* Inter-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 862309A50287B206975D9D70 /* Inter-Medium.ttf */; };
+		89198786911F067A1437487C /* SavedMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01062682A87FCB40F6C2DC91 /* SavedMessage.swift */; };
 		8CAD846250DF523FDB63B3D7 /* BookingInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A30405904A9317E264CE9BE /* BookingInput.swift */; };
 		8D5A381905D639A69A794C8A /* FlynnButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D3CDFA504F1EB8DC314F8E /* FlynnButton.swift */; };
 		8F9243D1E556CDD84CC22C51 /* InvoiceFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F691C286418C91452AA82775 /* InvoiceFormView.swift */; };
@@ -108,9 +111,12 @@
 		978A8BD9069CD5282094B6B1 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BA51F7D5060E928C6861216 /* DeepLinkRouter.swift */; };
 		98C15BA6505CD84D768B5C2C /* PushTokenSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2731196ADB9511B9939E6DDE /* PushTokenSync.swift */; };
 		995D34F16EA959D13BC13742 /* SharedSecureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3C4F692F0524AEF257F4E0C /* SharedSecureStore.swift */; };
+		9ACC38252E68310C31084D2D /* JobNoteDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8334DBA2D250EE1B9E52E87B /* JobNoteDTO.swift */; };
 		9FE7DEC37FD276B9AABFBC22 /* IntegrationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFE086018488BFA041343E3A /* IntegrationsView.swift */; };
 		A03714CD8FE8735D243219B5 /* DeviceCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BEED2AD81D1FF35BC339A71 /* DeviceCapability.swift */; };
 		A1E5763BDB639FBFF702B336 /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3C99159E29A5470FC5FFE4 /* Route.swift */; };
+		A40D43C4DF6D41C58C9D5554 /* AgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624FE48EEBC56261D9DBC61C /* AgentClient.swift */; };
+		A5F10CAFD059ADCFA9F884FC /* VoiceOnboardingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3877C4B8799F263E94966490 /* VoiceOnboardingClient.swift */; };
 		A87962A6CFDC4D43572F7C99 /* SharedStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC95E1BB05DA267B68B1DAD5 /* SharedStore.swift */; };
 		AB1C7957E48C068C58433894 /* KeyboardBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B365FA41D5A0F5059A8D535C /* KeyboardBridge.swift */; };
 		AD00462FBF475C0761B2E489 /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA0CC728032A673861C27D2 /* Spacing.swift */; };
@@ -121,6 +127,7 @@
 		B60761658D67E85342C42DF0 /* InvoiceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4535A5101A910A1B7892503 /* InvoiceDetailView.swift */; };
 		B618729F361EE1DE22B9DD9E /* Shadows.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0B8B964D5634E566DD556 /* Shadows.swift */; };
 		B7255F0AB634E2A9E6A4ADD1 /* ClientDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D11AE286A282D7E9D7BF40D /* ClientDetailView.swift */; };
+		B798A50DC77FF6B48B0587A8 /* JobPhotosRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 035BB225B4AC56361F5B1298 /* JobPhotosRepository.swift */; };
 		B7A93C6961E32B0AA87DAB42 /* EventFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9446747FC9242AE1F2C8E88F /* EventFormView.swift */; };
 		B807D3E4F4FC758B303436C7 /* LocalNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574E41EC201E9D3A3E6B9B61 /* LocalNotifier.swift */; };
 		BB3799B6CC9383844E9347C4 /* InvoicesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6118D4C1EC28E9CCF0192C25 /* InvoicesRepository.swift */; };
@@ -133,13 +140,17 @@
 		C9B1491B1F0AB1E929C39976 /* IvrTemplateDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94195974B0C325476064FE78 /* IvrTemplateDTO.swift */; };
 		CA2894DCCF6F54051BD3F325 /* OrgResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54C39B65DBF9E93D1203057 /* OrgResolver.swift */; };
 		CA4CD2376220126D1B6FB6E1 /* ScreenshotCaptureDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67623795A4A6A047B92D7585 /* ScreenshotCaptureDTO.swift */; };
+		CA72F98C9359D1B0F37D5038 /* SavedMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01062682A87FCB40F6C2DC91 /* SavedMessage.swift */; };
+		CABEDE0BACD4E056CD116D10 /* SavedMessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB25A8296327793A669D06F4 /* SavedMessagesView.swift */; };
 		CB3386EE73D20C93264D63F8 /* UsageDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CEB4D6AAD7FCFB4C8B64C21 /* UsageDTO.swift */; };
 		CC0448F50A67E38D5C2EFB6C /* SharedSecureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3C4F692F0524AEF257F4E0C /* SharedSecureStore.swift */; };
 		CE2E72B03B428D52F0258213 /* SupabaseClient+Flynn.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFC47A3634A225F71BA8A0F /* SupabaseClient+Flynn.swift */; };
 		CF22A04A82D693E43FB4D9AD /* QuoteFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9A72B9D6E4AF630D5CB9A3 /* QuoteFormView.swift */; };
 		D029C8A84F4C05408EE143B9 /* ClientDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AF3C0BD36F52AA8CDB21BB7 /* ClientDTO.swift */; };
+		D0AE92B5498A1510D9F801E2 /* JobPhotoDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC5614B707DBDA619371B4A0 /* JobPhotoDTO.swift */; };
 		D1131F9E3247C0FB572BF923 /* InvoicesListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CE3EEEC6B1D518F200C23D /* InvoicesListStore.swift */; };
 		D129C788573531EE371ED44F /* PaywallPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A853CD7DA4C44732339D25 /* PaywallPresentation.swift */; };
+		D42B1F47842D624BE97C875B /* ReceptionistClaimFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA8964C002FC2C37A4DA3AE /* ReceptionistClaimFlow.swift */; };
 		D5A8C3376081E4AE0496C82F /* UsageBarCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8F8558954CA2340B538CB /* UsageBarCard.swift */; };
 		D6D64D4469B779958EDAED8E /* BusinessProfileDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00E8AC6AF62FDF61D781DBDB /* BusinessProfileDTO.swift */; };
 		D730594479780D35F9B16E02 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18C1E534FA43BCF2637F6D9 /* Formatters.swift */; };
@@ -150,9 +161,11 @@
 		DB16BD48EF21B36D62D4AF0F /* QuoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FAA68BAB272219F0650BFFF /* QuoteDetailView.swift */; };
 		DB55A3BC5CAEBEC40AC65464 /* QuoteStyleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3284EEA9F7EA3080348CEA6B /* QuoteStyleModels.swift */; };
 		DE3EDD1DA4DE2A766038C3CC /* MemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81D0B28E329DAE0263E7D5F /* MemoryStore.swift */; };
+		E04C9A9C6175CB04FE776F02 /* AgentConversationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77B072FC1692CB1E1B115C57 /* AgentConversationStore.swift */; };
 		E328B8C977B246971A90B3AB /* EventsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 400DE49FC57AEA64EEBF6441 /* EventsListView.swift */; };
 		E658D213EEDCBDBF82591584 /* MemoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F197874FD32DAC0770675EF /* MemoryRepository.swift */; };
 		E7C09A35978431F1815321BF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FAF4EBBBF0BACFED6DA077F6 /* PrivacyInfo.xcprivacy */; };
+		E819202224624FE338AB11FC /* AgentInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48E41B99E5AF0EFBF97B1DD4 /* AgentInputBar.swift */; };
 		E8E0CCF3EEC730AEFE4EDBA2 /* CallEventDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0829D3CACDD97BDB38157014 /* CallEventDTO.swift */; };
 		EAA41DF79332B475BA306738 /* AddReplySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90B27DD741BA780130C5243 /* AddReplySheet.swift */; };
 		EAE5F8E1904ED25E125CB426 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90F566344E9F0DA7753F02C /* Keychain.swift */; };
@@ -160,6 +173,7 @@
 		EF8ACBD184CA96BDFBABEDEF /* Inter-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8BF2E5F01979E1BB6718CA1B /* Inter-Regular.ttf */; };
 		F1578D9ED60D804EDE2689B2 /* IVRScriptEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55082F9D63C7592F82108439 /* IVRScriptEditorView.swift */; };
 		F2C9E5E4CC332C9B2BDCA8BA /* SubscriptionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B570D00B5D7BD87F308E37D /* SubscriptionDetailView.swift */; };
+		F4A6C13D01C56E7B43ECC6EE /* VoiceCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 054AADFF941257A29E658561 /* VoiceCaptureManager.swift */; };
 		F544DA454D4EC1EF97703410 /* OnboardingSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731E3C4A9179C783D08F7C00 /* OnboardingSteps.swift */; };
 		F75B0A3217D7E2C49260D607 /* GoogleCalendarConnect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139819673423D6AB673F53BD /* GoogleCalendarConnect.swift */; };
 		FB213FABBCDEC210463A6AF4 /* QuoteRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C0093A1FCD01BB6E63E6E9 /* QuoteRow.swift */; };
@@ -195,7 +209,10 @@
 		0020F07CCC6A8630E73E5981 /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
 		00A8F8558954CA2340B538CB /* UsageBarCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageBarCard.swift; sourceTree = "<group>"; };
 		00E8AC6AF62FDF61D781DBDB /* BusinessProfileDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessProfileDTO.swift; sourceTree = "<group>"; };
+		01062682A87FCB40F6C2DC91 /* SavedMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedMessage.swift; sourceTree = "<group>"; };
 		016C61DC16F111E157CF1402 /* VoiceProfilesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceProfilesRepository.swift; sourceTree = "<group>"; };
+		035BB225B4AC56361F5B1298 /* JobPhotosRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobPhotosRepository.swift; sourceTree = "<group>"; };
+		054AADFF941257A29E658561 /* VoiceCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCaptureManager.swift; sourceTree = "<group>"; };
 		07EDAE8D0C9CB337EDB02056 /* FlynnConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnConfig.swift; sourceTree = "<group>"; };
 		0829D3CACDD97BDB38157014 /* CallEventDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallEventDTO.swift; sourceTree = "<group>"; };
 		0A2C5F76185652A2EEE2D215 /* MoneyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyView.swift; sourceTree = "<group>"; };
@@ -226,6 +243,7 @@
 		312A0A151B052FD4DCB18274 /* AppleSearchAdsAttributionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSearchAdsAttributionStore.swift; sourceTree = "<group>"; };
 		3284EEA9F7EA3080348CEA6B /* QuoteStyleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteStyleModels.swift; sourceTree = "<group>"; };
 		3642B3195654DB0D3B3A2259 /* CallRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallRow.swift; sourceTree = "<group>"; };
+		3877C4B8799F263E94966490 /* VoiceOnboardingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceOnboardingClient.swift; sourceTree = "<group>"; };
 		39D87686ACB6D633F1CF99BE /* FlynnAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnAIApp.swift; sourceTree = "<group>"; };
 		3A3C99159E29A5470FC5FFE4 /* Route.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Route.swift; sourceTree = "<group>"; };
 		3A5206B5E4FA23E5C1844F63 /* SubscriptionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStore.swift; sourceTree = "<group>"; };
@@ -235,6 +253,7 @@
 		400DE49FC57AEA64EEBF6441 /* EventsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsListView.swift; sourceTree = "<group>"; };
 		43C38F5F8233358F2829D09C /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStore.swift; sourceTree = "<group>"; };
 		45A511E6D227C87451C5A94C /* FlynnBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnBadge.swift; sourceTree = "<group>"; };
+		48E41B99E5AF0EFBF97B1DD4 /* AgentInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentInputBar.swift; sourceTree = "<group>"; };
 		4AEEDE39516F623943897BFE /* KeyboardSetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardSetupFlow.swift; sourceTree = "<group>"; };
 		4B570D00B5D7BD87F308E37D /* SubscriptionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionDetailView.swift; sourceTree = "<group>"; };
 		4C283C2FC4BD3E0A574751EC /* QuotesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotesRepository.swift; sourceTree = "<group>"; };
@@ -244,6 +263,7 @@
 		5395FEB668E1F948BA680091 /* CallDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallDTO.swift; sourceTree = "<group>"; };
 		53B9618064A5C0D28813B101 /* InvoicesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoicesListView.swift; sourceTree = "<group>"; };
 		545C1E1D9D2F3CCA25B34FEA /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		55054A58264A1F32D51D8D44 /* FlynnGlassButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnGlassButton.swift; sourceTree = "<group>"; };
 		55082F9D63C7592F82108439 /* IVRScriptEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IVRScriptEditorView.swift; sourceTree = "<group>"; };
 		574E41EC201E9D3A3E6B9B61 /* LocalNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNotifier.swift; sourceTree = "<group>"; };
 		5B09A107D9FBD1D4038C67BE /* PendingCalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingCalendarStore.swift; sourceTree = "<group>"; };
@@ -256,6 +276,7 @@
 		60C5DE7CC45E466A7A05AC3E /* EventRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventRow.swift; sourceTree = "<group>"; };
 		6118D4C1EC28E9CCF0192C25 /* InvoicesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoicesRepository.swift; sourceTree = "<group>"; };
 		620B70F624BAE10AFEE1238B /* BusinessProfileRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessProfileRepository.swift; sourceTree = "<group>"; };
+		624FE48EEBC56261D9DBC61C /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
 		649E2D23AA248FB51B8C7731 /* CallModeSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallModeSelectorView.swift; sourceTree = "<group>"; };
 		67623795A4A6A047B92D7585 /* ScreenshotCaptureDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotCaptureDTO.swift; sourceTree = "<group>"; };
 		6884786616951C0902D3F63A /* SpaceGrotesk-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Bold.ttf"; sourceTree = "<group>"; };
@@ -270,12 +291,14 @@
 		73949382C66FC320D63EDD36 /* Mascot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mascot.swift; sourceTree = "<group>"; };
 		766975A5FBA5BDF7513C1EA2 /* ScreenshotOCR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotOCR.swift; sourceTree = "<group>"; };
 		770048122B9C226E8B7C578B /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
+		77B072FC1692CB1E1B115C57 /* AgentConversationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentConversationStore.swift; sourceTree = "<group>"; };
 		78272267D5F9775360B0F87A /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		7AF3C0BD36F52AA8CDB21BB7 /* ClientDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientDTO.swift; sourceTree = "<group>"; };
 		7DE949E60893909192B62411 /* StagedScreenshotDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagedScreenshotDraft.swift; sourceTree = "<group>"; };
 		7E581F8BBDE27751DCE09734 /* QuotesListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotesListStore.swift; sourceTree = "<group>"; };
 		804519C1EA54863A22C6807D /* CallStatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallStatusBadge.swift; sourceTree = "<group>"; };
 		808796E92F5458FA568F07FE /* DrawerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerView.swift; sourceTree = "<group>"; };
+		8334DBA2D250EE1B9E52E87B /* JobNoteDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobNoteDTO.swift; sourceTree = "<group>"; };
 		862309A50287B206975D9D70 /* Inter-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Medium.ttf"; sourceTree = "<group>"; };
 		864065B83E87AB5BFE6D8E09 /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
 		87B7E306882FD5BB66E53C98 /* QuoteStyleRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteStyleRepository.swift; sourceTree = "<group>"; };
@@ -293,7 +316,9 @@
 		9A30405904A9317E264CE9BE /* BookingInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingInput.swift; sourceTree = "<group>"; };
 		9D4F6E0F5D7E92893A38D553 /* QuoteStyleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteStyleView.swift; sourceTree = "<group>"; };
 		9E8C35B740660515C2D64307 /* KeyboardDraftClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardDraftClient.swift; sourceTree = "<group>"; };
+		9F4140E64E0EE99D79F45DEA /* JobNotesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobNotesRepository.swift; sourceTree = "<group>"; };
 		9F6947106A91B0B5B184CF75 /* ClientsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientsListView.swift; sourceTree = "<group>"; };
+		9FA8964C002FC2C37A4DA3AE /* ReceptionistClaimFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceptionistClaimFlow.swift; sourceTree = "<group>"; };
 		A0071B3CAD5D420349D2A782 /* IvrTemplatesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IvrTemplatesRepository.swift; sourceTree = "<group>"; };
 		A18624D4E02F257EF6666E19 /* OnboardingDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDesign.swift; sourceTree = "<group>"; };
 		A7942C482A2E3AA2C1330B25 /* BookingDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingDTO.swift; sourceTree = "<group>"; };
@@ -328,6 +353,7 @@
 		D3C4F692F0524AEF257F4E0C /* SharedSecureStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedSecureStore.swift; sourceTree = "<group>"; };
 		D814965D344034186B5002B5 /* BrainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainStore.swift; sourceTree = "<group>"; };
 		D8CE3EEEC6B1D518F200C23D /* InvoicesListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoicesListStore.swift; sourceTree = "<group>"; };
+		DC5614B707DBDA619371B4A0 /* JobPhotoDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobPhotoDTO.swift; sourceTree = "<group>"; };
 		DD0BFDE0091F66879C8CA695 /* FlynnAI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FlynnAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDACC3C1B256C72E5278BCB0 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
 		DDFC47A3634A225F71BA8A0F /* SupabaseClient+Flynn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SupabaseClient+Flynn.swift"; sourceTree = "<group>"; };
@@ -336,6 +362,7 @@
 		E0C92C67EA205426776B5B83 /* ClientFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientFormView.swift; sourceTree = "<group>"; };
 		E18C1E534FA43BCF2637F6D9 /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
 		E209050C5F8EBF3759ED3D10 /* IntegrationBrand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationBrand.swift; sourceTree = "<group>"; };
+		EB25A8296327793A669D06F4 /* SavedMessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedMessagesView.swift; sourceTree = "<group>"; };
 		EB6278337BA8C4875D921B37 /* .gitkeep */ = {isa = PBXFileReference; path = .gitkeep; sourceTree = "<group>"; };
 		EDA0B8B964D5634E566DD556 /* Shadows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shadows.swift; sourceTree = "<group>"; };
 		F2D50EEC1E429C31A4AFE34F /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -389,6 +416,8 @@
 				955D33A2EBF6B1FDF8450FCE /* EventInput.swift */,
 				138F3BE6B171CF1E52F147CB /* InvoiceDTO.swift */,
 				94195974B0C325476064FE78 /* IvrTemplateDTO.swift */,
+				8334DBA2D250EE1B9E52E87B /* JobNoteDTO.swift */,
+				DC5614B707DBDA619371B4A0 /* JobPhotoDTO.swift */,
 				B21C19CE5158405CB7902797 /* PlanDTO.swift */,
 				6F3CB48376EFB9E8AE7A5EEF /* QuoteDTO.swift */,
 				C83315D778BFDD5095CB678E /* SubscriptionDTO.swift */,
@@ -424,6 +453,7 @@
 				45A511E6D227C87451C5A94C /* FlynnBadge.swift */,
 				20D3CDFA504F1EB8DC314F8E /* FlynnButton.swift */,
 				979EF5FBABCEFE4648C5AC38 /* FlynnCard.swift */,
+				55054A58264A1F32D51D8D44 /* FlynnGlassButton.swift */,
 				F551B5B74E08F33E87350FF5 /* FlynnTextField.swift */,
 				73949382C66FC320D63EDD36 /* Mascot.swift */,
 			);
@@ -519,6 +549,7 @@
 				574E41EC201E9D3A3E6B9B61 /* LocalNotifier.swift */,
 				D344EBBADA2984B3CB5CD4BB /* Logger.swift */,
 				2731196ADB9511B9939E6DDE /* PushTokenSync.swift */,
+				054AADFF941257A29E658561 /* VoiceCaptureManager.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -528,6 +559,8 @@
 			children = (
 				0C3F4420F2732C1ABA658B94 /* DTOs */,
 				DF1D1E5FF664BAF47BAF3538 /* Supabase */,
+				624FE48EEBC56261D9DBC61C /* AgentClient.swift */,
+				3877C4B8799F263E94966490 /* VoiceOnboardingClient.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -602,6 +635,7 @@
 				8DBF933AA5334F9A3F90FF30 /* Notifications */,
 				E28AD15B00E197DE466A5090 /* Subscription */,
 				0020F07CCC6A8630E73E5981 /* AccountView.swift */,
+				EB25A8296327793A669D06F4 /* SavedMessagesView.swift */,
 				3DFB3A91B8765EB59CAAB44F /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -662,6 +696,7 @@
 				0F8344EF26D2743F88999101 /* DraftModels.swift */,
 				9E8C35B740660515C2D64307 /* KeyboardDraftClient.swift */,
 				0B17438BE2C2653EA3675C9D /* PendingCalendarEvent.swift */,
+				01062682A87FCB40F6C2DC91 /* SavedMessage.swift */,
 				ABB28896A42577F09658262C /* SharedConstants.swift */,
 				D3C4F692F0524AEF257F4E0C /* SharedSecureStore.swift */,
 				BC95E1BB05DA267B68B1DAD5 /* SharedStore.swift */,
@@ -698,6 +733,7 @@
 				A18624D4E02F257EF6666E19 /* OnboardingDesign.swift */,
 				731E3C4A9179C783D08F7C00 /* OnboardingSteps.swift */,
 				60228C9A9D753E9CC0B00D0A /* PracticeStepView.swift */,
+				9FA8964C002FC2C37A4DA3AE /* ReceptionistClaimFlow.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -755,6 +791,8 @@
 		D66CB5E6A87BABE752059E39 /* Dashboard */ = {
 			isa = PBXGroup;
 			children = (
+				77B072FC1692CB1E1B115C57 /* AgentConversationStore.swift */,
+				48E41B99E5AF0EFBF97B1DD4 /* AgentInputBar.swift */,
 				B087DE57B53CA2ADE94FEBAF /* CalendarConnectCard.swift */,
 				F82A61866F0A720FBE18D631 /* DashboardStore.swift */,
 				F2D50EEC1E429C31A4AFE34F /* DashboardView.swift */,
@@ -775,6 +813,8 @@
 				DFD6A2A8D7571AC1BEFB4AF1 /* EventsRepository.swift */,
 				6118D4C1EC28E9CCF0192C25 /* InvoicesRepository.swift */,
 				A0071B3CAD5D420349D2A782 /* IvrTemplatesRepository.swift */,
+				9F4140E64E0EE99D79F45DEA /* JobNotesRepository.swift */,
+				035BB225B4AC56361F5B1298 /* JobPhotosRepository.swift */,
 				B54C39B65DBF9E93D1203057 /* OrgResolver.swift */,
 				51D352FB477574D2F391449F /* PlansRepository.swift */,
 				4C283C2FC4BD3E0A574751EC /* QuotesRepository.swift */,
@@ -954,6 +994,9 @@
 			files = (
 				08002F5381BE068A2D792E65 /* AccountView.swift in Sources */,
 				EAA41DF79332B475BA306738 /* AddReplySheet.swift in Sources */,
+				A40D43C4DF6D41C58C9D5554 /* AgentClient.swift in Sources */,
+				E04C9A9C6175CB04FE776F02 /* AgentConversationStore.swift in Sources */,
+				E819202224624FE338AB11FC /* AgentInputBar.swift in Sources */,
 				6B4869B1B129F7B25F0FFD7F /* AppDelegate.swift in Sources */,
 				04E47062D19D438ED921AAC9 /* AppearanceView.swift in Sources */,
 				6F05E635F3CE5F3D73ABA513 /* AppleCalendarService.swift in Sources */,
@@ -1012,6 +1055,7 @@
 				8D5A381905D639A69A794C8A /* FlynnButton.swift in Sources */,
 				6F9E7E3A24E3AEE86402C62F /* FlynnCard.swift in Sources */,
 				FC1A7F6FFEC894E311555F68 /* FlynnConfig.swift in Sources */,
+				64F11F132E0C77D46F755498 /* FlynnGlassButton.swift in Sources */,
 				85718D69566AFE41EF4BAD91 /* FlynnTextField.swift in Sources */,
 				D730594479780D35F9B16E02 /* Formatters.swift in Sources */,
 				F75B0A3217D7E2C49260D607 /* GoogleCalendarConnect.swift in Sources */,
@@ -1026,6 +1070,10 @@
 				BB3799B6CC9383844E9347C4 /* InvoicesRepository.swift in Sources */,
 				C9B1491B1F0AB1E929C39976 /* IvrTemplateDTO.swift in Sources */,
 				7C3F23E5884A27494F808482 /* IvrTemplatesRepository.swift in Sources */,
+				9ACC38252E68310C31084D2D /* JobNoteDTO.swift in Sources */,
+				7D3A6CD9007E06BD042CCD5D /* JobNotesRepository.swift in Sources */,
+				D0AE92B5498A1510D9F801E2 /* JobPhotoDTO.swift in Sources */,
+				B798A50DC77FF6B48B0587A8 /* JobPhotosRepository.swift in Sources */,
 				AB1C7957E48C068C58433894 /* KeyboardBridge.swift in Sources */,
 				FF4F53D1524ED8E6B612DD92 /* KeyboardDraftClient.swift in Sources */,
 				7127EBBCF91C699A71348394 /* KeyboardSetupFlow.swift in Sources */,
@@ -1064,9 +1112,12 @@
 				53B0F90C4201CBC6225598B2 /* QuotesListStore.swift in Sources */,
 				77E21D6DCE21314681974A75 /* QuotesListView.swift in Sources */,
 				59C346B5A2A6D7E1BF53F6BA /* QuotesRepository.swift in Sources */,
+				D42B1F47842D624BE97C875B /* ReceptionistClaimFlow.swift in Sources */,
 				D828C0D93555F2B5F64F633C /* RememberedContextView.swift in Sources */,
 				44F7992657C7084523D1E2DE /* RootView.swift in Sources */,
 				A1E5763BDB639FBFF702B336 /* Route.swift in Sources */,
+				CA72F98C9359D1B0F37D5038 /* SavedMessage.swift in Sources */,
+				CABEDE0BACD4E056CD116D10 /* SavedMessagesView.swift in Sources */,
 				CA4CD2376220126D1B6FB6E1 /* ScreenshotCaptureDTO.swift in Sources */,
 				357CA4F504506B42133B3438 /* ScreenshotDraftIntent.swift in Sources */,
 				63EB7578A083FF536A647620 /* ScreenshotOCR.swift in Sources */,
@@ -1089,6 +1140,8 @@
 				CB3386EE73D20C93264D63F8 /* UsageDTO.swift in Sources */,
 				35322A42150BF7C820F99A23 /* UsageRepository.swift in Sources */,
 				93CF8EAE4D728E30FB15B9D8 /* UsageStore.swift in Sources */,
+				F4A6C13D01C56E7B43ECC6EE /* VoiceCaptureManager.swift in Sources */,
+				A5F10CAFD059ADCFA9F884FC /* VoiceOnboardingClient.swift in Sources */,
 				C88376E25A212CEB09B7AFCA /* VoiceProfileDTO.swift in Sources */,
 				6ADF0BF2F246C41298FB8691 /* VoiceProfilesRepository.swift in Sources */,
 			);
@@ -1102,6 +1155,7 @@
 				69352FAC0C7BC063FCCE3483 /* KeyboardDraftClient.swift in Sources */,
 				21203002F5D8C79621DC08B4 /* KeyboardViewController.swift in Sources */,
 				637F7A8AB48D8A7CDD0976EF /* PendingCalendarEvent.swift in Sources */,
+				89198786911F067A1437487C /* SavedMessage.swift in Sources */,
 				448307DC9CB4933F427C2153 /* SharedConstants.swift in Sources */,
 				995D34F16EA959D13BC13742 /* SharedSecureStore.swift in Sources */,
 				3C4320DA7438A0403F5D2398 /* SharedStore.swift in Sources */,
@@ -1127,7 +1181,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1137,7 +1191,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0.1;
+				MARKETING_VERSION = 3.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.flynnai.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1149,7 +1203,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FlynnKeyboard/FlynnKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				INFOPLIST_FILE = FlynnKeyboard/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1157,7 +1211,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.0.1;
+				MARKETING_VERSION = 3.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.flynnai.app.keyboard;
 				PRODUCT_NAME = FlynnKeyboard;
 				SDKROOT = iphoneos;
@@ -1172,7 +1226,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1182,7 +1236,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0.1;
+				MARKETING_VERSION = 3.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.flynnai.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1254,7 +1308,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FlynnKeyboard/FlynnKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 113;
+				CURRENT_PROJECT_VERSION = 114;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				INFOPLIST_FILE = FlynnKeyboard/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1262,7 +1316,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 3.0.1;
+				MARKETING_VERSION = 3.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.flynnai.app.keyboard;
 				PRODUCT_NAME = FlynnKeyboard;
 				SDKROOT = iphoneos;

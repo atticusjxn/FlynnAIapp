@@ -2,63 +2,97 @@
 
 ## What Flynn Is
 
-Flynn is a **text-based business agent** that lives in iMessage. Service operators text Flynn like a smart mate who knows their business — and Flynn handles the admin: drafting replies, booking jobs, creating invoices, ordering parts. Flynn texts back, executes actions, and learns the business over time.
+**Flynn is a payments company with an AI skin, not a SaaS company with payments attached.**
+Free, unlimited invoicing for solo tradies and small crews — Flynn drafts and sends invoices
+(hold a button and talk, or type), the invoice link goes out over SMS/email or via the Flynn
+keyboard extension into any chat app the tradie already uses (HiPages, Airtasker, iMessage,
+WhatsApp, Gmail), and the client pays on the spot. Revenue is a small capped fee on payments that
+clear through Flynn's own rail — not a subscription seat.
 
-**One promise:** "Run your business from iMessage."
+**One promise:** "Start sending invoices for free. Get paid faster."
 
-The iOS keyboard extension is a secondary surface — useful once the user is set up, but not the onboarding gate. The primary funnel is: land on flynnai.app → tap Message Flynn → start texting.
+**Primary surface is the native Swift iOS app** — agent-first: a living dashboard home screen with
+a persistent bottom bar to talk or type to Flynn, plus Jobs / Money / Clients tabs as the system of
+record. The **keyboard extension is the distribution wedge**, not a secondary nicety — it lets the
+boss insert a drafted reply + payment link into any app without leaving it. A shared "Team Flynn"
+number lets employees text receipts, job notes, and parts-pickup requests with OTP verification and
+no login. iMessage is no longer the primary channel (see Non-Goals) — it's a demoted nice-to-have.
+
+*(Superseded 2026-07-18: Flynn was previously "a text-based business agent that lives in iMessage."
+That channel — plus the self-hosted BlueBubbles relay it depended on — is a platform-risk trap and
+a weak paid-acquisition funnel. See memory `flynn_positioning` and `flynn_payments_verified_facts`,
+and the build plan for the full reasoning.)*
 
 ## Who It's For
 
-Service operators who run their business from their phone: tradies, removalists, cleaners, PTs, salons, real estate agents, freelancers. Vertical-agnostic — Flynn adapts its questions and suggestions to whatever industry it detects. Go-to-market focus is AU/NZ tradies.
+Service operators who run their business from their phone: tradies, removalists, cleaners, PTs,
+salons, freelancers. Beachhead is AU/NZ trades (photo-invoice + payments land hardest there);
+vision is broader SMB once the payments rail and app are proven. Vertical-agnostic long-term.
 
 ## Core Principles
 
-- **Text is the interface.** Flynn lives in iMessage. No app required to get value.
-- **Brain-first.** Every response uses the user's actual pricing, availability, and client context. Generic responses are a bug.
-- **Conversational onboarding.** Brain setup happens over SMS — Flynn asks questions naturally, never uses the word "setup" or "profile".
-- **Proactive but not pushy.** Flynn re-engages users who go quiet, sends reminders, flags important messages. But stops after 3 attempts and never nags.
-- **Context accumulates passively.** Flynn learns from every exchange — if the user mentions a new rate or client, it's saved. Never asks the same question twice.
-- **Confirm before executing.** For anything irreversible (sending an invoice, placing an order), Flynn sends a confirmation message first. User replies "yeah" to proceed.
-- **Mobile is primary.** Dashboard and app are secondary surfaces for power users.
+- **Payments-first.** The business model is a capped take-rate on payment volume that clears
+  through Flynn's rail, not a subscription seat. Free invoicing is the acquisition hook.
+- **Agent-first, not forms-first.** One button — talk or type — not five tabs of data entry.
+  Voice-to-invoice lives in the main app (iOS keyboard extensions cannot access the microphone).
+- **The keyboard is the distribution wedge.** Draft + payment link inserted into whatever app the
+  lead actually lives in — text-insertion only (no attachments, no secure fields — platform limit).
+- **Brain-first.** Every response uses the user's actual pricing, invoicing style, and client
+  context. Onboarding lets a tradie forward an old invoice so Flynn learns their voice/format
+  immediately — no blank-slate problem. Generic responses are a bug.
+- **Automation only fires on-rail.** Auto-chase, paid-detection, receipt filing, and tax-sorting
+  only work when the payment clears through Flynn — this is the retention mechanic, not a gimmick,
+  and it's load-bearing for the whole revenue model (see `flynn_payments_verified_facts`).
+- **Proactive but not pushy.** Flynn chases unpaid invoices, flags jobs, re-engages quiet users.
+  Stops after 3 attempts and never nags.
+- **Confirm before executing.** For anything irreversible (sending an invoice, placing an order),
+  Flynn confirms first.
+- **No login for crew.** Employees texting the Team Flynn number verify by OTP only — zero
+  friction, zero app required for them.
 
 ## Primary Architecture
 
 ```
-Landing page (flynnai.app)
-  → "Message Flynn" CTA → opens iMessage to Flynn's number
-  → User texts Flynn → BlueBubbles relay on Mac → Flynn backend
-  → Flynn replies via iMessage (blue bubbles)
+Swift iOS app (ios-native/, primary surface)
+  → Agent-first Home: talk/type to Flynn, hybrid living dashboard
+  → Jobs / Money / Clients: the system of record (org-keyed Supabase spine)
+  → Keyboard extension: insert drafted reply + payment link into any app
 
-Flynn number: dedicated eSIM (amaysim AU, Optus network)
-Relay: BlueBubbles server on Mac (Private API — read receipts + typing indicators)
 Backend: Node.js/Express on Fly.io (flynnai-telephony.fly.dev)
-Brain: Supabase (zvfeafmmtfplzpnocyjw, ap-southeast-2)
+Data: Supabase (zvfeafmmtfplzpnocyjw, ap-southeast-2) — org-keyed spine
+  (organizations/org_members/jobs/clients/invoices/expenses/client_threads)
 LLM: Qwen3.5-flash via DashScope (fast, cheap, natural tone)
+Payments: Stripe Connect Express (cards/Apple Pay, free convenience, no Flynn margin) +
+  a flat-fee PayID rail (Azupay/Monoova — build-blocking dependency, carries the take-rate)
+Client channel: SMS + email (no iMessage relay dependency)
+Team Flynn number: Twilio SMS, OTP-verified crew, no BlueBubbles/relay needed
 ```
+
+Full build plan: `~/.claude/plans/iridescent-floating-moore.md`.
 
 ## Surfaces
 
-### 1. iMessage (primary — where users live)
-- Conversational onboarding, brain building, action execution
-- Re-engagement messages for inactive users
-- Confirmation flows for invoices, bookings, orders
-- See `plans/conversational-onboarding.md`
+### 1. iOS app (primary — where the boss works)
+- Agent-first Home: proactive cards + persistent voice/text agent bar
+- Jobs, Money (invoices/quotes + pay-now status), Clients (two-way SMS/email threads)
+- Onboarding: create business → forward an old invoice to learn style → connect payments → invite
+  crew by phone
+- Keyboard extension for drafting into any third-party chat app
+- See `~/.claude/plans/iridescent-floating-moore.md`
 
-### 2. Web dashboard (flynnai.app/dashboard)
-- Integration management (Google Calendar, Xero, Gmail etc)
-- Brain viewer/editor
-- Upcoming jobs, open quotes, flagged leads
-- OAuth flows for all integrations
-- See `plans/dashboard.md` and `plans/integrations.md`
+### 2. Client channel (SMS + email — no app needed for clients)
+- Invoice/quote links delivered by SMS and email, branded short-link with OG preview
+- Two-way threads: client replies get parsed and surfaced back to the boss/agent
+- Auto-chase on unpaid invoices until paid
 
-### 3. iOS app (secondary — power users)
-- Keyboard extension: screenshot → OCR → draft → tap to insert
-- Integrations tab (same as web)
-- Brain tab (same as web)
-- Dashboard tab
-- Onboarding stripped to 3 steps — brain setup is SMS-based
-- See `plans/ios-app.md`
+### 3. Team Flynn number (crew — no login, OTP only)
+- Text a receipt photo → logged as an expense
+- Text a job note/photo → attached to the active job
+- "order 10 sheets of ply" → parts order placed, pickup QR texted back
+- Text availability → surfaces to the boss
+
+### 4. Web dashboard (flynnai.app/dashboard) — secondary
+- Same data, browser-accessible view; not the primary funnel
 
 ## Non-Goals — Do Not Build
 
@@ -66,8 +100,16 @@ LLM: Qwen3.5-flash via DashScope (fast, cheap, natural tone)
 - Always-on screen recording or clipboard harvesting
 - Autonomous sending without confirmation (invoices, orders always confirm first)
 - Any UX or marketing leading with "AI"
-- Multi-user / team features (solo operators only for now)
 - Desktop app or browser extension (not in current scope)
+- Android app for now (parked as of the payments-first pivot — Swift only; see memory
+  `flynn_android_play_app`)
+- Treating iMessage/BlueBubbles as the primary channel (demoted — platform risk; see memory
+  `flynn_imessage_channel_strategy`)
+- Voice capture inside the keyboard extension (Apple-confirmed impossible — mic access is
+  unavailable to app extensions; voice lives in the main app only)
+- Klarna at launch (fees too high relative to the flat-fee PayID rail's economics)
+- Multi-user/team features beyond the lightweight crew-texts-in model above (no full RBAC/org
+  admin UI yet — that's a later, pulled-not-pushed build)
 
 ## Message Tone — Non-Negotiable
 
@@ -573,6 +615,11 @@ DASHSCOPE_API_KEY=your_key_here   # Qwen3.5-flash draft model
 
 ## 🚫 Development Rules
 
+### The native apps are the shipped apps — NOT the Expo projects
+- **iOS:** the app Flynn ships is **`ios-native/`** (Swift/SwiftUI, XcodeGen `project.yml`, scheme `FlynnAI`, targets `FlynnAI` + `FlynnKeyboard`). Build/run it with Xcode/`xcodebuild`.
+- **Android:** the Play app is **`android-native/`** (Kotlin), built via `gradlew`.
+- **DO NOT** build or run the Expo `ios/` (`ios/FlynnAI.xcworkspace`) or Expo `android/`, and **never run `expo run:ios`/`expo run:android`** — those are stale/secondary RN builds. When the user says "the app", they mean the native one for that platform.
+
 ### NEVER Run Development Servers
 - **DO NOT** use `npm start`, `npm run dev`, `expo start`, or any similar commands
 - **DO NOT** attempt to start development servers or preview environments
@@ -585,6 +632,13 @@ DASHSCOPE_API_KEY=your_key_here   # Qwen3.5-flash draft model
 
 ## 🔄 Version History
 
+- **v4.0.0** — Payments-first pivot: app-primary, AI agent + keyboard as distribution wedge (July 2026)
+  - New product: Flynn is a payments company with an AI skin — free invoicing, capped take-rate on payment volume, not SaaS seats
+  - Swift iOS app becomes the primary surface (agent-first Home, voice-to-invoice); keyboard extension repurposed as the distribution wedge (draft + payment link into any chat app)
+  - iMessage/BlueBubbles demoted from primary channel to nice-to-have; clients reached via SMS + email
+  - Android parked (Swift only for now)
+  - Core principle: automation (auto-chase, receipt filing, tax-sorting) only fires when payment clears on Flynn's own rail — this is the retention mechanic the take-rate model depends on
+  - See `~/.claude/plans/iridescent-floating-moore.md` and memory `flynn_positioning` / `flynn_payments_verified_facts`
 - **v3.0.0** — Pivot to assistive keyboard reply drafter + calendar booking (June 2025)
   - New product: screenshot/clipboard capture → keyboard drafts → tap to insert
   - Retired telephony system (IVR, Twilio, Deepgram Voice Agent, voicemail pipeline)

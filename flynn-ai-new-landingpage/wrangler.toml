@@ -1,4 +1,5 @@
 name = "flynn-landing"
+main = "worker.js"
 compatibility_date = "2026-04-24"
 compatibility_flags = ["nodejs_compat"]
 
@@ -6,6 +7,8 @@ compatibility_flags = ["nodejs_compat"]
 pattern = "flynnai.app/*"
 zone_name = "flynnai.app"
 
+# binding lets the worker serve the static SPA for non-proxied paths
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"

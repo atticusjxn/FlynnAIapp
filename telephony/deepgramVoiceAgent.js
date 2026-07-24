@@ -13,6 +13,7 @@ const { Buffer } = require('buffer');
 const EventEmitter = require('events');
 const { createClient } = require('@deepgram/sdk');
 const { formatBusinessContext, formatBusinessHours } = require('../services/businessContextFormatter');
+const funnelIntake = require('./funnelIntake');
 
 /**
  * Build system prompt for the AI receptionist
@@ -28,34 +29,63 @@ const { formatBusinessContext, formatBusinessHours } = require('../services/busi
  * back to Deepgram Aura-2 `aura-2-theia-en` so the agent still works end-to-end.
  */
 const buildSpeakConfig = (businessContext) => {
+  // Provider is env-switchable so AU voice auditions are a secrets flip, not a
+  // deploy: FLYNN_TTS_PROVIDER = cartesia | eleven_labs | deepgram.
+  // Non-Deepgram providers REQUIRE speak.endpoint with the API key in headers
+  // (https://developers.deepgram.com/docs/voice-agent-tts-models) — without it
+  // the agent cannot authenticate to the TTS vendor.
+  const requested = (process.env.FLYNN_TTS_PROVIDER || '').toLowerCase();
   const hasCartesia = !!process.env.CARTESIA_API_KEY;
-  if (!hasCartesia) {
-    return { provider: { type: 'deepgram', model: 'aura-2-theia-en' } };
-  }
+  const hasElevenLabs = !!process.env.ELEVENLABS_API_KEY;
+
+  const provider = requested
+    || (hasCartesia ? 'cartesia' : hasElevenLabs ? 'eleven_labs' : 'deepgram');
 
   // voice_profile may be shaped like { provider_voice_id, gender } if the caller
-  // pre-resolved it; otherwise we use gender to pick between AU male/female envs.
+  // pre-resolved it; otherwise gender picks between the AU male/female envs.
   const vp = businessContext?.voice_profile || null;
-  const explicitVoiceId = vp?.provider_voice_id;
   const gender = (vp?.gender || 'female').toLowerCase();
-  const fallbackId =
-    gender === 'male'
-      ? process.env.CARTESIA_VOICE_AU_MALE
-      : process.env.CARTESIA_VOICE_AU_FEMALE;
-  const voiceId = explicitVoiceId || fallbackId;
 
-  if (!voiceId) {
-    console.warn('[DeepgramAgent] No Cartesia voice UUID configured; falling back to Deepgram Aura-2');
-    return { provider: { type: 'deepgram', model: 'aura-2-theia-en' } };
+  if (provider === 'cartesia' && hasCartesia) {
+    const voiceId = vp?.provider_voice_id
+      || (gender === 'male' ? process.env.CARTESIA_VOICE_AU_MALE : process.env.CARTESIA_VOICE_AU_FEMALE);
+    if (voiceId) {
+      return {
+        provider: {
+          type: 'cartesia',
+          model_id: process.env.FLYNN_CARTESIA_MODEL || 'sonic-3',
+          voice: { mode: 'id', id: voiceId },
+          language: 'en',
+        },
+        endpoint: {
+          url: 'https://api.cartesia.ai/tts/bytes',
+          headers: { 'x-api-key': process.env.CARTESIA_API_KEY },
+        },
+      };
+    }
+    console.warn('[DeepgramAgent] Cartesia selected but no AU voice UUID configured');
   }
 
-  return {
-    provider: {
-      type: 'cartesia',
-      model_id: 'sonic-english',
-      voice: { mode: 'id', id: voiceId },
-    },
-  };
+  if (provider === 'eleven_labs' && hasElevenLabs) {
+    const voiceId = vp?.provider_voice_id
+      || (gender === 'male' ? process.env.ELEVENLABS_VOICE_AU_MALE : process.env.ELEVENLABS_VOICE_AU_FEMALE);
+    if (voiceId) {
+      return {
+        provider: {
+          type: 'eleven_labs',
+          model_id: process.env.FLYNN_ELEVENLABS_MODEL || 'eleven_flash_v2_5',
+          language_code: 'en-AU',
+        },
+        endpoint: {
+          url: `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/multi-stream-input`,
+          headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY },
+        },
+      };
+    }
+    console.warn('[DeepgramAgent] ElevenLabs selected but no AU voice id configured');
+  }
+
+  return { provider: { type: 'deepgram', model: 'aura-2-theia-en' } };
 };
 
 const buildSystemPrompt = (greeting, businessContext, businessType = 'service business', mode = 'ai_only') => {
@@ -216,6 +246,14 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
     try {
       console.log(`[DeepgramAgent][${this.callSid}] Initializing Voice Agent...`);
 
+      // Funnel mode: prospect calling the ad number. No tenant, no business
+      // context — the call itself is the config interview.
+      if (this.session?.mode === 'funnel') {
+        this.systemPrompt = funnelIntake.buildFunnelSystemPrompt(this.session?.existingConfig || null);
+        console.log(`[DeepgramAgent][${this.callSid}] Funnel intake prompt generated (${this.systemPrompt.length} chars)`);
+        return;
+      }
+
       // Fetch business context if available
       if (this.getBusinessContextForOrg && this.userId) {
         try {
@@ -247,6 +285,9 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
    * Define function calling schema for booking data extraction
    */
   getFunctionSchema() {
+    if (this.session?.mode === 'funnel') {
+      return funnelIntake.getFunnelFunctionSchema();
+    }
     return [
       {
         name: 'extract_booking_details',
@@ -300,6 +341,10 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
   buildGreeting() {
     const baseGreeting = this.session?.greeting || 'Hey! Thanks for calling.';
     const mode = this.session?.mode || 'ai_only';
+
+    if (mode === 'funnel') {
+      return funnelIntake.buildFunnelGreeting(this.session?.existingConfig || null);
+    }
 
     if (mode === 'hybrid_choice') {
       // Offer caller a choice between voicemail or AI receptionist
@@ -634,7 +679,15 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
 
       let result = {};
 
-      if (name === 'extract_booking_details') {
+      if (name === 'save_business_profile') {
+        // Funnel intake: persist incrementally so a dropped call loses nothing.
+        this.extractedData = { ...this.extractedData, ...args };
+        result = await funnelIntake.saveFunnelConfig({
+          callerPhone: this.session?.callerPhone,
+          callSid: this.callSid,
+          config: args,
+        });
+      } else if (name === 'extract_booking_details') {
         // Store extracted data
         this.extractedData = {
           ...args,
@@ -723,6 +776,22 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
       } catch (err) {
         console.warn(`[DeepgramAgent][${this.callSid}] Error closing Twilio WebSocket:`, err);
       }
+    }
+
+    // Funnel calls finish through the intake pipeline (transcript + state
+    // machine + onboarding SMS), not the tenant conversation-complete path.
+    if (this.session?.mode === 'funnel') {
+      try {
+        await funnelIntake.completeFunnelCall({
+          callerPhone: this.session?.callerPhone,
+          callSid: this.callSid,
+          transcript: this.conversationHistory,
+        });
+      } catch (err) {
+        console.error(`[DeepgramAgent][${this.callSid}] Funnel completion error:`, err);
+      }
+      console.log(`[DeepgramAgent][${this.callSid}] Cleanup complete`);
+      return;
     }
 
     // Complete conversation callback

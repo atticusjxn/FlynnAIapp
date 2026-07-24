@@ -127,11 +127,13 @@ export default function PhoneSignupChat() {
         </div>
       </div>
 
-      {/* Primary CTA — Series style: white pill, green iMessage icon */}
+      {/* Primary CTA — glassmorphic light pill with green iMessage icon.
+          Uses the shared .flynn-glass system (index.html) so the landing page,
+          the hosted invoice page and the iOS app share one button language. */}
       <a
         href={SMS_LINK}
         onClick={handleMessageFlynn}
-        className="flex items-center gap-3 bg-white rounded-full px-5 py-3.5 shadow-[0_4px_20px_-4px_rgba(44,32,24,0.2)] border border-gray-100 hover:shadow-[0_6px_28px_-4px_rgba(44,32,24,0.3)] active:scale-95 transition-all order-1 lg:order-2"
+        className="flynn-glass flynn-glass--light !rounded-full flex items-center gap-3 px-5 py-3.5 order-1 lg:order-2"
       >
         <IMessageIcon size={30} />
         <span className="text-[17px] font-semibold text-[#1A1A1A]">Message Flynn</span>

@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+  html,body { width:1584px; height:396px; }
+  body { position:relative; overflow:hidden; background:#F4E6CE;
+    font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; color:#2C2018; }
+  .sh { position:absolute; border-radius:50%; }
+  /* LinkedIn overlays the profile photo circle bottom-left (~200x200) on
+     personal profiles, and a logo bottom-left on company pages — keep all
+     copy clear of the left ~380px / bottom ~140px to be safe on both. */
+  .copy { position:absolute; right:90px; top:0; bottom:0; width:900px;
+    display:flex; flex-direction:column; justify-content:center; text-align:right; z-index:5; }
+  .wordmark { display:flex; align-items:flex-start; gap:8px; justify-content:flex-end; margin-bottom:18px; }
+  .wordmark .txt { font-weight:800; font-size:46px; letter-spacing:1px; }
+  .wordmark .dot { width:15px; height:15px; border-radius:50%; background:#FB5B1E; margin-top:6px; }
+  .tagline { font-weight:800; font-size:52px; line-height:58px; letter-spacing:-1px; }
+  .tagline .o { color:#FB5B1E; }
+  .sub { margin-top:16px; font-size:22px; color:#5A4A3C; font-weight:500; }
+</style></head><body>
+  <div class="sh" style="width:260px;height:260px;background:#3BA8A8;top:-100px;left:120px;border:6px solid #2C2018"></div>
+  <div class="sh" style="width:150px;height:150px;background:#E8A93B;bottom:-70px;left:340px;border:6px solid #2C2018"></div>
+  <div class="sh" style="width:90px;height:90px;background:#FB5B1E;top:60px;left:40px;border:6px solid #2C2018"></div>
+  <div class="copy">
+    <div class="wordmark"><span class="txt">FLYNN</span><span class="dot"></span></div>
+    <div class="tagline">Never miss another job.<br><span class="o">Flynn answers.</span></div>
+    <div class="sub">AI receptionist for AU &amp; NZ tradies · flynnai.app</div>
+  </div>
+</body></html>

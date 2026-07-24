@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="phone.css">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+  html,body { width:1400px; height:1700px; }
+  body { background:#F4E6CE; display:flex; align-items:center; justify-content:center;
+    font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; }
+  :root { --rp-w: 640px; --rp-bezel: 18px; }
+
+  .lockbg { position:absolute; inset:0; background:
+    radial-gradient(120% 90% at 15% 0%, #ffb27a 0%, transparent 55%),
+    radial-gradient(120% 100% at 85% 100%, #3BA8A8 0%, transparent 60%),
+    linear-gradient(160deg, #2b2320 0%, #171310 60%, #0d0b09 100%); }
+
+  .rp-time { position:absolute; top:15%; left:0; right:0; text-align:center; z-index:10;
+    color:#fff; font-weight:700; font-size:118px; letter-spacing:-2px; text-shadow:0 2px 24px rgba(0,0,0,.25); }
+  .rp-date { position:absolute; top:12.2%; left:0; right:0; text-align:center; z-index:10;
+    color:rgba(255,255,255,.85); font-weight:600; font-size:26px; }
+
+  .callbar { position:absolute; top:7.7%; left:8%; right:8%; z-index:35; background:#2FBD5A;
+    border-radius:14px; padding:12px 18px; display:flex; align-items:center; justify-content:center;
+    gap:10px; color:#fff; font-weight:700; font-size:21px; box-shadow:0 8px 20px -6px rgba(0,0,0,.35); }
+  .callbar .rp-dot { width:9px; height:9px; border-radius:50%; background:#fff; opacity:.9; }
+
+  .notif { position:absolute; left:6%; right:6%; top:33%; z-index:20; background:rgba(40,36,32,.72);
+    -webkit-backdrop-filter:blur(24px) saturate(160%); backdrop-filter:blur(24px) saturate(160%);
+    border-radius:26px; padding:22px 24px; display:flex; gap:16px; align-items:flex-start;
+    border:1px solid rgba(255,255,255,.14); }
+  .notif-icon { width:56px; height:56px; border-radius:16px; background:#2C2018; flex:none;
+    display:flex; align-items:center; justify-content:center; }
+  .notif-icon svg { width:30px; height:30px; }
+  .notif-body { flex:1; }
+  .notif-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; }
+  .notif-app { color:#fff; font-weight:700; font-size:20px; letter-spacing:.2px; }
+  .notif-time { color:rgba(255,255,255,.55); font-size:17px; }
+  .notif-msg { color:rgba(255,255,255,.94); font-size:22px; line-height:31px; font-weight:500; }
+  .notif-msg b { font-weight:700; }
+</style>
+</head><body>
+  <div class="rp-shell">
+    <div class="lockbg"></div>
+    <div class="rp-island"></div>
+    <div class="rp-status light">
+      <span>9:41</span>
+      <span class="rp-sysicons">
+        <span>ıll</span><span>ᯤ</span><span class="rp-batt"></span>
+      </span>
+    </div>
+    <div class="callbar"><span class="rp-dot"></span>Flynn is on the call · 0:24</div>
+    <div class="rp-date">Thursday, 12 June</div>
+    <div class="rp-time">9:41</div>
+    <div class="notif">
+      <div class="notif-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+          <g fill="#f5ebe0"><path d="M 154.3 159.8 L 328.6 159.8 L 328.4 213.6 L 218.5 213.9 L 218.5 268.3 L 305.2 268.3 L 305.2 322.6 L 218.5 322.9 L 218.3 429.8 L 154.3 429.8 L 154.3 159.8 Z" /></g>
+          <circle cx="324.4" cy="115.0" r="33.1" fill="#FB5B1E" />
+        </svg>
+      </div>
+      <div class="notif-body">
+        <div class="notif-top"><span class="notif-app">Flynn</span><span class="notif-time">now</span></div>
+        <div class="notif-msg">Booked the caller in for <b>Thursday 2pm</b> — deck repaint, 14 Marine Pde. Texted them a confirmation.</div>
+      </div>
+    </div>
+  </div>
+</body></html>
