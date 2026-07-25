@@ -40,6 +40,57 @@ struct DraftResult {
     let agreedEvent: AgreedEvent?
 }
 
+// MARK: - Quick context (chips)
+
+/// One open invoice the keyboard can offer as a one-tap pay-link insert.
+/// `insertText` is composed server-side so the extension does no formatting.
+struct QuickInvoice: Codable {
+    let clientName: String?
+    let amountLabel: String
+    let status: String?
+    let payUrl: String
+    let insertText: String
+}
+
+/// One priced service the keyboard can offer as a one-tap rate insert.
+struct QuickRate: Codable {
+    let label: String
+    let insertText: String
+}
+
+/// Everything the chips row needs, fetched in one no-LLM call and cached in the
+/// App Group so chips render instantly on the keyboard's frequent relaunches.
+struct QuickContext: Codable {
+    let invoices: [QuickInvoice]
+    let slots: [String]
+    /// Ready-to-insert prose for the free-slots chip; nil when no calendar.
+    let slotsInsertText: String?
+    let rates: [QuickRate]
+
+    static let empty = QuickContext(invoices: [], slots: [], slotsInsertText: nil, rates: [])
+
+    /// True when there is nothing worth showing a chip for.
+    var isEmpty: Bool {
+        invoices.isEmpty && slotsInsertText == nil && rates.isEmpty
+    }
+}
+
+// MARK: - Compose (typed shorthand -> send-ready text)
+
+struct ComposeRequest: Encodable {
+    let text: String
+    let candidateCount: Int?
+
+    init(text: String, candidateCount: Int? = 3) {
+        self.text = text
+        self.candidateCount = candidateCount
+    }
+}
+
+struct ComposeResponse: Decodable {
+    let drafts: [String]
+}
+
 /// Records which draft the user inserted, plus the full candidate set and pick
 /// index so the backend can learn substance preferences (not just voice). All
 /// fields except `text` are optional to keep the clipboard path back-compatible.

@@ -93,13 +93,11 @@ struct BrainView: View {
                 } label: {
                     Label("Your quote style", systemImage: "doc.text.magnifyingglass")
                 }
-                NavigationLink {
-                    CaptureHistoryView()
-                } label: {
-                    Label("Screenshot captures", systemImage: "camera.viewfinder")
-                }
+                // "Screenshot captures" used to sit here. Removed with the screenshot
+                // pipeline: nothing writes captures any more, so the row could only
+                // ever lead to an empty screen.
             } footer: {
-                Text("Facts Flynn has learned about your customers, how you quote, and your screenshot capture history — woven into future replies and quotes.")
+                Text("Facts Flynn has learned about your customers and how you quote — woven into future replies and quotes.")
             }
 
             Section {

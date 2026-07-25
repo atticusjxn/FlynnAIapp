@@ -18,6 +18,11 @@ struct SettingsView: View {
                 } label: {
                     Label("Flynn Keyboard", systemImage: "keyboard")
                 }
+                NavigationLink {
+                    SavedMessagesView()
+                } label: {
+                    Label("Quick messages", systemImage: "text.bubble")
+                }
             }
             Section("Preferences") {
                 NavigationLink {

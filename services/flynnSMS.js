@@ -82,12 +82,35 @@ function brainToProfileRow(brain = {}) {
 // Phase 1 — Learn the business
 // ---------------------------------------------------------------------------
 
-async function handleBrainSetup(message, phone, existingBrain) {
+async function handleBrainSetup(message, phone, existingBrain, supabase) {
   const client = getLLMClient('compatible');
   const region = regionFromPhone(phone);
   const currency = currencyFromPhone(phone);
   const brain = existingBrain || {};
   const known = summariseBrain(brain);
+
+  // Pull the last few turns so the model can SEE what it already said and never
+  // repeat itself. Without this it only sees the latest message + known brain,
+  // so a bare "hey" makes it re-fire the same onboarding line verbatim.
+  let history = [];
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('sms_messages')
+        .select('direction, body, created_at')
+        .eq('user_phone', phone)
+        .order('created_at', { ascending: false })
+        .limit(6);
+      history = (data || []).reverse();
+    } catch {
+      // history is best-effort — onboarding still works without it
+    }
+  }
+  const transcript = history
+    .filter((m) => m.body && m.body !== '[photo]')
+    .map((m) => `${m.direction === 'out' ? 'You (Flynn)' : 'Them'}: ${m.body}`)
+    .join('\n');
+  const alreadyGreeted = history.some((m) => m.direction === 'out');
 
   const systemPrompt = `You are Flynn, a text-based assistant that runs the admin side of someone's work, right inside iMessage. You can reply to customers and emails, draft and send invoices, book things into a calendar, order supplies, log receipts, chase payments, and keep track of clients. You work for ANY kind of worker: a tradie, a real estate agent, a photographer, a freelancer, a salon owner, a consultant, a coach, a shop owner. You're texting someone new. Your only job right now is to understand what they do and what eats their time, so you can start helping.
 
@@ -100,6 +123,9 @@ Rules:
 - A great probe once you know what they do: ask what they do regularly that they find annoying, in your own casual words. Their answer tells you which tool to suggest.
 - Sound like a sharp mate. Casual, lowercase starts, one or two short sentences per send, up to 3 short bubbles like a real person texting.
 - Ask one thing at a time. Never ask for anything already in "you already know" above.
+- NEVER repeat a message you've already sent (see the conversation so far below). Vary your wording every time. If you're about to re-ask something, ask it a different way or give a quick example to make it easy.
+- If they only send a greeting (like "hey", "hi", "yo") and you still don't know their work: keep it SHORT and warm, do not repeat your whole intro. One easy line that invites the real answer, e.g. "hey! so what's the work, even just 'i'm a sparky' or 'i do photography' and i'll take it from there." ${alreadyGreeted ? "You've ALREADY greeted them, so do NOT greet again, just nudge for the detail a fresh way." : ''}
+- People often send a quick "hey" first and then a real message right after. Don't grill them, leave the door open so the next message can carry the substance.
 - Pull every useful fact from each message: their profession or role, location, what they sell or do, rates or prices, tools they already use, who their customers are, and what they want help with.
 - Frame yourself as doing the work for them, not as a form to fill in. Never say "setup", "profile", "onboarding" or "configure".
 - No em dashes, no "Sure!", no "Absolutely!", no sign-offs.
@@ -107,7 +133,7 @@ Rules:
 Set brain_complete=true once you know what they do AND at least one concrete way you can help (a task they need off their plate, or a tool to connect). When complete, name 2 or 3 specific things you'll do for them in their own terms, then offer a quick live proof. Integration slugs you can connect (use only the ones that fit what they told you):
   google_calendar (bookings, scheduling); gmail (email); google_sheets (receipts, expense tracking); xero, myob, quickbooks (invoicing, accounting); reece, bunnings, tradelink, nhp, middy, rsea, neco (trade suppliers); amazon (general supplies).`;
 
-  const userPrompt = `Their message: "${message}"
+  const userPrompt = `${transcript ? `Conversation so far (oldest to newest), so you don't repeat yourself:\n${transcript}\n\n` : ''}Their latest message: "${message}"
 
 Respond with JSON:
 {
@@ -543,7 +569,7 @@ async function processMessage({ phone, message, businessBrain, onboardingStep, p
 
   // 1. Learning phase
   if (onboardingStep === 'brain_pending' || onboardingStep === 'new') {
-    return handleBrainSetup(message, phone, businessBrain);
+    return handleBrainSetup(message, phone, businessBrain, supabase);
   }
 
   // 2. Integration connection phase (legacy only). With the tool loop on, we
@@ -579,4 +605,8 @@ async function processMessage({ phone, message, businessBrain, onboardingStep, p
   return routeIntent(message, businessBrain, pendingAction);
 }
 
-module.exports = { processMessage };
+// brainToProfileRow is exported because the keyboard's quick-context and compose
+// endpoints need the same brain -> profile mapping: pricing lives in
+// users.business_brain (hourly_rate_cents / callout_fee_cents / services), not in
+// business_profiles, so anything citing a real rate has to go through here.
+module.exports = { processMessage, brainToProfileRow };

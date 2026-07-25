@@ -299,12 +299,160 @@ const generateDrafts = async ({
   return { drafts, booking, usage: response?.usage ?? null };
 };
 
+const DEFAULT_COMPOSE_COUNT = 3;
+
+/**
+ * Build the prompt for expanding the owner's OWN shorthand into send-ready text.
+ *
+ * Different job from buildPrompt: there we infer a reply to a customer message we
+ * can see. Here the customer's message is invisible to us (an iOS keyboard
+ * extension can only read the text field the cursor is in), so the owner's typed
+ * shorthand IS the brief. We are polishing intent the owner already stated, not
+ * guessing at intent — which is why the rules below lean hard on "never add
+ * commitments they didn't make".
+ */
+const buildComposePrompt = ({
+  shorthand = '',
+  businessBrainText = '',
+  toneSamples = [],
+  pickedSamples = [],
+  proposedSlots = [],
+  payLink = null,
+  candidateCount = DEFAULT_COMPOSE_COUNT,
+}) => {
+  const systemParts = [
+    'A small-business owner (often a sole-trader tradesperson) has typed rough shorthand notes for a message they want to text a customer. Turn their shorthand into a send-ready message.',
+    'The shorthand is the brief. It already tells you what they want to say — your job is to write it out properly in their voice, not to reinterpret it or answer a question they did not ask.',
+  ];
+
+  if (toneSamples.length > 0) {
+    systemParts.push(
+      "Match the owner's writing voice — their slang, casing, punctuation, emoji use and overall vibe. These are examples of the owner's OWN past texts:",
+      toneSamples.map((s, i) => `${i + 1}. "${s}"`).join('\n'),
+      'Use these ONLY to copy the writing STYLE. Never reuse their words or questions — those replied to different conversations.'
+    );
+  } else {
+    systemParts.push('Write in a warm, natural, casual human voice — never stiff or corporate.');
+  }
+
+  const learnedPreferences = deriveLearnedPreferences(pickedSamples);
+  if (learnedPreferences) systemParts.push(learnedPreferences);
+  if (businessBrainText) systemParts.push(businessBrainText);
+
+  if (proposedSlots.length > 0) {
+    systemParts.push(
+      `These times are genuinely free, checked against the owner's real calendar: ${proposedSlots.join(', ')}. If their shorthand refers to availability, being free, or fitting the customer in WITHOUT naming a specific time itself, use these real times. If the shorthand names its own time, keep the owner's time and ignore these.`
+    );
+  }
+
+  if (payLink) {
+    systemParts.push(
+      [
+        `PAYMENT LINK (mandatory): ${payLink}`,
+        'The shorthand mentions an invoice, a bill or getting paid, so EVERY version you write must contain that URL, character for character, unshortened and unaltered.',
+        'This is a text message: there is no such thing as an attachment here. Never write "invoice attached", "see attached", or "I\'ve attached it" - the link IS the invoice, and it is the only way the customer can pay. Say something like "you can pay it here:" followed by the URL.',
+      ].join(' ')
+    );
+  }
+
+  systemParts.push(
+    'Rules:',
+    '- Say what the shorthand says. Never add a commitment, price, date or promise the owner did not write.',
+    '- Expand abbreviations and fix grammar, casing and punctuation.',
+    '- Only pull pricing/services/hours from the business info above. Never invent prices.',
+    '- Keep it about as long as the shorthand implies. Shorthand for a quick yes stays a quick yes; shorthand covering a quote plus timing gets 2-4 sentences.',
+    '- NEVER use em dashes or en dashes (— or –). Use a normal hyphen or rephrase. Em dashes are a dead giveaway for AI-written text.',
+    '- Do not include placeholders like [name]. If the shorthand does not name the customer, just skip the name.',
+    '- Never ask the customer for something the shorthand already supplies.',
+    "- NEVER echo the shorthand back. Every version must be a real message in full words and proper sentences, not the owner's own notes repeated. Even the shortest version is something a customer could read as-is. Keep the owner's own casing style from the samples though: if they text in lowercase, so do you.",
+    `Give ${candidateCount} versions, all saying the same thing, varying only in length and warmth: the first brief but complete, the last chattiest.`,
+    `Respond with ONLY a JSON object of the form {"drafts": ["version 1", ...]} containing EXACTLY ${candidateCount} options. No other keys, no prose, no markdown.`
+  );
+
+  return {
+    system: systemParts.join('\n\n'),
+    user: ["The owner's shorthand:", '---', shorthand, '---'].join('\n'),
+  };
+};
+
+/**
+ * Expand the owner's typed shorthand into send-ready message options.
+ *
+ * Deliberately NOT the agent tool-loop: this is a pure text transformation, so it
+ * writes no pending_actions row and cannot collide with an in-flight SMS
+ * confirmation (pending_actions is one row per user, keyed on user_phone). Any
+ * real data it needs is passed in by the caller as proposedSlots/payLink.
+ *
+ * Privacy: the shorthand is used only to build the prompt and is NOT persisted.
+ */
+const composeFromShorthand = async ({
+  shorthand = '',
+  profileRow = {},
+  toneSamples = [],
+  pickedSamples = [],
+  proposedSlots = [],
+  payLink = null,
+  candidateCount = DEFAULT_COMPOSE_COUNT,
+} = {}) => {
+  const cleaned = typeof shorthand === 'string' ? shorthand.trim() : '';
+  if (!cleaned) return { drafts: [], usage: null };
+
+  const businessBrainText = formatBusinessContext(profileRowToContext(profileRow));
+  const { system, user } = buildComposePrompt({
+    shorthand: cleaned,
+    businessBrainText,
+    toneSamples,
+    pickedSamples,
+    proposedSlots,
+    payLink,
+    candidateCount,
+  });
+
+  const client = getLLMClient('compatible');
+  const response = await client.chat.completions.create({
+    // Same validated defaults as generateDrafts (see flynn_draft_model memory).
+    enable_thinking: false,
+    // Lower than drafting's 0.8: we are polishing stated intent, not inventing
+    // options, so drift away from what the owner typed is a defect here.
+    temperature: 0.6,
+    max_tokens: 900,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+  });
+
+  const content = response?.choices?.[0]?.message?.content ?? '';
+
+  // Belt and braces on the "never echo the shorthand" rule. The model sometimes
+  // reads "shortest version" as "the input, unchanged", and a card that inserts the
+  // operator's own raw notes back into the chat is worse than showing nothing.
+  const normalise = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const shorthandKey = normalise(cleaned);
+  let drafts = parseDrafts(content, candidateCount)
+    .filter((d) => normalise(d) !== shorthandKey);
+
+  // If a pay link was supplied, a version without it is a broken invoice message:
+  // the customer is told about a bill with no way to pay it. The model also likes
+  // to substitute "invoice attached", which is meaningless in a text message.
+  if (payLink) {
+    const withLink = drafts.filter((d) => d.includes(payLink));
+    if (withLink.length > 0) drafts = withLink;
+  }
+
+  return { drafts, usage: response?.usage ?? null };
+};
+
 module.exports = {
   DEFAULT_DRAFT_COUNT,
+  DEFAULT_COMPOSE_COUNT,
   profileRowToContext,
   deriveLearnedPreferences,
   buildPrompt,
+  buildComposePrompt,
   parseDrafts,
   parseBooking,
   generateDrafts,
+  composeFromShorthand,
 };

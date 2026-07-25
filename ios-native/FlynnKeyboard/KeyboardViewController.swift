@@ -1,23 +1,39 @@
 import UIKit
 
-/// Flynn's custom keyboard. Flow (fewest taps possible): the user copies a
-/// message, switches to this keyboard, and it AUTO-DRAFTS from the clipboard on
-/// appear — no "Draft a reply" tap. It shows one full reply at a time; swipe the
-/// card left/right to move through the options, tap the card to insert, switch
-/// back to send.
+/// Flynn's custom keyboard. Two ways in, both driven by the operator's real
+/// business data rather than by anything Flynn scraped:
+///
+///  1. **Chips** — when the text field is empty, a row of one-tap inserts for the
+///     things a tradie actually needs mid-conversation: their next genuinely-free
+///     slots, a pay link for an open invoice, their rate. Zero latency: painted
+///     from the App Group cache, refreshed in the background.
+///  2. **Polish** — the operator types shorthand on the SYSTEM keyboard
+///     ("quote 450 deck, free thurs"), switches to Flynn, and taps Polish. Flynn
+///     expands it into send-ready options carrying their real price/availability/
+///     pay link. Swipe the cards, tap to replace what they typed.
+///
+/// Why it works this way: an iOS keyboard extension can only read the text field
+/// the cursor is in (`documentContextBeforeInput`, truncated by iOS), never the
+/// conversation. So Flynn cannot infer a reply to a customer message it cannot
+/// see — the operator's own shorthand is the brief. The previous design worked
+/// around that with an Action Button screenshot + OCR chain; that was abandoned as
+/// too many steps for context thinner than what the app already holds.
+///
+/// Flynn never sends. It inserts; the operator hits send in their own app.
 ///
 /// Surface: the background is the real system keyboard surface via a
 /// `UIInputView(inputViewStyle: .keyboard)` backdrop — the OS draws its own
 /// translucent keyboard material, so Flynn matches the native keyboard exactly
-/// (not an approximated blur) and adapts to light/dark. The branded draft cards
-/// carry the Flynn look, not a flat cream fill. Paging is an interactive
-/// `UIScrollView`, so a draft tracks the finger and snaps to the next card.
+/// (not an approximated blur) and adapts to light/dark. The branded cards carry
+/// the Flynn look, not a flat cream fill. Paging is an interactive `UIScrollView`,
+/// so a card tracks the finger and snaps to the next option.
 ///
 /// Constraints honoured here:
 ///  - UIKit code-only, minimal allocations (keyboard extensions are ~30-60MB capped).
 ///  - Works without Full Access in a non-inert fallback state (App Review 4.4).
-///  - Reads the clipboard only when its `changeCount` shows new content (one paste
-///    banner per copied message, never on idle re-appears).
+///  - The text field is read ONLY on an explicit Polish tap, never speculatively
+///    on appear. That is both the privacy story and the literal behaviour.
+///  - No pasteboard access at all, so no "Pasting from Flynn" banner.
 final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate {
 
     // The real system keyboard surface. `UIInputView` with `.keyboard` style is the
@@ -28,7 +44,16 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     private let container = UIStackView()
     private let titleLabel = UILabel()
     private let redraftButton = UIButton(type: .system)
+    private let savedButton = UIButton(type: .system)
     private let nextKeyboardButton = UIButton(type: .system)
+
+    // Saved (canned) messages: a vertical list of tappable cards the user maintains
+    // in the app. Tapping the "Saved" header button swaps the draft view for this
+    // list; tapping a card inserts that message. Lives in the same flex slot as the
+    // draft scroll view so the layout stays put.
+    private let savedScroll = UIScrollView()
+    private let savedStack = UIStackView()
+    private var isShowingSaved = false
 
     // Post-insert "Add to Google Calendar" chip. Appears below "Inserted ✓" after
     // the user taps a card — not before, so it doesn't crowd the draft view.
@@ -51,18 +76,41 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     private let loadingFill = UIView()
     private var fillWidthConstraint: NSLayoutConstraint?
 
+    // Chips row: one-tap inserts of the operator's real data, shown in the idle
+    // state. Horizontally scrollable because a tradie with three open invoices
+    // plus slots plus rates overflows the width.
+    private let chipsScroll = UIScrollView()
+    private let chipsStack = UIStackView()
+
+    // Idle-state action bar: "Polish what I typed", enabled only once the field
+    // holds enough text to be worth expanding.
+    private let polishButton = UIButton(type: .system)
+    private let polishRow = UIStackView()
+
     private var drafts: [String] = []
     private var index = 0
-    private var lastChangeCount = -1
     private var isDrafting = false
-    /// Watches briefly for a capture that the throttled Action Button intent stages a
-    /// moment after the keyboard already appeared.
-    private var latePoll: Task<Void, Never>?
     private var heightConstraint: NSLayoutConstraint?
 
-    // Where the currently-shown drafts came from ("clipboard" or "screenshot") and
-    // the source messages — both sent with the pick so the backend learns by source.
-    private var currentSource = "clipboard"
+    /// Last fetched chips payload. Seeded synchronously from the App Group cache so
+    /// the first paint never waits on the network.
+    private var quickContext: QuickContext = .empty
+    private var refreshTask: Task<Void, Never>?
+
+    /// The shorthand the operator had typed when they tapped Polish. Kept so a card
+    /// tap can delete exactly that text before inserting the polished version, and
+    /// so it can be sent as the training signal for how this user abbreviates.
+    private var originalShorthand: String?
+
+    /// True when tapping a card should REPLACE `originalShorthand`; false when it
+    /// should just insert at the cursor. Set false when the cursor is not at the end
+    /// of the field, because iOS truncates the context we can read and we will not
+    /// delete text we cannot verify.
+    private var canReplace = false
+
+    // Which mode produced the currently-shown cards ("rewrite" or "chip") and the
+    // source text — both sent with the pick so the backend learns by source.
+    private var currentSource = "rewrite"
     private var sourceMessages: [String] = []
 
     private static let flynnOrange = UIColor(red: 0.984, green: 0.357, blue: 0.118, alpha: 1) // #FB5B1E
@@ -109,7 +157,21 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         super.viewWillAppear(animated)
         nextKeyboardButton.isHidden = !needsInputModeSwitchKey
         titleLabel.text = "Flynn"   // no business/industry suffix — it's noise in the keyboard
-        maybeAutoDraft()
+
+        // Paint from cache first (synchronous, no network), then refresh. The
+        // extension is relaunched on nearly every keyboard switch and gets a fresh
+        // URLSession each time, so a network-first chips row would visibly pop in
+        // late every single time.
+        if let cached = SharedStore.cachedQuickContext() {
+            quickContext = cached
+        }
+        showIdleState()
+        refreshQuickContext()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        refreshTask?.cancel()
     }
 
     override func updateViewConstraints() {
@@ -123,7 +185,10 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     /// below 1000 so it never fights the system's own keyboard constraints during
     /// rotation (Apple's documented requirement for custom-keyboard heights).
     private func updateKeyboardHeight() {
-        let target: CGFloat = traitCollection.verticalSizeClass == .compact ? 200 : 300
+        // The idle chrome (chips + Polish) and the results chrome (card + dots) are
+        // never visible at the same time, so this only needs a modest bump over the
+        // original 300/200 to give the chips row room without squeezing the card.
+        let target: CGFloat = traitCollection.verticalSizeClass == .compact ? 210 : 320
         if let heightConstraint {
             heightConstraint.constant = target
         } else {
@@ -182,15 +247,63 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         redraftButton.tintColor = Self.flynnOrange
         redraftButton.addTarget(self, action: #selector(onRedraft), for: .touchUpInside)
 
+        savedButton.setTitle("Saved", for: .normal)
+        savedButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        savedButton.tintColor = Self.flynnOrange
+        savedButton.addTarget(self, action: #selector(onSavedTap), for: .touchUpInside)
+
         nextKeyboardButton.setTitle("🌐", for: .normal)
         nextKeyboardButton.titleLabel?.font = .systemFont(ofSize: 18)
         nextKeyboardButton.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
 
-        let header = UIStackView(arrangedSubviews: [titleLabel, UIView(), redraftButton, nextKeyboardButton])
+        let header = UIStackView(arrangedSubviews: [titleLabel, UIView(), savedButton, redraftButton, nextKeyboardButton])
         header.axis = .horizontal; header.alignment = .center; header.spacing = 10
         header.layoutMargins = UIEdgeInsets(top: 0, left: 6, bottom: 0, right: 6)
         header.isLayoutMarginsRelativeArrangement = true
         container.addArrangedSubview(header)
+
+        // Chips row: horizontal scroll of one-tap real-data inserts. Pinned to the
+        // contentLayoutGuide on all four edges with height tied to the frame guide —
+        // the same idiom already proven on savedScroll below.
+        chipsScroll.showsHorizontalScrollIndicator = false
+        chipsScroll.alwaysBounceHorizontal = true
+        chipsScroll.translatesAutoresizingMaskIntoConstraints = false
+        chipsStack.axis = .horizontal
+        chipsStack.spacing = 8
+        chipsStack.alignment = .center
+        chipsStack.translatesAutoresizingMaskIntoConstraints = false
+        chipsScroll.addSubview(chipsStack)
+        NSLayoutConstraint.activate([
+            chipsStack.leadingAnchor.constraint(equalTo: chipsScroll.contentLayoutGuide.leadingAnchor, constant: 6),
+            chipsStack.trailingAnchor.constraint(equalTo: chipsScroll.contentLayoutGuide.trailingAnchor, constant: -6),
+            chipsStack.topAnchor.constraint(equalTo: chipsScroll.contentLayoutGuide.topAnchor),
+            chipsStack.bottomAnchor.constraint(equalTo: chipsScroll.contentLayoutGuide.bottomAnchor),
+            chipsStack.heightAnchor.constraint(equalTo: chipsScroll.frameLayoutGuide.heightAnchor),
+            chipsScroll.heightAnchor.constraint(equalToConstant: 38),
+        ])
+        container.addArrangedSubview(chipsScroll)
+
+        // "Polish what I typed" — the entry point to rewrite mode. Disabled until
+        // the field holds enough to expand, so it can never fire on an empty field.
+        var polishConfig = UIButton.Configuration.tinted()
+        polishConfig.cornerStyle = .capsule
+        polishConfig.baseForegroundColor = Self.flynnOrange
+        polishConfig.baseBackgroundColor = Self.flynnOrange
+        polishConfig.title = "✨ Polish what I typed"
+        polishConfig.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 18, bottom: 8, trailing: 18)
+        polishButton.configuration = polishConfig
+        polishButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        polishButton.addTarget(self, action: #selector(onPolishTap), for: .touchUpInside)
+
+        let polishLead = UIView()
+        let polishTrail = UIView()
+        polishRow.axis = .horizontal
+        polishRow.alignment = .center
+        polishRow.addArrangedSubview(polishLead)
+        polishRow.addArrangedSubview(polishButton)
+        polishRow.addArrangedSubview(polishTrail)
+        polishLead.widthAnchor.constraint(equalTo: polishTrail.widthAnchor).isActive = true
+        container.addArrangedSubview(polishRow)
 
         // Post-insert "Add to Google Calendar" chip — appears below "Inserted ✓".
         var chipConfig = UIButton.Configuration.tinted()
@@ -246,6 +359,25 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         minCardHeight.priority = .defaultLow
         minCardHeight.isActive = true
         container.addArrangedSubview(scrollView)
+
+        // Saved-messages list — a vertical scroll of tappable cards. Hidden until the
+        // user taps "Saved"; occupies the same flex slot as the draft scroll view.
+        savedScroll.showsVerticalScrollIndicator = false
+        savedScroll.alwaysBounceVertical = true
+        savedScroll.translatesAutoresizingMaskIntoConstraints = false
+        savedScroll.isHidden = true
+        savedStack.axis = .vertical
+        savedStack.spacing = 8
+        savedStack.translatesAutoresizingMaskIntoConstraints = false
+        savedScroll.addSubview(savedStack)
+        NSLayoutConstraint.activate([
+            savedStack.leadingAnchor.constraint(equalTo: savedScroll.contentLayoutGuide.leadingAnchor),
+            savedStack.trailingAnchor.constraint(equalTo: savedScroll.contentLayoutGuide.trailingAnchor),
+            savedStack.topAnchor.constraint(equalTo: savedScroll.contentLayoutGuide.topAnchor),
+            savedStack.bottomAnchor.constraint(equalTo: savedScroll.contentLayoutGuide.bottomAnchor),
+            savedStack.widthAnchor.constraint(equalTo: savedScroll.frameLayoutGuide.widthAnchor),
+        ])
+        container.addArrangedSubview(savedScroll)
 
         // Native page dots — replace the in-card arrows and free the card for text.
         pageControl.currentPageIndicatorTintColor = Self.flynnOrange
@@ -335,7 +467,9 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
             let hint = UILabel()
             hint.font = .systemFont(ofSize: 11, weight: .semibold)
             hint.textColor = Self.cardText.withAlphaComponent(0.4)
-            hint.text = "Tap to insert"
+            // Be literal about what the tap does: replacing the operator's own typed
+            // text is a bigger deal than appending, so never label it "insert".
+            hint.text = canReplace ? "Tap to replace what you typed" : "Tap to insert"
             hint.translatesAutoresizingMaskIntoConstraints = false
 
             card.addSubview(label)
@@ -385,10 +519,18 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
 
     // MARK: State helpers
 
+    /// Show/hide the idle chrome (chips row + Polish button). Hidden whenever cards
+    /// are on screen so the options get the full height.
+    private func setIdleChrome(visible: Bool) {
+        chipsScroll.isHidden = !visible || chipsStack.arrangedSubviews.isEmpty
+        polishRow.isHidden = !visible
+    }
+
     private func showResults() {
         scrollView.isHidden = false
         pageControl.isHidden = drafts.count <= 1
         statusContainer.isHidden = true
+        setIdleChrome(visible: false)
     }
 
     private func showStatus(_ text: String) {
@@ -407,6 +549,7 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         scrollView.isHidden = true
         pageControl.isHidden = true
         bookRow.isHidden = true
+        setIdleChrome(visible: false)
 
         fillWidthConstraint?.constant = 0
         loadingTrack.isHidden = false
@@ -569,158 +712,177 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
         scrollToIndex(pageControl.currentPage, animated: true)
     }
 
-    // MARK: Drafting
+    // MARK: Idle state (chips + Polish)
 
-    /// Draft automatically on appear, but only when the clipboard has genuinely new
-    /// content (changeCount) — otherwise keep showing the drafts we already have.
-    private func maybeAutoDraft() {
+    /// The resting state: chips for one-tap real-data inserts, plus Polish for
+    /// expanding whatever the operator has typed. Cheap and synchronous — safe to
+    /// call on every appear.
+    private func showIdleState() {
+        if isShowingSaved { return }   // don't clobber the saved-messages list
         guard hasFullAccess else {
-            showStatus("Turn on Full Access for Flynn in Settings → General → Keyboard so it can draft from your copied message.")
+            setIdleChrome(visible: false)
+            showStatus("Turn on Full Access for Flynn in Settings → General → Keyboard so it can pull your invoices, rates and availability.")
             return
         }
         guard SharedSecureStore.keyboardToken != nil else {
+            setIdleChrome(visible: false)
             showStatus("Open the Flynn app once to finish setup, then come back here.")
             return
         }
         if isDrafting { return }
-        latePoll?.cancel()
 
-        // Recommended flow: a screenshot capture staged by the App Intent takes
-        // priority over the clipboard. Returns nil when there's nothing fresh, so
-        // the clipboard path below is untouched in the copy→keyboard case.
-        if let staged = SharedStore.freshStagedScreenshotDraft() {
-            if staged.capturing {
-                awaitCapture()        // capture in flight — show "reading…" and poll for it
-            } else {
-                consumeStaged(staged)
-            }
-            return
-        }
-
-        let cc = UIPasteboard.general.changeCount
-        if cc != lastChangeCount {
-            draftFromClipboard()                     // genuinely new copy — draft it now
-            return
-        }
+        // Keep showing existing options rather than throwing them away on a re-appear.
         if !drafts.isEmpty {
-            showResults(); renderCard(); return      // nothing new — keep current drafts
+            showResults(); renderCard(); return
         }
-        // Nothing staged yet and nothing new copied. The Action Button intent can lag
-        // a few seconds in the background, so show the idle prompt but keep watching —
-        // if a capture lands shortly after, switch to it without needing a re-open.
-        draftFromClipboard()
-        watchForLateCapture()
+
+        rebuildChips()
+        updatePolishAvailability()
+        showStatus(quickContext.isEmpty
+            ? "Type what you want to say, then tap Polish. Or add invoices and rates in the Flynn app to get one-tap inserts here."
+            : "Tap a chip to drop in real details, or type something and tap Polish.")
+        setIdleChrome(visible: true)
     }
 
-    /// Poll briefly for a capture the throttled background intent stages just after the
-    /// keyboard appeared, so the user doesn't have to toggle the keyboard to pick it up.
-    private func watchForLateCapture() {
-        latePoll?.cancel()
-        latePoll = Task { @MainActor in
-            let deadline = Date().addingTimeInterval(10)
-            while Date() < deadline {
-                try? await Task.sleep(for: .milliseconds(300))
-                if Task.isCancelled || isDrafting || !drafts.isEmpty { return }
-                if let staged = SharedStore.freshStagedScreenshotDraft() {
-                    if staged.capturing { awaitCapture() } else { consumeStaged(staged) }
-                    return
+    /// Enable Polish only when the field holds enough to be worth expanding, and
+    /// never in fields where a prose reply makes no sense.
+    private func updatePolishAvailability() {
+        let typed = (textDocumentProxy.documentContextBeforeInput ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let badFieldType: Bool
+        switch textDocumentProxy.keyboardType {
+        case .some(.numberPad), .some(.phonePad), .some(.emailAddress),
+             .some(.URL), .some(.decimalPad):
+            badFieldType = true
+        default:
+            badFieldType = false
+        }
+        polishButton.isEnabled = typed.count >= 8 && !badFieldType
+    }
+
+    /// Fetch fresh chips data in the background and re-render if it changed.
+    /// Never blocks the UI: a failure just leaves the cached chips in place.
+    private func refreshQuickContext() {
+        guard hasFullAccess, SharedSecureStore.keyboardToken != nil else { return }
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            do {
+                let fresh = try await KeyboardDraftClient.quickContext()
+                if Task.isCancelled { return }
+                quickContext = fresh
+                SharedStore.cacheQuickContext(fresh)
+                // Only touch the UI if the user is still sitting in the idle state.
+                if drafts.isEmpty && !isDrafting && !isShowingSaved {
+                    rebuildChips()
+                    setIdleChrome(visible: true)
                 }
+            } catch {
+                // Cached chips stay on screen; nothing to say to the user here.
             }
         }
     }
 
-    /// Show drafts a screenshot capture staged for us. Marks the capture consumed
-    /// immediately so a keyboard re-appear can't replay it.
-    private func consumeStaged(_ staged: StagedScreenshotDraft) {
-        SharedStore.markStagedScreenshotConsumed()
-        lastChangeCount = UIPasteboard.general.changeCount   // ignore the clipboard for this turn
-        currentSource = staged.source
-        sourceMessages = staged.messages
-        drafts = []   // always clear stale drafts so old results never bleed through
+    /// Build one capsule button per available chip. Each closure captures its own
+    /// insert text directly, so there is no tag-to-index lookup to get out of step.
+    private func rebuildChips() {
+        chipsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
-        if !staged.drafts.isEmpty {
-            drafts = staged.drafts
-            index = 0
-            renderCard()
-            showResults()                                    // finished drafts — no network
-            hideBookingChip()                                // pre-made drafts carry no booking
-        } else if staged.limitReached {
-            showStatus("You're out of free drafts today — open Flynn to go unlimited.")
-        } else if !staged.messages.isEmpty {
-            runDraft(messages: staged.messages)              // needsDraft — generate now
-        } else {
-            let dbg = SharedStore.ocrDebugLog.map { " [\($0)]" } ?? ""
-            showStatus("Couldn't read that screen\(dbg) — copy the message and tap ↻ Redraft.")
+        var chips: [(title: String, text: String)] = []
+        if let slotsText = quickContext.slotsInsertText {
+            chips.append(("Next free", slotsText))
+        }
+        for invoice in quickContext.invoices {
+            let who = invoice.clientName ?? "Invoice"
+            chips.append(("\(who) · \(invoice.amountLabel)", invoice.insertText))
+        }
+        for rate in quickContext.rates {
+            chips.append((rate.label, rate.insertText))
+        }
+
+        for chip in chips.prefix(6) {
+            var config = UIButton.Configuration.tinted()
+            config.cornerStyle = .capsule
+            config.baseForegroundColor = Self.flynnOrange
+            config.baseBackgroundColor = Self.flynnOrange
+            config.title = chip.title
+            config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 14, bottom: 6, trailing: 14)
+
+            let button = UIButton(type: .system)
+            button.configuration = config
+            button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+            let text = chip.text
+            button.addAction(UIAction { [weak self] _ in self?.insertChip(text) }, for: .touchUpInside)
+            chipsStack.addArrangedSubview(button)
         }
     }
 
-    /// A capture is in flight (Action Button just fired, OCR/draft still running in the
-    /// app). Show a reading state and poll the App Group until the intent stages the
-    /// terminal result, then render it. Falls back to the clipboard path on timeout.
-    private func awaitCapture() {
-        if isDrafting { return }
-        isDrafting = true
-        showDrafting(label: "Reading your screen…")
-
-        Task { @MainActor in
-            let deadline = Date().addingTimeInterval(8)
-            while Date() < deadline {
-                try? await Task.sleep(for: .milliseconds(250))
-                guard let staged = SharedStore.freshStagedScreenshotDraft() else { break }
-                if !staged.capturing {
-                    isDrafting = false
-                    consumeStaged(staged)
-                    return
-                }
-            }
-            isDrafting = false
-            draftFromClipboard()
-        }
+    /// Insert a chip's real data at the cursor. Never replaces anything — the
+    /// operator may well have typed context around it.
+    private func insertChip(_ text: String) {
+        textDocumentProxy.insertText(text)
+        KeyboardDraftClient.recordAccepted(text: text, source: "chip")
+        drafts = []
+        hideBookingChip()
+        showStatus("Inserted ✓  — switch back to send.")
+        setIdleChrome(visible: true)
     }
 
-    private func draftFromClipboard() {
-        guard hasFullAccess else { maybeAutoDraft(); return }
+    // MARK: Polish (typed shorthand → send-ready options)
 
-        // Reading the pasteboard triggers the system paste banner — expected, and
-        // gated to "the clipboard changed" so it doesn't fire on idle re-appears.
-        lastChangeCount = UIPasteboard.general.changeCount
-        let copied = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let copied, !copied.isEmpty else {
-            showStatus("Copy a message first, then tap ↻ Redraft.")
+    @objc private func onPolishTap() {
+        guard hasFullAccess else { showIdleState(); return }
+        guard !isDrafting else { return }
+
+        // Read the field ONLY here, on an explicit tap — never speculatively.
+        let before = textDocumentProxy.documentContextBeforeInput ?? ""
+        let after = textDocumentProxy.documentContextAfterInput ?? ""
+        let shorthand = before.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard shorthand.count >= 8 else {
+            showStatus("Type what you want to say first, then tap Polish.")
+            setIdleChrome(visible: true)
             return
         }
 
-        let messages = SharedStore.appendCopiedMessage(copied)
-        currentSource = "clipboard"
-        runDraft(messages: messages)
+        // Only offer to REPLACE when the cursor sits at the end of the field. iOS
+        // truncates the context we can read, so with text after the cursor we cannot
+        // know what we'd be deleting — in that case we insert instead of replacing.
+        canReplace = after.isEmpty
+        originalShorthand = before
+        runCompose(text: shorthand)
     }
 
-    /// Fetch drafts for the given messages and render them. Shared by the clipboard
-    /// path and the screenshot `needsDraft` path (which sets `currentSource` first).
-    private func runDraft(messages: [String]) {
+    /// Expand the shorthand into options and render them in the existing carousel.
+    private func runCompose(text: String) {
         isDrafting = true
-        sourceMessages = messages
-        showDrafting(label: "Drafting in your voice…")
+        currentSource = "rewrite"
+        // The shorthand is the training signal: it teaches Flynn how this operator
+        // abbreviates, which is what makes later expansions sound like them.
+        sourceMessages = [text]
+        showDrafting(label: "Writing it out in your voice…")
 
         Task { @MainActor in
             defer { isDrafting = false }
             do {
-                let result = try await KeyboardDraftClient.fetchDrafts(messages: messages, source: currentSource)
-                if result.drafts.isEmpty {
-                    showStatus("Couldn't draft anything — tap ↻ Redraft to try again.")
+                let candidates = try await KeyboardDraftClient.compose(text: text)
+                if candidates.isEmpty {
+                    showStatus("Couldn't write that up — tap ↻ Redraft to try again.")
+                    setIdleChrome(visible: true)
                 } else {
-                    drafts = result.drafts
+                    drafts = candidates
                     index = 0
                     renderCard()
                     showResults()
-                    showBookingChip(for: result.agreedEvent)
                 }
             } catch KeyboardDraftClient.ClientError.notConfigured {
                 showStatus("Open the Flynn app once to finish setup.")
+            } catch KeyboardDraftClient.ClientError.unauthorized {
+                showStatus("Open Flynn once to refresh access, then come back here.")
             } catch KeyboardDraftClient.ClientError.limitReached {
                 showStatus("You're out of free drafts today — open Flynn to go unlimited.")
             } catch {
                 showStatus("Network hiccup — tap ↻ Redraft to try again.")
+                setIdleChrome(visible: true)
             }
         }
     }
@@ -730,13 +892,26 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
     @objc private func onRedraft() {
         drafts = []
         hideBookingChip()
-        draftFromClipboard()
+        if let shorthand = originalShorthand?.trimmingCharacters(in: .whitespacesAndNewlines),
+           shorthand.count >= 8 {
+            runCompose(text: shorthand)
+        } else {
+            showIdleState()
+        }
     }
 
     @objc private func onInsert() {
         guard drafts.indices.contains(index) else { return }
         let draft = drafts[index]
-        textDocumentProxy.insertText(draft)
+
+        // Replace the typed shorthand when we can verify what we're deleting;
+        // otherwise fall back to inserting at the cursor.
+        if canReplace, let shorthand = originalShorthand, !shorthand.isEmpty {
+            replaceTypedText(shorthand, with: draft)
+        } else {
+            textDocumentProxy.insertText(draft)
+        }
+
         KeyboardDraftClient.recordAccepted(
             text: draft,
             source: currentSource,
@@ -744,17 +919,169 @@ final class KeyboardViewController: UIInputViewController, UIScrollViewDelegate 
             pickedIndex: index,
             messages: sourceMessages.isEmpty ? nil : sourceMessages
         )
-        SharedStore.resetThread()
         drafts = []
-        currentSource = "clipboard"
+        originalShorthand = nil
+        canReplace = false
+        currentSource = "rewrite"
         sourceMessages = []
         // Save the event before hideBookingChip clears it.
         let calEvent = pendingEvent
         hideBookingChip()
         showStatus("Inserted ✓  — switch back to send.")
+        setIdleChrome(visible: true)
         // Show the "Add to Google Calendar" chip below the status if we have a booking.
         if let event = calEvent {
             showPostInsertCalendarChip(for: event)
         }
+    }
+
+    /// Delete the operator's shorthand and insert the polished text in its place.
+    ///
+    /// `deleteBackward()` removes one *user-perceived* character per call and there
+    /// is no bulk delete, so the count must come from `String.count` (graphemes) and
+    /// not `utf16.count` — otherwise emoji and combining marks over-delete, and
+    /// tradies use emoji.
+    ///
+    /// Some hosts (WebView- or React-Native-backed compose fields are the usual
+    /// offenders) coalesce or drop rapid `deleteBackward()` calls, so this verifies
+    /// against the proxy afterwards and makes bounded extra passes rather than
+    /// trusting the first one. If it still can't clear the field it inserts a
+    /// leading space instead of leaving the two texts jammed together.
+    private func replaceTypedText(_ shorthand: String, with replacement: String) {
+        // Hard ceiling on how much we will ever remove: exactly the shorthand we
+        // read, capped. Tracking a running total (rather than re-deriving a count
+        // each pass) is what stops a retry from eating text the operator had typed
+        // BEFORE the shorthand.
+        let target = min(shorthand.count, 600)
+        var deleted = 0
+        var pass = 0
+
+        while deleted < target && pass < 3 {
+            let before = textDocumentProxy.documentContextBeforeInput ?? ""
+            if before.isEmpty { break }
+            let want = min(target - deleted, before.count)
+            if want == 0 { break }
+
+            for _ in 0..<want {
+                textDocumentProxy.deleteBackward()
+            }
+
+            // Verify rather than assume: hosts that coalesce or drop deletes report
+            // it here. No progress means retrying won't help, so stop instead of
+            // spinning (or worse, over-deleting on a later pass).
+            let after = textDocumentProxy.documentContextBeforeInput ?? ""
+            let actuallyDeleted = max(0, before.count - after.count)
+            if actuallyDeleted == 0 { break }
+            deleted += actuallyDeleted
+            pass += 1
+        }
+
+        let leftover = textDocumentProxy.documentContextBeforeInput ?? ""
+        let needsSpace = !leftover.isEmpty && !leftover.hasSuffix(" ") && !leftover.hasSuffix("\n")
+        textDocumentProxy.insertText(needsSpace ? " " + replacement : replacement)
+    }
+
+    // MARK: Saved messages
+
+    @objc private func onSavedTap() {
+        if isShowingSaved { exitSavedMode() } else { enterSavedMode() }
+    }
+
+    private func enterSavedMode() {
+        isShowingSaved = true
+        savedButton.setTitle("Back", for: .normal)
+        // Hide the draft surfaces; the saved list takes the flex slot.
+        scrollView.isHidden = true
+        pageControl.isHidden = true
+        statusContainer.isHidden = true
+        bookRow.isHidden = true
+        setIdleChrome(visible: false)
+        rebuildSavedCards(SharedStore.savedMessages)
+        savedScroll.isHidden = false
+    }
+
+    private func exitSavedMode() {
+        isShowingSaved = false
+        savedButton.setTitle("Saved", for: .normal)
+        savedScroll.isHidden = true
+        if drafts.isEmpty {
+            showIdleState()
+        } else {
+            showResults(); renderCard()
+        }
+    }
+
+    /// Build one tappable card per saved message; tapping inserts its body.
+    private func rebuildSavedCards(_ messages: [SavedMessage]) {
+        savedStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        guard !messages.isEmpty else {
+            let empty = UILabel()
+            empty.text = "No saved messages yet. Add them in the Flynn app under Settings → Quick messages."
+            empty.numberOfLines = 0
+            empty.textAlignment = .center
+            empty.font = .systemFont(ofSize: 15, weight: .medium)
+            empty.textColor = Self.cardText.withAlphaComponent(0.6)
+            empty.translatesAutoresizingMaskIntoConstraints = false
+            let wrap = UIView()
+            wrap.addSubview(empty)
+            NSLayoutConstraint.activate([
+                empty.leadingAnchor.constraint(equalTo: wrap.leadingAnchor, constant: 20),
+                empty.trailingAnchor.constraint(equalTo: wrap.trailingAnchor, constant: -20),
+                empty.topAnchor.constraint(equalTo: wrap.topAnchor, constant: 24),
+                empty.bottomAnchor.constraint(equalTo: wrap.bottomAnchor, constant: -24),
+            ])
+            savedStack.addArrangedSubview(wrap)
+            return
+        }
+
+        for message in messages {
+            let card = UIControl()
+            card.backgroundColor = Self.cardBG
+            card.layer.cornerRadius = 14
+            card.layer.borderWidth = 2
+            card.layer.borderColor = Self.cardBorder.resolvedColor(with: traitCollection).cgColor
+            card.translatesAutoresizingMaskIntoConstraints = false
+            card.addAction(UIAction { [weak self] _ in self?.insertSaved(message.body) }, for: .touchUpInside)
+
+            let title = UILabel()
+            title.text = message.title
+            title.font = .systemFont(ofSize: 13, weight: .bold)
+            title.textColor = Self.flynnOrange
+            title.isUserInteractionEnabled = false
+            title.translatesAutoresizingMaskIntoConstraints = false
+
+            let body = UILabel()
+            body.text = message.body
+            body.numberOfLines = 3
+            body.font = .systemFont(ofSize: 16, weight: .regular)
+            body.textColor = Self.cardText
+            body.isUserInteractionEnabled = false
+            body.translatesAutoresizingMaskIntoConstraints = false
+
+            card.addSubview(title)
+            card.addSubview(body)
+            NSLayoutConstraint.activate([
+                title.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
+                title.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
+                title.topAnchor.constraint(equalTo: card.topAnchor, constant: 10),
+                body.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
+                body.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
+                body.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 4),
+                body.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
+            ])
+            savedStack.addArrangedSubview(card)
+        }
+    }
+
+    private func insertSaved(_ text: String) {
+        textDocumentProxy.insertText(text)
+        KeyboardDraftClient.recordAccepted(text: text, source: "chip")
+        isShowingSaved = false
+        savedButton.setTitle("Saved", for: .normal)
+        savedScroll.isHidden = true
+        drafts = []
+        showStatus("Inserted ✓  — switch back to send.")
+        setIdleChrome(visible: true)
     }
 }

@@ -53,14 +53,23 @@ const formatBusinessContext = (contextData) => {
   if (contextData.services && Array.isArray(contextData.services) && contextData.services.length > 0) {
     const servicesList = contextData.services
       .map((s) => {
+        // Two shapes reach here: business_profiles.services holds objects
+        // ({name, description, price_range, typical_duration}), while
+        // users.business_brain.services holds plain strings ("decking").
+        // Without the string case the brain path renders "- undefined".
+        if (typeof s === 'string') return `- ${s}`;
+        if (!s?.name) return null;
         let line = `- ${s.name}`;
         if (s.description) line += `: ${s.description}`;
         if (s.price_range) line += ` (${s.price_range})`;
         if (s.typical_duration) line += ` - typically ${s.typical_duration}`;
         return line;
       })
+      .filter(Boolean)
       .join('\n');
-    sections.push(`Services offered:\n${servicesList}`);
+    // Every entry may have been unusable, which would otherwise push a bare
+    // "Services offered:" header into the prompt.
+    if (servicesList) sections.push(`Services offered:\n${servicesList}`);
   }
 
   // Pricing

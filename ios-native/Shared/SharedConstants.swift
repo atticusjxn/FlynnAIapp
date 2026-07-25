@@ -21,11 +21,16 @@ enum FlynnShared {
         static let threadKey = "flynn.thread.key"
         static let threadMessages = "flynn.thread.messages"
         static let threadUpdatedAt = "flynn.thread.updatedAt"
-        /// Drafts staged by the screenshot App Intent for the keyboard to display.
-        static let stagedScreenshot = "flynn.staged.screenshot"
+        /// Last quick-context payload (invoices + pay links, free slots, rates) so
+        /// the keyboard's chips row paints instantly on relaunch.
+        static let quickContext = "flynn.quickContext"
+        static let quickContextAt = "flynn.quickContext.at"
         /// An agreed-time booking staged by the keyboard for the main app to write
         /// to the calendar (the keyboard/intent can't touch EventKit themselves).
         static let stagedCalendarEvent = "flynn.staged.calendarEvent"
+        /// User-authored canned messages (away reply, availability, booking link)
+        /// the keyboard offers for one-tap insert. Edited in Settings → Quick messages.
+        static let savedMessages = "flynn.savedMessages"
     }
 
     /// Keychain account name for the keyboard JWT.
@@ -35,10 +40,10 @@ enum FlynnShared {
     /// a fresh conversation thread instead of appending.
     static let threadResetWindowSeconds: TimeInterval = 600
 
-    /// A staged screenshot capture older than this is ignored by the keyboard, so a
-    /// stale capture never overrides a fresh clipboard copy. Sized to comfortably
-    /// cover the gesture → app-switch → open-keyboard hop.
-    static let stagedDraftFreshnessSeconds: TimeInterval = 300
+    /// Cached quick-context older than this is discarded rather than shown. Kept
+    /// short because it carries invoice state: a chip must never offer a pay link
+    /// for an invoice that has since been settled.
+    static let quickContextFreshnessSeconds: TimeInterval = 300
 
     /// A staged calendar booking older than this is ignored by the app. Longer
     /// than the draft window because the user may tap the chip, then take a while

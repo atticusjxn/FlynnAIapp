@@ -90,7 +90,7 @@ enum SharedStore {
         defaults?.removeObject(forKey: FlynnShared.DefaultsKey.threadUpdatedAt)
     }
 
-    // MARK: Staged screenshot capture (App Intent → keyboard)
+    // MARK: Quick-context cache (chips)
 
     private static var stagedEncoder: JSONEncoder {
         let e = JSONEncoder()
@@ -104,61 +104,36 @@ enum SharedStore {
         return d
     }
 
-    /// Called by the screenshot App Intent to hand a capture to the keyboard.
-    /// The intent is a short-lived background process that iOS suspends/kills the
-    /// instant `perform()` returns — so `set` alone often loses the write before it
-    /// flushes. `synchronize()` forces it to disk immediately so the keyboard reliably
-    /// sees the capture (this is the difference between "hit or miss" and "works").
-    static func stageScreenshotDraft(_ staged: StagedScreenshotDraft) {
-        guard let data = try? stagedEncoder.encode(staged) else { return }
-        defaults?.set(data, forKey: FlynnShared.DefaultsKey.stagedScreenshot)
-        defaults?.synchronize()
+    /// Last quick-context payload the keyboard fetched (invoices with pay links,
+    /// free slots, priced services).
+    ///
+    /// Cached because the keyboard extension is relaunched constantly and gets a
+    /// fresh URLSession each time (so no TLS resumption — a cold fetch can cost
+    /// several hundred ms before any of our bytes arrive). The chips row paints
+    /// from this synchronously, then refreshes in the background. Without the
+    /// cache the chips would visibly pop in late on every single keyboard open.
+    static func cacheQuickContext(_ context: QuickContext) {
+        guard let data = try? stagedEncoder.encode(context) else { return }
+        defaults?.set(data, forKey: FlynnShared.DefaultsKey.quickContext)
+        defaults?.set(Date().timeIntervalSince1970, forKey: FlynnShared.DefaultsKey.quickContextAt)
     }
 
-    /// The keyboard reads this on appear. Returns `nil` if there's nothing staged,
-    /// it's already been consumed, or it's older than the freshness window — so a
-    /// stale capture never overrides a fresh clipboard copy.
-    static func freshStagedScreenshotDraft() -> StagedScreenshotDraft? {
+    /// The cached payload, or nil when nothing is cached or it's gone stale.
+    /// Stale-but-present is treated as absent rather than shown, so a chip can
+    /// never insert a pay link for an invoice that was settled days ago.
+    static func cachedQuickContext() -> QuickContext? {
         guard
-            let data = defaults?.data(forKey: FlynnShared.DefaultsKey.stagedScreenshot),
-            let staged = try? stagedDecoder.decode(StagedScreenshotDraft.self, from: data),
-            !staged.consumed,
-            Date().timeIntervalSince(staged.capturedAt) <= FlynnShared.stagedDraftFreshnessSeconds
+            let data = defaults?.data(forKey: FlynnShared.DefaultsKey.quickContext),
+            let context = try? stagedDecoder.decode(QuickContext.self, from: data)
         else { return nil }
-        return staged
-    }
-
-    // MARK: OCR debug log (intent → keyboard, cleared on each new capture)
-
-    static var ocrDebugLog: String? {
-        get { defaults?.string(forKey: "flynn.debug.ocrLog") }
-        set { defaults?.set(newValue, forKey: "flynn.debug.ocrLog"); defaults?.synchronize() }
-    }
-
-    /// Mark the staged capture consumed so a keyboard re-appear doesn't replay it.
-    static func markStagedScreenshotConsumed() {
-        guard
-            let data = defaults?.data(forKey: FlynnShared.DefaultsKey.stagedScreenshot),
-            var staged = try? stagedDecoder.decode(StagedScreenshotDraft.self, from: data)
-        else { return }
-        staged.consumed = true
-        if let updated = try? stagedEncoder.encode(staged) {
-            defaults?.set(updated, forKey: FlynnShared.DefaultsKey.stagedScreenshot)
-            defaults?.synchronize()
-        }
+        let cachedAt = defaults?.double(forKey: FlynnShared.DefaultsKey.quickContextAt) ?? 0
+        guard cachedAt > 0,
+              Date().timeIntervalSince1970 - cachedAt <= FlynnShared.quickContextFreshnessSeconds
+        else { return nil }
+        return context
     }
 
     // MARK: Staged calendar booking (keyboard → main app)
-
-    /// Called by the keyboard when the backend flags an agreed, genuinely-free
-    /// time. The main app picks this up on its next foreground and offers the user
-    /// a one-tap confirm. `synchronize()` for the same cross-process reason as the
-    /// screenshot hand-off.
-    static func stagePendingCalendarEvent(_ event: PendingCalendarEvent) {
-        guard let data = try? stagedEncoder.encode(event) else { return }
-        defaults?.set(data, forKey: FlynnShared.DefaultsKey.stagedCalendarEvent)
-        defaults?.synchronize()
-    }
 
     /// The app reads this on foreground. Returns nil if there's nothing staged,
     /// it's been consumed, or it's older than the freshness window.

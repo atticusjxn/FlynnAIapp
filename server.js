@@ -24,7 +24,7 @@ const funnelIntake = require('./telephony/funnelIntake');
 const { estimateCallCost } = require('./telephony/callCostEstimate');
 const { getLLMClient, PROVIDERS } = require('./llmClient');
 const jwt = require('jsonwebtoken');
-const { generateDrafts, profileRowToContext } = require('./services/draftReplies');
+const { generateDrafts, profileRowToContext, composeFromShorthand } = require('./services/draftReplies');
 const { understandBusiness, FALLBACK_PROMPTS } = require('./services/onboarding');
 const googleCalendar = require('./services/googleCalendar');
 const { findOpenSlots, parseProposedTime, checkProposedTime, findNearestOpenSlot, buildAgreedEvent } = require('./services/slotProposer');
@@ -2668,108 +2668,6 @@ app.post('/api/keyboard/provision-token', authenticateJwt, async (req, res) => {
 });
 
 /**
- * No-auth diagnostic ping from ScreenshotDraftIntent.perform() — tells us
- * whether the App Intent process is executing at all.
- * POST /api/intent-ping
- */
-app.post('/api/intent-ping', (req, res) => {
-  console.log('[Intent] perform() executing — ping received');
-  res.sendStatus(200);
-});
-
-/**
- * Extract conversation text from a screenshot using Qwen VL OCR.
- * Called by the ScreenshotDraftIntent (App Intent) immediately after capture.
- * Body: { imageBase64: string }  (PNG encoded as base64, up to ~10 MB)
- * Returns: { text: string }
- * POST /api/keyboard/ocr-screenshot
- */
-app.post('/api/keyboard/ocr-screenshot', authenticateJwt, async (req, res) => {
-  const userId = req.user?.id;
-  if (!userId) return res.status(401).json({ error: 'Authentication required' });
-
-  const imageBase64 = req.body?.imageBase64;
-  if (!imageBase64 || typeof imageBase64 !== 'string' || imageBase64.length < 100) {
-    return res.status(400).json({ error: 'imageBase64 required' });
-  }
-
-  try {
-    const client = getLLMClient('compatible');
-    const ocrModel = process.env.OCR_VL_MODEL || 'qwen-vl-ocr';
-    const response = await client.chat.completions.create({
-      model: ocrModel,
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: { url: `data:image/png;base64,${imageBase64}` },
-            },
-            {
-              type: 'text',
-              text: 'This is a screenshot of a messaging app. Extract the full conversation in order.\n\nRules:\n- Messages on the RIGHT (sent by the owner): prefix with "Me: "\n- Messages on the LEFT (from the customer): no prefix\n- Photos, images, or media ATTACHED to a message: describe what they show on a separate line tagged with who sent it — e.g. "[Customer sent photo: Evolve Half Rack (TALL) gym equipment, full unit visible — this is the item they mentioned]" or "[Me sent photo: quote document]"\n- Link previews or product cards embedded in a message: describe them in square brackets — e.g. "[Customer shared product link: Evolve Half Rack (TALL) from evolvefitness.com.au — this appears to be the equipment they are asking about]"\n- Ignore UI chrome: status bar, battery, signal strength, time, contact name/avatar, app labels (iMessage/SMS/WhatsApp), delivery/read receipts, Send button\n\nReturn only the conversation content, one message or attachment per line. Be specific about what photos and product cards show — this context is critical so the reply does not ask for information already given.',
-            },
-          ],
-        },
-      ],
-    });
-
-    const text = (response?.choices?.[0]?.message?.content ?? '').trim();
-    if (!text) {
-      console.warn('[Keyboard] ocr-screenshot: empty response from model');
-      return res.status(422).json({ error: 'No text extracted from image' });
-    }
-
-    console.log('[Keyboard] ocr-screenshot extracted', text.length, 'chars for user', userId);
-    res.json({ text });
-
-    // Fire-and-forget: save capture to screenshots table + extract confirmed facts.
-    (async () => {
-      try {
-        const summaryClient = getLLMClient('compatible');
-        const summaryResp = await summaryClient.chat.completions.create({
-          enable_thinking: false,
-          max_tokens: 50,
-          messages: [
-            { role: 'system', content: 'Summarise this message conversation in one short sentence (12 words max). Focus on what the customer wants.' },
-            { role: 'user', content: text.slice(0, 1500) },
-          ],
-        });
-        const summary = summaryResp?.choices?.[0]?.message?.content?.trim() || null;
-        await supabaseStorageClient.from('screenshots').insert({
-          user_id: userId,
-          extracted_text: text.slice(0, 8000),
-          summary,
-        });
-      } catch (_) { /* best-effort */ }
-
-      extractFacts({ messages: [text] })
-        .then(async ({ facts }) => {
-          for (const f of (facts || []).slice(0, 5)) {
-            try {
-              await supabaseStorageClient.from('customer_context').insert({
-                user_id: userId,
-                subject_handle: f.subject ? f.subject.toLowerCase().replace(/\s+/g, ' ').trim() : null,
-                subject_label: f.subject || null,
-                fact: f.fact,
-                confidence: f.confidence,
-                status: 'confirmed',
-                source: 'screenshot',
-              });
-            } catch (_) {}
-          }
-        })
-        .catch(() => {});
-    })();
-  } catch (err) {
-    console.error('[Keyboard] ocr-screenshot failed:', err?.message || err);
-    return res.status(500).json({ error: 'OCR failed' });
-  }
-});
-
-/**
  * Generate tone-matched reply drafts for the customer's (possibly fragmented)
  * messages. Used by the keyboard extension. Privacy: customer message text is
  * used only to build the prompt and is NOT persisted.
@@ -2945,13 +2843,274 @@ app.post('/api/keyboard/draft-replies', authenticateJwt, async (req, res) => {
 });
 
 /**
+ * Everything the keyboard's chips row needs, in one cheap no-LLM read: the
+ * operator's open invoices (with pay links), their genuinely-free calendar
+ * slots, and their priced services.
+ *
+ * Exists because a keyboard extension is relaunched constantly and cannot block
+ * on the network — the client caches this in the App Group so chips render
+ * instantly, then refreshes in the background. Returns ready-to-insert prose so
+ * the extension does zero formatting (its memory budget is ~30-60MB).
+ *
+ * GET /api/keyboard/quick-context
+ */
+app.get('/api/keyboard/quick-context', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  try {
+    const { invoiceUrl, moneyFull } = require('./services/photoInvoice');
+
+    // Invoices are keyed on user_phone (see migration 20260718000400), while the
+    // keyboard endpoints are user_id-keyed — same id->phone hop agent-turn does.
+    // business_brain comes along because that is where pricing actually lives:
+    // business_profiles.services is empty and pricing_notes null for every row in
+    // prod, while the brain carries hourly_rate_cents / callout_fee_cents.
+    const { data: userRow } = await supabaseStorageClient
+      .from('users')
+      .select('phone, business_brain')
+      .eq('id', userId)
+      .maybeSingle();
+    const brain = userRow?.business_brain || {};
+
+    const { data: profileRow } = await supabaseStorageClient
+      .from('business_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // --- Open invoices with pay links -------------------------------------
+    const invoices = [];
+    if (userRow?.phone) {
+      const { data: invoiceRows } = await supabaseStorageClient
+        .from('invoices')
+        .select('client_name, total, amount_due, currency, status, public_token, created_at')
+        .eq('user_phone', userRow.phone)
+        .not('public_token', 'is', null)
+        .neq('status', 'paid')
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      for (const row of invoiceRows || []) {
+        const currency = row.currency || 'AUD';
+        const due = Number(row.amount_due ?? row.total ?? 0);
+        let amountLabel;
+        try {
+          amountLabel = new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(due);
+        } catch (_) {
+          amountLabel = `${currency} ${due.toFixed(2)}`;
+        }
+        const url = invoiceUrl(row.public_token);
+        const who = row.client_name ? ` for ${row.client_name}` : '';
+        invoices.push({
+          clientName: row.client_name || null,
+          amountLabel,
+          status: row.status || null,
+          payUrl: url,
+          // Prose the keyboard inserts verbatim.
+          insertText: `Here's the invoice${who} for ${amountLabel}, you can pay it here: ${url}`,
+        });
+      }
+    }
+
+    // --- Genuinely-free calendar slots ------------------------------------
+    let slots = [];
+    try {
+      const { slots: googleSlots } = await computeGoogleSlots(userId, profileRow?.hours_json);
+      slots = (googleSlots || []).map((s) => s.label).filter(Boolean).slice(0, 3);
+    } catch (_) { /* calendar not connected / lookup failed — chip just hides */ }
+
+    const slotsInsertText = slots.length
+      ? (slots.length === 1
+          ? `I've got ${slots[0]} free if that suits.`
+          : `I've got ${slots.slice(0, -1).join(', ')} or ${slots[slots.length - 1]} free, whichever suits you better.`)
+      : null;
+
+    // --- Rates ------------------------------------------------------------
+    // Brain first (the real source), then business_profiles as a fallback for
+    // anyone whose services array does get itemised later.
+    const rates = [];
+    const currency = brain.currency || 'AUD';
+    // Drop a trailing ".00": a tradie's rate reads as "$95/hr", not "$95.00/hr",
+    // and this keeps the chips consistent with how brainToProfileRow renders the
+    // same numbers into the compose prompt.
+    const rate = (cents) => moneyFull(cents, currency).replace(/\.00$/, '');
+    if (Number.isFinite(Number(brain.hourly_rate_cents))) {
+      const label = rate(Number(brain.hourly_rate_cents));
+      rates.push({ label: `${label}/hr`, insertText: `I'm ${label} an hour.` });
+    }
+    if (Number.isFinite(Number(brain.callout_fee_cents))) {
+      const label = rate(Number(brain.callout_fee_cents));
+      rates.push({ label: `${label} call-out`, insertText: `There's a ${label} call-out fee.` });
+    }
+
+    const services = Array.isArray(profileRow?.services) ? profileRow.services : [];
+    for (const s of services) {
+      if (rates.length >= 4) break;
+      if (typeof s !== 'object' || !s?.name || !s?.price_range) continue;
+      rates.push({ label: s.name, insertText: `${s.name} is ${s.price_range}.` });
+    }
+    // Freeform pricing notes, from either store, as the last resort.
+    const pricingNotes = brain.pricing_notes || profileRow?.pricing_notes;
+    if (rates.length === 0 && pricingNotes) {
+      rates.push({ label: 'My rates', insertText: String(pricingNotes).slice(0, 300) });
+    }
+
+    return res.json({ invoices, slots, slotsInsertText, rates });
+  } catch (error) {
+    console.error('[Keyboard] quick-context failed:', error?.message || error);
+    return res.status(500).json({ error: 'Failed to load context' });
+  }
+});
+
+/**
+ * Expand the shorthand the operator typed into send-ready message options.
+ *
+ * An iOS keyboard extension can only read the text field the cursor is in, never
+ * the conversation, so unlike draft-replies there is no customer message to infer
+ * from — the operator's own typed shorthand is the brief.
+ *
+ * Deliberately NOT the agent tool-loop: pure text transformation, so it writes no
+ * pending_actions row (that table is one row per user keyed on user_phone, so a
+ * keyboard turn would otherwise stomp an in-flight SMS confirmation) and it reuses
+ * the same free-tier cap as draft-replies rather than being uncapped spend.
+ *
+ * Privacy: the shorthand is used only to build the prompt and is NOT persisted.
+ * POST /api/keyboard/compose
+ * Body: { text: string, candidateCount?: number }
+ */
+app.post('/api/keyboard/compose', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!supabaseStorageClient) return res.status(500).json({ error: 'Database not configured' });
+
+  const shorthand = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  if (!shorthand) return res.status(400).json({ error: 'No text provided' });
+  if (shorthand.length > 2000) return res.status(400).json({ error: 'Text too long' });
+
+  const candidateCount = Math.min(Math.max(parseInt(req.body?.candidateCount, 10) || 3, 1), 4);
+
+  try {
+    // Same free-tier gate as draft-replies — this is the same kind of spend.
+    const entitled = await isUserEntitled(userId);
+    if (!entitled) {
+      const used = await draftsUsedToday(userId);
+      if (used >= FREE_DRAFTS_PER_DAY) {
+        return res.status(402).json({
+          limitReached: true,
+          error: 'Free daily draft limit reached',
+          freeDraftsPerDay: FREE_DRAFTS_PER_DAY,
+        });
+      }
+    }
+
+    const { data: profileRow } = await supabaseStorageClient
+      .from('business_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // Merge the brain over the profile row. Pricing lives in users.business_brain,
+    // so without this the expansion cites no real rate and the whole point of
+    // "carries your actual numbers" is lost. brainToProfileRow is the same mapper
+    // the SMS demo uses, so both surfaces describe the business identically.
+    const { data: brainRow } = await supabaseStorageClient
+      .from('users')
+      .select('business_brain')
+      .eq('id', userId)
+      .maybeSingle();
+    const { brainToProfileRow } = require('./services/flynnSMS');
+    const mergedProfile = { ...(profileRow || {}) };
+    if (brainRow?.business_brain) {
+      for (const [key, value] of Object.entries(brainToProfileRow(brainRow.business_brain))) {
+        if (value !== undefined && value !== null && mergedProfile[key] == null) {
+          mergedProfile[key] = value;
+        }
+      }
+    }
+
+    // Tone samples, same split as draft-replies: onboarding samples first, then
+    // the most recent accepted ones (the learning loop).
+    const { data: sampleRows } = await supabaseStorageClient
+      .from('tone_samples')
+      .select('sample_text, source, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(40);
+
+    const onboarding = [];
+    const accepted = [];
+    for (const row of sampleRows || []) {
+      if (!row?.sample_text) continue;
+      if (row.source === 'accepted') accepted.push(row.sample_text);
+      else onboarding.push(row.sample_text);
+    }
+    const toneSamples = [...onboarding, ...accepted.slice(0, MAX_ACCEPTED_TONE_SAMPLES)];
+
+    // Only spend a calendar lookup when the shorthand actually gestures at timing.
+    let proposedSlots = [];
+    if (/\b(free|avail|when|book|fit|slot|today|tomorrow|arvo|morning|afternoon|mon|tue|wed|thu|fri|sat|sun)\b/i.test(shorthand)) {
+      try {
+        const { slots } = await computeGoogleSlots(userId, profileRow?.hours_json);
+        proposedSlots = (slots || []).map((s) => s.label).filter(Boolean).slice(0, 3);
+      } catch (_) { /* no calendar — compose without real times */ }
+    }
+
+    // Only surface a pay link when the shorthand actually refers to getting paid.
+    let payLink = null;
+    if (/\b(invoice|bill|pay|paid|payment|owing|owe|balance)\b/i.test(shorthand)) {
+      try {
+        const { invoiceUrl } = require('./services/photoInvoice');
+        const { data: userRow } = await supabaseStorageClient
+          .from('users').select('phone').eq('id', userId).maybeSingle();
+        if (userRow?.phone) {
+          const { data: invRows } = await supabaseStorageClient
+            .from('invoices')
+            .select('public_token')
+            .eq('user_phone', userRow.phone)
+            .not('public_token', 'is', null)
+            .neq('status', 'paid')
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (invRows?.[0]?.public_token) payLink = invoiceUrl(invRows[0].public_token);
+        }
+      } catch (_) { /* no invoice to link — compose without one */ }
+    }
+
+    const { drafts, usage } = await composeFromShorthand({
+      shorthand,
+      profileRow: mergedProfile,
+      toneSamples,
+      pickedSamples: accepted,
+      proposedSlots,
+      payLink,
+      candidateCount,
+    });
+
+    if (!drafts || drafts.length === 0) {
+      return res.status(502).json({ error: 'Compose returned no results' });
+    }
+
+    if (!entitled) {
+      try { await supabaseStorageClient.rpc('bump_draft_usage', { p_user_id: userId }); } catch (_) {}
+    }
+
+    return res.json({ drafts, usage });
+  } catch (error) {
+    console.error('[Keyboard] compose failed:', error?.status || '', error?.message);
+    return res.status(500).json({ error: 'Failed to compose' });
+  }
+});
+
+/**
  * Learning loop: record a draft the user actually tapped/sent so future drafts
  * lean toward that style (voice) AND substance. The accepted text is stored as a
  * tone sample (source='accepted'); the full candidate set + picked index + source
  * + conversation are stored in draft_picks for contrastive/substance learning.
  * POST /api/keyboard/accept-draft
  * Body: { text: string, candidates?: string[], pickedIndex?: number,
- *         source?: 'clipboard'|'screenshot', messages?: string[] }
+ *         source?: 'clipboard'|'screenshot'|'rewrite'|'chip', messages?: string[] }
  */
 app.post('/api/keyboard/accept-draft', authenticateJwt, async (req, res) => {
   const userId = req.user?.id;
@@ -2969,7 +3128,13 @@ app.post('/api/keyboard/accept-draft', authenticateJwt, async (req, res) => {
     ? req.body.messages.filter((m) => typeof m === 'string').map((m) => m.slice(0, 2000)).slice(0, 20)
     : [];
   const pickedIndex = Number.isInteger(req.body?.pickedIndex) ? req.body.pickedIndex : null;
-  const source = req.body?.source === 'screenshot' ? 'screenshot' : 'clipboard';
+  // Allowlist rather than a screenshot/clipboard ternary: the keyboard's modes
+  // ('rewrite' = expanded typed shorthand, 'chip' = one-tap real-data insert) are
+  // distinct learning signals, and must stay in step with the draft_picks CHECK
+  // constraint (migration 20260725000000).
+  const source = ['clipboard', 'screenshot', 'rewrite', 'chip'].includes(req.body?.source)
+    ? req.body.source
+    : 'clipboard';
 
   try {
     const { error } = await supabaseStorageClient
@@ -4626,6 +4791,136 @@ const handleInboundVoice = async (req, res) => {
 
 app.post('/telephony/inbound-voice', handleInboundVoice);
 app.get('/telephony/inbound-voice', handleInboundVoice);
+
+/**
+ * Outbound "call me back" leg: Twilio hits this when the funnel call we
+ * placed (see /api/call-me-back below) is answered. Twilio's own params are
+ * reversed from a normal inbound call — `To` is the visitor we dialed, `From`
+ * is our Flynn number — so this reads `To` as the caller identity and hands
+ * off to the exact same funnel intake path an inbound ad call would hit.
+ */
+app.post('/telephony/outbound-callback-answer', async (req, res) => {
+  try {
+    if (shouldValidateSignature && twilioAuthToken) {
+      const signature = req.headers['x-twilio-signature'];
+      const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      if (!signature || !twilio.validateRequest(twilioAuthToken, signature, url, req.body || {})) {
+        console.warn('[Telephony] Signature validation failed for outbound callback-answer.', { url });
+        return res.status(403).send('Twilio signature validation failed');
+      }
+    }
+
+    const callSid = req.body?.CallSid;
+    const visitorPhone = req.body?.To;
+
+    if (!visitorPhone) {
+      console.warn('[Telephony] Outbound callback-answer missing To number.', { callSid });
+      return respondWithVoicemail(req, res, req.body || {});
+    }
+
+    return respondWithFunnelIntake({
+      req,
+      res,
+      inboundParams: req.body || {},
+      callSid,
+      fromNumber: visitorPhone,
+      toNumber: process.env.TWILIO_FLYNN_NUMBER || '+61480891471',
+    });
+  } catch (error) {
+    console.error('[Telephony] Failed to process outbound callback-answer.', error);
+    return respondWithVoicemail(req, res, req.body || {});
+  }
+});
+
+// If the callback rings out/goes to voicemail/fails, Twilio posts here — just
+// log it, nothing to render (no leg to answer back into).
+app.post('/telephony/outbound-callback-status', (req, res) => {
+  console.log('[Telephony] Outbound callback status.', {
+    callSid: req.body?.CallSid,
+    status: req.body?.CallStatus,
+    to: req.body?.To,
+  });
+  res.sendStatus(204);
+});
+
+/**
+ * Public "call me back" trigger for the landing page funnel: a visitor enters
+ * their mobile number and Flynn calls them within seconds, straight into the
+ * same intake interview an ad-number caller gets. No auth (this is the top of
+ * the funnel, before anyone has an account) — protected instead by phone- and
+ * IP-based rate limiting, since it places a real outbound call per request.
+ */
+const callMeBackLastCallByPhone = new Map();
+const callMeBackRequestsByIp = new Map();
+const CALL_ME_BACK_PHONE_COOLDOWN_MS = 10 * 60 * 1000;
+const CALL_ME_BACK_IP_WINDOW_MS = 60 * 60 * 1000;
+const CALL_ME_BACK_IP_MAX_PER_WINDOW = 5;
+
+// Both maps only ever grow (one entry per distinct phone/IP that's ever hit
+// this endpoint) — sweep entries older than the window on an interval so a
+// long-running machine doesn't accumulate them forever.
+setInterval(() => {
+  const now = Date.now();
+  for (const [phone, t] of callMeBackLastCallByPhone) {
+    if (now - t > CALL_ME_BACK_PHONE_COOLDOWN_MS) callMeBackLastCallByPhone.delete(phone);
+  }
+  for (const [ip, hits] of callMeBackRequestsByIp) {
+    const fresh = hits.filter((t) => now - t < CALL_ME_BACK_IP_WINDOW_MS);
+    if (fresh.length === 0) callMeBackRequestsByIp.delete(ip);
+    else callMeBackRequestsByIp.set(ip, fresh);
+  }
+}, 30 * 60 * 1000);
+
+app.post('/api/call-me-back', async (req, res) => {
+  try {
+    const { normalizePhone } = require('./services/authLink');
+    const rawPhone = req.body?.phone;
+    const phone = normalizePhone(rawPhone);
+    if (!phone) {
+      return res.status(400).json({ error: 'invalid phone number' });
+    }
+
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+    const now = Date.now();
+
+    const lastCall = callMeBackLastCallByPhone.get(phone);
+    if (lastCall && now - lastCall < CALL_ME_BACK_PHONE_COOLDOWN_MS) {
+      return res.status(429).json({ error: 'already called this number recently, try again shortly' });
+    }
+
+    const ipHits = (callMeBackRequestsByIp.get(ip) || []).filter((t) => now - t < CALL_ME_BACK_IP_WINDOW_MS);
+    if (ipHits.length >= CALL_ME_BACK_IP_MAX_PER_WINDOW) {
+      return res.status(429).json({ error: 'too many requests, try again later' });
+    }
+
+    if (!twilioAccountSid || !twilioAuthToken) {
+      console.error('[CallMeBack] Twilio not configured; cannot place outbound call.');
+      return res.status(503).json({ error: 'callback temporarily unavailable' });
+    }
+
+    const baseUrl = process.env.PUBLIC_BASE_URL || process.env.SERVER_PUBLIC_URL || `${req.protocol}://${req.get('host')}`;
+    const fromNumber = process.env.TWILIO_FLYNN_NUMBER || '+61480891471';
+
+    const call = await twilio(twilioAccountSid, twilioAuthToken).calls.create({
+      to: phone,
+      from: fromNumber,
+      url: `${baseUrl}/telephony/outbound-callback-answer`,
+      method: 'POST',
+      statusCallback: `${baseUrl}/telephony/outbound-callback-status`,
+      statusCallbackMethod: 'POST',
+      statusCallbackEvent: ['completed', 'no-answer', 'failed', 'busy'],
+    });
+
+    callMeBackLastCallByPhone.set(phone, now);
+    callMeBackRequestsByIp.set(ip, [...ipHits, now]);
+
+    console.log('[CallMeBack] Outbound call placed.', { phone, ip, callSid: call.sid });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('[CallMeBack] Failed to place outbound call.', error);
+    return res.status(500).json({ error: 'failed to place call' });
+  }
+});
 
 // IVR endpoints for Mode A (SMS Link Follow-Up)
 app.post('/ivr/handle-dtmf', async (req, res) => {

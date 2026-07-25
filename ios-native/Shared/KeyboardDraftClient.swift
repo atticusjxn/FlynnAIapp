@@ -1,14 +1,19 @@
 import Foundation
 
-/// Network client for the drafting endpoints. Calls the backend with the
+/// Network client for the keyboard's endpoints. Calls the backend with the
 /// long-lived keyboard JWT (minted by the main app, read from the shared
-/// keychain). Lives in `Shared/` so BOTH the keyboard extension and the
-/// app-process `ScreenshotDraftIntent` can reuse it. Kept tiny and
-/// dependency-free to respect the keyboard's memory cap.
+/// keychain) because an extension cannot run the Supabase SDK to get a session.
+/// Lives in `Shared/` so both targets can use it, and stays deliberately tiny and
+/// dependency-free to respect the keyboard's ~30-60MB memory cap.
 enum KeyboardDraftClient {
     enum ClientError: Error {
         case notConfigured        // missing API base URL or token
         case limitReached         // free daily draft cap hit (HTTP 402)
+        /// The keyboard JWT was rejected (HTTP 401) — almost always the 60-day
+        /// token having expired. Distinct from `.server` because the user has to
+        /// open the app to re-provision, and telling them "network hiccup" leaves
+        /// them retrying a button that can never succeed.
+        case unauthorized
         case server(Int)
         case decode
     }
@@ -35,6 +40,7 @@ enum KeyboardDraftClient {
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw ClientError.server(-1) }
         if http.statusCode == 402 { throw ClientError.limitReached }
+        if http.statusCode == 401 { throw ClientError.unauthorized }
         guard (200...299).contains(http.statusCode) else { throw ClientError.server(http.statusCode) }
         guard let decoded = try? JSONDecoder().decode(DraftResponse.self, from: data) else {
             throw ClientError.decode
@@ -42,31 +48,58 @@ enum KeyboardDraftClient {
         return DraftResult(drafts: decoded.drafts, agreedEvent: decoded.agreedEvent)
     }
 
-    // MARK: - Screenshot OCR
+    // MARK: - Quick context (chips)
 
-    private struct OCRRequest: Encodable { let imageBase64: String }
-    private struct OCRResponse: Decodable { let text: String }
-
-    /// Send a screenshot to the server for Qwen VL OCR.
-    /// Returns the extracted conversation text, or throws on network/auth/decode failure.
-    static func ocrScreenshot(imageData: Data) async throws -> String {
+    /// Fetch the operator's open invoices, free slots and priced services in one
+    /// cheap no-LLM call. Short timeout on purpose: the chips row renders from the
+    /// App Group cache first and this only refreshes it, so it must never be the
+    /// reason the keyboard feels slow.
+    static func quickContext() async throws -> QuickContext {
         guard let base = baseURL(), let token = SharedSecureStore.keyboardToken else {
             throw ClientError.notConfigured
         }
-        var req = URLRequest(url: base.appendingPathComponent("api/keyboard/ocr-screenshot"))
+
+        var req = URLRequest(url: base.appendingPathComponent("api/keyboard/quick-context"))
+        req.httpMethod = "GET"
+        req.timeoutInterval = 6
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw ClientError.server(-1) }
+        if http.statusCode == 401 { throw ClientError.unauthorized }
+        guard (200...299).contains(http.statusCode) else { throw ClientError.server(http.statusCode) }
+        guard let decoded = try? JSONDecoder().decode(QuickContext.self, from: data) else {
+            throw ClientError.decode
+        }
+        return decoded
+    }
+
+    // MARK: - Compose
+
+    /// Expand the shorthand the operator typed into send-ready message options.
+    /// Throws `limitReached` on 402 so the caller can show the upgrade nudge, same
+    /// as `fetchDrafts`.
+    static func compose(text: String, candidateCount: Int = 3) async throws -> [String] {
+        guard let base = baseURL(), let token = SharedSecureStore.keyboardToken else {
+            throw ClientError.notConfigured
+        }
+
+        var req = URLRequest(url: base.appendingPathComponent("api/keyboard/compose"))
         req.httpMethod = "POST"
-        req.timeoutInterval = 25
+        req.timeoutInterval = 12
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONEncoder().encode(OCRRequest(imageBase64: imageData.base64EncodedString()))
+        req.httpBody = try JSONEncoder().encode(ComposeRequest(text: text, candidateCount: candidateCount))
+
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw ClientError.server(-1) }
         if http.statusCode == 402 { throw ClientError.limitReached }
+        if http.statusCode == 401 { throw ClientError.unauthorized }
         guard (200...299).contains(http.statusCode) else { throw ClientError.server(http.statusCode) }
-        guard let decoded = try? JSONDecoder().decode(OCRResponse.self, from: data) else {
+        guard let decoded = try? JSONDecoder().decode(ComposeResponse.self, from: data) else {
             throw ClientError.decode
         }
-        return decoded.text
+        return decoded.drafts
     }
 
     // MARK: - Calendar
@@ -100,6 +133,7 @@ enum KeyboardDraftClient {
         ))
         let (_, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw ClientError.server(-1) }
+        if http.statusCode == 401 { throw ClientError.unauthorized }
         guard (200...299).contains(http.statusCode) else { throw ClientError.server(http.statusCode) }
     }
 

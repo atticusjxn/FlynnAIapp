@@ -2,26 +2,26 @@ import SwiftUI
 
 /// The keyboard setup steps, relocated out of the (now removed) onboarding wizard.
 /// Presented as a sheet from the Home dashboard and pushed from Settings → Flynn
-/// Keyboard. Reuses the existing InstallKeyboardStepView + CaptureSetupStepView
-/// verbatim — only the container changed. Keyboard setup is an optional power-user
-/// add-on now, not an entry gate.
+/// Keyboard. InstallKeyboardStepView handles Settings → Keyboards → Full Access,
+/// then KeyboardTourStepView shows the two ways the keyboard is actually used.
+/// Keyboard setup is an optional power-user add-on now, not an entry gate.
 struct KeyboardSetupFlow: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(FlashStore.self) private var flash
     @State private var path = NavigationPath()
 
-    private enum Step: Hashable { case capture }
+    private enum Step: Hashable { case tour }
 
     var body: some View {
         NavigationStack(path: $path) {
             ZStack {
                 OB.cream.ignoresSafeArea()
-                InstallKeyboardStepView(onContinue: { path.append(Step.capture) })
+                InstallKeyboardStepView(onContinue: { path.append(Step.tour) })
             }
             .navigationDestination(for: Step.self) { _ in
                 ZStack {
                     OB.cream.ignoresSafeArea()
-                    CaptureSetupStepView(onFinish: finish)
+                    KeyboardTourStepView(onFinish: finish)
                 }
                 .navigationBarBackButtonHidden(false)
             }

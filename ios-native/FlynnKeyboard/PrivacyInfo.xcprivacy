@@ -7,7 +7,26 @@
     <key>NSPrivacyTrackingDomains</key>
     <array/>
     <key>NSPrivacyCollectedDataTypes</key>
-    <array/>
+    <array>
+        <!-- When the user taps Polish, the shorthand they typed is sent to Flynn's
+             server to be expanded into a send-ready message. It is used only to
+             build that request, is not used for tracking or advertising, and is
+             linked to the signed-in user because the reply is written from their
+             own business data. Read only on an explicit Polish tap, never
+             speculatively, and never from the conversation or the clipboard. -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+    </array>
     <key>NSPrivacyAccessedAPITypes</key>
     <array>
         <dict>

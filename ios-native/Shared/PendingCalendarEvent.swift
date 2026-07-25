@@ -1,10 +1,9 @@
 import Foundation
 
 /// A calendar booking the backend detected as genuinely-free and agreed in a
-/// conversation, staged by the keyboard (App Group) for the MAIN APP to write to
-/// the user's calendar. The keyboard and the screenshot intent both run in
-/// sandboxes that cannot touch EventKit — only the foreground app can — so the
-/// hand-off mirrors `StagedScreenshotDraft`: write atomically, pick up on the
+/// conversation, staged (App Group) for the MAIN APP to write to the user's
+/// calendar. The keyboard runs in a sandbox that cannot touch EventKit — only the
+/// foreground app can — so the hand-off is write atomically, then pick up on the
 /// app's next foreground.
 ///
 /// The user always confirms before anything is written; nothing is ever booked
