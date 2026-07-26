@@ -363,10 +363,14 @@ const completeFunnelCall = async ({ callerPhone, callSid, transcript }) => {
     return;
   }
 
+  // Two codes reach this person within minutes of each other: this setup code,
+  // and the numeric sign-in code Supabase texts when they verify their number.
+  // Naming it "setup code" and saying when it's needed is what stops them
+  // trying to type it into the sign-in field.
   const url = link?.httpsUrl || link?.url || null;
   const body = url
-    ? `hey, it's Flynn. your receptionist's ready, she learned your business from that call. tap this and she's live in under a minute: ${url}\n\nif it asks for a code, it's ${session.claim_code}`
-    : `hey, it's Flynn. your receptionist's ready. grab the Flynn app from the App Store and use code ${session.claim_code} to bring her to life`;
+    ? `hey, it's Flynn. your receptionist's ready, she learned your business from that call. tap this and she's live in under a minute: ${url}\n\nsign in with this same number and everything's already there. only if you use a different number, your setup code is ${session.claim_code}`
+    : `hey, it's Flynn. your receptionist's ready. grab the Flynn app from the App Store and sign in with this number, everything you told me is already there. setup code if you need it: ${session.claim_code}`;
 
   try {
     await twilioClient.messages.create({
