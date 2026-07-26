@@ -31,6 +31,13 @@ enum FlynnEnv {
         infoString("STRIPE_PUBLISHABLE_KEY")
     }
 
+    /// Australian Business Register web services GUID. Nil until configured,
+    /// which the Getting Paid screen treats as "let them type the ABN".
+    static var abrGUID: String? {
+        let value = infoString("ABR_GUID")
+        return (value?.isEmpty ?? true) ? nil : value
+    }
+
     /// Flynn's iMessage/SMS number — the agent users text to get started.
     /// Overridable via Info.plist (FLYNN_CONTACT_NUMBER); defaults to the live number.
     static var flynnContactNumber: String {

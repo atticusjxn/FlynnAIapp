@@ -22,4 +22,11 @@ FACEBOOK_CLIENT_TOKEN =
 TIKTOK_APP_ID =
 TIKTOK_TTAPP_ID =
 
+// Australian Business Register web services GUID — powers "search your
+// business name, get your ABN" on the Getting Paid screen. Free; register at
+// abr.business.gov.au/Tools/WebServices. Not a credential (it identifies the
+// caller for rate limiting), but kept out of the repo with the other config.
+// Leave empty and the app quietly falls back to typing the ABN by hand.
+ABR_GUID =
+
 #include? "Secrets.local.xcconfig"

@@ -72,6 +72,8 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
     case support
     case terms
     case account
+    case paymentDetails
+    case callForwarding
 
     var title: String {
         switch self {
@@ -86,6 +88,8 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
         case .support: return "Help & Support"
         case .terms: return "Terms of Service"
         case .account: return "Account"
+        case .paymentDetails: return "Getting Paid"
+        case .callForwarding: return "Divert Your Calls"
         }
     }
 
@@ -102,6 +106,8 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
         case .support: return "lifepreserver"
         case .terms: return "doc.text"
         case .account: return "person.circle"
+        case .paymentDetails: return "banknote"
+        case .callForwarding: return "phone.arrow.right"
         }
     }
 }

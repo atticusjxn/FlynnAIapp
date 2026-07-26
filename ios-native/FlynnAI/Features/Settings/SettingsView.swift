@@ -20,6 +20,16 @@ struct SettingsView: View {
                     Label("Set up my receptionist", systemImage: "phone.badge.waveform")
                 }
                 NavigationLink {
+                    CallForwardingView()
+                } label: {
+                    Label("Divert your calls", systemImage: "phone.arrow.right")
+                }
+                NavigationLink {
+                    PaymentDetailsView()
+                } label: {
+                    Label("Getting paid", systemImage: "banknote")
+                }
+                NavigationLink {
                     IntegrationsView()
                 } label: {
                     Label("Connected apps", systemImage: "square.stack.3d.up")

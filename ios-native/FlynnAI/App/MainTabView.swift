@@ -121,6 +121,10 @@ struct MainTabView: View {
             NotificationsSettingsView()
         case .appearance:
             AppearanceView()
+        case .paymentDetails:
+            PaymentDetailsView()
+        case .callForwarding:
+            CallForwardingView()
         case .bookingPage, .businessType, .support, .terms, .account:
             PlaceholderDetailView(title: section.title, id: nil)
         }

@@ -88,6 +88,7 @@ targets:
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)
+        ABR_GUID: $(ABR_GUID)
         FacebookAppID: $(FACEBOOK_APP_ID)
         FacebookClientToken: $(FACEBOOK_CLIENT_TOKEN)
         FacebookDisplayName: Flynn

@@ -258,6 +258,9 @@ function renderInvoiceHTML(rawInv, business = {}) {
   const items = Array.isArray(inv.line_items) ? inv.line_items : [];
   const isPaid = inv.status === 'paid';
 
+  // A tax invoice has to carry the supplier's ABN to be claimable by the
+  // client (ATO GST rules), so print it whenever we know it.
+  const abn = business.abn || business.ABN;
   const bankBsb = business.bank_bsb || business.bsb;
   const bankAcct = business.bank_account || business.account_number;
   const bankName = business.bank_account_name || business.account_name || bizName;
@@ -297,7 +300,9 @@ function renderInvoiceHTML(rawInv, business = {}) {
         ${inv.stripe_payment_url
           ? `<a class="btn btn-primary" href="${esc(inv.stripe_payment_url)}">Pay ${moneyFull(inv.total_cents, currency)}</a>`
           : `<button class="btn btn-primary" type="button" data-pay disabled>Pay ${moneyFull(inv.total_cents, currency)}</button>
-             <p class="pay-soon">Card, Apple&nbsp;Pay and PayID are switching on shortly. In the meantime you can pay by bank transfer below.</p>`}
+             <p class="pay-soon">${hasBank
+               ? 'Card, Apple&nbsp;Pay and PayID are switching on shortly. In the meantime you can pay by bank transfer below.'
+               : 'Card, Apple&nbsp;Pay and PayID are switching on shortly. Get in touch for payment details in the meantime.'}</p>`}
         ${payMethods}
       </section>`;
 
@@ -353,6 +358,7 @@ ${ogImg ? `<meta property="og:image" content="${esc(ogImg)}">` : ''}
   .hero{padding:34px 0 8px;text-align:center}
   .from{font-size:13px;color:var(--muted);margin:0 0 6px}
   .biz{font-size:19px;font-weight:650;margin:0 0 18px}
+  .abn{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-top:3px;letter-spacing:.2px}
   .amount{font-size:52px;font-weight:760;letter-spacing:-1.6px;line-height:1;margin:0}
   .status{display:inline-flex;align-items:center;gap:7px;margin-top:14px;font-size:13px;font-weight:560;
     padding:7px 14px;border-radius:999px}
@@ -463,7 +469,7 @@ ${ogImg ? `<meta property="og:image" content="${esc(ogImg)}">` : ''}
 <main class="wrap">
   <div class="hero">
     <p class="from">Invoice from</p>
-    <p class="biz">${esc(bizName)}</p>
+    <p class="biz">${esc(bizName)}${abn ? `<span class="abn">ABN ${esc(abn)}</span>` : ''}</p>
     <p class="amount">${moneyFull(inv.total_cents, currency)}</p>
     <span class="status ${isPaid ? 'paid' : 'due'}">
       ${isPaid ? 'Paid' : (inv.due_date ? `Due ${esc(inv.due_date)}` : 'Awaiting payment')}
