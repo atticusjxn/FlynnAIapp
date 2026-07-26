@@ -26,6 +26,15 @@ const { createClient } = require('@supabase/supabase-js');
 const count = parseInt(process.argv[2], 10) || 1;
 const confirmed = process.argv.includes('--yes');
 
+// Local (02/03/07/08) numbers cost $3.00/mo against $8.25 for Mobile, and under
+// the call-forwarding model the client never sees or dials this number — they
+// ring the operator's own mobile, which diverts here. It's an internal routing
+// address, so the cheaper number is the same product.
+// Mobile is still the right choice if the tenant number ever has to SEND SMS:
+// AU local numbers are voice-only on Twilio.
+const useLocal = process.argv.includes('--local');
+const numberType = useLocal ? 'local' : 'mobile';
+
 const {
   TWILIO_ACCOUNT_SID,
   TWILIO_AUTH_TOKEN,
@@ -55,16 +64,19 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     .eq('status', 'available');
   console.log(`Pool currently has ${poolAvailable ?? 0} available number(s).`);
 
+  // AU local numbers are voice-only, so only filter on SMS for Mobile.
   const available = await client
-    .availablePhoneNumbers('AU')
-    .mobile.list({ smsEnabled: true, voiceEnabled: true, limit: count });
+    .availablePhoneNumbers('AU')[numberType]
+    .list(useLocal
+      ? { voiceEnabled: true, limit: count }
+      : { smsEnabled: true, voiceEnabled: true, limit: count });
 
   if (available.length < count) {
-    console.warn(`⚠ Twilio only has ${available.length}/${count} AU Mobile numbers available right now.`);
+    console.warn(`⚠ Twilio only has ${available.length}/${count} AU ${numberType} numbers available right now.`);
   }
-  if (available.length === 0) fail('No AU Mobile numbers available from Twilio.');
+  if (available.length === 0) fail(`No AU ${numberType} numbers available from Twilio.`);
 
-  console.log(`Will purchase ${available.length} number(s):`);
+  console.log(`Will purchase ${available.length} AU ${numberType} number(s) (${useLocal ? '$3.00' : '$8.25'}/mo each):`);
   for (const n of available) console.log(`  ${n.phoneNumber}`);
   console.log(`Voice webhook: ${SERVER_URL}/telephony/inbound-voice`);
 
