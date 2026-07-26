@@ -39,6 +39,17 @@ const loadUser = async (userId) => {
     .eq('id', userId)
     .maybeSingle();
   if (error) throw new Error(error.message);
+  if (!data) return data;
+
+  // The whole claim hinges on matching the signup phone to the phone they rang
+  // from. public.users.phone is mirrored from auth.users by trigger, but if that
+  // mirror ever misses, the user sees "no session" and their call is lost — so
+  // fall back to the auth record rather than failing the match.
+  if (!data.phone) {
+    const { data: authUser } = await supabase.auth.admin.getUserById(userId).catch(() => ({ data: null }));
+    const authPhone = authUser?.user?.phone;
+    if (authPhone) data.phone = authPhone.startsWith('+') ? authPhone : `+${authPhone}`;
+  }
   return data;
 };
 

@@ -5,9 +5,20 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
+    /// Manual entry into the voice front-door claim. The first-run gate only
+    /// fires when the staged session matches the signup number, so someone who
+    /// rang Flynn from a different phone (or dismissed the gate) needs a way
+    /// back in with the code from their text.
+    @State private var showClaimFlow = false
+
     var body: some View {
         List {
             Section("Setup") {
+                Button {
+                    showClaimFlow = true
+                } label: {
+                    Label("Set up my receptionist", systemImage: "phone.badge.waveform")
+                }
                 NavigationLink {
                     IntegrationsView()
                 } label: {
@@ -47,5 +58,8 @@ struct SettingsView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Settings")
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } } }
+        .fullScreenCover(isPresented: $showClaimFlow) {
+            ReceptionistClaimFlow(staged: nil) { showClaimFlow = false }
+        }
     }
 }

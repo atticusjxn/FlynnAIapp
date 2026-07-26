@@ -79,6 +79,26 @@ function syntheticEmail(phone) {
  *
  * @param {string} phone E.164
  */
+/**
+ * Mirror the phone onto the public.users row.
+ *
+ * The on_auth_user_created trigger only copies id + email across, so a
+ * phone-keyed user provisioned here would otherwise land with users.phone
+ * NULL. Everything downstream that resolves a user by phone — the voice-funnel
+ * claim lookup, the hosted invoice page's business/bank details, the SMS agent
+ * — silently misses that user until this column is set. Never clobber an
+ * existing value, and never let a failure here break sign-in.
+ */
+async function backfillUserPhone(userId, phone) {
+  if (!admin || !userId || !phone) return;
+  const { error } = await admin
+    .from('users')
+    .update({ phone })
+    .eq('id', userId)
+    .is('phone', null);
+  if (error) console.warn('[authLink] could not backfill users.phone for', phone, error.message);
+}
+
 async function ensureAuthUser(phone) {
   if (!admin || !phone) return null;
   const email = syntheticEmail(phone);
@@ -117,14 +137,20 @@ async function ensureAuthUser(phone) {
     phone_confirm: true,
     email_confirm: true,
   });
-  if (!created.error && created.data?.user) return { id: created.data.user.id, created: true };
+  if (!created.error && created.data?.user) {
+    await backfillUserPhone(created.data.user.id, phone);
+    return { id: created.data.user.id, created: true };
+  }
 
   // Already exists (race / prior create that didn't set users.phone yet) — resolve via auth email.
   const { data: list } = await admin.auth.admin
     .listUsers({ page: 1, perPage: 200 })
     .catch(() => ({ data: null }));
   const match = list?.users?.find((u) => u.email === email || u.phone === phone.replace('+', '') || u.phone === phone);
-  if (match?.id) return { id: match.id, created: false };
+  if (match?.id) {
+    await backfillUserPhone(match.id, phone);
+    return { id: match.id, created: false };
+  }
 
   console.error('[authLink] ensureAuthUser failed for', phone, created.error?.message);
   return null;
