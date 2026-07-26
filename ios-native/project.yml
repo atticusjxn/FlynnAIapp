@@ -104,8 +104,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app
-        MARKETING_VERSION: "3.0.2"
-        CURRENT_PROJECT_VERSION: "114"
+        MARKETING_VERSION: "3.0.3"
+        CURRENT_PROJECT_VERSION: "115"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
         DEVELOPMENT_TEAM: "69T5H7R46N"
@@ -137,8 +137,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app.keyboard
         PRODUCT_NAME: FlynnKeyboard
-        MARKETING_VERSION: "3.0.2"
-        CURRENT_PROJECT_VERSION: "114"
+        MARKETING_VERSION: "3.0.3"
+        CURRENT_PROJECT_VERSION: "115"
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: "69T5H7R46N"
         CODE_SIGN_STYLE: Automatic
