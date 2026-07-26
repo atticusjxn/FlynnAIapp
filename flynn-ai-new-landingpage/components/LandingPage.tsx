@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import StoreButtons from './StoreButtons';
+import CallMeBackWidget from './CallMeBackWidget';
 
 /* ------------------------------------------------------------------ *
  * Flynn landing page — voice receptionist positioning (2026-07).
@@ -10,6 +11,10 @@ import StoreButtons from './StoreButtons';
  * ------------------------------------------------------------------ */
 
 const INK = '#2C2018';
+
+const FLYNN_NUMBER = '+61480891471';
+const FLYNN_NUMBER_DISPLAY = '+61 480 891 471';
+const FLYNN_SMS_LINK = `sms:${FLYNN_NUMBER}&body=${encodeURIComponent('Hi Flynn')}`;
 
 const Mascot = ({ pose, className = '' }: { pose: string; className?: string }) => (
   <img src={`/mascots/${pose}.png`} alt="" aria-hidden="true"
@@ -85,9 +90,9 @@ const Card = ({ children, className = '' }: any) => (
 
 /* ===================== STEPS ===================== */
 const steps = [
-  { n: '1', pose: 'wave', title: 'Divert your calls to Flynn', body: "One tap in the app sets your phone to forward missed and busy calls to your Flynn number. Takes about 20 seconds — your number never changes." },
-  { n: '2', pose: 'phone', title: 'Flynn answers, books the job', body: "When you can't pick up, Flynn does — sounds like a real person, asks the right questions, and books the job straight into your calendar." },
-  { n: '3', pose: 'thumbsup', title: "You get the invoice, Flynn gets you paid", body: "Snap the job photos in the app and Flynn sends a proper invoice with a pay link, then chases it until the money lands. Always in your control." },
+  { n: '1', pose: 'wave', tint: '#E0A436', title: 'Divert your calls to Flynn', body: "One tap in the app sets your phone to forward missed and busy calls to your Flynn number. Takes about 20 seconds — your number never changes." },
+  { n: '2', pose: 'phone', tint: '#3C8A86', title: 'Flynn answers, books the job', body: "When you can't pick up, Flynn does — sounds like a real person, asks the right questions, and books the job straight into your calendar." },
+  { n: '3', pose: 'thumbsup', tint: '#C5532B', title: "You get the invoice, Flynn gets you paid", body: "Snap the job photos in the app and Flynn sends a proper invoice with a pay link, then chases it until the money lands. Always in your control." },
 ];
 
 /* ===================== FEATURES ===================== */
@@ -104,7 +109,7 @@ const faqs = [
   { q: 'How do my clients pay me?', a: "Once the job's done, Flynn sends an invoice with the job photos on it and a pay link, then chases it for you until it's paid — so you're not the one sending awkward follow-ups. Pay-by-bank is rolling out, so they'll soon be able to pay straight from their bank too." },
   { q: 'Does Flynn send things on its own?', a: "Never anything irreversible without you. Flynn books calls and drafts invoices, and you can review anything before it goes out. You're always in the loop." },
   { q: 'Do I need to set anything up?', a: "Just a few minutes: tell Flynn your services, prices and hours, then divert your calls. After that it already sounds like it knows your business, because it does." },
-  { q: 'What does it cost?', a: 'Free to start. Pro is unlimited calls answered, invoices with photos, auto-chasing late payments, and full business-brain personalisation, with a 14-day free trial.' },
+  { q: 'What does it cost?', a: "$79 a month, after a 7 day free trial. That's unlimited calls answered, invoices with photos, auto-chasing late payments, and full business-brain personalisation. You'll need a card to start the trial, and you can cancel any time." },
   { q: 'Is my data safe?', a: "Flynn only knows what you tell it during setup and on calls. No scanning your contacts, no reading your messages. You control what it has access to." },
 ];
 
@@ -136,18 +141,20 @@ export default function LandingPage() {
             <p className="mt-6 text-lg sm:text-xl text-[#5A4A3C] max-w-xl leading-relaxed">
               When you're on the tools, Flynn picks up — a receptionist that sounds like a real person, books the job, and texts the client back in seconds. Then it does the rest: the invoice with the photos on it, the pay link, and the chasing until the money lands.
             </p>
-            <p className="mt-5 text-sm font-medium text-[#8C7B6A]">Sounds like a real person · Free to start · AU &amp; NZ</p>
+            <p className="mt-5 text-sm font-medium text-[#8C7B6A]">Sounds like a real person · 7 day free trial · AU &amp; NZ</p>
             <div className="mt-7">
+              <p className="font-display font-bold text-lg mb-3">Hear it for yourself, free:</p>
+              <CallMeBackWidget />
               <a href="https://apps.apple.com/au/app/flynnai/id6752254950" target="_blank" rel="noopener noreferrer"
-                className="flynn-glass flynn-glass--primary flynn-pill inline-flex items-center gap-2.5 px-8 py-4 font-display font-bold text-lg">
-                Get Flynn free
+                className="inline-block mt-4 text-sm font-semibold text-[#5A4A3C] hover:text-[#FB5B1E] transition-colors underline decoration-[#5A4A3C]/30">
+                Already sold? Get Flynn free on the App Store →
               </a>
             </div>
           </Reveal>
 
           <Reveal delay={0.1} className="relative flex flex-col items-center lg:items-end gap-4">
             <Starburst className="absolute -left-2 top-10 w-16 h-16 hidden sm:block" />
-            <img src="/phone/hero-call.png" alt="Flynn answering a call on the tradie's own phone, with a notification confirming the job was booked" className="w-full max-w-[360px] sm:max-w-[400px] drop-shadow-2xl" />
+            <img src="/phone/hero-call.png" alt="Flynn answering a call on the tradie's own phone, with a notification confirming the job was booked" className="w-full max-w-[443px] sm:max-w-[492px]" />
           </Reveal>
         </div>
       </section>
@@ -166,8 +173,15 @@ export default function LandingPage() {
       {/* ===================== APP STORE CTA (secondary) ===================== */}
       <section className="py-10 border-b-[3px] border-[#2C2018]">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col items-center justify-center gap-4">
-          <span className="text-sm font-medium text-[#8C7B6A]">Prefer the app?</span>
+          <span className="text-sm font-medium text-[#8C7B6A]">Download the app to get started</span>
           <StoreButtons />
+          <p className="text-sm text-[#8C7B6A]">
+            Prefer to just text?{' '}
+            <a href={FLYNN_SMS_LINK} className="font-semibold text-[#2C2018] hover:text-[#FB5B1E] transition-colors">
+              Message Flynn directly
+            </a>{' '}
+            on iMessage or SMS at {FLYNN_NUMBER_DISPLAY}.
+          </p>
         </div>
       </section>
 
@@ -178,38 +192,17 @@ export default function LandingPage() {
             <SectionLabel>How it works</SectionLabel>
             <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">One contact. All the <span className="text-[#FB5B1E]">admin</span> sorted.</h2>
           </Reveal>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="relative grid md:grid-cols-3 gap-6 items-start">
             {steps.map((s, i) => (
               <Reveal key={s.n} delay={i * 0.08}>
-                <Card className="h-full p-7 relative">
-                  <Mascot pose={s.pose} className="w-20 h-20 mb-4" />
+                <Card className={`h-full p-7 relative ${i % 2 === 0 ? 'md:-rotate-1' : 'md:rotate-1'}`}>
+                  <div className="w-20 h-20 rounded-full grid place-items-center border-[3px] border-[#2C2018] mb-4" style={{ background: s.tint }}>
+                    <Mascot pose={s.pose} className="w-14 h-14" />
+                  </div>
                   <span className="absolute top-6 right-7 font-display font-bold text-5xl text-[#F4E6CE]" style={{ WebkitTextStroke: `2px ${INK}` }}>{s.n}</span>
                   <h3 className="font-display font-bold text-2xl mb-2">{s.title}</h3>
                   <p className="text-[#5A4A3C] leading-relaxed">{s.body}</p>
                 </Card>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ===================== FEATURES ===================== */}
-      <section id="features" className="relative py-20 sm:py-28 bg-[#FFFBF4] border-y-[3px] border-[#2C2018]">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8">
-          <Reveal className="max-w-2xl mb-16">
-            <SectionLabel>What Flynn can do</SectionLabel>
-            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">Does your admin by text — and catches what you'd miss</h2>
-          </Reveal>
-          <div className="grid md:grid-cols-3 gap-6">
-            {features.map((f, i) => (
-              <Reveal key={f.title} delay={i * 0.08}>
-                <div className="h-full rounded-3xl p-7 border-[3px] border-[#2C2018]" style={{ background: f.tint + '22' }}>
-                  <div className="w-16 h-16 rounded-2xl grid place-items-center border-[3px] border-[#2C2018] mb-5" style={{ background: f.tint }}>
-                    <Mascot pose={f.pose} className="w-12 h-12" />
-                  </div>
-                  <h3 className="font-display font-bold text-2xl mb-2">{f.title}</h3>
-                  <p className="text-[#5A4A3C] leading-relaxed">{f.body}</p>
-                </div>
               </Reveal>
             ))}
           </div>
@@ -277,6 +270,29 @@ export default function LandingPage() {
               </div>
             </div>
           </Reveal>
+        </div>
+      </section>
+
+      {/* ===================== FEATURES ===================== */}
+      <section id="features" className="relative py-20 sm:py-28 bg-[#FFFBF4] border-y-[3px] border-[#2C2018]">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8">
+          <Reveal className="max-w-2xl mb-16">
+            <SectionLabel>What Flynn can do</SectionLabel>
+            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">Does your admin by text — and catches what you'd miss</h2>
+          </Reveal>
+          <div className="grid md:grid-cols-3 gap-6">
+            {features.map((f, i) => (
+              <Reveal key={f.title} delay={i * 0.08}>
+                <div className="h-full rounded-3xl p-7 border-[3px] border-[#2C2018]" style={{ background: f.tint + '22' }}>
+                  <div className="w-16 h-16 rounded-2xl grid place-items-center border-[3px] border-[#2C2018] mb-5" style={{ background: f.tint }}>
+                    <Mascot pose={f.pose} className="w-12 h-12" />
+                  </div>
+                  <h3 className="font-display font-bold text-2xl mb-2">{f.title}</h3>
+                  <p className="text-[#5A4A3C] leading-relaxed">{f.body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -402,7 +418,7 @@ export default function LandingPage() {
               <div className="h-full rounded-3xl bg-[#F4E6CE] text-[#2C2018] border-[3px] border-[#2C2018] p-8">
                 <h3 className="font-display font-bold text-2xl">Free</h3>
                 <p className="font-display font-bold text-5xl mt-2">$0</p>
-                <p className="text-[#5A4A3C] mt-1 mb-6">to get the feel of it</p>
+                <p className="text-[#5A4A3C] mt-1 mb-6">the app on its own, without a receptionist answering</p>
                 <ul className="space-y-3">
                   {['A few actions every day', 'Reply drafts in your voice', 'One connected calendar'].map(t => (
                     <li key={t} className="flex gap-3"><span className="text-[#FB5B1E] font-bold">✓</span>{t}</li>
@@ -412,10 +428,10 @@ export default function LandingPage() {
             </Reveal>
             <Reveal delay={0.1}>
               <div className="relative h-full rounded-3xl bg-[#FB5B1E] text-white border-[3px] border-[#2C2018] p-8 shadow-[8px_8px_0_0_#000]">
-                <span className="absolute -top-3 right-6 bg-[#E0A436] text-[#2C2018] text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full border-2 border-[#2C2018]">14-day free trial</span>
+                <span className="absolute -top-3 right-6 bg-[#E0A436] text-[#2C2018] text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full border-2 border-[#2C2018]">7-day free trial</span>
                 <h3 className="font-display font-bold text-2xl">Pro</h3>
-                <p className="font-display font-bold text-5xl mt-2">Unlimited</p>
-                <p className="text-white/80 mt-1 mb-6">for when it's part of your day</p>
+                <p className="font-display font-bold text-5xl mt-2">$79<span className="text-2xl font-bold">/mo</span></p>
+                <p className="text-white/80 mt-1 mb-6">unlimited, for when it's part of your day</p>
                 <ul className="space-y-3">
                   {['Unlimited actions', 'Invoices with photos', 'Auto-chase unpaid invoices', 'Quote drafting in your voice', 'Supplier ordering + accounting sync', 'Full voice tuning + your business brain'].map(t => (
                     <li key={t} className="flex gap-3"><span className="font-bold">✓</span>{t}</li>

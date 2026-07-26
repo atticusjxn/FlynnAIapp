@@ -140,7 +140,7 @@ const Trial: React.FC = () => {
                 and help you book more jobs. Your 1-week free trial starts as soon as you set up call forwarding.
               </p>
               <p className="text-sm text-gray-500">
-                No credit card required • Cancel anytime • From $29/month after trial
+                Card required to start • Cancel any time • $79/month after the trial
               </p>
             </div>
           </div>
@@ -153,7 +153,7 @@ const Trial: React.FC = () => {
     <>
       <Helmet>
         <title>Start Your Free Trial - Flynn AI</title>
-        <meta name="description" content="Try Flynn AI free for 1 week. Turn missed calls into booked jobs. No credit card required." />
+        <meta name="description" content="Try Flynn free for 1 week. Turn missed calls into booked jobs. Card required to start, cancel any time." />
       </Helmet>
 
       <div className="bg-white min-h-screen pt-20 pb-32 px-6">
@@ -163,13 +163,13 @@ const Trial: React.FC = () => {
               Start Your <span className="text-brand-500">Free Trial</span>
             </h1>
             <p className="text-2xl text-gray-600 font-medium max-w-2xl mx-auto mb-8">
-              Never miss another dollar-500 job. Try Flynn AI free for 1 week.
+              Never miss another $500 job. Try Flynn AI free for 1 week.
             </p>
             
             <div className="flex flex-wrap justify-center gap-4 text-sm font-medium text-gray-600">
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-green-600" />
-                <span>No credit card required</span>
+                <span>Cancel any time</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-green-600" />

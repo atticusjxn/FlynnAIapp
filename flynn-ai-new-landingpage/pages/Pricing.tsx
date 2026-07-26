@@ -12,7 +12,7 @@ const PricingPage: React.FC = () => {
         <>
             <Helmet>
                 <title>Pricing - Flynn AI | Transparent Plans for Service Businesses</title>
-                <meta name="description" content="Simple pricing for your AI receptionist. 24/7 call handling starting at $29/mo. Calculate your ROI and see how much missed calls are costing you." />
+                <meta name="description" content="Simple pricing for your AI receptionist. 24/7 call handling for $79/mo after a 7 day free trial. Calculate your ROI and see how much missed calls are costing you." />
             </Helmet>
 
             <div className="bg-white min-h-screen">
@@ -23,7 +23,7 @@ const PricingPage: React.FC = () => {
                         <span className="text-brand-500">for itself.</span>
                     </h1>
                     <p className="text-xl text-gray-600 max-w-2xl mx-auto font-medium">
-                        Start with a 14-day free trial. No credit card required. Cancel anytime.
+                        Start with a 7 day free trial. Card required to start it, cancel any time.
                     </p>
                 </header>
 
