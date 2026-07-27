@@ -111,7 +111,9 @@ struct DashboardView: View {
                     // table, not a paragraph. The prose reply below it stays
                     // short because the tool tells the model it's on screen.
                     ForEach(turn.cards) { card in
-                        AgentCardView(card: card)
+                        AgentCardView(card: card) { reply in
+                            Task { await conversation.send(reply) }
+                        }
                     }
                     ForEach(Array(turn.bubbles.enumerated()), id: \.offset) { _, bubble in
                         Text(bubble)

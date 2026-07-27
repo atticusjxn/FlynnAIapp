@@ -1040,6 +1040,19 @@ async function createPhotoInvoice(ctx, args) {
     public_token: invoice.public_token || null,
   };
   return {
+    // App surface: a tappable preview card instead of an image texted to the
+    // operator. `url` is the hosted invoice the client would see, so tapping it
+    // previews exactly what gets sent.
+    card: {
+      type: 'invoice_preview',
+      title: clientName,
+      subtitle: photoBit ? `Invoice${photoBit}` : 'Invoice',
+      amount,
+      url,
+      image_url: cardImageUrl,
+      confirm_label: 'Send to client',
+      confirm_message: 'yes send it',
+    },
     result: `photo invoice for ${clientName} ${amount}${photoBit} created at ${url}; the invoice card was just sent to the user as an image. Ask if they want it sent to the client.`,
     userFacing: `here's ${label}'s invoice for ${amount}${photoBit}. want me to send it to them?${xeroNote}`,
     pendingAction: {

@@ -22,6 +22,13 @@ enum AgentClient {
         let title: String?
         let subtitle: String?
         let options: [Option]
+        /// invoice_preview only: the hosted invoice the client would see, plus
+        /// the reply that resolves the parked send action.
+        let amount: String?
+        let url: String?
+        let imageURL: String?
+        let confirmLabel: String?
+        let confirmMessage: String?
 
         struct Option: Decodable, Identifiable, Hashable {
             let id = UUID()
@@ -33,7 +40,12 @@ enum AgentClient {
             enum CodingKeys: String, CodingKey { case seller, price, note, best }
         }
 
-        enum CodingKeys: String, CodingKey { case type, title, subtitle, options }
+        enum CodingKeys: String, CodingKey {
+            case type, title, subtitle, options, amount, url
+            case imageURL = "image_url"
+            case confirmLabel = "confirm_label"
+            case confirmMessage = "confirm_message"
+        }
 
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -41,6 +53,11 @@ enum AgentClient {
             title = try? c.decode(String.self, forKey: .title)
             subtitle = try? c.decode(String.self, forKey: .subtitle)
             options = (try? c.decode([Option].self, forKey: .options)) ?? []
+            amount = try? c.decode(String.self, forKey: .amount)
+            url = try? c.decode(String.self, forKey: .url)
+            imageURL = try? c.decode(String.self, forKey: .imageURL)
+            confirmLabel = try? c.decode(String.self, forKey: .confirmLabel)
+            confirmMessage = try? c.decode(String.self, forKey: .confirmMessage)
         }
     }
 
