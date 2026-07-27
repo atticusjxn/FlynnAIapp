@@ -11,11 +11,12 @@ struct AgentInputBar: View {
     @State private var voice = VoiceCaptureManager()
     @State private var draft: String = ""
     @State private var isHolding = false
+    @State private var pulse = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        VStack(spacing: FlynnSpacing.xxs) {
-            if voice.state == .listening {
+        VStack(spacing: FlynnSpacing.xs) {
+            if isListening {
                 listeningHint
             } else if case .error(let message) = voice.state {
                 Text(message)
@@ -68,24 +69,59 @@ struct AgentInputBar: View {
         )
     }
 
+    /// Live transcript while holding. Deliberately body-sized and multi-line:
+    /// as a one-line caption the words were too small to read on a phone
+    /// screen, which is the whole point of showing them.
     private var listeningHint: some View {
-        HStack(spacing: FlynnSpacing.xxs) {
-            Circle().fill(FlynnColor.error).frame(width: 8, height: 8)
+        HStack(alignment: .top, spacing: FlynnSpacing.xs) {
+            Circle()
+                .fill(FlynnColor.error)
+                .frame(width: 8, height: 8)
+                .scaleEffect(pulse ? 1.35 : 0.85)
+                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulse)
+                .padding(.top, 6)
+
             Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
-                .flynnType(FlynnTypography.caption)
-                .foregroundColor(FlynnColor.textSecondary)
-                .lineLimit(1)
+                .flynnType(FlynnTypography.bodyMedium)
+                .foregroundColor(voice.transcript.isEmpty ? FlynnColor.textTertiary : FlynnColor.textPrimary)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .animation(.easeOut(duration: 0.12), value: voice.transcript)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.horizontal, FlynnSpacing.xxs)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .onAppear { pulse = true }
+        .onDisappear { pulse = false }
     }
 
+    private var isListening: Bool { voice.state == .listening }
+
     private var micButton: some View {
-        Image(systemName: voice.state == .listening ? "waveform" : "mic.fill")
-            .foregroundColor(voice.state == .listening ? FlynnColor.white : FlynnColor.primary)
+        Image(systemName: isListening ? "waveform" : "mic.fill")
+            .font(.system(size: isListening ? 20 : 17, weight: .semibold))
+            .foregroundColor(isListening ? FlynnColor.white : FlynnColor.primary)
             .frame(width: 44, height: 44)
-            .background(Circle().fill(voice.state == .listening ? FlynnColor.primary : FlynnColor.background))
-            .overlay(Circle().stroke(FlynnColor.border, lineWidth: 2))
-            .scaleEffect(voice.state == .listening ? 1.08 : 1.0)
-            .animation(.easeOut(duration: 0.15), value: voice.state)
+            .background(Circle().fill(isListening ? FlynnColor.primary : FlynnColor.background))
+            .overlay(Circle().stroke(isListening ? FlynnColor.primary : FlynnColor.border, lineWidth: 2))
+            // Expanding ring while held — reads as "live" at the size a phone
+            // screen ends up in a video frame.
+            .overlay(
+                Circle()
+                    .stroke(FlynnColor.primary, lineWidth: 2)
+                    .scaleEffect(isListening && pulse ? 1.75 : 1.0)
+                    .opacity(isListening && pulse ? 0 : 0.55)
+                    .animation(
+                        isListening
+                            ? .easeOut(duration: 1.1).repeatForever(autoreverses: false)
+                            : .default,
+                        value: pulse
+                    )
+                    .allowsHitTesting(false)
+            )
+            .scaleEffect(isListening ? 1.28 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isListening)
+            .sensoryFeedback(.impact(weight: .medium), trigger: isListening)
             // Press-and-hold: gesture fires start on press, stop + send on release.
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)

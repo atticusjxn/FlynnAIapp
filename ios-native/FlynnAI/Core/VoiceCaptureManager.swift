@@ -64,7 +64,10 @@ final class VoiceCaptureManager {
 
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            // No .duckOthers: it is only meaningful for categories that play
+            // audio, and pairing it with .record is an invalid combination on
+            // some iOS versions.
+            try session.setCategory(.record, mode: .measurement)
             try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             state = .error("Couldn't start the microphone")
@@ -143,17 +146,27 @@ final class VoiceCaptureManager {
         if state == .listening { state = .idle }
     }
 
-    private func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
-        await withCheckedContinuation { continuation in
+    // Both of these MUST stay `nonisolated`.
+    //
+    // TCC (the privacy subsystem) invokes permission callbacks on a background
+    // queue. Inside a @MainActor type, Swift infers these closures as
+    // MainActor-isolated, so the runtime executor check fires on that
+    // background queue, dispatch_assert_queue fails, and the app traps with
+    // EXC_BREAKPOINT — which is why holding the mic killed the app on the very
+    // first thing it did. `nonisolated` removes the inferred isolation;
+    // resuming a continuation from any thread is safe, and the caller is async
+    // so it hops back to the main actor on return.
+    private nonisolated func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
             SFSpeechRecognizer.requestAuthorization { status in
                 continuation.resume(returning: status)
             }
         }
     }
 
-    private func requestMicPermission() async -> Bool {
-        await withCheckedContinuation { continuation in
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+    private nonisolated func requestMicPermission() async -> Bool {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            AVAudioApplication.requestRecordPermission { granted in
                 continuation.resume(returning: granted)
             }
         }
