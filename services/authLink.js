@@ -112,7 +112,26 @@ async function ensureAuthUser(phone) {
 
   if (existing?.id) {
     const { data: au } = await admin.auth.admin.getUserById(existing.id).catch(() => ({ data: null }));
-    if (au?.user) return { id: existing.id, created: false };
+    if (au?.user) {
+      // generateLink('magiclink') resolves the user BY EMAIL, and creates one
+      // when no user carries that address. A phone-only auth user (email null,
+      // which is every user created before synthetic emails existed) therefore
+      // caused a second auth user — and, via on_auth_user_created, a second
+      // public.users row and a second org — so the link signed the user into an
+      // empty account instead of their own. Backfill the address first so
+      // generateLink resolves to this user rather than minting a new one.
+      if (au.user.email !== email) {
+        const { error: emailErr } = await admin.auth.admin.updateUserById(existing.id, {
+          email,
+          email_confirm: true,
+        });
+        if (emailErr) {
+          console.warn('[authLink] failed to backfill synthetic email for', phone, emailErr.message);
+          return null; // Better no link than a link into a split identity.
+        }
+      }
+      return { id: existing.id, created: false };
+    }
 
     // Orphan row (id is a plain uuid, not an auth user) — reconcile by creating
     // the auth user WITH that id so the trigger's `on conflict (id) do update`
