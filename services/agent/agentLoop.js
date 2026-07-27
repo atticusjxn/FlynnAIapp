@@ -107,6 +107,11 @@ async function buildCtx({ user, phone, supabase, connections, userIntegrations, 
     // Reviewer demo accounts: tools behave as connected and external side
     // effects (orders, emails) are simulated, never executed.
     is_demo: Boolean(user?.is_demo),
+    // Simulate external side effects (orders, emails) WITHOUT the rest of the
+    // demo persona. Set via business_brain._simulate_tools so an account can
+    // hit real APIs where the real answer is the point — live supplier prices —
+    // while nothing actually gets ordered or sent.
+    simulate: Boolean((brain || {})._simulate_tools),
     // Org spine context — null until the org-spine migrations are applied and
     // this phone resolves to an org_members row. Tool executors should treat
     // orgId as optional (fall back to phone-keyed tables) until this is
@@ -218,7 +223,7 @@ async function safeExecute(entry, ctx, args) {
   // external tools return a realistic simulated success instead. Local tools
   // (invoices, quotes, chasing, memory) still run for real so the hosted
   // pages and chase flows the reviewer sees are genuine.
-  if (ctx.is_demo && registry.SIMULATED_TOOLS.has(entry.tool.name)) {
+  if ((ctx.is_demo || ctx.simulate) && registry.SIMULATED_TOOLS.has(entry.tool.name)) {
     const sim = registry.demoResult(entry.tool.name, args, ctx);
     return { ...sim, ok: true };
   }

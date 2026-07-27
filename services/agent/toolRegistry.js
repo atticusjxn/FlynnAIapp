@@ -2043,8 +2043,11 @@ function providerFor(capability, ctx, args) {
  */
 function connectionFor(capability, ctx, args) {
   // Reviewer demo accounts behave as if everything's connected (no real OAuth);
-  // the actual external call is simulated in safeExecute.
-  if (ctx?.is_demo) return { status: 'connected' };
+  // the actual external call is simulated in safeExecute. `simulate` is the
+  // same thing decoupled from is_demo, so an account can take the REAL path for
+  // one capability (live price lookups) while external side effects like
+  // placing a supplier order stay simulated.
+  if (ctx?.is_demo || ctx?.simulate) return { status: 'connected' };
   if (capability.auth_kind === 'none') return { status: 'connected' };
   const provider = providerFor(capability, ctx, args);
   if (!provider) return null;
