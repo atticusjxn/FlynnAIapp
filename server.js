@@ -1183,6 +1183,22 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
     return;
   }
 
+  // The Deepgram agent hands back conversationHistory — an array of
+  // {role, content} turns, not a string — so calling .trim() on it threw and
+  // took out everything below it in the try block, including job creation.
+  // Normalise here rather than at the call site: voicemail and other callers
+  // pass a plain string, and both shapes have to keep working.
+  const transcriptText = (() => {
+    if (typeof transcript === 'string') return transcript;
+    if (Array.isArray(transcript)) {
+      return transcript
+        .map((turn) => (typeof turn === 'string' ? turn : turn?.content || turn?.text || ''))
+        .filter(Boolean)
+        .join('\n');
+    }
+    return '';
+  })().trim();
+
   let callContext = null;
   try {
     callContext = await getCallBySid(callSid);
@@ -1228,14 +1244,14 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
   try {
     const existingTranscript = await getTranscriptByCallSid(callSid);
 
-    if (!existingTranscript && transcript && transcript.trim().length > 0) {
+    if (!existingTranscript && transcriptText.length > 0) {
       await insertTranscription({
         id: randomUUID(),
         callSid,
         userId: userId || null,
         orgId: orgId || null,
         engine: 'realtime',
-        text: transcript.trim(),
+        text: transcriptText,
         confidence: 0.92,
         language: 'en',
       });
@@ -1254,11 +1270,11 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
       console.error('[Realtime] Failed to upsert call record on conversation complete.', { callSid, userId, orgId, error });
     });
 
-    if (transcript && transcript.trim().length > 4) {
+    if (transcriptText.length > 4) {
       if (llmClient) {
         await ensureJobForTranscript({
           callSid,
-          transcriptText: transcript,
+          transcriptText,
           llmClient,
           userId,
           orgId,
@@ -1276,7 +1292,7 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
       payload: {
         reason,
         turnCount: Array.isArray(turns) ? turns.length : 0,
-        transcriptLength: transcript ? transcript.length : 0,
+        transcriptLength: transcriptText.length,
       },
     });
 
