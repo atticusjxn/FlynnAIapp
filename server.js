@@ -1107,13 +1107,18 @@ const respondWithAiReceptionist = ({ req, res, inboundParams, profile, callSid }
  * is staged for claim in the app (telephony/funnelIntake.js).
  */
 const respondWithFunnelIntake = async ({ req, res, inboundParams, callSid, fromNumber, toNumber }) => {
-  const funnelAvailable = Boolean(deepgramClient) && Boolean(process.env.GEMINI_API_KEY);
+  // Checks the configured think provider (Qwen by default) rather than
+  // hard-coding GEMINI_API_KEY, which would drop every funnel caller into
+  // voicemail on a Qwen deployment.
+  const thinkReady = require('./telephony/deepgramVoiceAgent').thinkProviderReady();
+  const funnelAvailable = Boolean(deepgramClient) && thinkReady;
 
   if (!funnelAvailable || !fromNumber) {
     console.warn('[Telephony] Funnel intake unavailable, routing to voicemail.', {
       callSid,
       hasDeepgram: Boolean(deepgramClient),
-      hasGemini: Boolean(process.env.GEMINI_API_KEY),
+      thinkProvider: process.env.FLYNN_THINK_PROVIDER || 'qwen',
+      thinkReady,
       hasCallerNumber: Boolean(fromNumber),
     });
     return respondWithVoicemail(req, res, inboundParams);

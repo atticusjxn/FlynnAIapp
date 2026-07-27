@@ -28,6 +28,68 @@ const funnelIntake = require('./funnelIntake');
  * If `CARTESIA_API_KEY` is not set (dev without Cartesia credentials), we fall
  * back to Deepgram Aura-2 `aura-2-theia-en` so the agent still works end-to-end.
  */
+/**
+ * The agent's reasoning LLM ("think"), env-switchable via FLYNN_THINK_PROVIDER
+ * = qwen | gemini. Defaults to Qwen on DashScope: cheaper than Gemini, and the
+ * same account already backs drafting and the SMS agent.
+ *
+ * Deepgram builds the request body itself, so anything the model needs must be
+ * expressible as model choice or headers — we cannot inject body params. That
+ * rules out qwen3.5-flash, which streams `reasoning_content` with
+ * `content: null` unless you pass `enable_thinking: false`; Deepgram reads
+ * `delta.content` and would hear nothing but silence. qwen-flash is
+ * non-thinking by default, so it streams clean content and tool calls with no
+ * extra parameters. Verified against DashScope before switching.
+ */
+const buildThinkConfig = (systemPrompt, functions) => {
+  const provider = (process.env.FLYNN_THINK_PROVIDER || 'qwen').trim().toLowerCase();
+
+  if (provider === 'gemini' || provider === 'google') {
+    return {
+      provider: { type: 'google' },
+      endpoint: {
+        url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse',
+        headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY },
+      },
+      prompt: systemPrompt,
+      functions,
+    };
+  }
+
+  const baseUrl = (process.env.VOICE_LLM_BASE_URL
+    || process.env.DRAFT_LLM_BASE_URL
+    || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1').trim().replace(/\/$/, '');
+  const apiKey = (process.env.VOICE_LLM_API_KEY
+    || process.env.DRAFT_LLM_API_KEY
+    || process.env.DASHSCOPE_API_KEY || '').trim();
+  const model = (process.env.VOICE_LLM_MODEL || 'qwen-flash').trim();
+
+  return {
+    provider: { type: 'open_ai', model, temperature: 0.7 },
+    endpoint: {
+      url: `${baseUrl}/chat/completions`,
+      headers: { authorization: `Bearer ${apiKey}` },
+    },
+    prompt: systemPrompt,
+    functions,
+  };
+};
+
+/**
+ * True when the configured think provider has the credentials it needs. The
+ * funnel checks this before answering — previously it hard-checked
+ * GEMINI_API_KEY, which would send callers to voicemail on a Qwen deployment.
+ */
+const thinkProviderReady = () => {
+  const provider = (process.env.FLYNN_THINK_PROVIDER || 'qwen').trim().toLowerCase();
+  if (provider === 'gemini' || provider === 'google') {
+    return Boolean(process.env.GEMINI_API_KEY);
+  }
+  return Boolean(process.env.VOICE_LLM_API_KEY
+    || process.env.DRAFT_LLM_API_KEY
+    || process.env.DASHSCOPE_API_KEY);
+};
+
 const buildSpeakConfig = (businessContext) => {
   // Provider is env-switchable so AU voice auditions are a secrets flip, not a
   // deploy: FLYNN_TTS_PROVIDER = cartesia | eleven_labs | deepgram.
@@ -507,19 +569,7 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
               eot_timeout_ms: 8000,
             },
           },
-          think: {
-            provider: {
-              type: 'google',
-            },
-            endpoint: {
-              url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse',
-              headers: {
-                'x-goog-api-key': process.env.GEMINI_API_KEY,
-              },
-            },
-            prompt: this.systemPrompt,
-            functions: this.getFunctionSchema(),
-          },
+          think: buildThinkConfig(this.systemPrompt, this.getFunctionSchema()),
           speak: buildSpeakConfig(this.businessContext),
           greeting: this.buildGreeting(),
         },
@@ -822,6 +872,8 @@ module.exports = (options) => new DeepgramVoiceAgentHandler(options);
 
 // Export helper functions for reuse in native test handler
 module.exports.buildSystemPrompt = buildSystemPrompt;
+module.exports.thinkProviderReady = thinkProviderReady;
+module.exports.buildThinkConfig = buildThinkConfig;
 module.exports.getFunctionSchema = function() {
   // Create a temporary instance to access the method
   const tempHandler = new DeepgramVoiceAgentHandler({});
