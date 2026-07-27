@@ -14,6 +14,22 @@ import AVFoundation
 /// available — free, private, no server round-trip just to get text; the
 /// transcript is then sent to the agent turn over the network like any typed
 /// message.
+///
+/// ## Why the audio work lives outside this type
+///
+/// This class is `@MainActor` so the UI can observe `state`/`transcript`
+/// directly. But every closure created inside a `@MainActor` method inherits
+/// that isolation, and AVFoundation/Speech invoke their callbacks on their own
+/// threads: the audio tap on the realtime render thread, the recognition task
+/// on a Speech queue, TCC permission replies on a dispatch root queue. Under
+/// Swift 6 the runtime checks the executor on entry, `dispatch_assert_queue`
+/// fails, and the process traps with EXC_BREAKPOINT — the app died the instant
+/// the mic was held.
+///
+/// Fixing that closure-by-closure is whack-a-mole, so all of it lives in
+/// `VoiceAudioPipeline` below, which is deliberately NOT actor-isolated. It
+/// talks back through `@Sendable` callbacks that hop to the main actor
+/// explicitly.
 @MainActor
 @Observable
 final class VoiceCaptureManager {
@@ -27,17 +43,10 @@ final class VoiceCaptureManager {
     private(set) var state: State = .idle
     private(set) var transcript: String = ""
 
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-AU")) ?? SFSpeechRecognizer()
-    private var audioEngine: AVAudioEngine?
-    private var request: SFSpeechAudioBufferRecognitionRequest?
-    private var task: SFSpeechRecognitionTask?
-    /// Guards the whole async start. `state` only becomes `.listening` at the
-    /// very end — after two permission round-trips and engine startup — so it
-    /// cannot protect against re-entry. The mic button's DragGesture fires
-    /// onChanged repeatedly during a hold, so without this every one of those
-    /// events started another engine, and the second installTap(onBus: 0) on
-    /// the shared input node threw "required condition is false: nullptr ==
-    /// Tap()" — an ObjC exception Swift cannot catch, so the app died.
+    private var pipeline: VoiceAudioPipeline?
+    /// Guards the whole async start: `state` only becomes `.listening` at the
+    /// end, after two permission round-trips, so it can't protect against the
+    /// mic button's repeated `onChanged` events during a single hold.
     private var isStarting = false
 
     /// Call on mic-button press-down. Requests permission on first use.
@@ -47,32 +56,103 @@ final class VoiceCaptureManager {
         defer { isStarting = false }
         transcript = ""
 
-        let speechStatus = await requestSpeechAuthorization()
-        guard speechStatus == .authorized else {
+        guard await Self.requestSpeechAuthorization() == .authorized else {
             state = .denied
             return
         }
-        let micGranted = await requestMicPermission()
-        guard micGranted else {
+        guard await Self.requestMicPermission() else {
             state = .denied
             return
         }
-        guard let recognizer, recognizer.isAvailable else {
+
+        let pipeline = VoiceAudioPipeline()
+        guard pipeline.isAvailable else {
             state = .error("Speech recognition isn't available right now")
             return
         }
 
-        let session = AVAudioSession.sharedInstance()
         do {
-            // No .duckOthers: it is only meaningful for categories that play
-            // audio, and pairing it with .record is an invalid combination on
-            // some iOS versions.
-            try session.setCategory(.record, mode: .measurement)
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            try pipeline.start(
+                onTranscript: { [weak self] text in
+                    Task { @MainActor in self?.transcript = text }
+                },
+                onEnd: { [weak self] in
+                    Task { @MainActor in self?.finish() }
+                }
+            )
         } catch {
             state = .error("Couldn't start the microphone")
             return
         }
+
+        self.pipeline = pipeline
+        state = .listening
+    }
+
+    /// Call on mic-button release. The recogniser keeps finalising briefly
+    /// after this returns — read `transcript` once `state` settles to `.idle`.
+    func stopListening() {
+        pipeline?.endAudio()
+        finish()
+    }
+
+    private func finish() {
+        pipeline?.stop()
+        pipeline = nil
+        if state == .listening { state = .idle }
+    }
+
+    // Both permission helpers are `static` (and therefore nonisolated) on
+    // purpose. TCC delivers its reply on a dispatch root queue; if these
+    // closures were MainActor-isolated the executor check would fail there and
+    // trap. Resuming a continuation from any thread is safe, and the async
+    // caller hops back to the main actor on return.
+    private static func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status)
+            }
+        }
+    }
+
+    private static func requestMicPermission() async -> Bool {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            AVAudioApplication.requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+    }
+}
+
+/// Owns the audio session, engine and recognition task. Not actor-isolated, so
+/// the callbacks AVFoundation and Speech fire on their own threads carry no
+/// isolation to assert. Start/stop are called from the main actor; the internal
+/// state is only touched there and in callbacks that don't race with it, hence
+/// `@unchecked Sendable`.
+final class VoiceAudioPipeline: @unchecked Sendable {
+    private let recognizer: SFSpeechRecognizer?
+    private var engine: AVAudioEngine?
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var task: SFSpeechRecognitionTask?
+
+    init() {
+        recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-AU")) ?? SFSpeechRecognizer()
+    }
+
+    var isAvailable: Bool { recognizer?.isAvailable ?? false }
+
+    struct Unavailable: Error {}
+
+    func start(
+        onTranscript: @escaping @Sendable (String) -> Void,
+        onEnd: @escaping @Sendable () -> Void
+    ) throws {
+        guard let recognizer else { throw Unavailable() }
+
+        let session = AVAudioSession.sharedInstance()
+        // No .duckOthers: it only applies to categories that play audio.
+        try session.setCategory(.record, mode: .measurement)
+        try session.setActive(true, options: .notifyOthersOnDeactivation)
 
         let engine = AVAudioEngine()
         let req = SFSpeechAudioBufferRecognitionRequest()
@@ -81,94 +161,56 @@ final class VoiceCaptureManager {
             req.requiresOnDeviceRecognition = true
         }
 
-        let inputNode = engine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
+        let input = engine.inputNode
+        let format = input.outputFormat(forBus: 0)
         // A zero-rate/zero-channel format means the input route isn't ready
-        // (session lost to a call, hardware not attached). installTap throws on
-        // it, so fail as a message rather than a crash.
+        // (session lost to a call, no hardware). installTap throws on it.
         guard format.sampleRate > 0, format.channelCount > 0 else {
-            state = .error("Couldn't start the microphone")
             try? session.setActive(false, options: .notifyOthersOnDeactivation)
-            return
+            throw Unavailable()
         }
-        // Belt-and-braces: the input node is shared, so clear any tap a
-        // previous session left behind before installing ours.
-        inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak req] buffer, _ in
-            req?.append(buffer)
+
+        // The input node is shared, so clear any tap left behind before
+        // installing ours — a second tap on an occupied bus is an ObjC
+        // exception Swift can't catch.
+        input.removeTap(onBus: 0)
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            req.append(buffer)
         }
 
         engine.prepare()
         do {
             try engine.start()
         } catch {
-            // Leaving the tap installed here would make the *next* press throw
-            // on installTap — the same crash, one hold later.
-            inputNode.removeTap(onBus: 0)
+            // Leaving the tap installed would make the next press throw.
+            input.removeTap(onBus: 0)
             try? session.setActive(false, options: .notifyOthersOnDeactivation)
-            state = .error("Couldn't start the microphone")
-            return
+            throw error
         }
 
-        audioEngine = engine
-        request = req
-        state = .listening
-
-        task = recognizer.recognitionTask(with: req) { [weak self] result, error in
-            guard let self else { return }
-            Task { @MainActor in
-                if let result {
-                    self.transcript = result.bestTranscription.formattedString
-                }
-                if error != nil || result?.isFinal == true {
-                    self.stopEngine()
-                }
+        self.engine = engine
+        self.request = req
+        self.task = recognizer.recognitionTask(with: req) { result, error in
+            if let result {
+                onTranscript(result.bestTranscription.formattedString)
+            }
+            if error != nil || result?.isFinal == true {
+                onEnd()
             }
         }
     }
 
-    /// Call on mic-button release. Returns the final transcript (may still be
-    /// finalising briefly after this returns — callers should read
-    /// `transcript` once `state` settles back to `.idle`).
-    func stopListening() {
+    func endAudio() {
         request?.endAudio()
-        stopEngine()
     }
 
-    private func stopEngine() {
-        audioEngine?.stop()
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        audioEngine = nil
+    func stop() {
+        engine?.stop()
+        engine?.inputNode.removeTap(onBus: 0)
+        engine = nil
         request = nil
         task?.cancel()
         task = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        if state == .listening { state = .idle }
-    }
-
-    // Both of these MUST stay `nonisolated`.
-    //
-    // TCC (the privacy subsystem) invokes permission callbacks on a background
-    // queue. Inside a @MainActor type, Swift infers these closures as
-    // MainActor-isolated, so the runtime executor check fires on that
-    // background queue, dispatch_assert_queue fails, and the app traps with
-    // EXC_BREAKPOINT — which is why holding the mic killed the app on the very
-    // first thing it did. `nonisolated` removes the inferred isolation;
-    // resuming a continuation from any thread is safe, and the caller is async
-    // so it hops back to the main actor on return.
-    private nonisolated func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
-        await withCheckedContinuation { (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
-            SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status)
-            }
-        }
-    }
-
-    private nonisolated func requestMicPermission() async -> Bool {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
-            AVAudioApplication.requestRecordPermission { granted in
-                continuation.resume(returning: granted)
-            }
-        }
     }
 }
