@@ -332,6 +332,10 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
   ];
 
   let parkedResult = null; // set when a gate fires — becomes the reply
+  // Structured payloads tools want rendered rather than described (price
+  // comparisons, etc). Carried alongside the prose reply so SMS keeps working
+  // unchanged and only the app draws them.
+  const cards = [];
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
     const raw = await client.chat.completions.create({
@@ -349,7 +353,7 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
 
     if (!toolCalls.length) {
       const text = (choice.content || '').trim();
-      return { reply: text || 'on it', intent: 'AGENT', ...(parkedResult || {}) };
+      return { reply: text || 'on it', intent: 'AGENT', ...(cards.length ? { cards } : {}), ...(parkedResult || {}) };
     }
 
     messages.push({ role: 'assistant', content: choice.content || '', tool_calls: toolCalls });
@@ -430,6 +434,7 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
       // Execute.
       const outcome = await safeExecute(entry, ctx, args);
       recordToolEvent(entry, ctx, args, outcome, 'llm');
+      if (outcome.card) cards.push(outcome.card);
 
       // Terminal tools end the turn with their userFacing text VERBATIM (no model
       // paraphrase) and may park a follow-up confirm. Used by create_photo_invoice
@@ -439,6 +444,7 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
         return {
           reply: outcome.userFacing || outcome.result || 'done',
           intent: 'AGENT_DONE',
+          ...(cards.length ? { cards } : {}),
           pendingAction: outcome.pendingAction || undefined,
         };
       }

@@ -361,7 +361,15 @@ router.post('/api/dashboard/agent-turn', authenticateJwt, async (req, res) => {
       }).then(() => {}, () => {});
     }
 
-    return res.json({ bubbles, intent: result.intent || 'AGENT', pendingAction: result.pendingAction || null });
+    return res.json({
+      bubbles,
+      intent: result.intent || 'AGENT',
+      // Structured payloads the app renders as cards (price comparisons etc).
+      // Not written to sms_messages: they're a display layer over the prose
+      // reply, which is what the SMS thread already stores.
+      cards: result.cards || [],
+      pendingAction: result.pendingAction || null,
+    });
   } catch (err) {
     console.error('[dashboard] agent-turn failed:', err?.message || err);
     return res.status(500).json({ error: 'agent turn failed' });

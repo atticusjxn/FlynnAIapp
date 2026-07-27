@@ -9,7 +9,39 @@ enum AgentClient {
     struct TurnResponse: Decodable {
         let bubbles: [String]
         let intent: String
+        let cards: [AgentCard]?
         let pendingAction: PendingActionEcho?
+    }
+
+    /// Structured payload a tool wants drawn rather than described — a price
+    /// comparison reads as a table, not a paragraph of chat. Decoded leniently
+    /// so a card type this build doesn't know about is skipped, not fatal.
+    struct AgentCard: Decodable, Identifiable, Hashable {
+        let id = UUID()
+        let type: String
+        let title: String?
+        let subtitle: String?
+        let options: [Option]
+
+        struct Option: Decodable, Identifiable, Hashable {
+            let id = UUID()
+            let seller: String
+            let price: String?
+            let note: String?
+            let best: Bool?
+
+            enum CodingKeys: String, CodingKey { case seller, price, note, best }
+        }
+
+        enum CodingKeys: String, CodingKey { case type, title, subtitle, options }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            type = (try? c.decode(String.self, forKey: .type)) ?? "unknown"
+            title = try? c.decode(String.self, forKey: .title)
+            subtitle = try? c.decode(String.self, forKey: .subtitle)
+            options = (try? c.decode([Option].self, forKey: .options)) ?? []
+        }
     }
 
     struct PendingActionEcho: Decodable {

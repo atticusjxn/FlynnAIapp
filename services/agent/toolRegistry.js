@@ -655,6 +655,19 @@ async function findPrices(ctx, args = {}) {
   const cheapestInStock = top.find((r) => r.availability !== 'out_of_stock') || top[0];
   const lines = top.map((r) => `${r.seller} ${r.price || money(r.priceCents, ctx.currency)}${r.availability === 'out_of_stock' ? ' (out of stock)' : ''}`);
   return {
+    // Structured alongside the prose so the app can draw a comparison card
+    // instead of a paragraph of chat. SMS ignores this and uses `result`.
+    card: {
+      type: 'price_comparison',
+      title: query,
+      subtitle: 'Compared across suppliers',
+      options: top.map((r) => ({
+        seller: r.seller,
+        price: r.price || money(r.priceCents, ctx.currency),
+        note: r.availability === 'out_of_stock' ? 'out of stock' : null,
+        best: r === cheapestInStock,
+      })),
+    },
     result: `Compared suppliers for "${query}" (cheapest first): ${lines.join('; ')}. `
       + `Best pick: ${cheapestInStock.seller}${cheapestInStock.price ? ` at ${cheapestInStock.price}` : ''}. `
       + `Tell the user the comparison in your own words, point out the best option (and flag if their first-choice supplier is dearer or out of stock), and offer to order it. When they say yes, call order_parts with supplier set to the chosen seller.`,

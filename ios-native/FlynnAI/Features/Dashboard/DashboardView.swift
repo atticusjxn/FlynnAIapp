@@ -107,6 +107,12 @@ struct DashboardView: View {
                         .padding(FlynnSpacing.sm)
                         .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.errorLight))
                 } else {
+                    // Structured results first — a price comparison reads as a
+                    // table, not a paragraph. The prose reply below it stays
+                    // short because the tool tells the model it's on screen.
+                    ForEach(turn.cards) { card in
+                        AgentCardView(card: card)
+                    }
                     ForEach(Array(turn.bubbles.enumerated()), id: \.offset) { _, bubble in
                         Text(bubble)
                             .flynnType(FlynnTypography.bodySmall)

@@ -102,12 +102,16 @@ final class VoiceCaptureManager {
         if state == .listening { state = .idle }
     }
 
-    // Both permission helpers are `static` (and therefore nonisolated) on
-    // purpose. TCC delivers its reply on a dispatch root queue; if these
-    // closures were MainActor-isolated the executor check would fail there and
-    // trap. Resuming a continuation from any thread is safe, and the async
-    // caller hops back to the main actor on return.
-    private static func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
+    // `nonisolated` is load-bearing on both of these, and `static` does NOT
+    // imply it: a static member of a @MainActor type is still MainActor-
+    // isolated, so the closure below inherits that isolation. TCC delivers its
+    // reply on com.apple.root.default-qos, the executor check fails there, and
+    // the app traps with EXC_BREAKPOINT. Confirmed from a symbolicated crash:
+    //   closure #1 in closure #1 in static VoiceCaptureManager.requestSpeechAuthorization()
+    //   <- swift_task_isCurrentExecutorWithFlagsImpl <- dispatch_assert_queue_fail
+    // Resuming a continuation from any thread is safe, and the async caller
+    // hops back to the main actor on return.
+    private nonisolated static func requestSpeechAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
         await withCheckedContinuation { (continuation: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
             SFSpeechRecognizer.requestAuthorization { status in
                 continuation.resume(returning: status)
@@ -115,7 +119,7 @@ final class VoiceCaptureManager {
         }
     }
 
-    private static func requestMicPermission() async -> Bool {
+    private nonisolated static func requestMicPermission() async -> Bool {
         await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
             AVAudioApplication.requestRecordPermission { granted in
                 continuation.resume(returning: granted)

@@ -11,6 +11,9 @@ final class AgentConversationStore {
         let id = UUID()
         let message: String
         var bubbles: [String] = []
+        /// Structured results Flynn wants drawn (price comparisons etc),
+        /// rendered above the prose reply.
+        var cards: [AgentClient.AgentCard] = []
         var isPending: Bool = true
         var errorMessage: String?
     }
@@ -31,6 +34,7 @@ final class AgentConversationStore {
         do {
             let response = try await AgentClient.sendTurn(message: trimmed)
             turn.bubbles = response.bubbles
+            turn.cards = response.cards ?? []
             turn.isPending = false
         } catch {
             turn.isPending = false
