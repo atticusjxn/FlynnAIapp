@@ -49,6 +49,9 @@ struct DashboardView: View {
                 .padding(.top, FlynnSpacing.md)
                 .padding(.bottom, FlynnSpacing.md)
             }
+            // Swiping the feed puts the keyboard away, the gesture people
+            // already expect from Messages.
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: conversation.turns.count) { _, _ in
                 withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
             }

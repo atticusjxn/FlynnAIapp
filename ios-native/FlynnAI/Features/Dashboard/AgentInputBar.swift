@@ -41,6 +41,15 @@ struct AgentInputBar: View {
                         guard voice.state == .listening else { return }
                         draft = newValue
                     }
+                    // The field is multi-line (axis: .vertical), so Return
+                    // inserts a newline and can't dismiss. Without this there
+                    // is no way off the keyboard at all once it's up.
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button("Done") { isFocused = false }
+                        }
+                    }
 
                 micButton
 
