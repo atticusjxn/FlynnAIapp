@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum MoneyTab: String, CaseIterable, Identifiable {
-    case quotes, invoices
+    case quotes, invoices, orders
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
 }
@@ -27,6 +27,7 @@ struct MoneyView: View {
                 switch tab {
                 case .quotes: QuotesListView()
                 case .invoices: InvoicesListView()
+                case .orders: PartsOrdersListView()
                 }
             }
         }
