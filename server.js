@@ -1388,6 +1388,37 @@ app.post('/api/auth/send-sms-hook', express.raw({ type: 'application/json' }), a
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json({ limit: '15mb' }));
 
+// CORS for the browser surfaces (landing page + web dashboard), which are
+// served from a different origin than this API. Without these headers the
+// browser blocks the request before the route runs — the landing page's
+// "call me back" button failed with Safari's opaque "Load failed".
+//
+// Allowlisted origins only, never "*", and no Allow-Credentials: auth here is
+// a Bearer token, so there are no cookies to protect and echoing an arbitrary
+// origin would let any site call the API with a stolen token.
+const CORS_ALLOWED_ORIGINS = new Set([
+  'https://flynnai.app',
+  'https://www.flynnai.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  ...(process.env.CORS_EXTRA_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean),
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && CORS_ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(origin && CORS_ALLOWED_ORIGINS.has(origin) ? 204 : 403);
+  }
+  next();
+});
+
 app.post('/webhooks/appstore/verify', authenticateJwt, handleAppStoreVerify);
 
 const { handleClientVerify: handlePlayVerify, handleRtdn: handlePlayRtdn } = require('./telephony/webhooks/playbillingWebhook');
