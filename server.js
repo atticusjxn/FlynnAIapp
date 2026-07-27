@@ -1191,14 +1191,39 @@ const respondWithFunnelIntake = async ({ req, res, inboundParams, callSid, fromN
  * opener, no em dashes, short sentences, prose not bullets.
  */
 const sendBookingConfirmationSms = async ({ callSid, userId, callContext, extractedData }) => {
-  if (!twilioMessagingClient || !extractedData) return;
+  if (!twilioMessagingClient) return;
 
-  const toNumber = extractedData.caller_phone || callContext?.from_number;
+  // Prefer the job we just wrote over the agent's extract_booking_details tool.
+  // The tool is only called when the model decides to call it — on live calls it
+  // frequently doesn't, and the text never went out. Job extraction runs on
+  // every transcript, so it's the dependable source.
+  let job = null;
+  if (callSid) {
+    const { data } = await supabaseClient
+      .from('jobs')
+      .select('customer_name, client_name, customer_phone, service_type, scheduled_date, scheduled_time, location')
+      .eq('call_sid', callSid)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .catch(() => ({ data: null }));
+    job = data;
+  }
+
+  const details = {
+    caller_name: job?.customer_name || job?.client_name || extractedData?.caller_name,
+    caller_phone: job?.customer_phone || extractedData?.caller_phone,
+    service_type: job?.service_type || extractedData?.service_type,
+    preferred_date: job?.scheduled_date || extractedData?.preferred_date,
+    preferred_time: job?.scheduled_time || extractedData?.preferred_time,
+  };
+
+  const toNumber = details.caller_phone || callContext?.from_number;
   const fromNumber = callContext?.to_number;
   if (!toNumber || !fromNumber) return;
 
   // Nothing was actually booked — don't text someone who just asked a question.
-  const service = (extractedData.service_type || '').trim();
+  const service = (details.service_type || '').trim();
   if (!service) return;
 
   let businessName = null;
@@ -1212,14 +1237,26 @@ const sendBookingConfirmationSms = async ({ callSid, userId, callContext, extrac
     businessName = data?.business_name || null;
   }
 
-  const firstName = (extractedData.caller_name || '').trim().split(/\s+/)[0];
-  const when = [extractedData.preferred_date, extractedData.preferred_time]
-    .map((part) => (part || '').trim())
+  const firstName = (details.caller_name || '').trim().split(/\s+/)[0];
+
+  // The job stores an ISO date; "2026-07-28" in a text message reads like a
+  // database row, so say the day the way a person would.
+  const dayLabel = (() => {
+    const raw = (details.preferred_date || '').trim();
+    if (!raw) return '';
+    const parsed = new Date(`${raw}T00:00:00+10:00`);
+    if (Number.isNaN(parsed.getTime())) return raw;
+    return parsed.toLocaleDateString('en-AU', { weekday: 'long', timeZone: 'Australia/Brisbane' });
+  })();
+
+  const when = [dayLabel, (details.preferred_time || '').trim()]
     .filter(Boolean)
     .join(' ');
 
+  // "Deck repairs" mid-sentence reads like a form field, not a text.
+  const serviceLabel = service.charAt(0).toLowerCase() + service.slice(1);
   const parts = [];
-  parts.push(firstName ? `hey ${firstName}, got you down for ${service}` : `got you down for ${service}`);
+  parts.push(firstName ? `hey ${firstName}, got you down for ${serviceLabel}` : `got you down for ${serviceLabel}`);
   if (when) parts.push(`${when}`);
   const opener = `${parts.join(' ')}.`;
   const signoff = businessName
