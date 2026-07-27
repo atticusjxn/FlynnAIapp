@@ -958,6 +958,10 @@ const insertJob = async ({
       org_id,
       call_sid,
       customer_name,
+      -- The app's EventDTO/EventRow read client_name and fall back to
+      -- "Unknown client", so a job written only with customer_name shows up
+      -- nameless on the dashboard. Write both until the two columns are merged.
+      client_name,
       customer_phone,
       customer_email,
       summary,
@@ -983,6 +987,7 @@ const insertJob = async ({
       ${sqlString(userId)},
       ${resolvedOrgId},
       ${sqlString(callSid)},
+      ${sqlString(customerName)},
       ${sqlString(customerName)},
       ${sqlString(customerPhone)},
       ${sqlString(customerEmail)},
