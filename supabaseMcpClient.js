@@ -493,8 +493,12 @@ const upsertCallRecord = async ({
     )
     on conflict (call_sid) do update set
       user_id = coalesce(excluded.user_id, public.calls.user_id),
-      from_number = excluded.from_number,
-      to_number = excluded.to_number,
+      -- coalesce, not overwrite: the completion path upserts with only
+      -- {callSid,userId,orgId,status}, so a plain assignment wiped the numbers
+      -- captured when the call came in. That left the confirmation SMS with
+      -- nobody to text and no number to text from.
+      from_number = coalesce(excluded.from_number, public.calls.from_number),
+      to_number = coalesce(excluded.to_number, public.calls.to_number),
       recording_url = excluded.recording_url,
       recording_sid = coalesce(excluded.recording_sid, public.calls.recording_sid),
       recording_storage_path = coalesce(excluded.recording_storage_path, public.calls.recording_storage_path),

@@ -1325,15 +1325,26 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
       console.error('[Realtime] Failed to upsert call record on conversation complete.', { callSid, userId, orgId, error });
     });
 
+    // Isolated: job extraction calls an LLM, and an LLM outage (quota, 429,
+    // timeout) must not take out the confirmation SMS and the events below it.
+    // That is exactly what happened when Gemini ran out of credits — the throw
+    // skipped the rest of this block.
     if (transcriptText.length > 4) {
       if (llmClient) {
-        await ensureJobForTranscript({
-          callSid,
-          transcriptText,
-          llmClient,
-          userId,
-          orgId,
-        });
+        try {
+          await ensureJobForTranscript({
+            callSid,
+            transcriptText,
+            llmClient,
+            userId,
+            orgId,
+          });
+        } catch (jobError) {
+          console.error('[Jobs] Job creation from transcript failed.', {
+            callSid,
+            error: jobError?.message || jobError,
+          });
+        }
       } else {
         console.warn('[Jobs] Skipping job creation; no LLM client configured.', { callSid });
       }
