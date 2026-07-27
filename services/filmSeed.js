@@ -31,47 +31,48 @@ const money = (cents, currency = 'AUD') =>
   `$${(cents / 100).toLocaleString('en-AU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 // ---------------------------------------------------------------------------
-// Default profile — a Brisbane removals business, matching the operator's own
-// trade. Override any part of it via the director endpoint's `profile` body so
-// the shoot can be re-cut (different trade, names, amounts) without a redeploy.
+// Default profile — a one-man Brisbane decking business (Jake's Decking), the
+// persona the demo narrates. Override any part of it via the director
+// endpoint's `profile` body so the shoot can be re-cut (different trade, names,
+// amounts) without a redeploy.
 //
 // `overdue: true` marks the invoice the chase beat fires on. Exactly one.
 // ---------------------------------------------------------------------------
 const DEFAULT_PROFILE = {
   currency: 'AUD',
   clients: [
-    { key: 'dave',  name: 'Dave Mullins',    phone: '+61412330184', address: '8 Kedron Park Rd, Wooloowin', last_job_type: 'Office relocation',  total_jobs: 3, last_job_days_ago: 12 },
-    { key: 'priya', name: 'Priya Raman',     phone: '+61423771905', address: '14 Miller St, Bardon',        last_job_type: '2-bedroom move',     total_jobs: 1, last_job_days_ago: 9 },
-    { key: 'tom',   name: 'Tom Kelleher',    phone: '+61438220716', address: '3/61 Ferny Ave, Ashgrove',    last_job_type: 'Single item pickup', total_jobs: 2, last_job_days_ago: 21 },
-    { key: 'megan', name: 'Megan Achterberg', phone: '+61402886331', address: '77 Days Rd, Grange',          last_job_type: 'Storage run',        total_jobs: 1, last_job_days_ago: 4 },
+    { key: 'dave',  name: 'Dave Mullins',     phone: '+61412330184', address: '8 Kedron Park Rd, Wooloowin', last_job_type: 'Deck rebuild',       total_jobs: 3, last_job_days_ago: 14 },
+    { key: 'priya', name: 'Priya Raman',      phone: '+61423771905', address: '14 Miller St, Bardon',        last_job_type: 'Deck repair',        total_jobs: 1, last_job_days_ago: 9 },
+    { key: 'tom',   name: 'Tom Kelleher',     phone: '+61438220716', address: '3/61 Ferny Ave, Ashgrove',    last_job_type: 'Pergola',            total_jobs: 2, last_job_days_ago: 21 },
+    { key: 'megan', name: 'Megan Achterberg', phone: '+61402886331', address: '77 Days Rd, Grange',          last_job_type: 'Restain and reseal', total_jobs: 1, last_job_days_ago: 4 },
   ],
   jobs: [
-    { client: 'dave',  title: 'Office relocation — Wooloowin', service_type: 'Removals', status: 'completed', days_ago: 14, time: '07:30' },
-    { client: 'priya', title: '2-bedroom move — Bardon',       service_type: 'Removals', status: 'completed', days_ago: 9,  time: '08:00' },
-    { client: 'megan', title: 'Storage run — Grange',          service_type: 'Removals', status: 'completed', days_ago: 4,  time: '13:00' },
-    { client: 'tom',   title: 'Piano pickup — Ashgrove',       service_type: 'Removals', status: 'scheduled', days_ahead: 3, time: '09:00' },
+    { client: 'dave',  title: 'Deck rebuild — Wooloowin',       service_type: 'Decking', status: 'completed', days_ago: 14, time: '07:30' },
+    { client: 'priya', title: 'Deck repair — Bardon',           service_type: 'Decking', status: 'completed', days_ago: 9,  time: '08:00' },
+    { client: 'megan', title: 'Restain and reseal — Grange',    service_type: 'Decking', status: 'completed', days_ago: 4,  time: '13:00' },
+    { client: 'tom',   title: 'Pergola build — Ashgrove',       service_type: 'Decking', status: 'scheduled', days_ahead: 3, time: '09:00' },
   ],
   invoices: [
     {
-      client: 'priya', title: '2-bedroom move — Bardon', days_ago: 9, status: 'paid', paid_days_ago: 7,
+      client: 'priya', title: 'Deck repair — Bardon', days_ago: 9, status: 'paid', paid_days_ago: 7,
       line_items: [
-        { description: 'Two movers + truck (4.5 hrs)', quantity: 4.5, unit_price: 145 },
-        { description: 'Packing materials',            quantity: 1,   unit_price: 60 },
+        { description: 'Replace rotted boards and joists', quantity: 1, unit_price: 680 },
+        { description: 'Merbau decking boards',            quantity: 14, unit_price: 12.5 },
       ],
     },
     {
-      client: 'megan', title: 'Storage run — Grange', days_ago: 4, status: 'paid', paid_days_ago: 2,
+      client: 'megan', title: 'Restain and reseal — Grange', days_ago: 4, status: 'paid', paid_days_ago: 2,
       line_items: [
-        { description: 'Two movers + truck (2 hrs)', quantity: 2, unit_price: 145 },
+        { description: 'Sand, restain and reseal (1 day)', quantity: 1, unit_price: 540 },
       ],
     },
     {
       // The chase beat fires on this one. Sent 13 days ago on 7-day terms, so
       // it lands exactly 6 days past due — the number the demo script says.
-      client: 'dave', title: 'Office relocation — Wooloowin', days_ago: 13, status: 'sent', overdue: true,
+      client: 'dave', title: 'Deck rebuild — Wooloowin', days_ago: 13, status: 'sent', overdue: true,
       line_items: [
-        { description: 'Three movers + truck (6 hrs)', quantity: 6, unit_price: 190 },
-        { description: 'After-hours loading dock fee', quantity: 1, unit_price: 100 },
+        { description: 'Deck rebuild, labour (3 days)', quantity: 3, unit_price: 340 },
+        { description: 'Treated pine frame and bearers', quantity: 1, unit_price: 220 },
       ],
     },
   ],
@@ -80,8 +81,8 @@ const DEFAULT_PROFILE = {
     days_ago: 5,
     status: 'picked_up',
     line_items: [
-      { description: 'Moving blankets (pack of 12)', quantity: 2, unit_price: 89 },
-      { description: 'Heavy duty book boxes',        quantity: 30, unit_price: 3.4 },
+      { description: 'Treated pine 90x45 (2.4m)', quantity: 18, unit_price: 12.9 },
+      { description: 'Decking screws 10g (500pk)', quantity: 2, unit_price: 46 },
     ],
   },
 };
@@ -361,8 +362,10 @@ async function fireAppChase(phone, { supabase } = {}) {
   // Overdue counts from the due date, not the send date — an invoice inside its
   // payment terms isn't late, and the on-screen number has to survive scrutiny.
   const reference = inv.due_date || inv.sent_at;
+  // floor, not round: due_date is a date (midnight), so rounding ticks over to
+  // the next day by lunchtime and the invoice reads a day later than it is.
   const daysOverdue = reference
-    ? Math.max(1, Math.round((Date.now() - new Date(reference).getTime()) / 86400000))
+    ? Math.max(1, Math.floor((Date.now() - new Date(reference).getTime()) / 86400000))
     : 6;
   const firstName = String(inv.client_name || 'that client').split(' ')[0];
   const amount = money(totalCents, inv.currency);

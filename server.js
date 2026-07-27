@@ -1183,7 +1183,57 @@ const respondWithFunnelIntake = async ({ req, res, inboundParams, callSid, fromN
   return res.send(response.toString());
 };
 
-const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, transcript, turns, reason }) => {
+/**
+ * Text the caller after a receptionist call, confirming what was booked.
+ *
+ * Sent from the tenant's own Flynn number (the one the customer just rang) so
+ * the reply lands back in their thread. Tone follows CLAUDE.md: lowercase
+ * opener, no em dashes, short sentences, prose not bullets.
+ */
+const sendBookingConfirmationSms = async ({ callSid, userId, callContext, extractedData }) => {
+  if (!twilioMessagingClient || !extractedData) return;
+
+  const toNumber = extractedData.caller_phone || callContext?.from_number;
+  const fromNumber = callContext?.to_number;
+  if (!toNumber || !fromNumber) return;
+
+  // Nothing was actually booked — don't text someone who just asked a question.
+  const service = (extractedData.service_type || '').trim();
+  if (!service) return;
+
+  let businessName = null;
+  if (userId) {
+    const { data } = await supabaseClient
+      .from('users')
+      .select('business_name')
+      .eq('id', userId)
+      .maybeSingle()
+      .catch(() => ({ data: null }));
+    businessName = data?.business_name || null;
+  }
+
+  const firstName = (extractedData.caller_name || '').trim().split(/\s+/)[0];
+  const when = [extractedData.preferred_date, extractedData.preferred_time]
+    .map((part) => (part || '').trim())
+    .filter(Boolean)
+    .join(' ');
+
+  const parts = [];
+  parts.push(firstName ? `hey ${firstName}, got you down for ${service}` : `got you down for ${service}`);
+  if (when) parts.push(`${when}`);
+  const opener = `${parts.join(' ')}.`;
+  const signoff = businessName
+    ? `${businessName} will be in touch to confirm.`
+    : `we'll be in touch to confirm.`;
+
+  const { sanitiseReply } = require('./services/flynnTone');
+  const body = sanitiseReply(`${opener} ${signoff}`);
+
+  await twilioMessagingClient.messages.create({ to: toNumber, from: fromNumber, body });
+  console.log('[Realtime] Booking confirmation SMS sent.', { callSid, to: toNumber, from: fromNumber });
+};
+
+const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, transcript, turns, reason, extractedData }) => {
   if (!callSid) {
     return;
   }
@@ -1288,6 +1338,14 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
         console.warn('[Jobs] Skipping job creation; no LLM client configured.', { callSid });
       }
     }
+
+    // The receptionist prompt promises the caller a confirmation text
+    // ("I'll send you a booking link by SMS right now"), but nothing ever sent
+    // one: extractedData reached this callback and was dropped on the floor.
+    // Send it from the tenant's own Flynn number so it threads under the call
+    // the customer just made.
+    await sendBookingConfirmationSms({ callSid, userId, callContext, extractedData })
+      .catch((error) => console.warn('[Realtime] Confirmation SMS failed.', { callSid, error: error?.message || error }));
 
     await logCallEvent({
       orgId: callContext?.org_id || null,
