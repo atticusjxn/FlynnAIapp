@@ -10,6 +10,7 @@ struct AgentInputBar: View {
     @Bindable var conversation: AgentConversationStore
     @State private var voice = VoiceCaptureManager()
     @State private var draft: String = ""
+    @State private var isHolding = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -80,11 +81,17 @@ struct AgentInputBar: View {
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in
-                        guard voice.state != .listening else { return }
+                        // onChanged fires on every touch movement, not just on
+                        // press. Latch locally so one hold starts one session —
+                        // voice.state can't do this, it turns .listening only
+                        // after the async start finishes.
+                        guard !isHolding else { return }
+                        isHolding = true
                         isFocused = false
                         Task { await voice.startListening() }
                     }
                     .onEnded { _ in
+                        isHolding = false
                         guard voice.state == .listening else { return }
                         voice.stopListening()
                         // The recognizer keeps finalising briefly after

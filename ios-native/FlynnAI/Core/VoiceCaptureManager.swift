@@ -31,10 +31,20 @@ final class VoiceCaptureManager {
     private var audioEngine: AVAudioEngine?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    /// Guards the whole async start. `state` only becomes `.listening` at the
+    /// very end — after two permission round-trips and engine startup — so it
+    /// cannot protect against re-entry. The mic button's DragGesture fires
+    /// onChanged repeatedly during a hold, so without this every one of those
+    /// events started another engine, and the second installTap(onBus: 0) on
+    /// the shared input node threw "required condition is false: nullptr ==
+    /// Tap()" — an ObjC exception Swift cannot catch, so the app died.
+    private var isStarting = false
 
     /// Call on mic-button press-down. Requests permission on first use.
     func startListening() async {
-        guard state != .listening else { return }
+        guard state != .listening, !isStarting else { return }
+        isStarting = true
+        defer { isStarting = false }
         transcript = ""
 
         let speechStatus = await requestSpeechAuthorization()
@@ -70,6 +80,17 @@ final class VoiceCaptureManager {
 
         let inputNode = engine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
+        // A zero-rate/zero-channel format means the input route isn't ready
+        // (session lost to a call, hardware not attached). installTap throws on
+        // it, so fail as a message rather than a crash.
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            state = .error("Couldn't start the microphone")
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            return
+        }
+        // Belt-and-braces: the input node is shared, so clear any tap a
+        // previous session left behind before installing ours.
+        inputNode.removeTap(onBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak req] buffer, _ in
             req?.append(buffer)
         }
@@ -78,6 +99,10 @@ final class VoiceCaptureManager {
         do {
             try engine.start()
         } catch {
+            // Leaving the tap installed here would make the *next* press throw
+            // on installTap — the same crash, one hold later.
+            inputNode.removeTap(onBus: 0)
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
             state = .error("Couldn't start the microphone")
             return
         }
