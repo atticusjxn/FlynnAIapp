@@ -57,7 +57,7 @@ struct PracticeStepView: View {
 
     private var hintBanner: some View {
         Text(hintText)
-            .font(.custom(FlynnFontName.interMedium, size: 14))
+            .font(.custom(FlynnFontName.interMedium, size: 14, relativeTo: .subheadline))
             .foregroundColor(OB.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
@@ -73,7 +73,7 @@ struct PracticeStepView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(customerMessage)
-                    .font(.custom(FlynnFontName.interRegular, size: 15))
+                    .font(.custom(FlynnFontName.interRegular, size: 15, relativeTo: .body))
                     .foregroundColor(OB.ink)
                     .padding(12)
                     .background(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).fill(OB.card))
@@ -84,13 +84,13 @@ struct PracticeStepView: View {
             if stage == .copy {
                 Button { withAnimation { stage = .switchKeyboard } } label: {
                     Label("Copy message", systemImage: "doc.on.doc")
-                        .font(.custom(FlynnFontName.interMedium, size: 13))
+                        .font(.custom(FlynnFontName.interMedium, size: 13, relativeTo: .footnote))
                         .foregroundColor(OB.orange)
                 }
                 .buttonStyle(.plain)
             } else {
                 Label("Copied", systemImage: "checkmark.circle.fill")
-                    .font(.custom(FlynnFontName.interMedium, size: 13))
+                    .font(.custom(FlynnFontName.interMedium, size: 13, relativeTo: .footnote))
                     .foregroundColor(OB.teal)
             }
 
@@ -98,7 +98,7 @@ struct PracticeStepView: View {
                 HStack {
                     Spacer(minLength: 40)
                     Text(composed)
-                        .font(.custom(FlynnFontName.interRegular, size: 15))
+                        .font(.custom(FlynnFontName.interRegular, size: 15, relativeTo: .body))
                         .foregroundColor(OB.card)
                         .padding(12)
                         .background(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).fill(OB.orange))
@@ -119,12 +119,12 @@ struct PracticeStepView: View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
                 Text(composed.isEmpty ? "Message" : composed)
-                    .font(.custom(FlynnFontName.interRegular, size: 15))
+                    .font(.custom(FlynnFontName.interRegular, size: 15, relativeTo: .body))
                     .foregroundColor(composed.isEmpty ? OB.inkFaint : OB.ink)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
-                    .frame(height: 42)
+                    .frame(minHeight: 42)
                     .background(Capsule().fill(OB.cream))
                     .overlay(Capsule().stroke(OB.ink, lineWidth: 2))
 
@@ -157,9 +157,9 @@ struct PracticeStepView: View {
                 keyboardPlaceholder(text: "Your normal keyboard")
                 Button { withAnimation { stage = .tapReply } } label: {
                     Label("Switch to Flynn", systemImage: "globe")
-                        .font(.custom(FlynnFontName.spaceGroteskBold, size: 16))
+                        .font(.custom(FlynnFontName.spaceGroteskBold, size: 16, relativeTo: .headline))
                         .foregroundColor(OB.card)
-                        .frame(maxWidth: .infinity).frame(height: 48)
+                        .frame(maxWidth: .infinity).frame(minHeight: 48)
                         .background(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).fill(OB.orange))
                         .overlay(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
                 }
@@ -177,7 +177,7 @@ struct PracticeStepView: View {
             HStack(spacing: 6) {
                 Mascot(.point, size: 26)
                 Text("Flynn")
-                    .font(.custom(FlynnFontName.spaceGroteskSemiBold, size: 13))
+                    .font(.custom(FlynnFontName.spaceGroteskSemiBold, size: 13, relativeTo: .footnote))
                     .foregroundColor(OB.inkSoft)
             }
             .padding(.horizontal, 16)
@@ -189,7 +189,7 @@ struct PracticeStepView: View {
                     }
                 } label: {
                     Text(draft)
-                        .font(.custom(FlynnFontName.interRegular, size: 15))
+                        .font(.custom(FlynnFontName.interRegular, size: 15, relativeTo: .body))
                         .foregroundColor(OB.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
@@ -205,10 +205,10 @@ struct PracticeStepView: View {
 
     private func keyboardPlaceholder(text: String) -> some View {
         Text(text)
-            .font(.custom(FlynnFontName.interMedium, size: 13))
+            .font(.custom(FlynnFontName.interMedium, size: 13, relativeTo: .footnote))
             .foregroundColor(OB.inkFaint)
             .frame(maxWidth: .infinity)
-            .frame(height: 120)
+            .frame(minHeight: 120)
             .background(OB.cream)
     }
 

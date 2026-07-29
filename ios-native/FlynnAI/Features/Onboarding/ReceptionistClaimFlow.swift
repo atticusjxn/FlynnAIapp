@@ -36,9 +36,28 @@ struct ReceptionistClaimFlow: View {
 
     // MARK: - Claim
 
+    // The content scrolls and the CTA pins to the bottom. As a bare VStack with
+    // Spacers this overflowed at the larger text sizes and pushed "Bring her to
+    // life" off-screen — on the one screen where the voice funnel converts.
     private var claimStep: some View {
+        ScrollView {
+            claimContent
+                .padding(.horizontal, FlynnSpacing.lg)
+                .padding(.bottom, FlynnSpacing.md)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .safeAreaInset(edge: .bottom) {
+            claimActions
+                .padding(.horizontal, FlynnSpacing.lg)
+                .padding(.top, FlynnSpacing.sm)
+                .padding(.bottom, FlynnSpacing.xs)
+                .background(FlynnColor.background.ignoresSafeArea(edges: .bottom))
+        }
+    }
+
+    private var claimContent: some View {
         VStack(spacing: 24) {
-            Spacer()
+            Spacer(minLength: FlynnSpacing.lg)
             Mascot(.wave, size: 120, backdrop: .cream)
 
             Text("Your receptionist's ready")
@@ -64,8 +83,12 @@ struct ReceptionistClaimFlow: View {
                     .multilineTextAlignment(.center)
             }
 
-            Spacer()
+            Spacer(minLength: FlynnSpacing.lg)
+        }
+    }
 
+    private var claimActions: some View {
+        VStack(spacing: FlynnSpacing.xs) {
             FlynnGlassButton(
                 title: "Bring her to life",
                 action: { Task { await claim() } },
@@ -76,9 +99,8 @@ struct ReceptionistClaimFlow: View {
             Button("Not now") { onFinished() }
                 .font(.subheadline)
                 .foregroundStyle(FlynnColor.textTertiary)
-                .padding(.bottom, 8)
+                .frame(minHeight: 44)
         }
-        .padding(.horizontal, 24)
     }
 
     private var configSummary: some View {

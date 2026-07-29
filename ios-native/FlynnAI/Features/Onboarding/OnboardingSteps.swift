@@ -36,13 +36,13 @@ struct InstallKeyboardStepView: View {
     private func instructionRow(_ number: String, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
             Text(number)
-                .font(.custom(FlynnFontName.spaceGroteskBold, size: 16))
+                .font(.custom(FlynnFontName.spaceGroteskBold, size: 16, relativeTo: .headline))
                 .foregroundColor(OB.card)
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(OB.orange))
                 .overlay(Circle().stroke(OB.ink, lineWidth: OB.outline))
             Text(text)
-                .font(.custom(FlynnFontName.interRegular, size: 15))
+                .font(.custom(FlynnFontName.interRegular, size: 15, relativeTo: .body))
                 .foregroundColor(OB.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)

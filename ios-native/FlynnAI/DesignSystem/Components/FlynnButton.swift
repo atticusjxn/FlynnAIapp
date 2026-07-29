@@ -95,7 +95,10 @@ struct FlynnButton: View {
                 }
             }
             .frame(maxWidth: fullWidth ? .infinity : nil)
-            .frame(height: size.height)
+            // minHeight, not height: at the accessibility text sizes a fixed
+            // height clips the label instead of letting the button grow.
+            .frame(minHeight: size.height)
+            .padding(.vertical, FlynnSpacing.xxs)
             .padding(.horizontal, size.horizontalPadding)
             .background(
                 RoundedRectangle(cornerRadius: FlynnRadii.pill, style: .continuous)

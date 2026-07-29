@@ -8,11 +8,26 @@ import SwiftUI
 /// keyboard blocking text" quality bar).
 struct AgentInputBar: View {
     @Bindable var conversation: AgentConversationStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var voice = VoiceCaptureManager()
     @State private var draft: String = ""
+    /// What the user had typed before they started holding the mic. The
+    /// transcript is appended to this rather than replacing it, so starting a
+    /// voice note no longer destroys a half-typed message.
+    @State private var draftBeforeVoice: String = ""
     @State private var isHolding = false
     @State private var pulse = false
+    @State private var nothingHeard = false
     @FocusState private var isFocused: Bool
+
+    /// Draft plus whatever has been transcribed so far.
+    private func merged(with transcript: String) -> String {
+        let base = draftBeforeVoice.trimmingCharacters(in: .whitespacesAndNewlines)
+        let heard = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if base.isEmpty { return heard }
+        if heard.isEmpty { return base }
+        return base + " " + heard
+    }
 
     var body: some View {
         VStack(spacing: FlynnSpacing.xs) {
@@ -24,6 +39,13 @@ struct AgentInputBar: View {
                     .foregroundColor(FlynnColor.error)
             } else if voice.state == .denied {
                 Text("Turn on microphone + speech recognition in Settings to talk to Flynn.")
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.textTertiary)
+            } else if nothingHeard {
+                // Releasing the mic with an empty transcript used to do nothing
+                // at all, which is indistinguishable from the feature being
+                // broken. Say so instead.
+                Text("didn't catch that, hold the mic and try again")
                     .flynnType(FlynnTypography.caption)
                     .foregroundColor(FlynnColor.textTertiary)
             }
@@ -40,7 +62,7 @@ struct AgentInputBar: View {
                     .disabled(voice.state == .listening)
                     .onChange(of: voice.transcript) { _, newValue in
                         guard voice.state == .listening else { return }
-                        draft = newValue
+                        draft = merged(with: newValue)
                     }
                     // The field is multi-line (axis: .vertical), so Return
                     // inserts a newline and can't dismiss. Without this there
@@ -132,36 +154,59 @@ struct AgentInputBar: View {
                         // after the async start finishes.
                         guard !isHolding else { return }
                         isHolding = true
+                        nothingHeard = false
                         isFocused = false
+                        draftBeforeVoice = draft
                         Task { await voice.startListening() }
                     }
                     .onEnded { _ in
-                        isHolding = false
-                        guard voice.state == .listening else { return }
-                        voice.stopListening()
-                        // The recognizer keeps finalising briefly after
-                        // stopListening(); give it a beat before sending so we
-                        // capture the tail of what was said.
-                        Task {
-                            try? await Task.sleep(for: .milliseconds(400))
-                            let text = voice.transcript
-                            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                draft = ""
-                                await conversation.send(text)
-                            }
-                        }
+                        endHold()
                     }
             )
+            // The latch above is the only thing gating a new hold, and onEnded
+            // does not fire if the gesture is interrupted — an incoming call, a
+            // backgrounding, or the view losing identity. Without these resets
+            // isHolding stays true forever and the mic silently stops responding
+            // to every subsequent press.
+            .onChange(of: scenePhase) { _, phase in
+                guard phase != .active, isHolding else { return }
+                isHolding = false
+                if voice.state == .listening { voice.stopListening() }
+            }
+            .onDisappear {
+                isHolding = false
+                if voice.state == .listening { voice.stopListening() }
+            }
+    }
+
+    private func endHold() {
+        isHolding = false
+        guard voice.state == .listening else { return }
+        voice.stopListening()
+        // The recognizer keeps finalising briefly after stopListening(); give it
+        // a beat before sending so we capture the tail of what was said.
+        Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            let text = merged(with: voice.transcript)
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                nothingHeard = true
+                return
+            }
+            draft = ""
+            draftBeforeVoice = ""
+            await conversation.send(text)
+        }
     }
 
     private var sendButton: some View {
         Button {
             let text = draft
             draft = ""
+            draftBeforeVoice = ""
             isFocused = false
             Task { await conversation.send(text) }
         } label: {
-            Image(systemName: "arrow.up")
+            Image(systemName: conversation.isSending ? "ellipsis" : "arrow.up")
                 .foregroundColor(FlynnColor.white)
                 .frame(width: 44, height: 44)
                 // Glass treatment to match FlynnGlassButton / the hosted
@@ -183,7 +228,14 @@ struct AgentInputBar: View {
                 )
                 .clipShape(Circle())
                 .overlay(Circle().strokeBorder(Color.white.opacity(0.3), lineWidth: 1))
-                .shadow(color: FlynnColor.primary.opacity(0.42), radius: 10, x: 0, y: 4)
+                .shadow(
+                    color: FlynnColor.primary.opacity(conversation.isSending ? 0 : 0.42),
+                    radius: 10, x: 0, y: 4
+                )
+                // Without this the button looks identical while a send is in
+                // flight, so a second tap reads as the app ignoring you.
+                .opacity(conversation.isSending ? 0.5 : 1)
+                .animation(.easeOut(duration: 0.15), value: conversation.isSending)
         }
         .disabled(conversation.isSending)
     }

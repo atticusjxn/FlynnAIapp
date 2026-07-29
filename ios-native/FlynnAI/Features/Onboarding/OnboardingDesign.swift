@@ -192,7 +192,7 @@ extension View {
                     UIApplication.shared.sendAction(
                         #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 }
-                .font(.custom(FlynnFontName.spaceGroteskBold, size: 16))
+                .font(.custom(FlynnFontName.spaceGroteskBold, size: 16, relativeTo: .headline))
                 .tint(FlynnColor.primary)
             }
         }

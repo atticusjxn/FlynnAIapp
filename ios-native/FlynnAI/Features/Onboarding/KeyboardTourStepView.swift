@@ -33,7 +33,7 @@ struct KeyboardTourStepView: View {
             )
 
             Text("Flynn never sends anything. It writes it, you hit send.")
-                .font(.custom(FlynnFontName.interMedium, size: 14))
+                .font(.custom(FlynnFontName.interMedium, size: 14, relativeTo: .subheadline))
                 .foregroundColor(OB.inkFaint)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 2)
@@ -49,12 +49,12 @@ struct KeyboardTourStepView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(OB.orange)
                 Text(title)
-                    .font(.custom(FlynnFontName.spaceGroteskBold, size: 20))
+                    .font(.custom(FlynnFontName.spaceGroteskBold, size: 20, relativeTo: .title3))
                     .foregroundColor(OB.ink)
                 Spacer(minLength: 6)
             }
             Text(description)
-                .font(.custom(FlynnFontName.interRegular, size: 15))
+                .font(.custom(FlynnFontName.interRegular, size: 15, relativeTo: .body))
                 .foregroundColor(OB.inkSoft)
                 .fixedSize(horizontal: false, vertical: true)
         }

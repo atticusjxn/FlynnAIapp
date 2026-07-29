@@ -191,7 +191,7 @@ struct ClientFormView: View {
             .pickerStyle(.menu)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, FlynnSpacing.sm)
-            .frame(height: 48)
+            .frame(minHeight: 48)
             .background(
                 RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
                     .fill(FlynnColor.backgroundSecondary)

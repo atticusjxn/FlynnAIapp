@@ -99,7 +99,9 @@ struct FlynnGlassButton: View {
                 }
             }
             .frame(maxWidth: fullWidth ? .infinity : nil)
-            .frame(height: height)
+            // minHeight so the pill grows with the label at large text sizes.
+            .frame(minHeight: height)
+            .padding(.vertical, FlynnSpacing.xxs)
             .padding(.horizontal, FlynnSpacing.lg)
             .background(glassBackground)
             // Full capsule — the 2026 pill language, shared with the landing
