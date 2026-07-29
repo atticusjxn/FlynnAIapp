@@ -48,6 +48,7 @@ struct LineItemEditorView: View {
                     }
                 }
             }
+            .flynnListSurface()
             .navigationTitle("Line Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

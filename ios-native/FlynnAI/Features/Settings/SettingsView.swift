@@ -66,6 +66,7 @@ struct SettingsView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .flynnListSurface()
         .navigationTitle("Settings")
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } } }
         .fullScreenCover(isPresented: $showClaimFlow) {

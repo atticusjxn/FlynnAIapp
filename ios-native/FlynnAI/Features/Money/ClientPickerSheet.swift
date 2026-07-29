@@ -101,6 +101,7 @@ struct ClientPickerSheet: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .flynnListSurface()
             }
         }
         .background(FlynnColor.background)
@@ -128,6 +129,7 @@ struct ClientPickerSheet: View {
                     .foregroundColor(FlynnColor.primary)
             }
         }
+        .flynnListSurface()
     }
 
     private func loadClients() async {

@@ -123,6 +123,7 @@ struct BrainView: View {
                 Text("Flynn pulls services, pricing and hours from your website.")
             }
         }
+        .flynnListSurface()
         .navigationTitle("Brain")
         .scrollDismissesKeyboard(.immediately)
         .toolbar {

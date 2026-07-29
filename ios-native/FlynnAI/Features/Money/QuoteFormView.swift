@@ -135,6 +135,7 @@ struct QuoteFormView: View {
                 totalsSection
                 notesSection
             }
+            .flynnListSurface()
             .navigationTitle(editQuote == nil ? "New Quote" : "Edit Quote")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }

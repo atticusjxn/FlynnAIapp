@@ -63,6 +63,7 @@ struct RememberedContextView: View {
                 }
             }
         }
+        .flynnListSurface()
         .navigationTitle("What Flynn remembers")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -103,6 +104,7 @@ private struct AddMemoryFactView: View {
                     TextField("e.g. Dave / 12 Oak St", text: $subject)
                 }
             }
+            .flynnListSurface()
             .navigationTitle("Add a note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

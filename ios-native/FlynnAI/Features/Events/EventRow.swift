@@ -4,7 +4,7 @@ struct EventRow: View {
     let event: EventDTO
 
     var body: some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
                 HStack {
                     Text(event.clientName ?? "Unknown client")

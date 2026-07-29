@@ -120,7 +120,7 @@ struct ReceptionistClaimFlow: View {
                 }
             }
         }
-        .background(FlynnColor.backgroundSecondary, in: RoundedRectangle(cornerRadius: 14))
+        .background(FlynnColor.backgroundSecondary, in: RoundedRectangle(cornerRadius: FlynnRadii.lg))
     }
 
     private var codeEntry: some View {
@@ -135,7 +135,7 @@ struct ReceptionistClaimFlow: View {
                 .font(.title3.monospaced())
                 .multilineTextAlignment(.center)
                 .padding(.vertical, 12)
-                .background(FlynnColor.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12))
+                .background(FlynnColor.backgroundSecondary, in: RoundedRectangle(cornerRadius: FlynnRadii.md))
                 .onChange(of: code) { _, newValue in
                     code = String(newValue.uppercased().prefix(6))
                 }
@@ -196,7 +196,7 @@ struct ReceptionistClaimFlow: View {
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity)
-                .background(FlynnColor.backgroundSecondary, in: RoundedRectangle(cornerRadius: 14))
+                .background(FlynnColor.backgroundSecondary, in: RoundedRectangle(cornerRadius: FlynnRadii.lg))
 
                 FlynnGlassButton(
                     title: "Give her a test call",

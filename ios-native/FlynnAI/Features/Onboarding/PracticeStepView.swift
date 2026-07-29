@@ -61,8 +61,8 @@ struct PracticeStepView: View {
             .foregroundColor(OB.ink)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(OB.mustard.opacity(0.30)))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
+            .background(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).fill(OB.mustard.opacity(0.30)))
+            .overlay(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
             .padding(.horizontal, 24)
             .padding(.bottom, 12)
     }
@@ -76,8 +76,8 @@ struct PracticeStepView: View {
                     .font(.custom(FlynnFontName.interRegular, size: 15))
                     .foregroundColor(OB.ink)
                     .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(OB.card))
-                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
+                    .background(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).fill(OB.card))
+                    .overlay(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
                 Spacer(minLength: 40)
             }
 
@@ -101,8 +101,8 @@ struct PracticeStepView: View {
                         .font(.custom(FlynnFontName.interRegular, size: 15))
                         .foregroundColor(OB.card)
                         .padding(12)
-                        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(OB.orange))
-                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
+                        .background(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).fill(OB.orange))
+                        .overlay(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
@@ -160,8 +160,8 @@ struct PracticeStepView: View {
                         .font(.custom(FlynnFontName.spaceGroteskBold, size: 16))
                         .foregroundColor(OB.card)
                         .frame(maxWidth: .infinity).frame(height: 48)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(OB.orange))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
+                        .background(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).fill(OB.orange))
+                        .overlay(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)
@@ -193,8 +193,8 @@ struct PracticeStepView: View {
                         .foregroundColor(OB.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(OB.cream))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
+                        .background(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).fill(OB.cream))
+                        .overlay(RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)

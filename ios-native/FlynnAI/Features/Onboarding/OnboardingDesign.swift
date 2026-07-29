@@ -176,10 +176,6 @@ struct OnboardingScaffold<Content: View, Footer: View>: View {
                     )
             }
         }
-        // Onboarding still pins to light so the mascot's cartoon world stays
-        // intact. Now that the global theme is warm in both modes this force can
-        // be dropped — deferred so the palette change lands on its own first.
-        .environment(\.colorScheme, .light)
     }
 }
 

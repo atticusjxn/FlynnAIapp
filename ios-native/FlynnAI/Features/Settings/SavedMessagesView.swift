@@ -49,6 +49,7 @@ struct SavedMessagesView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .flynnListSurface()
         .navigationTitle("Quick messages")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .topBarTrailing) { EditButton() } }
@@ -107,6 +108,7 @@ private struct SavedMessageEditor: View {
                         .lineLimit(4...12)
                 }
             }
+            .flynnListSurface()
             .navigationTitle("Quick message")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

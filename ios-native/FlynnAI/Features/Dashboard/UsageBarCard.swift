@@ -114,9 +114,9 @@ struct UsageBarCard: View {
     private func progressBar(fraction: Double, color: Color) -> some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: FlynnRadii.xs)
                     .fill(FlynnColor.gray200)
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: FlynnRadii.xs)
                     .fill(color)
                     .frame(width: proxy.size.width * fraction)
             }

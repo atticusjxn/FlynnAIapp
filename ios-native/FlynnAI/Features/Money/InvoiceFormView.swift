@@ -147,6 +147,7 @@ struct InvoiceFormView: View {
                 totalsSection
                 notesSection
             }
+            .flynnListSurface()
             .navigationTitle(editInvoice == nil ? "New Invoice" : "Edit Invoice")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }

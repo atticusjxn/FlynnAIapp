@@ -4,7 +4,7 @@ struct ClientRow: View {
     let client: ClientDTO
 
     var body: some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(client.name)

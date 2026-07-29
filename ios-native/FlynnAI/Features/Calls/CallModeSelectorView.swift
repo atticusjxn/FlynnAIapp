@@ -290,7 +290,7 @@ private struct ModePreview: View {
             .padding(.horizontal, FlynnSpacing.sm)
             .padding(.vertical, FlynnSpacing.xs)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous)
                     .fill(FlynnColor.gray200)
             )
     }
@@ -302,7 +302,7 @@ private struct ModePreview: View {
             .padding(.horizontal, FlynnSpacing.sm)
             .padding(.vertical, FlynnSpacing.xs)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous)
                     .fill(Color(hex: "#34C759"))  // iOS green-bubble
             )
     }

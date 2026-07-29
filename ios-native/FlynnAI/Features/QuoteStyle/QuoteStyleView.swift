@@ -63,6 +63,7 @@ struct QuoteStyleView: View {
                 }
             }
         }
+        .flynnListSurface()
         .navigationTitle("Your quote style")
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }

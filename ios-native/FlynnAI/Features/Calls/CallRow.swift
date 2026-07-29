@@ -4,7 +4,7 @@ struct CallRow: View {
     let call: CallDTO
 
     var body: some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(FlynnFormatter.phone(call.fromNumber) )

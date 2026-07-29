@@ -60,7 +60,7 @@ struct KeyboardTourStepView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(OB.card))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
+        .background(RoundedRectangle(cornerRadius: FlynnRadii.xl, style: .continuous).fill(OB.card))
+        .overlay(RoundedRectangle(cornerRadius: FlynnRadii.xl, style: .continuous).stroke(OB.ink, lineWidth: OB.outline))
     }
 }

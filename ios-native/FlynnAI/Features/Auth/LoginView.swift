@@ -47,7 +47,7 @@ struct LoginView: View {
                         .multilineTextAlignment(.center)
                         .padding(FlynnSpacing.sm)
                         .background(FlynnColor.errorLight)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: FlynnRadii.sm))
                 }
                 if mode == .signup, auth.awaitingEmailConfirmation {
                     Text("Check your email — we sent a confirmation link to \(email). Tap it to finish signing up.")
@@ -56,7 +56,7 @@ struct LoginView: View {
                         .multilineTextAlignment(.center)
                         .padding(FlynnSpacing.sm)
                         .background(FlynnColor.successLight)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(RoundedRectangle(cornerRadius: FlynnRadii.sm))
                 }
             }
             .padding(.horizontal, FlynnSpacing.lg)
@@ -243,7 +243,7 @@ struct LoginView: View {
                     .multilineTextAlignment(.center)
                     .padding(FlynnSpacing.sm)
                     .background(FlynnColor.successLight)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(RoundedRectangle(cornerRadius: FlynnRadii.sm))
                 FlynnGlassButton(title: "Send again", action: submitSendTextLink, variant: .neutral, isLoading: auth.isSubmitting)
             } else {
                 Text("Enter the number you text Flynn from. We'll text you a link that opens the app already signed in.")
