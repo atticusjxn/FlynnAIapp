@@ -446,7 +446,7 @@ struct DashboardView: View {
                 .foregroundColor(FlynnColor.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             FlynnButton(title: "Connect your apps", action: {
-                deepLink.pending = .init(tab: .connected, route: nil)
+                deepLink.pending = .init(tab: .connected, route: .settingsSection(.integrations))
             }, variant: .secondary, size: .small)
         }
         .padding(FlynnSpacing.md)
@@ -465,7 +465,7 @@ struct DashboardView: View {
                     deepLink.pending = .init(tab: .brain, route: nil)
                 }
                 quickAction(title: "Connected apps", icon: "square.stack.3d.up") {
-                    deepLink.pending = .init(tab: .connected, route: nil)
+                    deepLink.pending = .init(tab: .connected, route: .settingsSection(.integrations))
                 }
             }
             HStack(spacing: FlynnSpacing.sm) {

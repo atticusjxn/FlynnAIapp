@@ -17,9 +17,12 @@ final class ClientsRepository: ClientsRepositoryType {
     }
 
     func list(limit: Int = 100) async throws -> [ClientDTO] {
+        #if DEBUG
+        if FlynnDemo.isOn { return FlynnDemo.clients }
+        #endif
         // No explicit org filter needed — RLS (`is_org_member(org_id)`) already
         // scopes every row to orgs the caller belongs to.
-        try await client
+        return try await client
             .from("clients")
             .select()
             .order("last_job_date", ascending: false, nullsFirst: false)

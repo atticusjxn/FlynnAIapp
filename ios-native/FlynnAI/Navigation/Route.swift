@@ -19,7 +19,14 @@ enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
     /// its Swift feature (ClientsListView/ClientDetailView/ClientFormView) was
     /// already fully built but parked because the backing `clients` table was
     /// never created; see the org-spine migration for the fix.
-    static let visibleTabs: [FlynnTab] = [.dashboard, .brain, .events, .money, .clients, .connected]
+    ///
+    /// Five, deliberately. At six iOS collapses the overflow into its own "More"
+    /// tab, which wraps those screens in a second navigation controller — Clients
+    /// rendered with a back chevron AND the drawer button stacked on separate
+    /// bars, and a dead gap where the title should be. `connected` is reachable
+    /// from Settings and the Home quick actions, so it's the one that gives way.
+    /// Adding a sixth tab reintroduces the bug.
+    static let visibleTabs: [FlynnTab] = [.dashboard, .brain, .events, .money, .clients]
 
     var title: String {
         switch self {

@@ -37,6 +37,11 @@ actor PushTokenSync {
 enum PushAuthorization {
     @MainActor
     static func requestAndRegister() async {
+        #if DEBUG
+        // Guarded here rather than only at the call site: a permission alert
+        // parked over the UI makes demo mode useless for looking at screens.
+        if FlynnDemo.isOn { return }
+        #endif
         do {
             let granted = try await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .sound, .badge])

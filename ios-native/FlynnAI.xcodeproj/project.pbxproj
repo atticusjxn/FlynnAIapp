@@ -63,6 +63,7 @@
 		5C897390762D58061AD07A1B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3EED313F5E4DE80BD87174FF /* Assets.xcassets */; };
 		5DD8FC81F64F45DC5D7AE12D /* CallsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2679F82E07CD4F9C728CB55D /* CallsRepository.swift */; };
 		5EA59D46886812D002D97EFC /* SubscriptionProduct.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0D7F6949CC3D61E4294F32 /* SubscriptionProduct.swift */; };
+		5EAFCC74F430DAAAF8B15237 /* FlynnDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896A9EBA728CB8D3978F6471 /* FlynnDemo.swift */; };
 		5EF3F0CA0AA3615348661E9F /* ClientsListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E14B6F5749DD676CDC6DABB /* ClientsListStore.swift */; };
 		60499C69D3CCEB50C94B92CC /* FlynnBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45A511E6D227C87451C5A94C /* FlynnBadge.swift */; };
 		60FF9CB2AA1547798A6CCC15 /* EventsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFD6A2A8D7571AC1BEFB4AF1 /* EventsRepository.swift */; };
@@ -310,6 +311,7 @@
 		864065B83E87AB5BFE6D8E09 /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
 		86D0072102B04CF93D0BF04B /* CallForwardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallForwardingView.swift; sourceTree = "<group>"; };
 		87B7E306882FD5BB66E53C98 /* QuoteStyleRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteStyleRepository.swift; sourceTree = "<group>"; };
+		896A9EBA728CB8D3978F6471 /* FlynnDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnDemo.swift; sourceTree = "<group>"; };
 		8ACCAC70FAFA68E625AB5916 /* Environment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Environment.swift; sourceTree = "<group>"; };
 		8B66E6CBC21D1302A0377272 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		8BF2E5F01979E1BB6718CA1B /* Inter-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Regular.ttf"; sourceTree = "<group>"; };
@@ -545,6 +547,7 @@
 				1BEED2AD81D1FF35BC339A71 /* DeviceCapability.swift */,
 				8ACCAC70FAFA68E625AB5916 /* Environment.swift */,
 				25FBFFC60F4146F8AE78C8B5 /* FlashStore.swift */,
+				896A9EBA728CB8D3978F6471 /* FlynnDemo.swift */,
 				E18C1E534FA43BCF2637F6D9 /* Formatters.swift */,
 				139819673423D6AB673F53BD /* GoogleCalendarConnect.swift */,
 				9ED8EFB7CD7A72DD70533066 /* JSONValueExtensions.swift */,
@@ -1068,6 +1071,7 @@
 				8D5A381905D639A69A794C8A /* FlynnButton.swift in Sources */,
 				6F9E7E3A24E3AEE86402C62F /* FlynnCard.swift in Sources */,
 				CC20B68C2F4331E0B0315739 /* FlynnChrome.swift in Sources */,
+				5EAFCC74F430DAAAF8B15237 /* FlynnDemo.swift in Sources */,
 				64F11F132E0C77D46F755498 /* FlynnGlassButton.swift in Sources */,
 				3E143E4A306E82730B2826DE /* FlynnListSurface.swift in Sources */,
 				85718D69566AFE41EF4BAD91 /* FlynnTextField.swift in Sources */,

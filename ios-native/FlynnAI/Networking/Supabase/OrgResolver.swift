@@ -30,6 +30,9 @@ enum OrgResolver {
     }
 
     static func current(client: SupabaseClient = FlynnSupabase.client) async throws -> UUID {
+        #if DEBUG
+        if FlynnDemo.isOn { return FlynnDemo.ID.org }
+        #endif
         let session = try await client.auth.session
         let userId = session.user.id
 

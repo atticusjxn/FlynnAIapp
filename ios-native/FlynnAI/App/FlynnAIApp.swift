@@ -58,12 +58,17 @@ struct FlynnAIApp: App {
                     await auth.bootstrap()
                     await appleSearchAdsAttribution.claimIfAuthenticated()
                     await subscription.bootstrap()
-                    await PushAuthorization.requestAndRegister()
+                    // Demo mode is for looking at screens; system permission
+                    // alerts sit on top of them and can't be dismissed from a
+                    // screenshot.
+                    if !FlynnDemo.isOn { await PushAuthorization.requestAndRegister() }
                     // Request App Tracking Transparency permission so the Meta SDK
                     // can collect IDFA for ad attribution. Apple requires this prompt
                     // before any tracking-related data collection.
                     if #available(iOS 14, *) {
-                        _ = await ATTrackingManager.requestTrackingAuthorization()
+                        if !FlynnDemo.isOn {
+                            _ = await ATTrackingManager.requestTrackingAuthorization()
+                        }
                     }
                 }
                 .onChange(of: auth.state) { _, newState in

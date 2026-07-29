@@ -18,7 +18,10 @@ final class EventsRepository: EventsRepositoryType {
     }
 
     func list(limit: Int = 50) async throws -> [EventDTO] {
-        try await client
+        #if DEBUG
+        if FlynnDemo.isOn { return FlynnDemo.events }
+        #endif
+        return try await client
             .from("jobs")
             .select()
             .order("scheduled_date", ascending: false)

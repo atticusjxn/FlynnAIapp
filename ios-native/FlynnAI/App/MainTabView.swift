@@ -6,7 +6,7 @@ struct MainTabView: View {
     @Environment(DeepLinkRouter.self) private var deepLink
     @Environment(FlashStore.self) private var flash
     @Environment(\.scenePhase) private var scenePhase
-    @State private var selection: FlynnTab = .dashboard
+    @State private var selection: FlynnTab = FlynnDemo.initialTab ?? .dashboard
     @State private var drawer = DrawerController()
     @State private var calendarStore = PendingCalendarStore()
 
@@ -28,7 +28,6 @@ struct MainTabView: View {
                 tab(.events, path: $eventsPath) { EventsListView() }
                 tab(.money, path: $moneyPath) { MoneyView() }
                 tab(.clients, path: $clientsPath) { ClientsListView() }
-                tab(.connected, path: $connectedPath) { IntegrationsView() }
             }
 
             if drawer.isOpen {
@@ -131,6 +130,13 @@ struct MainTabView: View {
     }
 
     private func applyDeepLink(_ link: DeepLinkRouter.PendingLink) {
+        // `connected` is no longer a tab (see FlynnTab.visibleTabs) — it pushes
+        // onto Home instead, so existing links and buttons keep working.
+        if link.tab == .connected {
+            selection = .dashboard
+            dashboardPath.append(Route.settingsSection(.integrations))
+            return
+        }
         selection = link.tab
         guard let route = link.route else { return }
         switch link.tab {
@@ -139,7 +145,7 @@ struct MainTabView: View {
         case .calls: callsPath.append(route)
         case .clients: clientsPath.append(route)
         case .money: moneyPath.append(route)
-        case .connected: connectedPath.append(route)
+        case .connected: dashboardPath.append(route)
         case .brain: brainPath.append(route)
         }
     }

@@ -23,7 +23,10 @@ final class QuotesRepository: QuotesRepositoryType {
     }
 
     func list(orgId: UUID, limit: Int = 100) async throws -> [QuoteDTO] {
-        try await client
+        #if DEBUG
+        if FlynnDemo.isOn { return FlynnDemo.quotes }
+        #endif
+        return try await client
             .from("quotes")
             .select()
             .eq("org_id", value: orgId.uuidString)

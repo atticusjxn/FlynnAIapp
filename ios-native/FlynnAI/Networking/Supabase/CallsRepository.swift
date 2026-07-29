@@ -14,7 +14,10 @@ final class CallsRepository: CallsRepositoryType {
     }
 
     func list(limit: Int = 100) async throws -> [CallDTO] {
-        try await client
+        #if DEBUG
+        if FlynnDemo.isOn { return FlynnDemo.calls }
+        #endif
+        return try await client
             .from("calls")
             .select()
             .order("created_at", ascending: false)

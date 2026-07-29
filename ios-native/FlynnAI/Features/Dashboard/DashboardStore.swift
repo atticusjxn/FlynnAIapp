@@ -168,6 +168,9 @@ final class DashboardStore {
     }
 
     private func loadProfile() async throws -> (String?, Bool) {
+        #if DEBUG
+        if FlynnDemo.isOn { return ("Atticus", true) }
+        #endif
         struct Row: Decodable {
             let full_name: String?
             let calendar_sync_enabled: Bool?

@@ -28,6 +28,13 @@ final class AuthStore {
 
     /// Call once from FlynnAIApp.init — restores session from Keychain/SDK storage.
     func bootstrap() async {
+        #if DEBUG
+        if FlynnDemo.isOn {
+            // Demo mode has no session and needs none — go straight into the app.
+            state = .signedIn(userID: FlynnDemo.ID.user, email: "demo@flynnai.app")
+            return
+        }
+        #endif
         do {
             // 6-second timeout guards against the Supabase SDK hanging on first launch
             // (observed in iOS 26 Simulator when no prior keychain session exists).

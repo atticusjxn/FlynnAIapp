@@ -22,7 +22,10 @@ final class InvoicesRepository: InvoicesRepositoryType {
     }
 
     func list(orgId: UUID, limit: Int = 100) async throws -> [InvoiceDTO] {
-        try await client
+        #if DEBUG
+        if FlynnDemo.isOn { return FlynnDemo.invoices }
+        #endif
+        return try await client
             .from("invoices")
             .select()
             .eq("org_id", value: orgId.uuidString)
