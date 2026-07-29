@@ -31,7 +31,15 @@ final class EventsRepository: EventsRepositoryType {
     }
 
     func fetch(id: UUID) async throws -> EventDTO {
-        try await client
+        #if DEBUG
+        if FlynnDemo.isOn {
+            guard let match = FlynnDemo.events.first(where: { $0.id == id }) else {
+                throw FlynnDemoError.notFound
+            }
+            return match
+        }
+        #endif
+        return try await client
             .from("jobs")
             .select()
             .eq("id", value: id.uuidString)

@@ -56,6 +56,16 @@ struct EventDetailView: View {
             .padding(FlynnSpacing.lg)
         }
         .background(FlynnColor.background)
+        .safeAreaInset(edge: .bottom) {
+            if let e = event {
+                ContextualVoiceBar(
+                    context: "the job \(e.title ?? e.serviceType ?? "booking") for "
+                        + "\(e.clientName ?? "a client")\(e.location.map { " at \($0)" } ?? "")",
+                    prompt: "Hold to add a note or change this job",
+                    onCompleted: { Task { await load() } }
+                )
+            }
+        }
         .navigationTitle("Event")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

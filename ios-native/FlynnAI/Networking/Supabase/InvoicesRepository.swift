@@ -36,7 +36,15 @@ final class InvoicesRepository: InvoicesRepositoryType {
     }
 
     func fetch(id: UUID) async throws -> InvoiceDTO {
-        try await client
+        #if DEBUG
+        if FlynnDemo.isOn {
+            guard let match = FlynnDemo.invoices.first(where: { $0.id == id }) else {
+                throw FlynnDemoError.notFound
+            }
+            return match
+        }
+        #endif
+        return try await client
             .from("invoices")
             .select()
             .eq("id", value: id.uuidString)

@@ -41,6 +41,17 @@ struct MainTabView: View {
                     .ignoresSafeArea(edges: .bottom)
             }
         }
+        .task {
+            // Demo-mode launch route, pushed once the stacks exist.
+            if let route = FlynnDemo.initialRoute {
+                switch selection {
+                case .money: moneyPath.append(route)
+                case .events: eventsPath.append(route)
+                case .clients: clientsPath.append(route)
+                default: dashboardPath.append(route)
+                }
+            }
+        }
         .environment(drawer)
         .animation(.easeOut(duration: 0.25), value: drawer.isOpen)
         .onChange(of: deepLink.pending) { _, link in

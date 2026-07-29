@@ -21,7 +21,7 @@ final class AgentConversationStore {
     var turns: [Turn] = []
     var isSending: Bool = false
 
-    func send(_ message: String) async {
+    func send(_ message: String, screenContext: String? = nil) async {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isSending else { return }
 
@@ -32,7 +32,7 @@ final class AgentConversationStore {
         defer { isSending = false }
 
         do {
-            let response = try await AgentClient.sendTurn(message: trimmed)
+            let response = try await AgentClient.sendTurn(message: trimmed, screenContext: screenContext)
             turn.bubbles = response.bubbles
             turn.cards = response.cards ?? []
             turn.isPending = false

@@ -27,7 +27,15 @@ final class CallsRepository: CallsRepositoryType {
     }
 
     func fetch(id: UUID) async throws -> CallDTO {
-        try await client
+        #if DEBUG
+        if FlynnDemo.isOn {
+            guard let match = FlynnDemo.calls.first(where: { $0.id == id }) else {
+                throw FlynnDemoError.notFound
+            }
+            return match
+        }
+        #endif
+        return try await client
             .from("calls")
             .select()
             .eq("id", value: id.uuidString)

@@ -83,13 +83,18 @@ enum AgentClient {
         }
     }
 
-    static func sendTurn(message: String) async throws -> TurnResponse {
+    /// - Parameter screenContext: a short factual description of what the user
+    ///   is looking at, so "add two hours labour at 95" resolves against the
+    ///   invoice on screen rather than nothing.
+    static func sendTurn(message: String, screenContext: String? = nil) async throws -> TurnResponse {
         let session = try await FlynnSupabase.client.auth.session
         var request = URLRequest(url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent("api/dashboard/agent-turn"))
         request.httpMethod = "POST"
         request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(["message": message])
+        var payload = ["message": message]
+        if let screenContext, !screenContext.isEmpty { payload["screenContext"] = screenContext }
+        request.httpBody = try JSONEncoder().encode(payload)
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {

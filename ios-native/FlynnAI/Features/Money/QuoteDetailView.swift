@@ -48,6 +48,16 @@ struct QuoteDetailView: View {
             .padding(FlynnSpacing.lg)
         }
         .background(FlynnColor.background)
+        .safeAreaInset(edge: .bottom) {
+            if let q = quote {
+                ContextualVoiceBar(
+                    context: "quote \(q.quoteNumber) for \(q.title ?? "a job"), "
+                        + "\(FlynnFormatter.currency(q.total)) total, status \(q.status)",
+                    prompt: "Hold to change this quote",
+                    onCompleted: { Task { await load() } }
+                )
+            }
+        }
         .navigationTitle("Quote")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }

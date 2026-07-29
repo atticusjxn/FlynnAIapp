@@ -32,7 +32,15 @@ final class ClientsRepository: ClientsRepositoryType {
     }
 
     func fetch(id: UUID) async throws -> ClientDTO {
-        try await client
+        #if DEBUG
+        if FlynnDemo.isOn {
+            guard let match = FlynnDemo.clients.first(where: { $0.id == id }) else {
+                throw FlynnDemoError.notFound
+            }
+            return match
+        }
+        #endif
+        return try await client
             .from("clients")
             .select()
             .eq("id", value: id.uuidString)

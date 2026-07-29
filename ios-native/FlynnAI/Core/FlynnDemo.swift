@@ -10,6 +10,12 @@ import Foundation
 ///
 /// It is compiled out of Release entirely — `isOn` is a hard `false` there, so
 /// no fixture can reach a shipping build even if a repository forgets to guard.
+/// Raised when a demo detail route points at an id with no fixture behind it.
+enum FlynnDemoError: LocalizedError {
+    case notFound
+    var errorDescription: String? { "No demo fixture with that id." }
+}
+
 enum FlynnDemo {
     static let isOn: Bool = {
         #if DEBUG
@@ -27,6 +33,27 @@ enum FlynnDemo {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-FlynnDemoTab"), i + 1 < args.count else { return nil }
         return FlynnTab(rawValue: args[i + 1])
+        #else
+        return nil
+        #endif
+    }
+
+    /// Detail screen to push on launch, so screens behind a tap are reachable:
+    ///   -FlynnDemo -FlynnDemoRoute invoice|quote|job|client
+    /// iOS gates `simctl openurl` behind an "Open in Flynn?" alert that can't be
+    /// dismissed from a screenshot, so deep links are no good for verification.
+    static var initialRoute: Route? {
+        #if DEBUG
+        guard isOn else { return nil }
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-FlynnDemoRoute"), i + 1 < args.count else { return nil }
+        switch args[i + 1] {
+        case "invoice": return .invoiceDetail(id: ID.seeded(30))
+        case "quote": return .quoteDetail(id: ID.seeded(40))
+        case "job": return .eventDetail(id: ID.seeded(10))
+        case "client": return .clientDetail(id: ID.seeded(1))
+        default: return nil
+        }
         #else
         return nil
         #endif

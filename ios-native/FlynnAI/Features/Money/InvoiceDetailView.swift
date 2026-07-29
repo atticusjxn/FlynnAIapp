@@ -47,6 +47,16 @@ struct InvoiceDetailView: View {
             .padding(FlynnSpacing.lg)
         }
         .background(FlynnColor.background)
+        .safeAreaInset(edge: .bottom) {
+            if let inv = invoice {
+                ContextualVoiceBar(
+                    context: "invoice \(inv.invoiceNumber) for \(inv.title ?? "a job"), "
+                        + "\(FlynnFormatter.currency(inv.amountDue)) still due, status \(inv.status)",
+                    prompt: "Hold to change this invoice",
+                    onCompleted: { Task { await load() } }
+                )
+            }
+        }
         .navigationTitle("Invoice")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }

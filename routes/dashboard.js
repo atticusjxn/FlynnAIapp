@@ -256,6 +256,10 @@ router.post('/api/dashboard/agent-turn', authenticateJwt, async (req, res) => {
   try {
     const message = (req.body?.message || '').trim();
     if (!message) return res.status(400).json({ error: 'message required' });
+    // What the user is looking at when they spoke, so "add two hours labour at
+    // 95" resolves against THIS invoice. Kept out of the stored message so the
+    // conversation history stays the user's own words.
+    const screenContext = (req.body?.screenContext || '').toString().trim().slice(0, 500);
 
     const { data: user } = await supabase
       .from('users')
@@ -308,7 +312,9 @@ router.post('/api/dashboard/agent-turn', authenticateJwt, async (req, res) => {
 
     const result = await processMessage({
       phone: user.phone,
-      message,
+      message: screenContext
+        ? `[Context: the user is looking at ${screenContext}. Resolve "this"/"it" against that.]\n${message}`
+        : message,
       businessBrain: user.business_brain || null,
       onboardingStep: user.onboarding_step || 'brain_pending',
       pendingAction,

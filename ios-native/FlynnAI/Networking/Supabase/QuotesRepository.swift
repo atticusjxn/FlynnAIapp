@@ -37,7 +37,15 @@ final class QuotesRepository: QuotesRepositoryType {
     }
 
     func fetch(id: UUID) async throws -> QuoteDTO {
-        try await client
+        #if DEBUG
+        if FlynnDemo.isOn {
+            guard let match = FlynnDemo.quotes.first(where: { $0.id == id }) else {
+                throw FlynnDemoError.notFound
+            }
+            return match
+        }
+        #endif
+        return try await client
             .from("quotes")
             .select()
             .eq("id", value: id.uuidString)

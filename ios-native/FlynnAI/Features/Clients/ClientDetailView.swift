@@ -40,6 +40,15 @@ struct ClientDetailView: View {
             .padding(FlynnSpacing.lg)
         }
         .background(FlynnColor.background)
+        .safeAreaInset(edge: .bottom) {
+            if let c = client {
+                ContextualVoiceBar(
+                    context: "the client \(c.name)\(c.phone.map { " on \($0)" } ?? "")",
+                    prompt: "Hold to text \(client?.name.split(separator: " ").first.map(String.init) ?? "them") or add a note",
+                    onCompleted: { Task { await load() } }
+                )
+            }
+        }
         .navigationTitle("Client")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
