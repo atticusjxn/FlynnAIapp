@@ -6,6 +6,9 @@ import UIKit
 struct BrainView: View {
     @Environment(FlashStore.self) private var flash
     @State private var store = BrainStore()
+    @State private var voice = VoiceCaptureManager()
+    @State private var parsing = false
+    @State private var voicePayload: BrainVoiceFill.Payload?
 
     var body: some View {
         @Bindable var store = store
@@ -125,10 +128,23 @@ struct BrainView: View {
             }
         }
         .flynnListSurface()
+        // Nobody types their hours and pricing into a phone form. Talking is the
+        // primary way in here; the fields below are for fixing what it heard.
+        .safeAreaInset(edge: .bottom) { voiceBar }
         .navigationTitle("Brain")
         // Inline: the large title didn't render at all over a Form whose
         // scroll background is hidden, leaving an empty bar and a dead gap.
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $voicePayload) { payload in
+            BrainVoiceSheet(
+                transcript: payload.transcript,
+                proposals: payload.proposals,
+                onApply: { accepted in
+                    store.apply(accepted)
+                    flash.success("Added to your Brain — hit Save to keep it.")
+                }
+            )
+        }
         .scrollDismissesKeyboard(.immediately)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -155,5 +171,66 @@ struct BrainView: View {
             }
         }
         .task { await store.load() }
+    }
+
+    // MARK: - Talk to fill
+
+    private var voiceBar: some View {
+        HStack(spacing: FlynnSpacing.md) {
+            VStack(alignment: .leading, spacing: 2) {
+                if voice.state == .listening {
+                    Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(voice.transcript.isEmpty ? FlynnColor.textTertiary : FlynnColor.textPrimary)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if parsing {
+                    HStack(spacing: FlynnSpacing.xs) {
+                        ProgressView().controlSize(.small)
+                        Text("Sorting that out…")
+                            .flynnType(FlynnTypography.bodyMedium)
+                            .foregroundColor(FlynnColor.textSecondary)
+                    }
+                } else {
+                    Text("Hold and tell Flynn about your business")
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(FlynnColor.textPrimary)
+                    Text("your trade, prices, hours, area")
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textTertiary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+
+            VoiceHoldButton(
+                voice: voice,
+                onSubmit: { transcript in
+                    Task { await parse(transcript) }
+                },
+                onNothingHeard: { flash.show("Didn't catch that.", kind: .error) }
+            )
+            .disabled(parsing)
+        }
+        .padding(.horizontal, FlynnSpacing.lg)
+        .padding(.vertical, FlynnSpacing.sm)
+        .background(
+            FlynnColor.backgroundSecondary
+                .ignoresSafeArea(edges: .bottom)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(FlynnColor.borderSubtle).frame(height: FlynnStroke.hairline)
+                }
+        )
+    }
+
+    private func parse(_ transcript: String) async {
+        parsing = true
+        defer { parsing = false }
+        do {
+            let parsed = try await BrainVoiceFill.parse(transcript: transcript)
+            voicePayload = .init(transcript: transcript, proposals: parsed)
+        } catch {
+            flash.error(error.localizedDescription)
+        }
     }
 }

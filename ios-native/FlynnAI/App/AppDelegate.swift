@@ -62,4 +62,21 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     ) {
         completionHandler([.banner, .sound, .badge])
     }
+
+    /// Tapping a notification used to do nothing beyond opening the app. Route
+    /// it, so a "someone asked about your hours" nudge actually lands on the
+    /// Brain screen ready to be talked at.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
+    ) {
+        // Resolve to a URL here: the raw userInfo dictionary isn't Sendable, so
+        // it can't cross onto the main actor.
+        let link = BrainGapNudge.link(from: response.notification.request.content.userInfo)
+        Task { @MainActor in
+            PushLaunchInbox.park(link)
+            completionHandler()
+        }
+    }
 }

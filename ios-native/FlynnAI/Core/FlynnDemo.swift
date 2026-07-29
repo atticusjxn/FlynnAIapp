@@ -122,6 +122,27 @@ extension FlynnDemo {
                 createdAt: hoursAgo(26), updatedAt: hoursAgo(26)),
     ]
 
+    // MARK: - Brain voice fill
+
+    /// Stands in for the parse endpoint so the confirmation flow can be driven
+    /// end to end without a backend. Echoes a couple of things back from what
+    /// was actually said so it doesn't feel canned.
+    static func brainProposals(for transcript: String) -> [BrainVoiceFill.Proposal] {
+        let said = transcript.lowercased()
+        var out: [BrainVoiceFill.Proposal] = [
+            .init(field: .businessType, value: said.contains("electric") ? "Electrician" : "Plumber"),
+            .init(field: .pricingNotes, value: "$90 callout, quotes free"),
+            .init(field: .hours, value: "Mon 7:00–16:00, Tue 7:00–16:00, Wed 7:00–16:00, Thu 7:00–16:00, Fri 7:00–16:00"),
+            .init(field: .serviceArea, value: "Northern Beaches, North Shore"),
+        ]
+        out.append(.init(field: .service, value: "Blocked drains", detail: "$180–$400 · 1–2 hrs"))
+        out.append(.init(field: .service, value: "Hot water systems", detail: "from $2,100 · half day"))
+        if said.count > 60 {
+            out.append(.init(field: .businessDescription, value: transcript))
+        }
+        return out
+    }
+
     // MARK: - Money
 
     private static func items(_ pairs: [(String, Double, Double)]) -> [LineItem] {

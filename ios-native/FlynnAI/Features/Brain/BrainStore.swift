@@ -35,6 +35,55 @@ final class BrainStore {
         }
     }
 
+    // MARK: Voice fill
+
+    /// Folds confirmed voice proposals into the in-memory edit state. Nothing is
+    /// persisted here — the user still has to hit Save, so a bad batch is one
+    /// back-swipe away from being discarded.
+    ///
+    /// Text fields are replaced (the user just said them, so they win) but
+    /// services are appended and de-duplicated by name, because someone adding a
+    /// second service by voice shouldn't silently wipe the first.
+    func apply(_ proposals: [BrainVoiceFill.Proposal]) {
+        for p in proposals {
+            let value = p.value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty else { continue }
+
+            switch p.field {
+            case .businessType: businessType = value
+            case .businessDescription: businessDescription = value
+            case .pricingNotes: pricingNotes = value
+            case .serviceArea: serviceArea = value
+            case .service:
+                if let i = services.firstIndex(where: { $0.name.caseInsensitiveCompare(value) == .orderedSame }) {
+                    if let detail = p.detail, !detail.isEmpty { services[i].priceRange = detail }
+                } else {
+                    services.append(EditService(name: value, priceRange: p.detail ?? ""))
+                }
+            case .hours:
+                applyHoursSummary(value)
+            }
+        }
+    }
+
+    /// Parses the "Mon 7:00–16:00, Tue 7:00–16:00" summary the sheet shows back
+    /// into the day toggles. Days it can't read are left alone rather than
+    /// being closed, so a partial phrase never silently marks someone shut.
+    private func applyHoursSummary(_ summary: String) {
+        for chunk in summary.split(separator: ",") {
+            let parts = chunk.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 1)
+            guard parts.count == 2 else { continue }
+            let dayPrefix = parts[0].lowercased()
+            let times = parts[1].replacingOccurrences(of: "–", with: "-").split(separator: "-")
+            guard times.count == 2,
+                  let i = days.firstIndex(where: { $0.key.hasPrefix(dayPrefix) })
+            else { continue }
+            days[i].isOpen = true
+            days[i].open = times[0].trimmingCharacters(in: .whitespaces)
+            days[i].close = times[1].trimmingCharacters(in: .whitespaces)
+        }
+    }
+
     // MARK: Load
 
     func load() async {

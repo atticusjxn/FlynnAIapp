@@ -8,30 +8,19 @@ import SwiftUI
 /// keyboard blocking text" quality bar).
 struct AgentInputBar: View {
     @Bindable var conversation: AgentConversationStore
-    @Environment(\.scenePhase) private var scenePhase
-    /// VoiceOver reserves double-tap-and-hold for its own gestures, so a
-    /// press-and-hold control is simply unusable with it on. When it's running
-    /// the mic becomes tap-to-start / tap-to-send instead.
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @State private var voice = VoiceCaptureManager()
     @State private var draft: String = ""
     /// What the user had typed before they started holding the mic. The
     /// transcript is appended to this rather than replacing it, so starting a
     /// voice note no longer destroys a half-typed message.
     @State private var draftBeforeVoice: String = ""
-    @State private var isHolding = false
-    @State private var pulse = false
     @State private var nothingHeard = false
     /// Slide-to-cancel: armed once the finger has travelled far enough from the
     /// mic while holding. Releasing armed discards instead of sending.
     @State private var cancelArmed = false
-    @State private var dragDistance: CGFloat = 0
     @State private var didCancel = false
     @FocusState private var isFocused: Bool
 
-    /// How far the finger has to travel from the mic before a release cancels.
-    private let cancelThreshold: CGFloat = 90
-    private let micSize: CGFloat = 58
 
     private var hasDraft: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -127,8 +116,6 @@ struct AgentInputBar: View {
                 Circle()
                     .fill(cancelArmed ? FlynnColor.textTertiary : FlynnColor.error)
                     .frame(width: 8, height: 8)
-                    .scaleEffect(pulse ? 1.35 : 0.85)
-                    .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulse)
                     .padding(.top, 6)
 
                 Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
@@ -144,23 +131,10 @@ struct AgentInputBar: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Slide-to-cancel affordance. The chevrons drift toward the finger
-            // as it travels, so the gesture teaches itself.
-            HStack(spacing: FlynnSpacing.xxs) {
-                Image(systemName: cancelArmed ? "trash.fill" : "chevron.left")
-                    .font(.system(size: 11, weight: .bold))
-                Text(cancelArmed ? "release to scrap" : "slide left to cancel")
-                    .flynnType(FlynnTypography.caption)
-            }
-            .foregroundColor(cancelArmed ? FlynnColor.error : FlynnColor.textTertiary)
-            .opacity(cancelArmed ? 1 : max(0.35, 1 - dragDistance / cancelThreshold))
-            .offset(x: -min(dragDistance, cancelThreshold) * 0.25)
-            .animation(.easeOut(duration: 0.15), value: cancelArmed)
+            VoiceCancelHint(armed: cancelArmed)
         }
         .padding(.horizontal, FlynnSpacing.xxs)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
-        .onAppear { pulse = true }
-        .onDisappear { pulse = false }
         // One element with a live-updating value, so VoiceOver reads the
         // transcript as it grows instead of announcing a pulsing dot.
         .accessibilityElement(children: .ignore)
@@ -171,166 +145,38 @@ struct AgentInputBar: View {
 
     private var isListening: Bool { voice.state == .listening }
 
-    @ViewBuilder
     private var micButton: some View {
-        Group {
-            if voiceOverEnabled {
-                // Tap to start, tap again to send. Same underlying calls as the
-                // hold path, just driven by activation instead of a drag.
-                Button {
-                    if isListening {
-                        endHold()
-                    } else {
-                        isHolding = true
-                        nothingHeard = false
-                        isFocused = false
-                        draftBeforeVoice = draft
-                        Task { await voice.startListening() }
-                    }
-                } label: {
-                    micVisual
-                }
-                .buttonStyle(.plain)
-            } else {
-                micVisual.simultaneousGesture(holdGesture)
-            }
-        }
-        .accessibilityLabel(isListening ? "Stop and send" : "Talk to Flynn")
-        .accessibilityHint(
-            voiceOverEnabled
-                ? (isListening ? "Double tap to stop recording and send" : "Double tap to start recording")
-                : "Hold to talk, release to send"
-        )
-        .accessibilityAddTraits(.isButton)
-        // The latch above is the only thing gating a new hold, and onEnded
-        // does not fire if the gesture is interrupted — an incoming call, a
-        // backgrounding, or the view losing identity. Without these resets
-        // isHolding stays true forever and the mic silently stops responding
-        // to every subsequent press.
-        .onChange(of: scenePhase) { _, phase in
-            guard phase != .active, isHolding else { return }
-            isHolding = false
-            if voice.state == .listening { voice.stopListening() }
-        }
-        .onDisappear {
-            isHolding = false
-            if voice.state == .listening { voice.stopListening() }
-        }
-    }
-
-    private var holdGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                // onChanged fires on every touch movement, not just on
-                // press. Latch locally so one hold starts one session —
-                // voice.state can't do this, it turns .listening only
-                // after the async start finishes.
-                if !isHolding {
-                    isHolding = true
-                    nothingHeard = false
-                    didCancel = false
-                    cancelArmed = false
-                    dragDistance = 0
-                    isFocused = false
-                    draftBeforeVoice = draft
-                    Task { await voice.startListening() }
+        VoiceHoldButton(
+            voice: voice,
+            onSubmit: { transcript in
+                let text = merged(with: transcript)
+                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    nothingHeard = true
                     return
                 }
-                // Leftward or upward travel both count — thumbs arc, they don't
-                // slide in a straight line.
-                let travel = max(-value.translation.width, -value.translation.height)
-                dragDistance = max(0, travel)
-                let armed = dragDistance >= cancelThreshold
-                if armed != cancelArmed { cancelArmed = armed }
-            }
-            .onEnded { _ in
-                if cancelArmed {
-                    cancelHold()
-                } else {
-                    endHold()
+                draft = ""
+                draftBeforeVoice = ""
+                Task { await conversation.send(text) }
+            },
+            onCancel: {
+                // Put back whatever was typed before the hold started.
+                draft = draftBeforeVoice
+                draftBeforeVoice = ""
+                didCancel = true
+                Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    didCancel = false
                 }
-            }
-    }
-
-    /// Discard without sending. The transcript is thrown away and the draft is
-    /// restored to whatever was typed before the hold started.
-    private func cancelHold() {
-        isHolding = false
-        cancelArmed = false
-        dragDistance = 0
-        if voice.state == .listening { voice.stopListening() }
-        draft = draftBeforeVoice
-        draftBeforeVoice = ""
-        didCancel = true
-        Task {
-            try? await Task.sleep(for: .seconds(2))
-            didCancel = false
-        }
-    }
-
-    private var micFill: Color {
-        if cancelArmed { return FlynnColor.error }
-        return isListening ? FlynnColor.primary : FlynnColor.backgroundSecondary
-    }
-
-    private var micVisual: some View {
-        Image(systemName: cancelArmed ? "xmark" : (isListening ? "waveform" : "mic.fill"))
-            .font(.system(size: isListening ? 24 : 22, weight: .semibold))
-            .foregroundColor(isListening || cancelArmed ? FlynnColor.textInverse : FlynnColor.primary)
-            .frame(width: micSize, height: micSize)
-            .background(Circle().fill(micFill))
-            .overlay(
-                Circle().stroke(
-                    cancelArmed ? FlynnColor.error : (isListening ? FlynnColor.primary : FlynnColor.border),
-                    lineWidth: FlynnStroke.outline
-                )
-            )
-            // Expanding ring while held — reads as "live" at the size a phone
-            // screen ends up in a video frame.
-            .overlay(
-                Circle()
-                    .stroke(cancelArmed ? FlynnColor.error : FlynnColor.primary, lineWidth: 2)
-                    .scaleEffect(isListening && pulse ? 1.75 : 1.0)
-                    .opacity(isListening && pulse ? 0 : 0.55)
-                    .animation(
-                        isListening
-                            ? .easeOut(duration: 1.1).repeatForever(autoreverses: false)
-                            : .default,
-                        value: pulse
-                    )
-                    .allowsHitTesting(false)
-            )
-            .scaleEffect(isListening ? (cancelArmed ? 1.05 : 1.22) : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isListening)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: cancelArmed)
-            // Three distinct beats so the control is legible without looking at
-            // it: a firm thump when recording starts, a sharp tick when the
-            // cancel threshold is crossed, and a success chime on send.
-            .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: isListening) { _, now in now }
-            .sensoryFeedback(.impact(flexibility: .rigid, intensity: 1.0), trigger: cancelArmed) { _, now in now }
-            .sensoryFeedback(.success, trigger: conversation.isSending) { _, now in now }
-            .sensoryFeedback(.impact(weight: .light), trigger: didCancel) { _, now in now }
-    }
-
-    private func endHold() {
-        isHolding = false
-        cancelArmed = false
-        dragDistance = 0
-        guard voice.state == .listening else { return }
-        voice.stopListening()
-        // The recognizer keeps finalising briefly after stopListening(); give it
-        // a beat before sending so we capture the tail of what was said.
-        Task {
-            try? await Task.sleep(for: .milliseconds(400))
-            let text = merged(with: voice.transcript)
-            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                nothingHeard = true
-                return
-            }
-            draft = ""
-            draftBeforeVoice = ""
-            await conversation.send(text)
-        }
+            },
+            onNothingHeard: { nothingHeard = true },
+            onStart: {
+                nothingHeard = false
+                didCancel = false
+                isFocused = false
+                draftBeforeVoice = draft
+            },
+            onCancelArmedChange: { cancelArmed = $0 }
+        )
     }
 
     private var sendButton: some View {

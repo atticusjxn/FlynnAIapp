@@ -54,6 +54,9 @@ struct FlynnAIApp: App {
                     }
                 }
                 .task {
+                    // A notification tapped on a cold launch arrives before the
+                    // scene exists, so the delegate parks it for us.
+                    if let parked = PushLaunchInbox.drain() { deepLink.handle(url: parked) }
                     await appleSearchAdsAttribution.captureIfNeeded()
                     await auth.bootstrap()
                     await appleSearchAdsAttribution.claimIfAuthenticated()

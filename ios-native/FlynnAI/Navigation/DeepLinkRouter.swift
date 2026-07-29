@@ -37,6 +37,9 @@ final class DeepLinkRouter {
         switch host {
         case "dashboard":
             pending = PendingLink(tab: .dashboard, route: nil)
+        case "brain":
+            // flynnai://brain?gap=hours — the gap nudge lands here.
+            pending = PendingLink(tab: .brain, route: nil)
         case "events":
             if let first = pathComponents.first, let id = UUID(uuidString: first) {
                 pending = PendingLink(tab: .events, route: .eventDetail(id: id))
