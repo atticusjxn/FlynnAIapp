@@ -14,6 +14,26 @@ enum FlynnChrome {
     static func apply() {
         applyTabBar()
         applyNavigationBar()
+        applySegmentedControl()
+    }
+
+    /// The Money hub's Quotes / Invoices / Orders switcher is a `UISegmentedControl`
+    /// under the hood, and stock iOS renders it as a grey capsule with a white
+    /// thumb — the last obviously-system control left on a main screen.
+    private static func applySegmentedControl() {
+        let seg = UISegmentedControl.appearance()
+        seg.backgroundColor = UIColor.dynamic(lightHex: "#ECE0C8", darkHex: "#322A22")
+        seg.selectedSegmentTintColor = UIColor(hex: "#FB5B1E")
+
+        seg.setTitleTextAttributes([
+            .foregroundColor: UIColor.dynamic(lightHex: "#5A4A3C", darkHex: "#D6C9B6"),
+            .font: chromeFont(FlynnFontName.interMedium, size: 13)
+        ], for: .normal)
+
+        seg.setTitleTextAttributes([
+            .foregroundColor: UIColor(hex: "#FFFBF4"),
+            .font: chromeFont(FlynnFontName.spaceGroteskBold, size: 13)
+        ], for: .selected)
     }
 
     private static func applyTabBar() {

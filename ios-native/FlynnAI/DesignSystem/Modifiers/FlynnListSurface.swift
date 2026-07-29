@@ -52,5 +52,9 @@ extension View {
             .background(FlynnColor.background)
             .listRowBackground(rowFill)
             .listRowSeparatorTint(FlynnColor.borderSubtle)
+            // SF Symbols in row Labels resolve against the tint, and inside a
+            // List/Form that was falling back to system blue while the label
+            // text next to it rendered brand orange.
+            .tint(FlynnColor.primary)
     }
 }

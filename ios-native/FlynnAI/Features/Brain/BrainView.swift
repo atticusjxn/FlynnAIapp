@@ -35,7 +35,7 @@ struct BrainView: View {
                 .onDelete { store.services.remove(atOffsets: $0) }
                 Button {
                     store.services.append(.init(name: "", priceRange: ""))
-                } label: { Label("Add service", systemImage: "plus") }
+                } label: { Label("Add service", systemImage: "plus").foregroundStyle(FlynnColor.primary) }
             } header: {
                 FlynnSectionHeader("Services & rough pricing")
             }
@@ -73,7 +73,7 @@ struct BrainView: View {
                 .onDelete { store.faqs.remove(atOffsets: $0) }
                 Button {
                     store.faqs.append(.init(question: "", answer: ""))
-                } label: { Label("Add FAQ", systemImage: "plus") }
+                } label: { Label("Add FAQ", systemImage: "plus").foregroundStyle(FlynnColor.primary) }
             } header: {
                 FlynnSectionHeader("Common questions")
             }
@@ -112,6 +112,7 @@ struct BrainView: View {
                 } label: {
                     HStack {
                         Label("Re-scan my website", systemImage: "arrow.clockwise")
+                            .foregroundStyle(FlynnColor.primary)
                         Spacer()
                         if store.rescanning { ProgressView() }
                     }
@@ -125,6 +126,9 @@ struct BrainView: View {
         }
         .flynnListSurface()
         .navigationTitle("Brain")
+        // Inline: the large title didn't render at all over a Form whose
+        // scroll background is hidden, leaving an empty bar and a dead gap.
+        .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.immediately)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

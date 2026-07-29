@@ -189,6 +189,7 @@ struct QuoteFormView: View {
             } else {
                 Button(action: { showingClientPicker = true }) {
                     Label("Select client…", systemImage: "person.circle")
+                        .foregroundStyle(FlynnColor.primary)
                         .foregroundColor(FlynnColor.primary)
                 }
             }
@@ -218,6 +219,7 @@ struct QuoteFormView: View {
                 showingLineEditor = true
             }) {
                 Label("Add item", systemImage: "plus.circle.fill")
+                    .foregroundStyle(FlynnColor.primary)
                     .foregroundColor(FlynnColor.primary)
             }
         } header: {

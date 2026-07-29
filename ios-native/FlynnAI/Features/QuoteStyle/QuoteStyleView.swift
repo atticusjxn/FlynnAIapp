@@ -21,11 +21,13 @@ struct QuoteStyleView: View {
             Section {
                 PhotosPicker(selection: $pickedItem, matching: .images) {
                     Label("Add a past quote (photo or screenshot)", systemImage: "photo.on.rectangle.angled")
+                        .foregroundStyle(FlynnColor.primary)
                 }
                 Button {
                     showingPaste = true
                 } label: {
                     Label("Paste quote text", systemImage: "doc.on.clipboard")
+                        .foregroundStyle(FlynnColor.primary)
                 }
             } footer: {
                 if store.isWorking, let status = store.statusMessage {

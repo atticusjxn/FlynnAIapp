@@ -96,6 +96,7 @@ struct ClientPickerSheet: View {
 
                     Button(action: { manualMode = true }) {
                         Label("Enter manually", systemImage: "pencil")
+                            .foregroundStyle(FlynnColor.primary)
                             .flynnType(FlynnTypography.bodyMedium)
                             .foregroundColor(FlynnColor.primary)
                     }

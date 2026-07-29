@@ -579,39 +579,45 @@ Flynn integrates via the **iMessage agent tool-loop** (`services/agent/`, `FLYNN
 - One-tap accounting actions from completed job cards
 - OAuth setup flow; integration management in Settings
 
-## 📱 iOS Shortcuts / Screenshot Capture
+## 🔗 URL Scheme & Deep Links
 
-The screenshot surface is Flynn's recommended capture path. The Shortcuts action captures the current screen (not saved to camera roll), on-device OCR extracts the conversation text, and the keyboard pre-loads drafts so the user can insert with one tap.
+The app registers exactly one scheme: **`flynnai`** (no hyphen) — see
+`ios-native/FlynnAI/Config/Info.plist`. Links are parsed in
+`ios-native/FlynnAI/Navigation/DeepLinkRouter.swift`, which rejects anything else,
+so `flynn-ai://` silently does nothing.
 
-### URL Scheme: `flynn-ai://process-screenshot`
 ```
-flynn-ai://process-screenshot?imageData=[base64_encoded_image]
+flynnai://dashboard
+flynnai://events              flynnai://events/<uuid>
+flynnai://clients             flynnai://clients/<uuid>
+flynnai://calls               flynnai://calls/<uuid>
+flynnai://money               flynnai://money/invoices/<uuid>
+                              flynnai://money/quotes/<uuid>
+flynnai://calendar
+flynnai://settings
+flynnai://auth…               (Supabase email confirmation / magic link)
 ```
 
-### Shortcut Setup (user-guided from Settings)
-1. Open Shortcuts app
-2. Create new shortcut:
-   - Take Screenshot
-   - Base64 Encode
-   - Open URL: `flynn-ai://process-screenshot?imageData=[encoded_image]`
-3. Assign to Action Button (iPhone 15 Pro+, 16+) or Back Tap (triple-tap)
+Note `flynnai://money` is the tab; the invoice/quote detail forms need the
+`invoices`/`quotes` segment.
 
-### Key Services
-- **ShortcutHandler** — URL scheme processing and routing
-- **OCR / Vision** — On-device text extraction from screenshot
-- **DraftService** — Passes extracted text + business context to draft model (Qwen3.5-flash via DashScope)
-- **KeyboardViewController** — Auto-loads staged drafts for tap-to-insert
+### DEBUG demo mode
 
-### Supported Message Sources
-- SMS / iMessage
-- WhatsApp
-- Email
-- Any messaging app visible on screen
+Fills every screen with fixtures, skips the login and the org lookup, and
+suppresses the notification/tracking prompts. Release builds compile it out.
 
-### Environment
 ```bash
-DASHSCOPE_API_KEY=your_key_here   # Qwen3.5-flash draft model
+xcrun simctl launch <device> com.flynnai.app -FlynnDemo
+xcrun simctl launch <device> com.flynnai.app -FlynnDemo -FlynnDemoTab money
 ```
+
+Fixtures live in `ios-native/FlynnAI/Core/FlynnDemo.swift`; `-FlynnDemoTab` takes
+a `FlynnTab` raw value (`dashboard`, `brain`, `events`, `money`, `clients`).
+
+> **Retired:** the iOS Shortcuts screenshot-capture pipeline
+> (`flynn-ai://process-screenshot`, ShortcutHandler, on-device OCR) no longer
+> exists in the codebase — that scheme was never registered and nothing handles
+> it. Voice capture in the main app replaced it; see the Non-Goals section.
 
 ## 🚫 Development Rules
 

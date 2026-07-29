@@ -45,6 +45,7 @@ struct SavedMessagesView: View {
                     isAdding = true
                 } label: {
                     Label("Add a message", systemImage: "plus.circle.fill")
+                        .foregroundStyle(FlynnColor.primary)
                 }
             }
         }
