@@ -28,11 +28,35 @@ enum FlynnFormatter {
 
     // MARK: Phone
 
-    /// Light pretty-print for phone numbers. E.164 "+15551234567" → "+1 (555) 123-4567".
+    /// Light pretty-print for phone numbers.
     /// Falls back to the raw input for unrecognized shapes so we never hide data.
+    ///
+    /// AU and NZ are handled explicitly because they're the beachhead markets and
+    /// their country codes are two digits. The old rule assumed a one-digit
+    /// country code for anything 11 digits long, which turned the AU mobile
+    /// +61498765432 into "+6 (149) 876-5432".
     static func phone(_ raw: String?) -> String {
         guard let raw, !raw.isEmpty else { return "" }
         let digits = raw.filter { $0.isNumber }
+
+        // +61 — Australia. 9 national digits.
+        if digits.hasPrefix("61"), digits.count == 11 {
+            let n = Array(digits.dropFirst(2))
+            // Mobiles start with 4 and group 3-3-3; landlines are 1-4-4.
+            if n.first == "4" {
+                return "+61 \(String(n[0..<3])) \(String(n[3..<6])) \(String(n[6..<9]))"
+            }
+            return "+61 \(n[0]) \(String(n[1..<5])) \(String(n[5..<9]))"
+        }
+
+        // +64 — New Zealand. 8 or 9 national digits.
+        if digits.hasPrefix("64"), digits.count == 10 || digits.count == 11 {
+            let n = Array(digits.dropFirst(2))
+            if n.count == 9 {
+                return "+64 \(String(n[0..<2])) \(String(n[2..<5])) \(String(n[5..<9]))"
+            }
+            return "+64 \(n[0]) \(String(n[1..<4])) \(String(n[4..<8]))"
+        }
 
         switch digits.count {
         case 10:
@@ -40,13 +64,14 @@ enum FlynnFormatter {
             let mid = digits.dropFirst(3).prefix(3)
             let end = digits.dropFirst(6)
             return "(\(area)) \(mid)-\(end)"
-        case 11:
-            let country = digits.prefix(1)
+        case 11 where digits.hasPrefix("1"):
             let area = digits.dropFirst(1).prefix(3)
             let mid = digits.dropFirst(4).prefix(3)
             let end = digits.dropFirst(7)
-            return "+\(country) (\(area)) \(mid)-\(end)"
+            return "+1 (\(area)) \(mid)-\(end)"
         default:
+            // Better to show a correct E.164 number than a confidently wrong
+            // grouping for a country we don't have a rule for.
             return raw
         }
     }

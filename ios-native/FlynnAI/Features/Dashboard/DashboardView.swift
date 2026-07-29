@@ -15,7 +15,8 @@ struct DashboardView: View {
     @Environment(DeepLinkRouter.self) private var deepLink
 
     private var hasActivity: Bool {
-        !store.awaitingConfirmation.isEmpty || !store.events.isEmpty || !store.recentActivity.isEmpty
+        !store.awaitingConfirmation.isEmpty || !store.events.isEmpty
+            || !store.recentActivity.isEmpty || !store.recentCalls.isEmpty
     }
 
     var body: some View {
@@ -36,6 +37,7 @@ struct DashboardView: View {
                         // the bottom — they used to sit above all of this.
                         if store.money.hasAnything { moneySection }
                         if !store.awaitingConfirmation.isEmpty { awaitingSection }
+                        if !store.recentCalls.isEmpty { callsSection }
                         if !store.events.isEmpty { upcomingSection }
                         if !store.recentActivity.isEmpty { activitySection }
                         if !hasActivity && conversation.turns.isEmpty { emptyStateCard }
@@ -246,6 +248,103 @@ struct DashboardView: View {
             parts.append("\(FlynnFormatter.currency(m.paidRecentTotal)) came in this week")
         }
         return parts.joined(separator: ". ")
+    }
+
+    // MARK: – Calls the receptionist took
+
+    /// The AI receptionist is the wedge — it answers the calls the operator
+    /// can't take. The calls table was fully populated and surfaced nowhere, so
+    /// the one thing the product visibly does was invisible inside it.
+    ///
+    /// Each call carries its own next step. The actions route through the agent
+    /// rather than opening a form, because the agent already has the invoice,
+    /// quote and message tools — one tap gets a draft back to confirm.
+    private var callsSection: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+            HStack {
+                Image(systemName: "phone.badge.waveform.fill")
+                    .foregroundColor(FlynnColor.primary)
+                Text("Flynn answered")
+                    .flynnType(FlynnTypography.h4)
+                    .foregroundColor(FlynnColor.textPrimary)
+                Spacer()
+                Button("See all") { deepLink.pending = .init(tab: .calls, route: nil) }
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.primary)
+            }
+
+            ForEach(store.recentCalls.prefix(3)) { call in
+                VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+                    NavigationLink(value: Route.callDetail(id: call.id)) {
+                        VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
+                            HStack {
+                                Text(FlynnFormatter.phone(call.fromNumber).isEmpty
+                                     ? "Unknown caller"
+                                     : FlynnFormatter.phone(call.fromNumber))
+                                    .flynnType(FlynnTypography.h4)
+                                    .foregroundColor(FlynnColor.textPrimary)
+                                Spacer()
+                                Text(FlynnFormatter.relativeDate(call.createdAt))
+                                    .flynnType(FlynnTypography.caption)
+                                    .foregroundColor(FlynnColor.textTertiary)
+                            }
+
+                            // The gist, not the transcript. If Flynn didn't get
+                            // words, say that rather than showing an empty row.
+                            Text(call.hasTranscript
+                                 ? (call.transcriptionText ?? "")
+                                 : "No transcript — tap to hear the recording")
+                                .flynnType(FlynnTypography.bodySmall)
+                                .foregroundColor(call.hasTranscript ? FlynnColor.textSecondary : FlynnColor.textTertiary)
+                                .lineLimit(3)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                    .buttonStyle(.plain)
+
+                    // One tap per next step. Flynn drafts, the user confirms.
+                    HStack(spacing: FlynnSpacing.xs) {
+                        callAction("Text back", icon: "arrowshape.turn.up.left.fill") {
+                            askFlynn("Draft a follow-up text to \(call.fromNumber ?? "the caller") about their call. Keep it short.")
+                        }
+                        callAction("Quote", icon: "doc.text") {
+                            askFlynn("Draft a quote for \(call.fromNumber ?? "the caller") based on what they asked for on the call.")
+                        }
+                        callAction("Invoice", icon: "dollarsign.circle") {
+                            askFlynn("Draft an invoice for \(call.fromNumber ?? "the caller") for the job from their call.")
+                        }
+                    }
+                }
+                .padding(FlynnSpacing.sm)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .flynnCardSurface()
+            }
+        }
+    }
+
+    private func callAction(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.primary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: FlynnRadii.sm, style: .continuous)
+                        .fill(FlynnColor.background)
+                )
+                .brutalistBorder(cornerRadius: FlynnRadii.sm, lineWidth: FlynnStroke.hairline)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    /// Hands the request to the agent bar's conversation so the reply lands in
+    /// the same feed as everything else the user asks for.
+    private func askFlynn(_ prompt: String) {
+        Task { await conversation.send(prompt) }
     }
 
     // MARK: – Waiting on your OK (staged pending actions, any type)

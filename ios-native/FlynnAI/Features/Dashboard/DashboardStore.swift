@@ -23,6 +23,9 @@ final class DashboardStore {
     /// Money owed, money overdue, money that just landed. Flynn is a payments
     /// product; the home screen used to never mention money at all.
     var money: MoneySnapshot = .empty
+    /// Calls the receptionist has taken. The AI receptionist is the wedge, and
+    /// the calls table was fully populated but surfaced nowhere in the app.
+    var recentCalls: [CallDTO] = []
 
     struct MoneySnapshot: Equatable {
         var owedTotal: Double = 0
@@ -82,13 +85,16 @@ final class DashboardStore {
 
     private let repository: EventsRepositoryType
     private let invoices: InvoicesRepositoryType
+    private let calls: CallsRepositoryType
 
     init(
         repository: EventsRepositoryType = EventsRepository(),
-        invoices: InvoicesRepositoryType = InvoicesRepository()
+        invoices: InvoicesRepositoryType = InvoicesRepository(),
+        calls: CallsRepositoryType = CallsRepository()
     ) {
         self.repository = repository
         self.invoices = invoices
+        self.calls = calls
     }
 
     func load() async {
@@ -102,9 +108,11 @@ final class DashboardStore {
         async let profileTask: (String?, Bool) = loadProfile()
         async let activityTask = loadActivity()
         async let moneyTask = loadMoney()
+        async let callsTask = loadCalls()
 
         do {
             let (list, profile, activity, snapshot) = try await (eventsTask, profileTask, activityTask, moneyTask)
+            recentCalls = await callsTask
             events = list
             firstName = profile.0
             calendarConnected = profile.1
@@ -152,6 +160,11 @@ final class DashboardStore {
             FlynnLog.network.error("Dashboard money load failed: \(error.localizedDescription, privacy: .public)")
             return .empty
         }
+    }
+
+    /// Like money, calls never block the rest of Home.
+    private func loadCalls() async -> [CallDTO] {
+        do { return try await calls.list(limit: 8) } catch { return [] }
     }
 
     private func loadProfile() async throws -> (String?, Bool) {
