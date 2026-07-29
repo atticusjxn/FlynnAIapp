@@ -31,6 +31,7 @@ const { findOpenSlots, parseProposedTime, checkProposedTime, findNearestOpenSlot
 const { formatBusinessContext } = require('./services/businessContextFormatter');
 const { extractFacts, matchFactsToConversation, formatRememberedContext } = require('./services/contextMemory');
 const { extractQuoteStyle } = require('./services/quoteStyleExtractor');
+const { parseBrainVoice } = require('./services/brainVoiceParser');
 
 const {
   upsertCallRecord,
@@ -2481,6 +2482,38 @@ app.patch('/api/business-profile', authenticateJwt, async (req, res) => {
   }
 
   res.json({ success: true });
+});
+
+/**
+ * Structure a spoken business description into Brain fields.
+ * POST /api/business-profile/parse   Body: { transcript: string }
+ *
+ * Returns only the fields the user actually mentioned. Writes nothing — the app
+ * shows the result back as confirmable chips and PATCHes whatever is kept, so a
+ * misheard price never silently becomes someone's callout fee.
+ */
+app.post('/api/business-profile/parse', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  const transcript = typeof req.body?.transcript === 'string' ? req.body.transcript.trim() : '';
+  if (!transcript) return res.status(400).json({ error: 'transcript is required' });
+  // Speech, not an essay — anything longer is a client bug or an abuse attempt.
+  if (transcript.length > 4000) return res.status(413).json({ error: 'transcript too long' });
+
+  try {
+    const fields = await parseBrainVoice(transcript);
+    console.log('[API] brain voice parse:', {
+      userId,
+      chars: transcript.length,
+      got: Object.keys(fields),
+    });
+    // `{}` is a valid answer (they rambled); the app tells them it caught nothing.
+    res.json(fields);
+  } catch (error) {
+    console.error('[API] brain voice parse failed:', error);
+    res.status(502).json({ error: "Flynn couldn't process that just now." });
+  }
 });
 
 /**
