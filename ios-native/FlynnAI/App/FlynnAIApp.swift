@@ -16,6 +16,9 @@ struct FlynnAIApp: App {
         #if DEBUG
         FlynnFontDebug.logAvailable()
         #endif
+        // Theme the UIKit-backed tab bar and nav bars so they sit on the cream
+        // ground instead of rendering as stock iOS above it.
+        FlynnChrome.apply()
     }
 
     private var colorScheme: ColorScheme? {

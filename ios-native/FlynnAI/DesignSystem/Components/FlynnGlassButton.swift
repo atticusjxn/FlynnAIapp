@@ -1,16 +1,20 @@
 import SwiftUI
 
-/// Glassmorphic button — the "next level" surface treatment used by apps like
-/// Cluely: a translucent gradient fill, a bright inner sheen along the top
-/// edge, a hairline specular highlight, and a soft coloured glow beneath.
+/// TIER 3 of the Flynn design rule — *action*. A translucent gradient fill, a
+/// bright inner sheen along the top edge, a hairline specular highlight, and a
+/// soft coloured glow beneath.
 ///
-/// This sits ALONGSIDE `FlynnButton` (the brutalist hard-shadow style) rather
-/// than replacing it — the brutalist look is still right for dense, utilitarian
-/// screens, while this is for hero moments: the primary call to action, paywall,
-/// onboarding, and anywhere the app should feel premium.
+/// ⚠️ USE AT MOST ONE PER SCREEN, on the single primary call to action.
 ///
-/// Matches the CSS treatment on the hosted invoice page (services/photoInvoice.js)
-/// so the app and the client-facing payment page read as one product.
+/// Scarcity is the entire point: glass only reads as premium when it's the one
+/// thing on the page wearing it. Everything else — secondary actions, list
+/// affordances, anything inside a card — uses `FlynnButton`. A screen with two
+/// glass buttons has no primary action, and a screen made entirely of them
+/// (Login used to be) spends the effect for nothing.
+///
+/// Shares its gradient with the landing page's `.flynn-pill` and the hosted
+/// invoice page's `.btn`, so the app and the client-facing payment page read as
+/// one product.
 enum FlynnGlassVariant {
     /// Brand orange — the primary action.
     case primary
@@ -22,18 +26,21 @@ enum FlynnGlassVariant {
     var gradient: LinearGradient {
         switch self {
         case .primary:
+            // Hued off the one brand orange (#FB5B1E) so glass and ground share
+            // a family — this used to be built on the retired #ff4500.
             return LinearGradient(
-                colors: [Color(hex: "#ff8a4c"), FlynnColor.primary, Color(hex: "#d94e1c")],
+                colors: [Color(hex: "#FF8A4C"), FlynnColor.primary, Color(hex: "#D94A12")],
                 startPoint: .top, endPoint: .bottom
             )
         case .neutral:
             return LinearGradient(
-                colors: [Color.white, Color(hex: "#f4f5f7")],
+                colors: [Color(hex: "#FFFBF4"), Color(hex: "#F2E9D8")],
                 startPoint: .top, endPoint: .bottom
             )
         case .dark:
+            // Warm ink, not cool charcoal.
             return LinearGradient(
-                colors: [Color(hex: "#3b3b42"), Color(hex: "#1c1c21")],
+                colors: [Color(hex: "#4A3B30"), Color(hex: "#2C2018")],
                 startPoint: .top, endPoint: .bottom
             )
         }
@@ -41,8 +48,8 @@ enum FlynnGlassVariant {
 
     var foreground: Color {
         switch self {
-        case .primary, .dark: return .white
-        case .neutral: return FlynnColor.textPrimary
+        case .primary, .dark: return FlynnColor.textInverse
+        case .neutral: return Color(hex: "#2C2018")
         }
     }
 
@@ -147,31 +154,6 @@ struct FlynnGlassButton: View {
     }
 }
 
-/// Frosted translucent surface for cards and bars — the same material language
-/// as the button, for panels that sit over content.
-struct FlynnGlassCard<Content: View>: View {
-    var cornerRadius: CGFloat = 18
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        content
-            .background(.ultraThinMaterial)
-            .background(Color.white.opacity(0.35))
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.7), .white.opacity(0.15)],
-                            startPoint: .top, endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(color: .black.opacity(0.08), radius: 16, x: 0, y: 6)
-    }
-}
-
 #Preview {
     VStack(spacing: 16) {
         FlynnGlassButton(title: "Get paid now", action: {})
@@ -181,5 +163,5 @@ struct FlynnGlassCard<Content: View>: View {
         FlynnGlassButton(title: "Working", action: {}, isLoading: true)
     }
     .padding(24)
-    .background(Color(hex: "#f6f7f9"))
+    .background(FlynnColor.background)
 }

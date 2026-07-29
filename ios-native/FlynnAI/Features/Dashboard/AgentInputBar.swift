@@ -168,10 +168,9 @@ struct AgentInputBar: View {
                 // invoice page: brand gradient, inner top sheen, soft glow.
                 .background(
                     ZStack {
-                        LinearGradient(
-                            colors: [Color(hex: "#ff8a4c"), FlynnColor.primary, Color(hex: "#d94e1c")],
-                            startPoint: .top, endPoint: .bottom
-                        )
+                        // Shares the gradient with FlynnGlassButton rather than
+                        // re-declaring it — this was a copy that drifted.
+                        FlynnGlassVariant.primary.gradient
                         LinearGradient(
                             stops: [
                                 .init(color: .white.opacity(0.42), location: 0),

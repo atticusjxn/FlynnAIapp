@@ -42,7 +42,7 @@ struct FlynnTextField: View {
             .flynnType(FlynnTypography.bodyLarge)
             .foregroundColor(FlynnColor.textPrimary)
             .padding(.horizontal, FlynnSpacing.md)
-            .frame(height: 60)
+            .frame(height: FlynnLayout.inputHeight)
             .keyboardType(keyboardType)
             .textContentType(textContentType)
             .textInputAutocapitalization(autocapitalization)
@@ -50,17 +50,17 @@ struct FlynnTextField: View {
             .submitLabel(submitLabel)
             .onSubmit { onSubmit?() }
             .background(
-                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous)
                     .fill(FlynnColor.backgroundSecondary)
             )
             .brutalistBorder(
-                cornerRadius: FlynnRadii.md,
+                cornerRadius: FlynnRadii.lg,
                 color: hasError
                     ? FlynnColor.borderError
                     : (isFocused ? FlynnColor.borderFocus : FlynnColor.border),
-                lineWidth: 2
+                lineWidth: isFocused ? FlynnStroke.focus : FlynnStroke.outline
             )
-            .brutalistShadow(isFocused ? .sm : .xs, cornerRadius: FlynnRadii.md)
+            .brutalistShadow(isFocused ? .sm : .xs, cornerRadius: FlynnRadii.lg)
             .animation(.easeOut(duration: 0.15), value: isFocused)
 
             if let errorText, !errorText.isEmpty {

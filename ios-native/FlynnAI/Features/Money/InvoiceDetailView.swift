@@ -310,7 +310,7 @@ struct InvoiceDetailView: View {
             Color.black.opacity(0.15).ignoresSafeArea()
             ProgressView().tint(FlynnColor.primary)
                 .padding(FlynnSpacing.lg)
-                .background(RoundedRectangle(cornerRadius: FlynnRadii.md).fill(FlynnColor.backgroundSecondary))
+                .flynnCardSurface(.flat)
         }
     }
 

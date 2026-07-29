@@ -22,6 +22,16 @@ enum FlynnBadgeVariant {
         case .error: return FlynnColor.errorDark
         }
     }
+
+    /// Badges carry a hairline outline rather than none at all — an unbordered
+    /// capsule inside a 3pt-outlined card was the one component that read as
+    /// belonging to a different design system.
+    var border: Color {
+        switch self {
+        case .neutral: return FlynnColor.borderSubtle
+        default: return foreground.opacity(0.35)
+        }
+    }
 }
 
 struct FlynnBadge: View {
@@ -36,6 +46,9 @@ struct FlynnBadge: View {
             .padding(.vertical, FlynnSpacing.xxs)
             .background(
                 Capsule().fill(variant.background)
+            )
+            .overlay(
+                Capsule().strokeBorder(variant.border, lineWidth: FlynnStroke.hairline)
             )
     }
 }

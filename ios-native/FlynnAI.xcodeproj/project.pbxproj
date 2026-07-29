@@ -58,6 +58,7 @@
 		5AEC33668CB4CD390A9A1F4A /* SpaceGrotesk-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 6884786616951C0902D3F63A /* SpaceGrotesk-Bold.ttf */; };
 		5B53A64B80942F032724CB8A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DFB3A91B8765EB59CAAB44F /* SettingsView.swift */; };
 		5BB37A751166D5B95126B0DE /* OnboardingDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18624D4E02F257EF6666E19 /* OnboardingDesign.swift */; };
+		5BE6FD7282EB579BE541BEC7 /* AgentCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99CFA32BC3EEE6DD326304FC /* AgentCardView.swift */; };
 		5C897390762D58061AD07A1B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3EED313F5E4DE80BD87174FF /* Assets.xcassets */; };
 		5DD8FC81F64F45DC5D7AE12D /* CallsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2679F82E07CD4F9C728CB55D /* CallsRepository.swift */; };
 		5EA59D46886812D002D97EFC /* SubscriptionProduct.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0D7F6949CC3D61E4294F32 /* SubscriptionProduct.swift */; };
@@ -93,6 +94,7 @@
 		7DB180B73D673E2DCB68CE91 /* DraftModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8344EF26D2743F88999101 /* DraftModels.swift */; };
 		7E5D1A8CF3765BD8609FCEA2 /* ClientsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE98A8EB1889B76C73D38CE5 /* ClientsRepository.swift */; };
 		7F02708B30387743CF2DFAC0 /* BusinessProfileEditorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7136EDB81E28083036459F5 /* BusinessProfileEditorStore.swift */; };
+		7F6462045FDBA19FB5B11C39 /* MidCentury.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E3630D80D1353C17752BC24 /* MidCentury.swift */; };
 		7FAC2EB0B267D55C3E9D40C4 /* ClientInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE85A28684327AFB0D8F1C99 /* ClientInput.swift */; };
 		828201A756AC660F65E0CB1E /* DraftModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8344EF26D2743F88999101 /* DraftModels.swift */; };
 		829EB7A9F32B4903569126D9 /* BusinessProfileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 620B70F624BAE10AFEE1238B /* BusinessProfileRepository.swift */; };
@@ -145,6 +147,7 @@
 		CABEDE0BACD4E056CD116D10 /* SavedMessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB25A8296327793A669D06F4 /* SavedMessagesView.swift */; };
 		CB3386EE73D20C93264D63F8 /* UsageDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CEB4D6AAD7FCFB4C8B64C21 /* UsageDTO.swift */; };
 		CC0448F50A67E38D5C2EFB6C /* SharedSecureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3C4F692F0524AEF257F4E0C /* SharedSecureStore.swift */; };
+		CC20B68C2F4331E0B0315739 /* FlynnChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BDDE38B8F49C2E84797EC42 /* FlynnChrome.swift */; };
 		CD02A74DB38F3211ADCA1B90 /* PaymentDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D4CB6D4D5A44CA3B43172C9 /* PaymentDetailsView.swift */; };
 		CE2E72B03B428D52F0258213 /* SupabaseClient+Flynn.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFC47A3634A225F71BA8A0F /* SupabaseClient+Flynn.swift */; };
 		CF22A04A82D693E43FB4D9AD /* QuoteFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9A72B9D6E4AF630D5CB9A3 /* QuoteFormView.swift */; };
@@ -218,10 +221,12 @@
 		0829D3CACDD97BDB38157014 /* CallEventDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallEventDTO.swift; sourceTree = "<group>"; };
 		0A2C5F76185652A2EEE2D215 /* MoneyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneyView.swift; sourceTree = "<group>"; };
 		0B17438BE2C2653EA3675C9D /* PendingCalendarEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingCalendarEvent.swift; sourceTree = "<group>"; };
+		0BDDE38B8F49C2E84797EC42 /* FlynnChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnChrome.swift; sourceTree = "<group>"; };
 		0CCEDCDCAB1BF1758AA2EAE9 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		0CEB4D6AAD7FCFB4C8B64C21 /* UsageDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageDTO.swift; sourceTree = "<group>"; };
 		0CFD85ED27485A69E3CFCA2E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0E14B6F5749DD676CDC6DABB /* ClientsListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientsListStore.swift; sourceTree = "<group>"; };
+		0E3630D80D1353C17752BC24 /* MidCentury.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MidCentury.swift; sourceTree = "<group>"; };
 		0E5A84894EF217F4C2DBE3CC /* RememberedContextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RememberedContextView.swift; sourceTree = "<group>"; };
 		0F8344EF26D2743F88999101 /* DraftModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftModels.swift; sourceTree = "<group>"; };
 		138F3BE6B171CF1E52F147CB /* InvoiceDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoiceDTO.swift; sourceTree = "<group>"; };
@@ -316,6 +321,7 @@
 		9446747FC9242AE1F2C8E88F /* EventFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventFormView.swift; sourceTree = "<group>"; };
 		955D33A2EBF6B1FDF8450FCE /* EventInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventInput.swift; sourceTree = "<group>"; };
 		979EF5FBABCEFE4648C5AC38 /* FlynnCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnCard.swift; sourceTree = "<group>"; };
+		99CFA32BC3EEE6DD326304FC /* AgentCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCardView.swift; sourceTree = "<group>"; };
 		9A30405904A9317E264CE9BE /* BookingInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookingInput.swift; sourceTree = "<group>"; };
 		9D4F6E0F5D7E92893A38D553 /* QuoteStyleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteStyleView.swift; sourceTree = "<group>"; };
 		9E8C35B740660515C2D64307 /* KeyboardDraftClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardDraftClient.swift; sourceTree = "<group>"; };
@@ -462,6 +468,7 @@
 				55054A58264A1F32D51D8D44 /* FlynnGlassButton.swift */,
 				F551B5B74E08F33E87350FF5 /* FlynnTextField.swift */,
 				73949382C66FC320D63EDD36 /* Mascot.swift */,
+				0E3630D80D1353C17752BC24 /* MidCentury.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -790,6 +797,7 @@
 		D66CB5E6A87BABE752059E39 /* Dashboard */ = {
 			isa = PBXGroup;
 			children = (
+				99CFA32BC3EEE6DD326304FC /* AgentCardView.swift */,
 				77B072FC1692CB1E1B115C57 /* AgentConversationStore.swift */,
 				48E41B99E5AF0EFBF97B1DD4 /* AgentInputBar.swift */,
 				B087DE57B53CA2ADE94FEBAF /* CalendarConnectCard.swift */,
@@ -848,6 +856,7 @@
 				116938FE2A2203A579524D0A /* Components */,
 				93C0D3B76E2D5D5698F52AC0 /* Modifiers */,
 				BE55C5AD17854AF4742C69C2 /* Tokens */,
+				0BDDE38B8F49C2E84797EC42 /* FlynnChrome.swift */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -995,6 +1004,7 @@
 				77FF3F39121F6F86BF224E68 /* ABNLookup.swift in Sources */,
 				08002F5381BE068A2D792E65 /* AccountView.swift in Sources */,
 				EAA41DF79332B475BA306738 /* AddReplySheet.swift in Sources */,
+				5BE6FD7282EB579BE541BEC7 /* AgentCardView.swift in Sources */,
 				A40D43C4DF6D41C58C9D5554 /* AgentClient.swift in Sources */,
 				E04C9A9C6175CB04FE776F02 /* AgentConversationStore.swift in Sources */,
 				E819202224624FE338AB11FC /* AgentInputBar.swift in Sources */,
@@ -1054,6 +1064,7 @@
 				60499C69D3CCEB50C94B92CC /* FlynnBadge.swift in Sources */,
 				8D5A381905D639A69A794C8A /* FlynnButton.swift in Sources */,
 				6F9E7E3A24E3AEE86402C62F /* FlynnCard.swift in Sources */,
+				CC20B68C2F4331E0B0315739 /* FlynnChrome.swift in Sources */,
 				64F11F132E0C77D46F755498 /* FlynnGlassButton.swift in Sources */,
 				85718D69566AFE41EF4BAD91 /* FlynnTextField.swift in Sources */,
 				D730594479780D35F9B16E02 /* Formatters.swift in Sources */,
@@ -1088,6 +1099,7 @@
 				5484BFF571BBF82FA33B9EF5 /* MemoryModels.swift in Sources */,
 				E658D213EEDCBDBF82591584 /* MemoryRepository.swift in Sources */,
 				DE3EDD1DA4DE2A766038C3CC /* MemoryStore.swift in Sources */,
+				7F6462045FDBA19FB5B11C39 /* MidCentury.swift in Sources */,
 				47AB31464E5DB2F12872FB45 /* MoneyView.swift in Sources */,
 				4AB5BE160AEC3300107B3182 /* NotificationsSettingsView.swift in Sources */,
 				5BB37A751166D5B95126B0DE /* OnboardingDesign.swift in Sources */,
@@ -1183,7 +1195,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 115;
+				CURRENT_PROJECT_VERSION = 125;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1205,7 +1217,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FlynnKeyboard/FlynnKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 115;
+				CURRENT_PROJECT_VERSION = 125;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				INFOPLIST_FILE = FlynnKeyboard/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1228,7 +1240,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 115;
+				CURRENT_PROJECT_VERSION = 125;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1310,7 +1322,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = FlynnKeyboard/FlynnKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 115;
+				CURRENT_PROJECT_VERSION = 125;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				INFOPLIST_FILE = FlynnKeyboard/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -122,8 +122,7 @@ struct DashboardView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(FlynnSpacing.sm)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
-                            .brutalistBorder(cornerRadius: FlynnRadii.md)
+                            .flynnCardSurface(.flat)
                     }
                 }
             }
@@ -182,8 +181,7 @@ struct DashboardView: View {
                 }
                 .padding(FlynnSpacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
-                .brutalistBorder(cornerRadius: FlynnRadii.md, color: FlynnColor.warning, lineWidth: 2)
+                .flynnCardSurface(.flat, borderColor: FlynnColor.warning)
             }
         }
     }
@@ -232,8 +230,7 @@ struct DashboardView: View {
                 }
                 .padding(FlynnSpacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
-                .brutalistBorder(cornerRadius: FlynnRadii.md)
+                .flynnCardSurface()
             }
         }
     }
@@ -257,8 +254,7 @@ struct DashboardView: View {
             }, variant: .secondary, size: .small)
         }
         .padding(FlynnSpacing.md)
-        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
-        .brutalistBorder(cornerRadius: FlynnRadii.md)
+        .flynnCardSurface()
     }
 
     // MARK: – Quick actions (the editable backup of what Flynn knows)
@@ -286,8 +282,7 @@ struct DashboardView: View {
             }
         }
         .padding(FlynnSpacing.md)
-        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
-        .brutalistBorder(cornerRadius: FlynnRadii.md)
+        .flynnCardSurface()
     }
 
     private func quickAction(title: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -323,8 +318,7 @@ struct DashboardView: View {
             }
         }
         .padding(FlynnSpacing.md)
-        .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
-        .brutalistBorder(cornerRadius: FlynnRadii.md)
+        .flynnCardSurface()
     }
 
     // MARK: – Helpers

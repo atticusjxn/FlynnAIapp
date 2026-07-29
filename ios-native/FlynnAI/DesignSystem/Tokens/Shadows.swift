@@ -1,9 +1,14 @@
 import SwiftUI
 
-// SwiftUI's .shadow is Gaussian-blurred. The Flynn brutalist design calls for hard-offset
-// solid shadows — we reproduce those by layering a black rounded rectangle behind the
-// view, offset diagonally. This is applied AFTER size is defined, so the shadow sits
-// behind the rendered content.
+// SwiftUI's .shadow is Gaussian-blurred. Flynn's design calls for hard-offset solid
+// shadows — we reproduce those by layering an ink rounded rectangle behind the view,
+// offset diagonally. This is applied AFTER size is defined, so the shadow sits behind
+// the rendered content.
+//
+// TIER 2 of the Flynn design rule (structure). Both the fill and the border resolve
+// through FlynnColor.border so they invert in dark mode; they must never be literal
+// black, which previously made every card lose its border AND its shadow against the
+// dark background.
 
 enum BrutalistShadowSize: CGFloat {
     case xs = 2
@@ -19,7 +24,7 @@ struct BrutalistShadowModifier: ViewModifier {
     func body(content: Content) -> some View {
         content.background(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color.black)
+                .fill(FlynnColor.border)
                 .offset(x: size.rawValue, y: size.rawValue)
         )
     }
@@ -47,11 +52,11 @@ extension View {
         modifier(BrutalistShadowModifier(size: size, cornerRadius: cornerRadius))
     }
 
-    /// Applies the signature 2pt black border.
+    /// Applies the signature 3pt ink outline.
     func brutalistBorder(
         cornerRadius: CGFloat = FlynnRadii.md,
-        color: Color = .black,
-        lineWidth: CGFloat = 2
+        color: Color = FlynnColor.border,
+        lineWidth: CGFloat = FlynnStroke.outline
     ) -> some View {
         modifier(BrutalistBorderModifier(
             cornerRadius: cornerRadius,

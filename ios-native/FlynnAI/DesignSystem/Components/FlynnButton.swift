@@ -1,5 +1,10 @@
 import SwiftUI
 
+/// The chunky mid-century CTA — flat fill, thick ink outline, big radius, and a
+/// press that pushes the button down into its own shadow.
+///
+/// This is the app-wide default. `FlynnGlassButton` is the exception, reserved
+/// for a single primary action per screen (TIER 3 of the design rule).
 enum FlynnButtonVariant {
     case primary
     case secondary
@@ -10,7 +15,7 @@ enum FlynnButtonVariant {
     var background: Color {
         switch self {
         case .primary: return FlynnColor.primary
-        case .secondary: return FlynnColor.white
+        case .secondary: return FlynnColor.backgroundSecondary
         case .success: return FlynnColor.success
         case .danger: return FlynnColor.error
         case .ghost: return .clear
@@ -19,7 +24,7 @@ enum FlynnButtonVariant {
 
     var foreground: Color {
         switch self {
-        case .primary, .success, .danger: return FlynnColor.white
+        case .primary, .success, .danger: return FlynnColor.textInverse
         case .secondary, .ghost: return FlynnColor.textPrimary
         }
     }
@@ -46,7 +51,7 @@ enum FlynnButtonSize {
         switch self {
         case .small: return 44
         case .medium: return FlynnLayout.buttonHeight
-        case .large: return 64
+        case .large: return 66
         }
     }
 
@@ -93,13 +98,13 @@ struct FlynnButton: View {
             .frame(height: size.height)
             .padding(.horizontal, size.horizontalPadding)
             .background(
-                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                RoundedRectangle(cornerRadius: FlynnRadii.pill, style: .continuous)
                     .fill(variant.background)
             )
             .brutalistBorder(
-                cornerRadius: FlynnRadii.md,
+                cornerRadius: FlynnRadii.pill,
                 color: variant.borderColor,
-                lineWidth: variant == .ghost ? 0 : 2
+                lineWidth: variant == .ghost ? 0 : FlynnStroke.outline
             )
             .modifier(OptionalBrutalistShadow(size: variant.shadowSize, isPressed: isPressed))
             .opacity(isDisabled ? 0.4 : 1)
@@ -123,7 +128,7 @@ private struct OptionalBrutalistShadow: ViewModifier {
 
     func body(content: Content) -> some View {
         if let size, !isPressed {
-            content.brutalistShadow(size, cornerRadius: FlynnRadii.md)
+            content.brutalistShadow(size, cornerRadius: FlynnRadii.pill)
         } else {
             content
         }
