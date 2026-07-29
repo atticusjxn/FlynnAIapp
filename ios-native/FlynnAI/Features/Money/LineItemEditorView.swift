@@ -10,12 +10,12 @@ struct LineItemEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Description") {
+                Section(header: FlynnSectionHeader("Description")) {
                     TextField("e.g. Labour (2 hrs), Materials…", text: $draft.description, axis: .vertical)
                         .lineLimit(2...4)
                 }
 
-                Section("Quantity & Price") {
+                Section(header: FlynnSectionHeader("Quantity & Price")) {
                     HStack {
                         Text("Qty")
                             .foregroundColor(FlynnColor.textSecondary)

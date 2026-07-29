@@ -10,7 +10,7 @@ struct BrainView: View {
     var body: some View {
         @Bindable var store = store
         return Form {
-            Section("Your business") {
+            Section(header: FlynnSectionHeader("Your business")) {
                 TextField("What you do (e.g. plumber)", text: $store.businessType)
                 TextField("Short description", text: $store.businessDescription, axis: .vertical)
                     .lineLimit(2...4)
@@ -37,15 +37,15 @@ struct BrainView: View {
                     store.services.append(.init(name: "", priceRange: ""))
                 } label: { Label("Add service", systemImage: "plus") }
             } header: {
-                Text("Services & rough pricing")
+                FlynnSectionHeader("Services & rough pricing")
             }
 
-            Section("Pricing notes") {
+            Section(header: FlynnSectionHeader("Pricing notes")) {
                 TextField("e.g. $90 callout, quotes free", text: $store.pricingNotes, axis: .vertical)
                     .lineLimit(1...3)
             }
 
-            Section("Hours") {
+            Section(header: FlynnSectionHeader("Hours")) {
                 ForEach($store.days) { $day in
                     VStack(spacing: 4) {
                         Toggle(day.label, isOn: $day.isOpen)
@@ -75,10 +75,10 @@ struct BrainView: View {
                     store.faqs.append(.init(question: "", answer: ""))
                 } label: { Label("Add FAQ", systemImage: "plus") }
             } header: {
-                Text("Common questions")
+                FlynnSectionHeader("Common questions")
             }
 
-            Section("Service area") {
+            Section(header: FlynnSectionHeader("Service area")) {
                 TextField("e.g. Northern Beaches, North Shore", text: $store.serviceArea)
             }
 
@@ -118,7 +118,7 @@ struct BrainView: View {
                 }
                 .disabled(store.websiteURL.trimmingCharacters(in: .whitespaces).isEmpty || store.rescanning)
             } header: {
-                Text("Website")
+                FlynnSectionHeader("Website")
             } footer: {
                 Text("Flynn pulls services, pricing and hours from your website.")
             }

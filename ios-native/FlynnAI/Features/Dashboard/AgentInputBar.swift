@@ -22,7 +22,20 @@ struct AgentInputBar: View {
     @State private var isHolding = false
     @State private var pulse = false
     @State private var nothingHeard = false
+    /// Slide-to-cancel: armed once the finger has travelled far enough from the
+    /// mic while holding. Releasing armed discards instead of sending.
+    @State private var cancelArmed = false
+    @State private var dragDistance: CGFloat = 0
+    @State private var didCancel = false
     @FocusState private var isFocused: Bool
+
+    /// How far the finger has to travel from the mic before a release cancels.
+    private let cancelThreshold: CGFloat = 90
+    private let micSize: CGFloat = 58
+
+    private var hasDraft: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     /// Draft plus whatever has been transcribed so far.
     private func merged(with transcript: String) -> String {
@@ -43,6 +56,10 @@ struct AgentInputBar: View {
                     .foregroundColor(FlynnColor.error)
             } else if voice.state == .denied {
                 Text("Turn on microphone + speech recognition in Settings to talk to Flynn.")
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.textTertiary)
+            } else if didCancel {
+                Text("scrapped that one")
                     .flynnType(FlynnTypography.caption)
                     .foregroundColor(FlynnColor.textTertiary)
             } else if nothingHeard {
@@ -78,12 +95,18 @@ struct AgentInputBar: View {
                         }
                     }
 
-                micButton
-
-                if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // Send sits INSIDE the mic's leading side, so the mic itself
+                // stays pinned to the trailing edge. It used to be the other way
+                // round, which slid the primary control out from under the
+                // user's thumb the moment they started typing.
+                if hasDraft && !isListening {
                     sendButton
+                        .transition(.scale.combined(with: .opacity))
                 }
+
+                micButton
             }
+            .animation(.spring(response: 0.28, dampingFraction: 0.75), value: hasDraft)
         }
         .padding(.horizontal, FlynnSpacing.md)
         .padding(.top, FlynnSpacing.sm)
@@ -99,21 +122,40 @@ struct AgentInputBar: View {
     /// as a one-line caption the words were too small to read on a phone
     /// screen, which is the whole point of showing them.
     private var listeningHint: some View {
-        HStack(alignment: .top, spacing: FlynnSpacing.xs) {
-            Circle()
-                .fill(FlynnColor.error)
-                .frame(width: 8, height: 8)
-                .scaleEffect(pulse ? 1.35 : 0.85)
-                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulse)
-                .padding(.top, 6)
+        VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
+            HStack(alignment: .top, spacing: FlynnSpacing.xs) {
+                Circle()
+                    .fill(cancelArmed ? FlynnColor.textTertiary : FlynnColor.error)
+                    .frame(width: 8, height: 8)
+                    .scaleEffect(pulse ? 1.35 : 0.85)
+                    .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulse)
+                    .padding(.top, 6)
 
-            Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
-                .flynnType(FlynnTypography.bodyMedium)
-                .foregroundColor(voice.transcript.isEmpty ? FlynnColor.textTertiary : FlynnColor.textPrimary)
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
-                .animation(.easeOut(duration: 0.12), value: voice.transcript)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
+                    .flynnType(FlynnTypography.bodyMedium)
+                    .foregroundColor(
+                        cancelArmed ? FlynnColor.textTertiary
+                            : (voice.transcript.isEmpty ? FlynnColor.textTertiary : FlynnColor.textPrimary)
+                    )
+                    .strikethrough(cancelArmed)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .animation(.easeOut(duration: 0.12), value: voice.transcript)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            // Slide-to-cancel affordance. The chevrons drift toward the finger
+            // as it travels, so the gesture teaches itself.
+            HStack(spacing: FlynnSpacing.xxs) {
+                Image(systemName: cancelArmed ? "trash.fill" : "chevron.left")
+                    .font(.system(size: 11, weight: .bold))
+                Text(cancelArmed ? "release to scrap" : "slide left to cancel")
+                    .flynnType(FlynnTypography.caption)
+            }
+            .foregroundColor(cancelArmed ? FlynnColor.error : FlynnColor.textTertiary)
+            .opacity(cancelArmed ? 1 : max(0.35, 1 - dragDistance / cancelThreshold))
+            .offset(x: -min(dragDistance, cancelThreshold) * 0.25)
+            .animation(.easeOut(duration: 0.15), value: cancelArmed)
         }
         .padding(.horizontal, FlynnSpacing.xxs)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -178,35 +220,76 @@ struct AgentInputBar: View {
 
     private var holdGesture: some Gesture {
         DragGesture(minimumDistance: 0)
-            .onChanged { _ in
+            .onChanged { value in
                 // onChanged fires on every touch movement, not just on
                 // press. Latch locally so one hold starts one session —
                 // voice.state can't do this, it turns .listening only
                 // after the async start finishes.
-                guard !isHolding else { return }
-                isHolding = true
-                nothingHeard = false
-                isFocused = false
-                draftBeforeVoice = draft
-                Task { await voice.startListening() }
+                if !isHolding {
+                    isHolding = true
+                    nothingHeard = false
+                    didCancel = false
+                    cancelArmed = false
+                    dragDistance = 0
+                    isFocused = false
+                    draftBeforeVoice = draft
+                    Task { await voice.startListening() }
+                    return
+                }
+                // Leftward or upward travel both count — thumbs arc, they don't
+                // slide in a straight line.
+                let travel = max(-value.translation.width, -value.translation.height)
+                dragDistance = max(0, travel)
+                let armed = dragDistance >= cancelThreshold
+                if armed != cancelArmed { cancelArmed = armed }
             }
             .onEnded { _ in
-                endHold()
+                if cancelArmed {
+                    cancelHold()
+                } else {
+                    endHold()
+                }
             }
     }
 
+    /// Discard without sending. The transcript is thrown away and the draft is
+    /// restored to whatever was typed before the hold started.
+    private func cancelHold() {
+        isHolding = false
+        cancelArmed = false
+        dragDistance = 0
+        if voice.state == .listening { voice.stopListening() }
+        draft = draftBeforeVoice
+        draftBeforeVoice = ""
+        didCancel = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            didCancel = false
+        }
+    }
+
+    private var micFill: Color {
+        if cancelArmed { return FlynnColor.error }
+        return isListening ? FlynnColor.primary : FlynnColor.backgroundSecondary
+    }
+
     private var micVisual: some View {
-        Image(systemName: isListening ? "waveform" : "mic.fill")
-            .font(.system(size: isListening ? 20 : 17, weight: .semibold))
-            .foregroundColor(isListening ? FlynnColor.white : FlynnColor.primary)
-            .frame(width: 44, height: 44)
-            .background(Circle().fill(isListening ? FlynnColor.primary : FlynnColor.background))
-            .overlay(Circle().stroke(isListening ? FlynnColor.primary : FlynnColor.border, lineWidth: 2))
+        Image(systemName: cancelArmed ? "xmark" : (isListening ? "waveform" : "mic.fill"))
+            .font(.system(size: isListening ? 24 : 22, weight: .semibold))
+            .foregroundColor(isListening || cancelArmed ? FlynnColor.textInverse : FlynnColor.primary)
+            .frame(width: micSize, height: micSize)
+            .background(Circle().fill(micFill))
+            .overlay(
+                Circle().stroke(
+                    cancelArmed ? FlynnColor.error : (isListening ? FlynnColor.primary : FlynnColor.border),
+                    lineWidth: FlynnStroke.outline
+                )
+            )
             // Expanding ring while held — reads as "live" at the size a phone
             // screen ends up in a video frame.
             .overlay(
                 Circle()
-                    .stroke(FlynnColor.primary, lineWidth: 2)
+                    .stroke(cancelArmed ? FlynnColor.error : FlynnColor.primary, lineWidth: 2)
                     .scaleEffect(isListening && pulse ? 1.75 : 1.0)
                     .opacity(isListening && pulse ? 0 : 0.55)
                     .animation(
@@ -217,13 +300,22 @@ struct AgentInputBar: View {
                     )
                     .allowsHitTesting(false)
             )
-            .scaleEffect(isListening ? 1.28 : 1.0)
+            .scaleEffect(isListening ? (cancelArmed ? 1.05 : 1.22) : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isListening)
-            .sensoryFeedback(.impact(weight: .medium), trigger: isListening)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: cancelArmed)
+            // Three distinct beats so the control is legible without looking at
+            // it: a firm thump when recording starts, a sharp tick when the
+            // cancel threshold is crossed, and a success chime on send.
+            .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: isListening) { _, now in now }
+            .sensoryFeedback(.impact(flexibility: .rigid, intensity: 1.0), trigger: cancelArmed) { _, now in now }
+            .sensoryFeedback(.success, trigger: conversation.isSending) { _, now in now }
+            .sensoryFeedback(.impact(weight: .light), trigger: didCancel) { _, now in now }
     }
 
     private func endHold() {
         isHolding = false
+        cancelArmed = false
+        dragDistance = 0
         guard voice.state == .listening else { return }
         voice.stopListening()
         // The recognizer keeps finalising briefly after stopListening(); give it
@@ -250,8 +342,11 @@ struct AgentInputBar: View {
             Task { await conversation.send(text) }
         } label: {
             Image(systemName: conversation.isSending ? "ellipsis" : "arrow.up")
-                .foregroundColor(FlynnColor.white)
-                .frame(width: 44, height: 44)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(FlynnColor.textInverse)
+                // Deliberately smaller than the mic: voice is the primary
+                // action on this bar, typing is the fallback.
+                .frame(width: 48, height: 48)
                 // Glass treatment to match FlynnGlassButton / the hosted
                 // invoice page: brand gradient, inner top sheen, soft glow.
                 .background(

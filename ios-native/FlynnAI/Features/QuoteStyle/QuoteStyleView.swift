@@ -35,7 +35,7 @@ struct QuoteStyleView: View {
             .disabled(store.isWorking)
 
             if let style = store.style {
-                Section("What Flynn learned") {
+                Section(header: FlynnSectionHeader("What Flynn learned")) {
                     if let vertical = style.vertical { row("Business", vertical) }
                     if let currency = style.currency { row("Currency", currency) }
                     if let tax = style.taxSummary { row("Tax", tax) }

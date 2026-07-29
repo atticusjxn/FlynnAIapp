@@ -181,7 +181,7 @@ struct InvoiceFormView: View {
     // MARK: – Sections
 
     private var clientSection: some View {
-        Section("Client") {
+        Section(header: FlynnSectionHeader("Client")) {
             if let client = store.selectedClient {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -203,7 +203,7 @@ struct InvoiceFormView: View {
     }
 
     private var detailsSection: some View {
-        Section("Invoice details") {
+        Section(header: FlynnSectionHeader("Invoice details")) {
             TextField("Title", text: $store.title, axis: .vertical).lineLimit(1...2)
             DatePicker("Due date", selection: $store.dueDate, displayedComponents: .date)
         }
@@ -224,7 +224,7 @@ struct InvoiceFormView: View {
             }) {
                 Label("Add item", systemImage: "plus.circle.fill").foregroundColor(FlynnColor.primary)
             }
-        } header: { Text("Line items") }
+        } header: { FlynnSectionHeader("Line items") }
     }
 
     private func lineItemRow(item: LineItemDraft, onTap: @escaping () -> Void) -> some View {
@@ -243,7 +243,7 @@ struct InvoiceFormView: View {
     }
 
     private var totalsSection: some View {
-        Section("Totals") {
+        Section(header: FlynnSectionHeader("Totals")) {
             HStack {
                 Text("Subtotal").foregroundColor(FlynnColor.textSecondary)
                 Spacer()
@@ -266,7 +266,7 @@ struct InvoiceFormView: View {
     }
 
     private var notesSection: some View {
-        Section("Notes (optional)") {
+        Section(header: FlynnSectionHeader("Notes (optional)")) {
             TextField("Any details for the client…", text: $store.notes, axis: .vertical).lineLimit(3...8)
         }
     }

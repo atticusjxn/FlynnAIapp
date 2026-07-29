@@ -13,7 +13,7 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            Section("Setup") {
+            Section(header: FlynnSectionHeader("Setup")) {
                 Button {
                     showClaimFlow = true
                 } label: {
@@ -45,7 +45,7 @@ struct SettingsView: View {
                     Label("Quick messages", systemImage: "text.bubble")
                 }
             }
-            Section("Preferences") {
+            Section(header: FlynnSectionHeader("Preferences")) {
                 NavigationLink {
                     NotificationsSettingsView()
                 } label: {
@@ -57,7 +57,7 @@ struct SettingsView: View {
                     Label("Appearance", systemImage: "paintbrush")
                 }
             }
-            Section("Billing") {
+            Section(header: FlynnSectionHeader("Billing")) {
                 NavigationLink {
                     SubscriptionDetailView()
                 } label: {

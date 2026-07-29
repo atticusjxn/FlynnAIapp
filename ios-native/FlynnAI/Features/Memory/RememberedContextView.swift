@@ -34,14 +34,14 @@ struct RememberedContextView: View {
                         .padding(.vertical, 2)
                     }
                 } header: {
-                    Text("To review")
+                    FlynnSectionHeader("To review")
                 } footer: {
                     Text("Flynn spotted these in your conversations. Keep the useful ones.")
                 }
             }
 
             ForEach(store.rememberedBySubject, id: \.subject) { group in
-                Section(group.subject) {
+                Section(header: FlynnSectionHeader(group.subject)) {
                     ForEach(group.facts) { fact in
                         Text(fact.fact)
                             .flynnType(FlynnTypography.bodyMedium)
@@ -98,10 +98,10 @@ private struct AddMemoryFactView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("What should Flynn remember?") {
+                Section(header: FlynnSectionHeader("What should Flynn remember?")) {
                     TextField("e.g. Gate code is 4821", text: $fact, axis: .vertical).lineLimit(1...4)
                 }
-                Section("About who / where (optional)") {
+                Section(header: FlynnSectionHeader("About who / where (optional)")) {
                     TextField("e.g. Dave / 12 Oak St", text: $subject)
                 }
             }

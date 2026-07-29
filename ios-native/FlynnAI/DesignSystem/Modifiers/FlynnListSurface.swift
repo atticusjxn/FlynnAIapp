@@ -10,6 +10,27 @@ import SwiftUI
 // This puts them on the cream ground with off-white rows, so a Form looks like the
 // rest of Flynn without every screen having to restate it.
 
+/// A section header in Flynn's voice rather than iOS's.
+///
+/// `Section("Title")` renders with the system's neutral grey, which goes muddy
+/// against the warm cream ground — this was the last piece of stock chrome
+/// making cream look dirty rather than warm. Uppercase and letterspaced to match
+/// the eyebrow labels on the landing page.
+struct FlynnSectionHeader: View {
+    let title: String
+
+    init(_ title: String) { self.title = title }
+
+    var body: some View {
+        Text(title)
+            .flynnType(FlynnTypography.overline)
+            .foregroundColor(FlynnColor.textTertiary)
+            // iOS applies its own casing to headers in some list styles; the
+            // token already handles it, so stop the double transform.
+            .textCase(nil)
+    }
+}
+
 extension View {
     /// Applies the Flynn ground, row fill and warm greys to a `List` or `Form`.
     ///

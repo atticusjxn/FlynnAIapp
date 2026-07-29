@@ -100,10 +100,10 @@ private struct SavedMessageEditor: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Label") {
+                Section(header: FlynnSectionHeader("Label")) {
                     TextField("e.g. Away, Availability, Book me in", text: $title)
                 }
-                Section("Message") {
+                Section(header: FlynnSectionHeader("Message")) {
                     TextField("What gets inserted", text: $messageBody, axis: .vertical)
                         .lineLimit(4...12)
                 }

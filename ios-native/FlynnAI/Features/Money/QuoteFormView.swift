@@ -169,7 +169,7 @@ struct QuoteFormView: View {
     // MARK: – Sections
 
     private var clientSection: some View {
-        Section("Client") {
+        Section(header: FlynnSectionHeader("Client")) {
             if let client = store.selectedClient {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -196,7 +196,7 @@ struct QuoteFormView: View {
     }
 
     private var detailsSection: some View {
-        Section("Quote details") {
+        Section(header: FlynnSectionHeader("Quote details")) {
             TextField("Title (e.g. Roof repair – 42 Smith St)", text: $store.title, axis: .vertical)
                 .lineLimit(1...2)
             DatePicker("Valid until", selection: $store.validUntil, displayedComponents: .date)
@@ -221,7 +221,7 @@ struct QuoteFormView: View {
                     .foregroundColor(FlynnColor.primary)
             }
         } header: {
-            Text("Line items")
+            FlynnSectionHeader("Line items")
         } footer: {
             if store.lineItems.isEmpty {
                 Text("Add at least one item to create a quote.")
@@ -251,7 +251,7 @@ struct QuoteFormView: View {
     }
 
     private var totalsSection: some View {
-        Section("Totals") {
+        Section(header: FlynnSectionHeader("Totals")) {
             HStack {
                 Text("Subtotal")
                     .foregroundColor(FlynnColor.textSecondary)
@@ -278,7 +278,7 @@ struct QuoteFormView: View {
     }
 
     private var notesSection: some View {
-        Section("Notes (optional)") {
+        Section(header: FlynnSectionHeader("Notes (optional)")) {
             TextField("Any extra details for the client…", text: $store.notes, axis: .vertical)
                 .lineLimit(3...8)
         }

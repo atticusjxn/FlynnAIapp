@@ -117,7 +117,7 @@ struct ClientPickerSheet: View {
 
     private var manualForm: some View {
         Form {
-            Section("Client details") {
+            Section(header: FlynnSectionHeader("Client details")) {
                 TextField("Full name", text: $manualName)
                     .textContentType(.name)
                 TextField("Mobile number", text: $manualPhone)
