@@ -9,6 +9,10 @@ import SwiftUI
 struct AgentInputBar: View {
     @Bindable var conversation: AgentConversationStore
     @Environment(\.scenePhase) private var scenePhase
+    /// VoiceOver reserves double-tap-and-hold for its own gestures, so a
+    /// press-and-hold control is simply unusable with it on. When it's running
+    /// the mic becomes tap-to-start / tap-to-send instead.
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @State private var voice = VoiceCaptureManager()
     @State private var draft: String = ""
     /// What the user had typed before they started holding the mic. The
@@ -115,11 +119,83 @@ struct AgentInputBar: View {
         .transition(.opacity.combined(with: .move(edge: .bottom)))
         .onAppear { pulse = true }
         .onDisappear { pulse = false }
+        // One element with a live-updating value, so VoiceOver reads the
+        // transcript as it grows instead of announcing a pulsing dot.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Listening")
+        .accessibilityValue(voice.transcript.isEmpty ? "No speech heard yet" : voice.transcript)
+        .accessibilityAddTraits(.updatesFrequently)
     }
 
     private var isListening: Bool { voice.state == .listening }
 
+    @ViewBuilder
     private var micButton: some View {
+        Group {
+            if voiceOverEnabled {
+                // Tap to start, tap again to send. Same underlying calls as the
+                // hold path, just driven by activation instead of a drag.
+                Button {
+                    if isListening {
+                        endHold()
+                    } else {
+                        isHolding = true
+                        nothingHeard = false
+                        isFocused = false
+                        draftBeforeVoice = draft
+                        Task { await voice.startListening() }
+                    }
+                } label: {
+                    micVisual
+                }
+                .buttonStyle(.plain)
+            } else {
+                micVisual.simultaneousGesture(holdGesture)
+            }
+        }
+        .accessibilityLabel(isListening ? "Stop and send" : "Talk to Flynn")
+        .accessibilityHint(
+            voiceOverEnabled
+                ? (isListening ? "Double tap to stop recording and send" : "Double tap to start recording")
+                : "Hold to talk, release to send"
+        )
+        .accessibilityAddTraits(.isButton)
+        // The latch above is the only thing gating a new hold, and onEnded
+        // does not fire if the gesture is interrupted — an incoming call, a
+        // backgrounding, or the view losing identity. Without these resets
+        // isHolding stays true forever and the mic silently stops responding
+        // to every subsequent press.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase != .active, isHolding else { return }
+            isHolding = false
+            if voice.state == .listening { voice.stopListening() }
+        }
+        .onDisappear {
+            isHolding = false
+            if voice.state == .listening { voice.stopListening() }
+        }
+    }
+
+    private var holdGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { _ in
+                // onChanged fires on every touch movement, not just on
+                // press. Latch locally so one hold starts one session —
+                // voice.state can't do this, it turns .listening only
+                // after the async start finishes.
+                guard !isHolding else { return }
+                isHolding = true
+                nothingHeard = false
+                isFocused = false
+                draftBeforeVoice = draft
+                Task { await voice.startListening() }
+            }
+            .onEnded { _ in
+                endHold()
+            }
+    }
+
+    private var micVisual: some View {
         Image(systemName: isListening ? "waveform" : "mic.fill")
             .font(.system(size: isListening ? 20 : 17, weight: .semibold))
             .foregroundColor(isListening ? FlynnColor.white : FlynnColor.primary)
@@ -144,39 +220,6 @@ struct AgentInputBar: View {
             .scaleEffect(isListening ? 1.28 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isListening)
             .sensoryFeedback(.impact(weight: .medium), trigger: isListening)
-            // Press-and-hold: gesture fires start on press, stop + send on release.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        // onChanged fires on every touch movement, not just on
-                        // press. Latch locally so one hold starts one session —
-                        // voice.state can't do this, it turns .listening only
-                        // after the async start finishes.
-                        guard !isHolding else { return }
-                        isHolding = true
-                        nothingHeard = false
-                        isFocused = false
-                        draftBeforeVoice = draft
-                        Task { await voice.startListening() }
-                    }
-                    .onEnded { _ in
-                        endHold()
-                    }
-            )
-            // The latch above is the only thing gating a new hold, and onEnded
-            // does not fire if the gesture is interrupted — an incoming call, a
-            // backgrounding, or the view losing identity. Without these resets
-            // isHolding stays true forever and the mic silently stops responding
-            // to every subsequent press.
-            .onChange(of: scenePhase) { _, phase in
-                guard phase != .active, isHolding else { return }
-                isHolding = false
-                if voice.state == .listening { voice.stopListening() }
-            }
-            .onDisappear {
-                isHolding = false
-                if voice.state == .listening { voice.stopListening() }
-            }
     }
 
     private func endHold() {
@@ -238,5 +281,7 @@ struct AgentInputBar: View {
                 .animation(.easeOut(duration: 0.15), value: conversation.isSending)
         }
         .disabled(conversation.isSending)
+        .accessibilityLabel(conversation.isSending ? "Sending" : "Send")
+        .accessibilityHint("Sends your message to Flynn")
     }
 }

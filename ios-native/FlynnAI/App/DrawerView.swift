@@ -15,6 +15,7 @@ struct DrawerButton: View {
         Button { drawer.isOpen = true } label: {
             Image(systemName: "line.3.horizontal")
         }
+        .accessibilityLabel("Menu")
     }
 }
 

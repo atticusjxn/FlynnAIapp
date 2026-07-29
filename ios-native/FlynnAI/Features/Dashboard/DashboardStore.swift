@@ -20,6 +20,51 @@ final class DashboardStore {
     /// whatever the user actually uses Flynn for shows up here.
     var recentActivity: [ActivityReply] = []
     var awaitingConfirmation: [PendingActionItem] = []
+    /// Money owed, money overdue, money that just landed. Flynn is a payments
+    /// product; the home screen used to never mention money at all.
+    var money: MoneySnapshot = .empty
+
+    struct MoneySnapshot: Equatable {
+        var owedTotal: Double = 0
+        var owedCount: Int = 0
+        var overdueTotal: Double = 0
+        var overdueCount: Int = 0
+        var paidRecentTotal: Double = 0
+        var paidRecentCount: Int = 0
+
+        static let empty = MoneySnapshot()
+        var hasAnything: Bool { owedCount > 0 || paidRecentCount > 0 }
+
+        /// Invoices that are out but not settled. `draft` isn't owed yet and
+        /// cancelled/refunded never will be.
+        private static let openStatuses: Set<String> = ["sent", "viewed", "partial", "overdue"]
+
+        static func from(_ invoices: [InvoiceDTO], now: Date = Date()) -> MoneySnapshot {
+            var snap = MoneySnapshot()
+            let paidWindow = now.addingTimeInterval(-7 * 24 * 60 * 60)
+
+            for inv in invoices {
+                let status = inv.status.lowercased()
+
+                if openStatuses.contains(status), inv.amountDue > 0 {
+                    snap.owedTotal += inv.amountDue
+                    snap.owedCount += 1
+                    // Overdue is a subset of owed, not a separate bucket — the
+                    // card reads "$X owed, $Y of it overdue".
+                    if let due = inv.dueDate, due < now {
+                        snap.overdueTotal += inv.amountDue
+                        snap.overdueCount += 1
+                    }
+                }
+
+                if let paidAt = inv.paidAt, paidAt >= paidWindow, status == "paid" {
+                    snap.paidRecentTotal += inv.total
+                    snap.paidRecentCount += 1
+                }
+            }
+            return snap
+        }
+    }
 
     struct ActivityReply: Decodable, Identifiable {
         let body: String
@@ -36,9 +81,14 @@ final class DashboardStore {
     }
 
     private let repository: EventsRepositoryType
+    private let invoices: InvoicesRepositoryType
 
-    init(repository: EventsRepositoryType = EventsRepository()) {
+    init(
+        repository: EventsRepositoryType = EventsRepository(),
+        invoices: InvoicesRepositoryType = InvoicesRepository()
+    ) {
         self.repository = repository
+        self.invoices = invoices
     }
 
     func load() async {
@@ -51,14 +101,16 @@ final class DashboardStore {
         async let eventsTask = repository.list(limit: 10)
         async let profileTask: (String?, Bool) = loadProfile()
         async let activityTask = loadActivity()
+        async let moneyTask = loadMoney()
 
         do {
-            let (list, profile, activity) = try await (eventsTask, profileTask, activityTask)
+            let (list, profile, activity, snapshot) = try await (eventsTask, profileTask, activityTask, moneyTask)
             events = list
             firstName = profile.0
             calendarConnected = profile.1
             recentActivity = activity.replies
             awaitingConfirmation = activity.pending
+            money = snapshot
             state = .loaded
         } catch {
             FlynnLog.network.error("Dashboard load failed: \(error.localizedDescription, privacy: .public)")
@@ -86,6 +138,19 @@ final class DashboardStore {
             return (decoded.recentReplies, decoded.awaitingConfirmation)
         } catch {
             return ([], [])
+        }
+    }
+
+    /// Money never blocks the rest of Home — if the org or the invoice list
+    /// fails, the card just doesn't appear.
+    private func loadMoney() async -> MoneySnapshot {
+        do {
+            let orgId = try await OrgResolver.current()
+            let list = try await invoices.list(orgId: orgId, limit: 200)
+            return MoneySnapshot.from(list)
+        } catch {
+            FlynnLog.network.error("Dashboard money load failed: \(error.localizedDescription, privacy: .public)")
+            return .empty
         }
     }
 

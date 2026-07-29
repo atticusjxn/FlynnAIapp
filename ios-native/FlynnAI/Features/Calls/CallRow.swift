@@ -41,5 +41,6 @@ struct CallRow: View {
                 }
             }
         }
+        .accessibilityElement(children: .combine)
     }
 }

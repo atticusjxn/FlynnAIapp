@@ -30,18 +30,26 @@ struct DashboardView: View {
                     case .error(let message):
                         errorCard(message: message)
                     case .loaded:
+                        // Ordered by what costs the user money if they miss it.
+                        // Money first, then decisions Flynn is blocked on, then
+                        // the day's work, then the feed. Admin shortcuts sit at
+                        // the bottom — they used to sit above all of this.
+                        if store.money.hasAnything { moneySection }
                         if !store.awaitingConfirmation.isEmpty { awaitingSection }
                         if !store.events.isEmpty { upcomingSection }
                         if !store.recentActivity.isEmpty { activitySection }
                         if !hasActivity && conversation.turns.isEmpty { emptyStateCard }
-                        quickActionsCard
-                        if !store.keyboardAdded { keyboardCard }
                     }
 
                     // Live turns from the agent bar below — what you just said/typed
                     // and what Flynn did about it, newest at the bottom.
                     if !conversation.turns.isEmpty {
                         agentTurnsSection
+                    }
+
+                    if case .loaded = store.state {
+                        quickActionsCard
+                        if !store.keyboardAdded { keyboardCard }
                     }
                     Color.clear.frame(height: 1).id("bottom")
                 }
@@ -57,8 +65,11 @@ struct DashboardView: View {
             }
         }
         .background(FlynnColor.background)
+        // Inline, not large: the greeting below is already the page header, and
+        // a large "Home" title on top of "Hey, Atticus." cost most of the first
+        // screen before the user saw a single number.
         .navigationTitle("Home")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             AgentInputBar(conversation: conversation)
         }
@@ -139,10 +150,15 @@ struct DashboardView: View {
             Text(store.firstName.map { "Hey, \($0)." } ?? "Flynn")
                 .flynnType(FlynnTypography.h1)
                 .foregroundColor(FlynnColor.textPrimary)
-            Text("Text Flynn whatever you need handled. Here's what it's been up to.")
-                .flynnType(FlynnTypography.bodyMedium)
-                .foregroundColor(FlynnColor.textSecondary)
+            // The explainer only earns its space before there's anything to
+            // show. Once Home has real content, the content is the explanation.
+            if !hasActivity && !store.money.hasAnything {
+                Text("Text Flynn whatever you need handled. Here's what it's been up to.")
+                    .flynnType(FlynnTypography.bodyMedium)
+                    .foregroundColor(FlynnColor.textSecondary)
+            }
         }
+        .accessibilityElement(children: .combine)
     }
 
     private var greetingEyebrow: String {
@@ -152,6 +168,84 @@ struct DashboardView: View {
         case 12..<17: return "Good afternoon"
         default: return "Good evening"
         }
+    }
+
+    // MARK: – Money (owed, overdue, just landed)
+
+    /// The first thing on Home, because it's the thing that costs the operator
+    /// real money to not notice. Reads as one sentence, not a dashboard of KPIs:
+    /// what you're owed, how much of it is late, what just came in.
+    private var moneySection: some View {
+        let m = store.money
+        return Button {
+            deepLink.pending = .init(tab: .money, route: nil)
+        } label: {
+            VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+                if m.owedCount > 0 {
+                    VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
+                        Text(FlynnFormatter.currency(m.owedTotal))
+                            .flynnType(FlynnTypography.h1)
+                            .foregroundColor(FlynnColor.textPrimary)
+                        Text(m.owedCount == 1 ? "owed on 1 invoice" : "owed across \(m.owedCount) invoices")
+                            .flynnType(FlynnTypography.bodyMedium)
+                            .foregroundColor(FlynnColor.textSecondary)
+                    }
+
+                    if m.overdueCount > 0 {
+                        HStack(spacing: FlynnSpacing.xs) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(FlynnColor.error)
+                            Text("\(FlynnFormatter.currency(m.overdueTotal)) is overdue")
+                                .flynnType(FlynnTypography.label)
+                                .foregroundColor(FlynnColor.error)
+                        }
+                        .padding(.horizontal, FlynnSpacing.sm)
+                        .padding(.vertical, FlynnSpacing.xs)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: FlynnRadii.sm, style: .continuous)
+                                .fill(FlynnColor.errorLight)
+                        )
+                    }
+                }
+
+                if m.paidRecentCount > 0 {
+                    HStack(spacing: FlynnSpacing.xs) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(FlynnColor.success)
+                        Text("\(FlynnFormatter.currency(m.paidRecentTotal)) came in this week")
+                            .flynnType(FlynnTypography.label)
+                            .foregroundColor(FlynnColor.textSecondary)
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(FlynnSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .flynnCardSurface()
+        }
+        .buttonStyle(.plain)
+        // VoiceOver reads this as one sentence and one action, rather than
+        // five disconnected fragments.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(moneyAccessibilityLabel)
+        .accessibilityHint("Opens Money")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var moneyAccessibilityLabel: String {
+        let m = store.money
+        var parts: [String] = []
+        if m.owedCount > 0 {
+            parts.append("\(FlynnFormatter.currency(m.owedTotal)) owed across \(m.owedCount) invoice\(m.owedCount == 1 ? "" : "s")")
+        }
+        if m.overdueCount > 0 {
+            parts.append("\(FlynnFormatter.currency(m.overdueTotal)) overdue")
+        }
+        if m.paidRecentCount > 0 {
+            parts.append("\(FlynnFormatter.currency(m.paidRecentTotal)) came in this week")
+        }
+        return parts.joined(separator: ". ")
     }
 
     // MARK: – Waiting on your OK (staged pending actions, any type)
@@ -182,8 +276,10 @@ struct DashboardView: View {
                 .padding(FlynnSpacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .flynnCardSurface(.flat, borderColor: FlynnColor.warning)
+                .accessibilityElement(children: .combine)
             }
         }
+        .accessibilityLabel("Waiting on your OK, \(store.awaitingConfirmation.count) item\(store.awaitingConfirmation.count == 1 ? "" : "s")")
     }
 
     // MARK: – Upcoming bookings
@@ -231,6 +327,7 @@ struct DashboardView: View {
                 .padding(FlynnSpacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .flynnCardSurface()
+                .accessibilityElement(children: .combine)
             }
         }
     }

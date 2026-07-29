@@ -69,6 +69,7 @@ struct RememberedContextView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showingAdd = true } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("Add a note")
             }
         }
         .overlay { if store.isLoading && store.facts.isEmpty { ProgressView() } }

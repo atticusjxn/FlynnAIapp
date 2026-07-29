@@ -39,5 +39,6 @@ struct ClientRow: View {
                 }
             }
         }
+        .accessibilityElement(children: .combine)
     }
 }

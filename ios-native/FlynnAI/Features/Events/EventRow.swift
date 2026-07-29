@@ -37,6 +37,8 @@ struct EventRow: View {
                 }
             }
         }
+        // One swipe per job instead of five stops for name, status, date, time.
+        .accessibilityElement(children: .combine)
     }
 
     private func label(for status: String) -> String {
