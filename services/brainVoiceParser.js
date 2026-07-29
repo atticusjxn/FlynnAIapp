@@ -38,6 +38,12 @@ Return JSON only, with ONLY the keys they actually mentioned:
 Rules:
 - OMIT any key they did not mention. Do not include empty strings, empty arrays or nulls.
 - Never invent a price, a suburb or an hour. If it wasn't said, leave it out.
+- NEVER infer business_type from the services they listed. "we do blocked drains and hot
+  water" is services only — they did not say their trade, so omit business_type. Only set
+  it if they named it ("I'm a plumber", "we're a sparky outfit").
+- Write money and times as digits everywhere, including pricing_notes: "ninety dollar
+  callout, quotes are free" becomes "$90 callout, quotes free". Keep their wording,
+  convert their numbers.
 - Speech-to-text writes numbers as words: "ninety dollar callout" is $90, "seven to four" is 07:00-16:00.
 - "weekdays" means monday to friday. "weekends" means saturday and sunday.
 - Trade hours are almost always AM start / PM finish: "seven to four" is 07:00-16:00, not 07:00-04:00.
