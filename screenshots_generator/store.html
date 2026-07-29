@@ -1,0 +1,164 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* App Store slides — the brand's own mid-century system, not a generic
+     dark-on-grey template. Cream ground and one orange are what make these
+     recognisable as Flynn at thumbnail size in search results, where nobody
+     reads body copy. */
+  @font-face { font-family: 'Space Grotesk'; font-weight: 700;
+    src: url('../ios-native/FlynnAI/Resources/Fonts/SpaceGrotesk-Bold.ttf'); }
+  @font-face { font-family: 'Space Grotesk'; font-weight: 600;
+    src: url('../ios-native/FlynnAI/Resources/Fonts/SpaceGrotesk-SemiBold.ttf'); }
+  @font-face { font-family: 'Inter'; font-weight: 400;
+    src: url('../ios-native/FlynnAI/Resources/Fonts/Inter-Regular.ttf'); }
+  @font-face { font-family: 'Inter'; font-weight: 500;
+    src: url('../ios-native/FlynnAI/Resources/Fonts/Inter-Medium.ttf'); }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --cream: #F4E6CE;
+    --card:  #FFFBF4;
+    --ink:   #2C2018;
+    --ink-soft: #5A4A3C;
+    --orange:#FB5B1E;
+    --teal:  #3C8A86;
+    --mustard:#E0A436;
+    --terra: #C5532B;
+  }
+
+  body { background: #111; }
+
+  .slide {
+    position: relative;
+    width: 1290px; height: 2796px;   /* 6.9" — scaled per output size */
+    background: var(--cream);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  /* Mid-century motifs, cropped at the frame edge — the same vocabulary as the
+     onboarding backdrop and the landing page. */
+  .motif { position: absolute; border: 7px solid var(--ink); border-radius: 50%; }
+
+  .copy { position: relative; z-index: 2; padding: 130px 90px 0; }
+
+  .eyebrow {
+    font-size: 34px; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--orange); margin-bottom: 28px;
+  }
+  /* Deliberately enormous. The old set set headlines at ~60px on this canvas,
+     which is unreadable in a search-results thumbnail. */
+  h1 {
+    font-size: 132px; font-weight: 700; line-height: .93;
+    letter-spacing: -.035em; color: var(--ink);
+  }
+  h1 .hl { color: var(--orange); }
+  .sub {
+    font-family: 'Inter', sans-serif; font-weight: 400;
+    font-size: 44px; line-height: 1.34; color: var(--ink-soft);
+    margin-top: 40px; max-width: 1000px;
+  }
+
+  /* Device sits low and bleeds off the bottom: fills the dead space the old
+     set left, and reads as "there's more" rather than a floating rectangle. */
+  .stage { position: relative; z-index: 2; flex: 1; display: flex;
+           justify-content: center; align-items: flex-end;
+           padding-bottom: 40px; }
+  .phone {
+    position: relative; width: 950px; margin-bottom: 0;
+    border-radius: 92px; background: #1A1410;
+    padding: 14px;
+    box-shadow: 0 60px 120px -30px rgba(28,20,12,.55),
+                0 0 0 3px rgba(44,32,24,.9);
+  }
+  .phone img { display: block; width: 100%; border-radius: 78px; }
+
+  .slide.tilt .phone { transform: rotate(-3deg); }
+  .slide.tilt-r .phone { transform: rotate(3deg); }
+
+  /* Slide 1 is the one that does the work — bigger type, no device tilt. */
+  .slide.hero h1 { font-size: 152px; }
+  .slide.hero .sub { font-size: 46px; }
+
+  /* Ink slide for contrast partway through the set. */
+  .slide.dark { background: var(--ink); }
+  .slide.dark h1 { color: var(--card); }
+  .slide.dark .sub { color: #D6C9B6; }
+  .slide.dark .motif { border-color: rgba(255,251,244,.35); }
+  .slide.dark .eyebrow { color: var(--mustard); }
+  /* The device chassis is near-black, so on the ink slide it merged into the
+     background and the phone lost its edge. Give it a warm rim instead. */
+  .slide.dark .phone {
+    box-shadow: 0 60px 120px -30px rgba(0,0,0,.6),
+                0 0 0 3px rgba(244,230,206,.45);
+  }
+</style>
+</head>
+<body>
+
+<!-- 1 — the promise. Receptionist wedge, the thing the ads sell. -->
+<div class="slide hero" id="s1">
+  <span class="motif" style="width:560px;height:560px;top:-210px;right:-190px;background:#3C8A86;"></span>
+  <span class="motif" style="width:250px;height:250px;top:1090px;left:-125px;background:#E0A436;"></span>
+  <div class="copy">
+    <div class="eyebrow">Your AI receptionist</div>
+    <h1>Never miss<br>another <span class="hl">job.</span></h1>
+    <p class="sub">Flynn answers the calls you can't take, works out what they need, and books them in.</p>
+  </div>
+  <div class="stage"><div class="phone"><img src="assets/app/home.png"></div></div>
+</div>
+
+<!-- 2 — money. The business model, and the strongest retention hook. -->
+<div class="slide tilt" id="s2">
+  <span class="motif" style="width:520px;height:520px;top:-200px;right:-180px;background:#C5532B;"></span>
+  <span class="motif" style="width:290px;height:290px;top:1040px;left:-150px;background:#7E8B4F;"></span>
+  <div class="copy">
+    <div class="eyebrow">Get paid faster</div>
+    <h1>Know who<br><span class="hl">owes you.</span></h1>
+    <p class="sub">Every unpaid invoice, front and centre. Flynn chases them so you don't have to.</p>
+  </div>
+  <div class="stage"><div class="phone"><img src="assets/app/money.png"></div></div>
+</div>
+
+<!-- 3 — the differentiator. Ink slide so the set has a beat change. -->
+<div class="slide dark tilt-r" id="s3">
+  <span class="motif" style="width:600px;height:600px;top:-240px;right:-220px;"></span>
+  <span class="motif" style="width:270px;height:270px;top:1080px;left:-140px;"></span>
+  <div class="copy">
+    <div class="eyebrow">Just talk</div>
+    <h1>Hold it.<br>Say it. <span style="color:#FB5B1E">Done.</span></h1>
+    <p class="sub">Your trade, your prices, your hours — tell Flynn once out loud. No forms.</p>
+  </div>
+  <div class="stage"><div class="phone"><img src="assets/app/brain.png"></div></div>
+</div>
+
+<!-- 4 — the money moment, on site. -->
+<div class="slide tilt" id="s4">
+  <span class="motif" style="width:540px;height:540px;top:-205px;right:-185px;background:#E0A436;"></span>
+  <span class="motif" style="width:260px;height:260px;top:1060px;left:-130px;background:#3C8A86;"></span>
+  <div class="copy">
+    <div class="eyebrow">Invoice on the spot</div>
+    <h1>Paid before<br>you're <span class="hl">off site.</span></h1>
+    <p class="sub">Speak the job, Flynn writes the invoice and texts them a link to pay it.</p>
+  </div>
+  <div class="stage"><div class="phone"><img src="assets/app/invoice.png"></div></div>
+</div>
+
+<!-- 5 — the system of record. -->
+<div class="slide tilt-r" id="s5">
+  <span class="motif" style="width:520px;height:520px;top:-200px;right:-180px;background:#7E8B4F;"></span>
+  <span class="motif" style="width:300px;height:300px;top:1050px;left:-155px;background:#C5532B;"></span>
+  <div class="copy">
+    <div class="eyebrow">All in one place</div>
+    <h1>Every client.<br>Every <span class="hl">job.</span></h1>
+    <p class="sub">Quotes, invoices, bookings and customers — no spreadsheet, no shoebox.</p>
+  </div>
+  <div class="stage"><div class="phone"><img src="assets/app/clients.png"></div></div>
+</div>
+
+</body>
+</html>
