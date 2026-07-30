@@ -102,6 +102,10 @@ const buildSpeakConfig = (businessContext) => {
 
   const provider = requested
     || (hasCartesia ? 'cartesia' : hasElevenLabs ? 'eleven_labs' : 'deepgram');
+  // Which voice actually answers is a secrets flip away from silently
+  // reverting to Deepgram's American default — log it per call so that's
+  // checkable from `fly logs` instead of inferred from env var presence.
+  console.log(`[DeepgramAgent] TTS provider resolved: ${provider} (requested="${requested || '(unset)'}")`);
 
   // voice_profile may be shaped like { provider_voice_id, gender } if the caller
   // pre-resolved it; otherwise gender picks between the AU male/female envs.
@@ -562,11 +566,21 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
               // ("uh...", "because...") so it waits for the caller to actually finish.
               model: 'flux-general-en',
               // High-reliability turn-taking tuned for phone calls: require strong
-              // confidence before ending the caller's turn, with an 8s silence safety
-              // net. Higher eot_threshold = fewer false interruptions.
+              // confidence before ending the caller's turn. Higher eot_threshold =
+              // fewer false interruptions. DO NOT lower this — it's the fix for the
+              // barge-in problem above, not a latency knob.
               // Docs: https://developers.deepgram.com/docs/flux/configuration
               eot_threshold: 0.85,
-              eot_timeout_ms: 8000,
+              // eager_eot_threshold lets the agent start LLM processing speculatively
+              // on a moderate-confidence signal, while still waiting for the 0.85
+              // EndOfTurn before actually speaking — pure latency win, doesn't touch
+              // interruption sensitivity. Docs: .../flux/voice-agent-eager-eot
+              eager_eot_threshold: 0.6,
+              // Silence safety net only (forces EndOfTurn if the caller just goes
+              // quiet without hitting eot_threshold). Trimmed from 8000 -> 6000 to
+              // cut worst-case tail latency; still well above Deepgram's 5000 default
+              // to leave room for tradies who pause mid-sentence.
+              eot_timeout_ms: 6000,
             },
           },
           think: buildThinkConfig(this.systemPrompt, this.getFunctionSchema()),
