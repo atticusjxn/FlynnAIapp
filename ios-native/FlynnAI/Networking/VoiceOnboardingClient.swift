@@ -66,12 +66,14 @@ enum VoiceOnboardingClient {
     enum VoiceOnboardingError: Error, LocalizedError {
         case notFound(codeRequired: Bool)
         case poolEmpty
+        case subscriptionRequired
         case server(String)
 
         var errorDescription: String? {
             switch self {
             case .notFound: return "We couldn't find a setup for this number."
             case .poolEmpty: return "We're setting up your number — you'll get a text shortly."
+            case .subscriptionRequired: return "Start your free trial to bring her to life."
             case .server(let message): return message
             }
         }
@@ -122,6 +124,9 @@ enum VoiceOnboardingClient {
         }
         if http.statusCode == 503 {
             throw VoiceOnboardingError.poolEmpty
+        }
+        if http.statusCode == 402 {
+            throw VoiceOnboardingError.subscriptionRequired
         }
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]

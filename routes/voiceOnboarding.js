@@ -12,6 +12,7 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const authenticateJwt = require('../middleware/authenticateJwt');
 const { calloutFeeToCents } = require('../telephony/funnelIntake');
+const { hasVerifiedSubscription, syncOrgEntitlement } = require('../telephony/subscriptionService');
 
 const router = express.Router();
 
@@ -240,6 +241,33 @@ router.post('/assign-number', authenticateJwt, async (req, res) => {
       return res.status(409).json({ error: 'claim your receptionist config first' });
     }
 
+    // A rented number costs real money every month whether or not anyone
+    // ever calls it, so this is the one place in the funnel that must not
+    // hand one out for free. Two ways in: a verified StoreKit subscription
+    // (the normal path — the client is expected to run the paywall right
+    // before this call) or an org already entitled through the legacy
+    // Stripe billing surface (services/billingGate.js), so existing paying
+    // or trialing users on that path aren't newly locked out here.
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('billing_plan_id, subscription_status')
+      .eq('id', user.default_org_id)
+      .maybeSingle();
+    const legacyEntitled = Boolean(org?.billing_plan_id)
+      && org.billing_plan_id !== 'trial'
+      && ['active', 'trialing'].includes(org?.subscription_status);
+    const verified = legacyEntitled || await hasVerifiedSubscription(user.id);
+    if (!verified) {
+      return res.status(402).json({ error: 'subscription_required' });
+    }
+    // Cheap insurance: if this user is only entitled via a subscription that
+    // hasn't been mirrored onto the org yet (a backfill gap, not the normal
+    // path), bring it in sync before handing out the number so the inbound-
+    // call check right after go-live sees the same truth.
+    if (!legacyEntitled) {
+      await syncOrgEntitlement(user.id);
+    }
+
     const { data: phoneNumber, error: allocError } = await supabase.rpc('allocate_pool_number', {
       p_user_id: user.id,
       p_org_id: user.default_org_id,
@@ -265,28 +293,6 @@ router.post('/assign-number', authenticateJwt, async (req, res) => {
         .eq('phone_number', phoneNumber);
       console.error('[VoiceOnboarding] Failed to write user number; allocation rolled back.', { userId: user.id, error: userError.message });
       return res.status(500).json({ error: 'assignment failed' });
-    }
-
-    // Bridge until RevenueCat wiring lands: the inbound-voice path voicemails
-    // any org without an active/trialing subscription, which would kill the
-    // post-claim test call. Mark the org trialing here; the StoreKit/RC step
-    // replaces this with real entitlement state (and enforcement of expiry).
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('billing_plan_id, subscription_status')
-      .eq('id', user.default_org_id)
-      .maybeSingle();
-    if (!org?.billing_plan_id || org.billing_plan_id === 'trial' || !['active', 'trialing'].includes(org?.subscription_status)) {
-      const { error: billingError } = await supabase
-        .from('organizations')
-        .update({ billing_plan_id: 'receptionist', subscription_status: 'trialing' })
-        .eq('id', user.default_org_id);
-      if (billingError) {
-        console.error('[VoiceOnboarding] Failed to set trial billing state — inbound calls will voicemail.', {
-          orgId: user.default_org_id,
-          error: billingError.message,
-        });
-      }
     }
 
     await supabase

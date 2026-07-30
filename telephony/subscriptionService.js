@@ -284,7 +284,77 @@ async function upsertFromTransaction(tx) {
     });
   }
 
+  await syncOrgEntitlement(userId);
+
   return { success: true, userId, planId: plan.id, subscriptionId: subscription?.id, status };
+}
+
+/**
+ * Mirrors a user's real subscription state onto their organization.
+ *
+ * `organizations.billing_plan_id` / `subscription_status` are what actually
+ * gate the two money-costing things in the product: assigning a pool number
+ * (routes/voiceOnboarding.js allocates a rented Twilio number) and answering
+ * an inbound call as the AI receptionist instead of voicemailing it
+ * (server.js). Neither has ever read the `subscriptions` table — the one
+ * this file's ASSN2 and client-verify handlers write real Apple-verified
+ * truth into. Calling this after every upsert means a trial start, a
+ * renewal, a cancellation and an expiry all show up where the money is
+ * actually spent, not just in a table nothing else consulted.
+ *
+ * Deliberately a no-op when the user has no `subscriptions` row at all,
+ * rather than clearing the org's fields — that leaves orgs on the legacy
+ * Stripe billing path (services/billingGate.js, routes/stripeRoutes.js)
+ * untouched, since they've never had a native-app subscription to sync.
+ */
+async function syncOrgEntitlement(userId) {
+  if (!userId) return;
+  const { data: user } = await supabase
+    .from('users')
+    .select('default_org_id')
+    .eq('id', userId)
+    .maybeSingle();
+  const orgId = user?.default_org_id;
+  if (!orgId) return;
+
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('status, plan_id, plans(name)')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!sub) return;
+
+  const { error } = await supabase
+    .from('organizations')
+    .update({
+      billing_plan_id: sub.plans?.name || sub.plan_id,
+      subscription_status: sub.status,
+    })
+    .eq('id', orgId);
+  if (error) {
+    console.error('[AppStore] Failed to sync org entitlement.', { userId, orgId, error: error.message });
+  }
+}
+
+/**
+ * Real, Apple-verified entitlement check: does this user have a subscription
+ * row in trialing/active/grace_period? This is the source of truth
+ * `assign-number` gates on — separate from `organizations.subscription_status`,
+ * which upsertFromTransaction keeps in sync but which older/legacy-billing
+ * orgs may already satisfy through a different path.
+ */
+async function hasVerifiedSubscription(userId) {
+  if (!userId) return false;
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('status')
+    .eq('user_id', userId)
+    .in('status', ['trialing', 'active', 'grace_period'])
+    .limit(1)
+    .maybeSingle();
+  return Boolean(data);
 }
 
 /**
@@ -360,4 +430,6 @@ module.exports = {
   deriveStatus,
   upsertFromTransaction,
   upsertFromGoogleSubscription,
+  syncOrgEntitlement,
+  hasVerifiedSubscription,
 };

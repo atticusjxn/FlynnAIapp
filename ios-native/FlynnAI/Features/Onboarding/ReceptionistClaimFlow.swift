@@ -21,6 +21,13 @@ struct ReceptionistClaimFlow: View {
     @State private var showCodeField = false
     @State private var code = ""
     @State private var claimedConfig: VoiceOnboardingClient.BusinessConfig?
+    /// Set once `claim()` has applied the profile — lets the number step
+    /// resume straight from the paywall sheet without re-running the claim
+    /// network call.
+    @State private var readyToAssignNumber = false
+
+    @Environment(SubscriptionStore.self) private var subscription
+    @Environment(PaywallPresentation.self) private var paywall
 
     var body: some View {
         ZStack {
@@ -30,6 +37,16 @@ struct ReceptionistClaimFlow: View {
                 claimStep
             case .live(let number):
                 liveStep(number: number)
+            }
+        }
+        // The paywall sheet lives on the WindowGroup, above this whole flow —
+        // presenting it just sets `paywall.isPresented`. Catch it closing
+        // (purchase completed, or the user backed out) and pick the claim
+        // back up rather than stranding them on a screen with a dead button.
+        .onChange(of: paywall.isPresented) { wasPresented, isPresented in
+            guard wasPresented, !isPresented, readyToAssignNumber else { return }
+            if case .claim = step {
+                Task { await assignNumberIfEntitled() }
             }
         }
     }
@@ -95,6 +112,13 @@ struct ReceptionistClaimFlow: View {
                 isLoading: working,
                 isDisabled: showCodeField && code.count < 6
             )
+
+            if subscription.currentEntitlement == nil {
+                Text("Starts your free trial — she goes live the moment it does.")
+                    .font(.caption)
+                    .foregroundStyle(FlynnColor.textTertiary)
+                    .multilineTextAlignment(.center)
+            }
 
             Button("Not now") { onFinished() }
                 .font(.subheadline)
@@ -171,17 +195,41 @@ struct ReceptionistClaimFlow: View {
         do {
             let result = try await VoiceOnboardingClient.claim(code: showCodeField ? code : nil)
             claimedConfig = result.businessConfig
-            let assigned = try await VoiceOnboardingClient.assignNumber()
-            step = .live(number: assigned.phoneNumber)
+            readyToAssignNumber = true
+            await assignNumberIfEntitled()
         } catch VoiceOnboardingClient.VoiceOnboardingError.notFound {
             showCodeField = true
             errorMessage = code.isEmpty
                 ? nil
                 : "That code didn't match. Check the text Flynn sent you."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Runs once the profile's claimed. A rented number costs money the
+    /// moment it's assigned, so this requires a real subscription first —
+    /// on-device StoreKit entitlement is checked immediately (instant, no
+    /// network); if there isn't one, the shared paywall opens and `onChange`
+    /// above resumes here once it closes. The server's own 402 is the
+    /// backstop for the rare case where the on-device state is stale.
+    private func assignNumberIfEntitled() async {
+        guard subscription.currentEntitlement != nil else {
+            paywall.present(reason: .featureGate("your receptionist"))
+            return
+        }
+        working = true
+        defer { working = false }
+        do {
+            let assigned = try await VoiceOnboardingClient.assignNumber()
+            step = .live(number: assigned.phoneNumber)
         } catch VoiceOnboardingClient.VoiceOnboardingError.poolEmpty {
-            // Claim succeeded; the number lags. Don't strand them on this screen.
+            // Claim + entitlement both succeeded; the number lags. Don't
+            // strand them on this screen.
             errorMessage = nil
             step = .live(number: "")
+        } catch VoiceOnboardingClient.VoiceOnboardingError.subscriptionRequired {
+            paywall.present(reason: .featureGate("your receptionist"))
         } catch {
             errorMessage = error.localizedDescription
         }
