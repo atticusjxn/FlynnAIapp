@@ -42,6 +42,9 @@ final class VoiceCaptureManager {
 
     private(set) var state: State = .idle
     private(set) var transcript: String = ""
+    /// Smoothed mic level, 0...1. Drives the reactive meter on the mic button
+    /// and listening bars — real amplitude, not a canned animation.
+    private(set) var level: Float = 0
 
     private var pipeline: VoiceAudioPipeline?
     /// Guards the whole async start: `state` only becomes `.listening` at the
@@ -55,6 +58,7 @@ final class VoiceCaptureManager {
         isStarting = true
         defer { isStarting = false }
         transcript = ""
+        level = 0
 
         guard await Self.requestSpeechAuthorization() == .authorized else {
             state = .denied
@@ -75,6 +79,9 @@ final class VoiceCaptureManager {
             try pipeline.start(
                 onTranscript: { [weak self] text in
                     Task { @MainActor in self?.transcript = text }
+                },
+                onLevel: { [weak self] level in
+                    Task { @MainActor in self?.level = level }
                 },
                 onEnd: { [weak self] in
                     Task { @MainActor in self?.finish() }
@@ -100,6 +107,7 @@ final class VoiceCaptureManager {
         pipeline?.stop()
         pipeline = nil
         if state == .listening { state = .idle }
+        level = 0
     }
 
     // `nonisolated` is load-bearing on both of these, and `static` does NOT
@@ -138,6 +146,10 @@ final class VoiceAudioPipeline: @unchecked Sendable {
     private var engine: AVAudioEngine?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    /// Only ever touched from inside the tap closure, which the audio engine
+    /// calls serially on its own realtime thread — no concurrent writers, so
+    /// this doesn't need locking despite the class being `@unchecked Sendable`.
+    private var smoothedLevel: Float = 0
 
     init() {
         recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-AU")) ?? SFSpeechRecognizer()
@@ -149,6 +161,7 @@ final class VoiceAudioPipeline: @unchecked Sendable {
 
     func start(
         onTranscript: @escaping @Sendable (String) -> Void,
+        onLevel: @escaping @Sendable (Float) -> Void,
         onEnd: @escaping @Sendable () -> Void
     ) throws {
         guard let recognizer else { throw Unavailable() }
@@ -178,8 +191,17 @@ final class VoiceAudioPipeline: @unchecked Sendable {
         // installing ours — a second tap on an occupied bus is an ObjC
         // exception Swift can't catch.
         input.removeTap(onBus: 0)
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             req.append(buffer)
+            guard let self else { return }
+            let raw = Self.rmsLevel(of: buffer)
+            // Fast attack / slower release: the meter should snap to a loud
+            // word instantly but not flicker back to zero between syllables,
+            // which is how every VU meter has read as "reactive" rather than
+            // "twitchy" since analog ones existed.
+            let coeff: Float = raw > self.smoothedLevel ? 0.7 : 0.2
+            self.smoothedLevel += (raw - self.smoothedLevel) * coeff
+            onLevel(self.smoothedLevel)
         }
 
         engine.prepare()
@@ -215,6 +237,23 @@ final class VoiceAudioPipeline: @unchecked Sendable {
         request = nil
         task?.cancel()
         task = nil
+        smoothedLevel = 0
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    /// RMS of the buffer's first channel, mapped from dBFS onto a 0...1 range.
+    /// Ordinary speech at arm's length from the phone sits roughly -35..-15
+    /// dBFS on the built-in mic; below that is room tone, above is someone
+    /// right on the mic or raising their voice.
+    private static func rmsLevel(of buffer: AVAudioPCMBuffer) -> Float {
+        guard let channel = buffer.floatChannelData?[0] else { return 0 }
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0 else { return 0 }
+        var sum: Float = 0
+        for i in 0..<frameCount { sum += channel[i] * channel[i] }
+        let rms = sqrt(sum / Float(frameCount))
+        let db = 20 * log10(max(rms, 1e-7))
+        let minDb: Float = -50, maxDb: Float = -12
+        return min(max((db - minDb) / (maxDb - minDb), 0), 1)
     }
 }

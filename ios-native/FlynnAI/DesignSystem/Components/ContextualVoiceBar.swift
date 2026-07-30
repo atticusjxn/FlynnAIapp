@@ -34,13 +34,20 @@ struct ContextualVoiceBar: View {
         HStack(spacing: FlynnSpacing.md) {
             VStack(alignment: .leading, spacing: 2) {
                 if voice.state == .listening {
-                    Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
-                        .flynnType(FlynnTypography.bodyMedium)
-                        .foregroundColor(cancelArmed ? FlynnColor.textTertiary
-                                         : (voice.transcript.isEmpty ? FlynnColor.textTertiary : FlynnColor.textPrimary))
-                        .strikethrough(cancelArmed)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .center, spacing: FlynnSpacing.xs) {
+                        VoiceLevelMeter(
+                            level: voice.level,
+                            barCount: 4,
+                            tint: cancelArmed ? FlynnColor.textTertiary : FlynnColor.primary
+                        )
+                        Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
+                            .flynnType(FlynnTypography.bodyMedium)
+                            .foregroundColor(cancelArmed ? FlynnColor.textTertiary
+                                             : (voice.transcript.isEmpty ? FlynnColor.textTertiary : FlynnColor.textPrimary))
+                            .strikethrough(cancelArmed)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     VoiceCancelHint(armed: cancelArmed)
                 } else if conversation.isSending {
                     HStack(spacing: FlynnSpacing.xs) {

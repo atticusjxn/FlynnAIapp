@@ -139,9 +139,27 @@ struct VoiceHoldButton: View {
         return isListening ? FlynnColor.primary : FlynnColor.backgroundSecondary
     }
 
+    /// How much the button itself grows on top of its listening scale, in
+    /// response to actual mic level. Subtle on purpose — this is a 58pt
+    /// button, not a waveform display, so it should feel like it's breathing
+    /// with your voice rather than visibly resizing.
+    private var levelBoost: CGFloat {
+        guard isListening, !cancelArmed else { return 0 }
+        return CGFloat(voice.level) * 0.09
+    }
+
     private var visual: some View {
-        Image(systemName: cancelArmed ? "xmark" : (isListening ? "waveform" : "mic.fill"))
-            .font(.system(size: isListening ? 24 : 22, weight: .semibold))
+        Group {
+            if cancelArmed {
+                Image(systemName: "xmark")
+                    .font(.system(size: 22, weight: .semibold))
+            } else if isListening {
+                VoiceLevelMeter(level: voice.level, barCount: 4, tint: FlynnColor.textInverse)
+            } else {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 22, weight: .semibold))
+            }
+        }
             .foregroundColor(isListening || cancelArmed ? FlynnColor.textInverse : FlynnColor.primary)
             .frame(width: size, height: size)
             .background(Circle().fill(fill))
@@ -162,9 +180,11 @@ struct VoiceHoldButton: View {
                     )
                     .allowsHitTesting(false)
             )
-            .scaleEffect(isListening ? (cancelArmed ? 1.05 : 1.22) : 1.0)
+            .scaleEffect(isListening ? (cancelArmed ? 1.05 : 1.22 + levelBoost) : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isListening)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: cancelArmed)
+            // Fast enough to track a spoken word, not so fast it buzzes.
+            .animation(.spring(response: 0.14, dampingFraction: 0.75), value: levelBoost)
             // Legible without looking: a firm thump on start, a sharp tick the
             // instant cancel arms, a light tap when it's scrapped.
             .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: isListening) { _, now in now }

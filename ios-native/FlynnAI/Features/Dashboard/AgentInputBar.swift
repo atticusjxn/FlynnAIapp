@@ -113,10 +113,12 @@ struct AgentInputBar: View {
     private var listeningHint: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
             HStack(alignment: .top, spacing: FlynnSpacing.xs) {
-                Circle()
-                    .fill(cancelArmed ? FlynnColor.textTertiary : FlynnColor.error)
-                    .frame(width: 8, height: 8)
-                    .padding(.top, 6)
+                VoiceLevelMeter(
+                    level: voice.level,
+                    barCount: 4,
+                    tint: cancelArmed ? FlynnColor.textTertiary : FlynnColor.error
+                )
+                .padding(.top, 1)
 
                 Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
                     .flynnType(FlynnTypography.bodyMedium)
