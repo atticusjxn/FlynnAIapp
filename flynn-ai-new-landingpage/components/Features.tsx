@@ -1,182 +1,125 @@
-import React, { useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { Phone, MessageSquare, Mic, Calendar, FileText, Camera, Upload, Layers, ShieldCheck, Zap } from 'lucide-react';
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Phone, Calendar, Camera, DollarSign, FileText, Brain, Keyboard, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import StoreButtons from './StoreButtons';
 
-const FeatureCard = ({ icon: Icon, title, description, color }: any) => {
-  return (
-    <div className="bg-white border-2 border-black p-8 relative group hover:-translate-y-2 hover:shadow-[8px_8px_0px_0px_#000000] transition-all duration-300">
-      <div className={`w-14 h-14 ${color} rounded-full flex items-center justify-center mb-6 border-2 border-black group-hover:scale-110 transition-transform`}>
-        <Icon size={28} className="text-black" />
-      </div>
-      <h3 className="text-2xl font-bold font-display mb-4">{title}</h3>
-      <p className="text-gray-600 leading-relaxed group-hover:text-black transition-colors">
-        {description}
-      </p>
-    </div>
-  );
-};
+/* ------------------------------------------------------------------ *
+ * Features page — same system as LandingPage.tsx (cream/ink/orange,
+ * mid-century cartoon, Space Grotesk + Inter). Previously described a
+ * retired product ("Inbound Revenue OS", switchable call-handling
+ * modes, the iOS Shortcuts screenshot pipeline) that no longer exists
+ * in the codebase. Rewritten to the current AI-receptionist product.
+ * ------------------------------------------------------------------ */
+
+const Mascot = ({ pose, className = '' }: { pose: string; className?: string }) => (
+  <img src={`/mascots/${pose}.png`} alt="" aria-hidden="true"
+    className={`select-none pointer-events-none ${className}`} draggable={false} />
+);
+
+const Reveal = ({ children, delay = 0, className = '' }: any) => (
+  <motion.div initial={{ opacity: 0, y: 26 }} whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: '-60px' }} transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
+    className={className}>{children}</motion.div>
+);
+
+const Card = ({ children, className = '' }: any) => (
+  <div className={`bg-[#FFFBF4] border-[3px] border-[#2C2018] rounded-3xl shadow-[6px_6px_0_0_#2C2018] ${className}`}>{children}</div>
+);
+
+const SectionLabel = ({ children }: any) => (
+  <span className="inline-block font-display font-bold text-[13px] tracking-[0.18em] uppercase text-[#FB5B1E] mb-4">{children}</span>
+);
+
+const features = [
+  { icon: Phone, tint: '#E0A436', title: 'Answers your calls', body: "Sounds like a real person, asks the right questions, and books the job straight into your calendar when you can't pick up." },
+  { icon: Calendar, tint: '#3C8A86', title: 'Booked, not just noted', body: 'No back-and-forth. The job lands in your calendar with the address, time and what they actually need.' },
+  { icon: Camera, tint: '#C5532B', title: 'Photo invoices', body: 'Snap the job in the app and Flynn sends a proper invoice with the photos on it and a pay link.' },
+  { icon: DollarSign, tint: '#7E8B4F', title: 'Chases it for you', body: "Flags a late invoice and sends the reminder so you're not the one sending awkward follow-ups." },
+  { icon: FileText, tint: '#FB5B1E', title: 'Quotes on the spot', body: 'Talk the job through and Flynn writes it up, prices it off your rates, before you leave site.' },
+  { icon: Brain, tint: '#3C8A86', title: 'Learns your business', body: 'Tell Flynn your trade, prices and hours once, out loud. Every reply after that uses them.' },
+  { icon: Keyboard, tint: '#E0A436', title: 'Drafts inside any app', body: 'The Flynn keyboard drafts a reply with a payment link right inside iMessage, WhatsApp or email. Tap to insert.' },
+  { icon: Link2, tint: '#C5532B', title: 'Syncs with your tools', body: 'Xero, Google Calendar and your email, connected once and kept in sync automatically.' },
+];
 
 const Features = () => {
   const navigate = useNavigate();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end end"]
-  });
 
   return (
-    <div className="bg-[#f3f4f6] min-h-screen pt-20" ref={containerRef}>
-
-      {/* Hero Section */}
-      <section className="py-24 px-4 bg-black text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-500 rounded-full blur-[120px] opacity-20 translate-x-1/2 -translate-y-1/2"></div>
-
-        <div className="max-w-7xl mx-auto relative z-10 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <div className="inline-block bg-brand-500 text-white px-4 py-1.5 text-sm font-bold uppercase tracking-widest mb-6 border-2 border-white">
-              Inbound Revenue OS
-            </div>
-            <h1 className="text-6xl md:text-8xl font-bold font-display tracking-tighter mb-8 leading-none">
-              More Than Just <br /> <span className="text-brand-500">Call Forwarding.</span>
+    <div className="bg-[#F4E6CE] text-[#2C2018] overflow-hidden pt-20">
+      {/* Hero */}
+      <section className="relative py-20 sm:py-28">
+        <span className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-[#3C8A86] border-[3px] border-[#2C2018] opacity-80" />
+        <span className="absolute top-1/3 -left-20 w-40 h-40 rounded-full bg-[#E0A436] border-[3px] border-[#2C2018] opacity-70" />
+        <div className="relative max-w-5xl mx-auto px-5 sm:px-8 text-center">
+          <Reveal>
+            <SectionLabel>Everything Flynn does</SectionLabel>
+            <h1 className="font-display font-bold leading-[0.98] text-[clamp(2.6rem,7vw,4.4rem)] tracking-tight">
+              Your receptionist,<br />your admin, <span className="text-[#FB5B1E]">one app.</span>
             </h1>
-            <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
-              Flynn is a complete inbound lead management platform. From missed calls to booked jobs, we handle the busy work so you can focus on the trade.
+            <p className="mt-6 text-lg sm:text-xl text-[#5A4A3C] max-w-2xl mx-auto leading-relaxed">
+              Flynn answers when you can't, books the job, and gets you paid, then keeps chasing
+              until the money lands. No forms, mostly no typing.
             </p>
-          </motion.div>
+          </Reveal>
         </div>
       </section>
 
-      {/* Core Modes Section */}
-      <section className="py-32 px-4 max-w-7xl mx-auto">
-        <div className="mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold font-display mb-6">Call Handling Modes</h2>
-          <p className="text-xl text-gray-600 max-w-2xl">Switch between three powerful modes depending on your business needs. Flynn adapts to you.</p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="bg-brand-500 p-8 border-4 border-black shadow-[12px_12px_0px_0px_#000000]">
-            <div className="bg-white inline-flex p-3 border-2 border-black mb-6">
-              <MessageSquare size={32} />
-            </div>
-            <h3 className="text-3xl font-bold font-display mb-4">SMS Link Follow-Up</h3>
-            <div className="inline-block bg-black text-white text-xs font-bold px-2 py-1 uppercase mb-4">Default Mode</div>
-            <p className="font-medium text-black/80 mb-6 border-l-2 border-black pl-4">
-              The core Flynn experience. Simple, reliable, and conversion-focused.
-            </p>
-            <ul className="space-y-3 font-medium">
-              <li className="flex items-start gap-2"><div className="mt-1.5 w-1.5 h-1.5 bg-black rounded-full" /> Caller presses 1 for Booking Link</li>
-              <li className="flex items-start gap-2"><div className="mt-1.5 w-1.5 h-1.5 bg-black rounded-full" /> Caller presses 2 for Quote Form</li>
-              <li className="flex items-start gap-2"><div className="mt-1.5 w-1.5 h-1.5 bg-black rounded-full" /> Instant SMS delivery</li>
-              <li className="flex items-start gap-2"><div className="mt-1.5 w-1.5 h-1.5 bg-black rounded-full" /> No AI config required</li>
-            </ul>
-          </div>
-
-          <div className="bg-white p-8 border-2 border-gray-200 hover:border-black hover:shadow-[8px_8px_0px_0px_#000000] transition-all">
-            <div className="bg-gray-100 inline-flex p-3 rounded-lg mb-6">
-              <Mic size={32} />
-            </div>
-            <h3 className="text-2xl font-bold font-display mb-4">AI Receptionist</h3>
-            <div className="inline-block bg-brand-100 text-brand-900 text-xs font-bold px-2 py-1 uppercase mb-4">Premium</div>
-            <p className="text-gray-600 mb-6">
-              Full conversational AI that sounds human. Handles complex queries and qualifies leads.
-            </p>
-            <ul className="space-y-3 text-gray-600">
-              <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full" /> Customizable Voice Profiles</li>
-              <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full" /> Gathers Job Details</li>
-              <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full" /> AI-Drafted Follow-ups</li>
-            </ul>
-          </div>
-
-          <div className="bg-white p-8 border-2 border-gray-200 hover:border-black hover:shadow-[8px_8px_0px_0px_#000000] transition-all">
-            <div className="bg-gray-100 inline-flex p-3 rounded-lg mb-6">
-              <Layers size={32} />
-            </div>
-            <h3 className="text-2xl font-bold font-display mb-4">Voicemail Capture</h3>
-            <div className="inline-block bg-gray-200 text-gray-800 text-xs font-bold px-2 py-1 uppercase mb-4">Basic</div>
-            <p className="text-gray-600 mb-6">
-              Classic voicemail with a modern twist. All voicemails are transcribed and processed.
-            </p>
-            <ul className="space-y-3 text-gray-600">
-              <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full" /> Transcription to Text</li>
-              <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full" /> Job Card Creation</li>
-              <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-gray-400 rounded-full" /> Simple fallback mode</li>
-            </ul>
-          </div>
+      {/* Feature grid */}
+      <section className="relative py-10 sm:py-16">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {features.map((f, i) => (
+            <Reveal key={f.title} delay={(i % 4) * 0.06}>
+              <Card className="p-6 h-full">
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center mb-5 border-[3px] border-[#2C2018]"
+                  style={{ backgroundColor: f.tint }}
+                >
+                  <f.icon size={22} className="text-[#FFFBF4]" strokeWidth={2.5} />
+                </div>
+                <h3 className="font-display font-bold text-lg mb-2">{f.title}</h3>
+                <p className="text-[#5A4A3C] text-[15px] leading-relaxed">{f.body}</p>
+              </Card>
+            </Reveal>
+          ))}
         </div>
       </section>
 
-      {/* Feature Grid */}
-      <section className="py-24 bg-white border-y-2 border-black">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-20">
-            <h2 className="text-4xl font-bold font-display mb-4">Everything You Need to Win Work</h2>
-            <p className="text-xl text-gray-500">Built for trades, beauty pros, and service businesses.</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FeatureCard
-              icon={Calendar}
-              title="Smart Booking Pages"
-              description="Shareable links that sync with Google, Apple, and Outlook. Let clients book time without the back-and-forth."
-              color="bg-blue-100"
-            />
-            <FeatureCard
-              icon={FileText}
-              title="Quote Intake Forms"
-              description="Collect job details, photos, and contact info via a simple SMS link sent automatically to callers."
-              color="bg-green-100"
-            />
-            <FeatureCard
-              icon={Camera}
-              title="Screenshot to Job"
-              description="Upload screenshots of text conversations. Flynn's AI extracts the details and creates a job card instantly."
-              color="bg-yellow-100"
-            />
-            <FeatureCard
-              icon={Zap}
-              title="iOS Shortcuts"
-              description="Control Center shortcut for instant screenshot processing on your iPhone. Speed is everything."
-              color="bg-purple-100"
-            />
-            <FeatureCard
-              icon={ShieldCheck}
-              title="Job Confirmations"
-              description="Automatically send SMS confirmations to clients to reduce no-shows and keep everyone in the loop."
-              color="bg-red-100"
-            />
-            <FeatureCard
-              icon={Upload}
-              title="Integrations (Soon)"
-              description="Connect with MYOB, QuickBooks, and Xero. Seamlessly sync job data for invoicing."
-              color="bg-gray-100"
-            />
-          </div>
+      {/* Keyboard callout */}
+      <section className="py-10">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8">
+          <Card className="p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-8">
+            <Mascot pose="phone" className="w-28 sm:w-36 flex-shrink-0" />
+            <div>
+              <h3 className="font-display font-bold text-2xl mb-2">Also included: the Flynn keyboard</h3>
+              <p className="text-[#5A4A3C] leading-relaxed">
+                Draft a tone-matched reply with a payment link right inside any messaging app —
+                iMessage, WhatsApp, email, HiPages, Airtasker. Tap to insert. Nothing sends on its own.
+              </p>
+            </div>
+          </Card>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-32 bg-[#f3f4f6] text-center">
-        <div className="max-w-4xl mx-auto px-4">
-          <h2 className="text-5xl md:text-7xl font-bold font-display mb-8">Ready to Automate?</h2>
-          <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
-            Stop missing leads and start closing more jobs with Flynn. Try the Inbound Revenue OS today.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-6">
-            <button onClick={() => navigate('/trial')} className="bg-brand-500 text-white px-12 py-5 text-xl font-bold uppercase tracking-widest border-4 border-black shadow-[8px_8px_0px_0px_#000000] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px] transition-all">
-              Start Free Trial
+      {/* CTA */}
+      <section className="py-20 sm:py-28 text-center">
+        <div className="max-w-3xl mx-auto px-5 sm:px-8">
+          <Reveal>
+            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight mb-6">
+              Get it for free. <span className="text-[#FB5B1E]">Start today.</span>
+            </h2>
+            <div className="flex justify-center">
+              <StoreButtons variant="dock" />
+            </div>
+            <button
+              onClick={() => navigate('/')}
+              className="mt-8 text-sm font-semibold text-[#5A4A3C] hover:text-[#FB5B1E] transition-colors underline decoration-[#5A4A3C]/30"
+            >
+              Back to home
             </button>
-            <button onClick={() => navigate('/how-it-works')} className="bg-white text-black px-12 py-5 text-xl font-bold uppercase tracking-widest border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:bg-black hover:text-white transition-all">
-              How It Works
-            </button>
-          </div>
+          </Reveal>
         </div>
       </section>
-
     </div>
   );
 };

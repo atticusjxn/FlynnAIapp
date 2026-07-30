@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import StoreButtons from './StoreButtons';
 import CallMeBackWidget from './CallMeBackWidget';
+import AppShowcase from './AppShowcase';
 
 /* ------------------------------------------------------------------ *
  * Flynn landing page — voice receptionist positioning (2026-07).
@@ -396,6 +397,9 @@ export default function LandingPage() {
           </Reveal>
         </div>
       </section>
+
+      {/* ===================== APP SCREENS (swipeable) ===================== */}
+      <AppShowcase />
 
       {/* ===================== KEYBOARD MENTION ===================== */}
       <section className="py-10 bg-[#FFFBF4] border-y-[2px] border-[#2C2018]/20">
