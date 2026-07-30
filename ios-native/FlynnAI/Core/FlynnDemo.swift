@@ -149,6 +149,38 @@ extension FlynnDemo {
                 createdAt: hoursAgo(26), updatedAt: hoursAgo(26)),
     ]
 
+    // MARK: - Brain
+
+    /// A filled-in Brain. Every other screen seeds fixtures, but this one didn't,
+    /// so demo mode rendered a blank form — which is how an empty form ended up
+    /// on the App Store slide headlined "No forms".
+    ///
+    /// Deliberately the same trade and prices as the rest of the fixtures, so a
+    /// capture of the Brain and a capture of an invoice tell one story.
+    struct Brain {
+        var businessType = "Plumber"
+        var businessDescription =
+            "Second-generation plumber on the Northern Beaches. Blocked drains, hot water and "
+            + "bathroom work, mostly repeat customers and a few builders."
+        var pricingNotes = "$90 callout, quotes free, card and bank transfer both fine"
+        var serviceArea = "Northern Beaches, North Shore"
+        var websiteURL = "reillyplumbing.com.au"
+        var services: [(name: String, priceRange: String, duration: String)] = [
+            ("Blocked drains", "$180–$400", "1–2 hrs"),
+            ("Hot water systems", "from $2,100", "half day"),
+            ("Bathroom rough-in", "$3,500–$6,000", "2–3 days"),
+            ("Leaking taps & toilets", "$140–$260", "under an hour"),
+        ]
+        /// Mon–Fri open, weekend closed — the shape most trades actually run.
+        var openDays: [String: (open: String, close: String)] = [
+            "monday": ("07:00", "16:00"), "tuesday": ("07:00", "16:00"),
+            "wednesday": ("07:00", "16:00"), "thursday": ("07:00", "16:00"),
+            "friday": ("07:00", "15:00"),
+        ]
+    }
+
+    static let brain = Brain()
+
     // MARK: - Brain voice fill
 
     /// Stands in for the parse endpoint so the confirmation flow can be driven
@@ -233,6 +265,44 @@ extension FlynnDemo {
                    applicationFeeCents: nil, paidAmountCents: nil, payidReference: nil,
                    createdAt: Date(), updatedAt: Date()),
     ]
+
+    /// Payments recorded during a demo run, keyed by invoice. Demo fixtures are
+    /// `let` constants, so this is the overlay that lets the money loop actually
+    /// close on screen: mark an invoice paid and watch the "owed" figure drop.
+    /// Process-lifetime only — a relaunch is back to the fixture state.
+    nonisolated(unsafe) private static var demoPayments: [UUID: Double] = [:]
+    private static let demoPaymentsLock = NSLock()
+
+    /// Fixtures with any demo-run payments applied. Everything that reads
+    /// invoices goes through here so one screen can't disagree with another.
+    static var invoicesWithPayments: [InvoiceDTO] {
+        demoPaymentsLock.lock()
+        let payments = demoPayments
+        demoPaymentsLock.unlock()
+        guard !payments.isEmpty else { return invoices }
+        return invoices.map { inv in
+            guard let extra = payments[inv.id] else { return inv }
+            var copy = inv
+            let paid = min(inv.amountPaid + extra, inv.total)
+            let due = max(inv.total - paid, 0)
+            copy.amountPaid = paid
+            copy.amountDue = due
+            copy.status = due <= 0.005 ? "paid" : "partial"
+            copy.paidAt = due <= 0.005 ? Date() : inv.paidAt
+            return copy
+        }
+    }
+
+    static func markInvoicePaid(id: UUID, amount: Double, method: String?) throws -> InvoiceDTO {
+        guard invoices.contains(where: { $0.id == id }) else { throw FlynnDemoError.notFound }
+        demoPaymentsLock.lock()
+        demoPayments[id, default: 0] += amount
+        demoPaymentsLock.unlock()
+        guard let updated = invoicesWithPayments.first(where: { $0.id == id }) else {
+            throw FlynnDemoError.notFound
+        }
+        return updated
+    }
 
     static let quotes: [QuoteDTO] = [
         QuoteDTO(id: ID.seeded(40), orgId: ID.org, quoteNumber: "QUO-204",

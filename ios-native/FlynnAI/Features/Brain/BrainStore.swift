@@ -88,6 +88,29 @@ final class BrainStore {
 
     func load() async {
         state = .loading
+        #if DEBUG
+        if FlynnDemo.isOn {
+            let b = FlynnDemo.brain
+            businessType = b.businessType
+            businessDescription = b.businessDescription
+            pricingNotes = b.pricingNotes
+            serviceArea = b.serviceArea
+            websiteURL = b.websiteURL
+            services = b.services.map {
+                EditService(name: $0.name, priceRange: $0.priceRange, typicalDuration: $0.duration)
+            }
+            days = EditDay.week().map { day in
+                guard let hours = b.openDays[day.key] else { return day }
+                var open = day
+                open.isOpen = true
+                open.open = hours.open
+                open.close = hours.close
+                return open
+            }
+            state = .loaded
+            return
+        }
+        #endif
         struct Svc: Decodable { let name: String?; let price_range: String?; let typical_duration: String? }
         struct Faq: Decodable { let question: String?; let answer: String? }
         struct Row: Decodable {

@@ -12,6 +12,8 @@ struct InvoiceDetailView: View {
     @State private var showingEditSheet = false
     @State private var showingSendPrompt = false
     @State private var sendToPhone = ""
+    @State private var showingPaidPrompt = false
+    @State private var paidAmountText = ""
 
     @Environment(FlashStore.self) private var flash
     @Environment(\.dismiss) private var dismiss
@@ -73,11 +75,27 @@ struct InvoiceDetailView: View {
         } message: {
             Text("We'll text the client a link to pay this invoice.")
         }
+        // Recording a payment stops the chaser and tells the client's next
+        // reminder not to go out, so it confirms rather than firing on a tap.
+        .alert("Record a payment", isPresented: $showingPaidPrompt) {
+            TextField("Amount", text: $paidAmountText).keyboardType(.decimalPad)
+            Button("Record") { Task { await markPaid() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let inv = invoice {
+                Text("\(FlynnFormatter.currency(inv.amountDue)) is still owing. "
+                     + "Record less than that and Flynn keeps chasing the balance.")
+            }
+        }
         .overlay { if isWorking { workingOverlay } }
     }
 
     private func headerCard(invoice: InvoiceDTO) -> some View {
         FlynnCard {
+            // One child only: FlynnCard's surface modifier distributes across
+            // multiple ViewBuilder children and would draw a separate card
+            // around each row.
+            VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(invoice.title ?? invoice.invoiceNumber)
@@ -91,6 +109,32 @@ struct InvoiceDetailView: View {
                     label: InvoiceStatusBadgeMapper.label(for: invoice.status),
                     variant: InvoiceStatusBadgeMapper.variant(for: invoice.status)
                 )
+            }
+            // This screen exists to answer "how much is this person still up
+            // for", which it previously never said anywhere.
+            Divider().padding(.vertical, FlynnSpacing.sm)
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(invoice.amountDue > 0 ? "Still owing" : "Paid in full")
+                        .flynnType(FlynnTypography.overline)
+                        .foregroundColor(FlynnColor.textTertiary)
+                    Text(FlynnFormatter.currency(invoice.amountDue))
+                        .flynnType(FlynnTypography.h2)
+                        .foregroundColor(invoice.amountDue > 0 ? FlynnColor.textPrimary : FlynnColor.success)
+                }
+                Spacer()
+                if invoice.amountPaid > 0 {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Paid")
+                            .flynnType(FlynnTypography.overline)
+                            .foregroundColor(FlynnColor.textTertiary)
+                        Text(FlynnFormatter.currency(invoice.amountPaid))
+                            .flynnType(FlynnTypography.bodyLarge)
+                            .foregroundColor(FlynnColor.textSecondary)
+                    }
+                }
+            }
+            .accessibilityElement(children: .combine)
             }
         }
     }
@@ -111,6 +155,20 @@ struct InvoiceDetailView: View {
                     variant: .secondary,
                     fullWidth: true
                 )
+                // Until money clears through Flynn's own rail there's nothing to
+                // detect a payment automatically, so the boss tells us. Without
+                // this the "owed" figure on Home only ever climbs.
+                if invoice.amountDue > 0 && invoice.status != "draft" {
+                    FlynnButton(
+                        title: "Mark paid",
+                        action: {
+                            paidAmountText = String(format: "%.2f", invoice.amountDue)
+                            showingPaidPrompt = true
+                        },
+                        variant: .success,
+                        fullWidth: true
+                    )
+                }
             }
             if invoice.status == "draft" {
                 HStack(spacing: FlynnSpacing.sm) {
@@ -359,6 +417,30 @@ struct InvoiceDetailView: View {
             _ = try await repository.sendViaSMS(invoiceId: invoiceId, toPhone: sendToPhone)
             flash.success("Invoice sent")
             await load()
+        } catch {
+            flash.error(error.localizedDescription)
+        }
+    }
+
+    private func markPaid() async {
+        // Accept "1,452.00", "$1452" and "1452" — this gets typed one-handed in
+        // a ute, not into a finance package.
+        let cleaned = paidAmountText
+            .replacingOccurrences(of: "$", with: "")
+            .replacingOccurrences(of: ",", with: "")
+            .trimmingCharacters(in: .whitespaces)
+        guard let amount = Double(cleaned), amount > 0 else {
+            flash.error("Enter an amount")
+            return
+        }
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            let updated = try await repository.markPaid(id: invoiceId, amount: amount, method: nil)
+            invoice = updated
+            flash.success(updated.amountDue > 0
+                          ? "Payment recorded, \(FlynnFormatter.currency(updated.amountDue)) still owing"
+                          : "Paid in full")
         } catch {
             flash.error(error.localizedDescription)
         }

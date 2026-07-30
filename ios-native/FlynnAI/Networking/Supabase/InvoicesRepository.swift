@@ -1,6 +1,15 @@
 import Foundation
 import Supabase
 
+private extension Double {
+    /// Money arithmetic in `Double` leaves fractions of a cent behind, and a
+    /// balance of 0.000000001 reads as "still owing". Round before comparing.
+    func rounded(toPlaces places: Int) -> Double {
+        let factor = pow(10.0, Double(places))
+        return (self * factor).rounded() / factor
+    }
+}
+
 protocol InvoicesRepositoryType: Sendable {
     func list(orgId: UUID, limit: Int) async throws -> [InvoiceDTO]
     func fetch(id: UUID) async throws -> InvoiceDTO
@@ -10,6 +19,7 @@ protocol InvoicesRepositoryType: Sendable {
     func update(id: UUID, title: String, clientPhone: String?, lineItems: [LineItem],
                 taxRate: Double, notes: String?, dueDate: Date?) async throws -> InvoiceDTO
     func delete(id: UUID) async throws
+    func markPaid(id: UUID, amount: Double, method: String?) async throws -> InvoiceDTO
     func generatePDF(invoiceId: UUID) async throws -> Data
     func sendViaSMS(invoiceId: UUID, toPhone: String) async throws -> Data
 }
@@ -23,7 +33,7 @@ final class InvoicesRepository: InvoicesRepositoryType {
 
     func list(orgId: UUID, limit: Int = 100) async throws -> [InvoiceDTO] {
         #if DEBUG
-        if FlynnDemo.isOn { return FlynnDemo.invoices }
+        if FlynnDemo.isOn { return FlynnDemo.invoicesWithPayments }
         #endif
         return try await client
             .from("invoices")
@@ -38,7 +48,7 @@ final class InvoicesRepository: InvoicesRepositoryType {
     func fetch(id: UUID) async throws -> InvoiceDTO {
         #if DEBUG
         if FlynnDemo.isOn {
-            guard let match = FlynnDemo.invoices.first(where: { $0.id == id }) else {
+            guard let match = FlynnDemo.invoicesWithPayments.first(where: { $0.id == id }) else {
                 throw FlynnDemoError.notFound
             }
             return match
@@ -116,6 +126,50 @@ final class InvoicesRepository: InvoicesRepositoryType {
 
     func delete(id: UUID) async throws {
         try await client.from("invoices").delete().eq("id", value: id.uuidString).execute()
+    }
+
+    /// Records a payment against an invoice.
+    ///
+    /// Writes the same columns as the SMS agent's `mark_invoice_paid`
+    /// (`services/agent/toolRegistry.js`) so the two entry points can't drift into
+    /// two different ideas of what "paid" means. `amount_paid`/`amount_due` are the
+    /// canonical numeric pair; the `*_cents` columns belong to the future payment
+    /// rail and are deliberately left alone here, because Flynn's fee comes out of
+    /// the tradie's settlement rather than off the client's payment — nothing about
+    /// recording a direct payment should touch them.
+    ///
+    /// A part payment leaves the invoice `partial` with the balance still owing, so
+    /// the Home "owed" figure stays truthful instead of jumping to zero on a deposit.
+    func markPaid(id: UUID, amount: Double, method: String?) async throws -> InvoiceDTO {
+        #if DEBUG
+        if FlynnDemo.isOn { return try FlynnDemo.markInvoicePaid(id: id, amount: amount, method: method) }
+        #endif
+        let current = try await fetch(id: id)
+        // Guard against a typo settling more than is owed, and against float drift
+        // leaving a fraction of a cent behind that reads as "still unpaid".
+        let paid = min(max(current.amountPaid + amount, 0), current.total)
+        let due = max((current.total - paid).rounded(toPlaces: 2), 0)
+        let settled = due <= 0
+        let now = ISO8601DateFormatter().string(from: Date())
+
+        struct Patch: Encodable {
+            let status: String
+            let amount_paid: Double
+            let amount_due: Double
+            let paid_at: String?
+            let payment_method: String?
+            let updated_at: String
+        }
+        let patch = Patch(
+            status: settled ? "paid" : "partial",
+            amount_paid: paid.rounded(toPlaces: 2),
+            amount_due: due,
+            paid_at: settled ? now : current.paidAt.map { ISO8601DateFormatter().string(from: $0) },
+            payment_method: method ?? current.paymentMethod,
+            updated_at: now
+        )
+        return try await client.from("invoices").update(patch)
+            .eq("id", value: id.uuidString).select().single().execute().value
     }
 
     func generatePDF(invoiceId: UUID) async throws -> Data {

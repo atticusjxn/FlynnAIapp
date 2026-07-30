@@ -13,9 +13,9 @@ struct InvoiceDTO: Identifiable, Codable, Hashable, Sendable {
     let taxRate: Double
     let taxAmount: Double
     let total: Double
-    let amountPaid: Double
-    let amountDue: Double
-    let status: String
+    var amountPaid: Double
+    var amountDue: Double
+    var status: String
     let notes: String?
     let terms: String?
     let dueDate: Date?
@@ -24,7 +24,7 @@ struct InvoiceDTO: Identifiable, Codable, Hashable, Sendable {
     let pdfUrl: String?
     let sentAt: Date?
     let viewedAt: Date?
-    let paidAt: Date?
+    var paidAt: Date?
     let paymentMethod: String?
     // Added by the payments-first org-spine migration (20260718000000.100).
     // applicationFeeCents is Flynn's own capped take on the payment — see

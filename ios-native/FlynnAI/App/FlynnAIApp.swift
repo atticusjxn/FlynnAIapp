@@ -11,6 +11,7 @@ struct FlynnAIApp: App {
     @State private var paywall = PaywallPresentation()
     @State private var appleSearchAdsAttribution = AppleSearchAdsAttributionStore()
     @AppStorage("flynn.appTheme") private var themeRaw: String = AppTheme.system.rawValue
+    @State private var hasRequestedPermissions = false
 
     init() {
         #if DEBUG
@@ -61,18 +62,14 @@ struct FlynnAIApp: App {
                     await auth.bootstrap()
                     await appleSearchAdsAttribution.claimIfAuthenticated()
                     await subscription.bootstrap()
-                    // Demo mode is for looking at screens; system permission
-                    // alerts sit on top of them and can't be dismissed from a
-                    // screenshot.
-                    if !FlynnDemo.isOn { await PushAuthorization.requestAndRegister() }
-                    // Request App Tracking Transparency permission so the Meta SDK
-                    // can collect IDFA for ad attribution. Apple requires this prompt
-                    // before any tracking-related data collection.
-                    if #available(iOS 14, *) {
-                        if !FlynnDemo.isOn {
-                            _ = await ATTrackingManager.requestTrackingAuthorization()
-                        }
-                    }
+                    // Permission prompts deliberately do NOT run here. On a cold
+                    // install this task fires while the login screen is up, so both
+                    // alerts landed before the user had typed anything. The
+                    // notification grant is one-shot — a "Don't Allow" there is
+                    // permanent short of a Settings trip, and every proactive thing
+                    // Flynn does depends on it. They're asked for below, once
+                    // there's an account to attach them to.
+                    if case .signedIn = auth.state { await requestPermissionsIfNeeded() }
                 }
                 .onChange(of: auth.state) { _, newState in
                     if case .signedIn = newState {
@@ -80,10 +77,32 @@ struct FlynnAIApp: App {
                         // Refresh the keyboard's long-lived token + shared config so
                         // the custom keyboard can reach the backend.
                         Task { await KeyboardBridge.sync() }
+                        Task { await requestPermissionsIfNeeded() }
                     } else if case .signedOut = newState {
                         KeyboardBridge.clear()
                     }
                 }
+        }
+    }
+
+    /// Asks for notifications and tracking, once, after sign-in.
+    ///
+    /// Both are cheap to call repeatedly — iOS only shows each alert once per
+    /// install — but `auth.state` can settle to `.signedIn` more than once in a
+    /// launch (bootstrap, then the onChange), so this guards anyway rather than
+    /// racing two prompts into the same frame.
+    @MainActor
+    private func requestPermissionsIfNeeded() async {
+        // Demo mode is for looking at screens; system permission alerts sit on
+        // top of them and can't be dismissed from a screenshot.
+        guard !FlynnDemo.isOn, !hasRequestedPermissions else { return }
+        hasRequestedPermissions = true
+        await PushAuthorization.requestAndRegister()
+        // ATT gates the IDFA the Meta SDK needs for ad attribution. It goes
+        // second so the notification ask — the one that matters to the product —
+        // isn't buried behind a tracking dialog.
+        if #available(iOS 14, *) {
+            _ = await ATTrackingManager.requestTrackingAuthorization()
         }
     }
 }
