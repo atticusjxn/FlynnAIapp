@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="_tokens.css">
+<style>
+  html, body { height: 100vh; }
+  body { display: flex; flex-direction: column; }
+  .frame { flex: 1; display: flex; flex-direction: column; padding: 72px 88px; position: relative; z-index: 2; }
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .top-spacer { flex: 0.4; }
+  .headline { font-size: 84px; line-height: 1.02; letter-spacing: -1.5px; }
+  .sub { font-size: 38px; line-height: 1.4; color: var(--ink-soft); margin-top: 30px; max-width: 760px; }
+  .mid-spacer { flex: 0.3; }
+  .mascot-row { display: flex; justify-content: center; }
+  .mascot { width: 62%; max-width: 520px; height: auto; }
+  .bottom-spacer { flex: 0.35; }
+  .bottom { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
+  .micro { font-size: 28px; color: var(--ink-faint); font-weight: 500; }
+</style></head>
+<body>
+  <div class="motif" style="width:420px;height:420px;top:-160px;left:-160px;border-color:var(--teal);opacity:.55;"></div>
+  <div class="motif" style="width:300px;height:300px;bottom:-120px;right:-120px;border-color:var(--mustard);"></div>
+
+  <div class="frame">
+    <div class="top">
+      <div class="wordmark"><span class="txt display">Flynn</span><span class="dot"></span></div>
+      <span class="eyebrow">Your receptionist</span>
+    </div>
+    <div class="top-spacer"></div>
+
+    <h1 class="headline display">Give her<br>a call.</h1>
+    <p class="sub">Ring the number, tell her about your business, and she's already answering calls the way you would.</p>
+
+    <div class="mid-spacer"></div>
+    <div class="mascot-row"><img class="mascot" src="../assets/mascot-wave.png" alt=""></div>
+    <div class="bottom-spacer"></div>
+
+    <div class="bottom">
+      <div class="cta-bar">📞&nbsp; Tap to call Flynn</div>
+      <span class="micro">Free to try — no card, no forms.</span>
+    </div>
+  </div>
+</body></html>

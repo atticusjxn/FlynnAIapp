@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="_tokens.css">
+<style>
+  html, body { width: 1080px; }
+  .card { width: 1080px; height: 1080px; position: relative; overflow: hidden; display: flex; flex-direction: column; padding: 56px 72px 0; }
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .page { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 26px; opacity: .55; letter-spacing: 1px; }
+  .eyebrow { margin: 26px 0 10px; font-size: 22px; }
+  .headline { font-size: 52px; line-height: 1.08; letter-spacing: -1px; max-width: 780px; }
+  .headline .o { color: var(--orange); }
+  .stage { flex: 1; display: flex; align-items: flex-end; justify-content: center; margin-top: 18px; }
+  .phone { width: 56%; max-width: 400px; }
+  .phone.tilt-l { transform: rotate(-3deg); }
+  .phone.tilt-r { transform: rotate(3deg); }
+  /* .dark on body (tokens.css) doesn't reach a card div nested inside it —
+     each card is its own mini-canvas, so the dark variant needs its own rule. */
+  .card.dark { background: var(--ink); }
+  .card.dark .eyebrow { color: var(--mustard); }
+</style></head>
+<body>
+
+  <div class="card" id="c1">
+    <div class="motif" style="width:300px;height:300px;top:-120px;right:-120px;border-color:var(--mustard);"></div>
+    <div class="top">
+      <div class="wordmark"><span class="txt display" style="font-size:28px">Flynn</span><span class="dot" style="width:10px;height:10px"></span></div>
+      <span class="page">1 / 4</span>
+    </div>
+    <span class="eyebrow">Step one</span>
+    <h1 class="headline display">She answers<br>when you <span class="o">can't.</span></h1>
+    <div class="stage"><div class="phone tilt-l"><img src="../assets/home.webp" alt=""></div></div>
+  </div>
+
+  <div class="card" id="c2">
+    <div class="motif" style="width:220px;height:220px;top:-140px;left:-140px;border-color:var(--teal);"></div>
+    <div class="top">
+      <div class="wordmark"><span class="txt display" style="font-size:28px">Flynn</span><span class="dot" style="width:10px;height:10px"></span></div>
+      <span class="page">2 / 4</span>
+    </div>
+    <span class="eyebrow">Step two</span>
+    <h1 class="headline display">Books it straight<br>into your <span class="o">calendar.</span></h1>
+    <div class="stage"><div class="phone tilt-r"><img src="../assets/bookings.webp" alt=""></div></div>
+  </div>
+
+  <div class="card" id="c3">
+    <div class="motif" style="width:300px;height:300px;bottom:-120px;right:-120px;border-color:var(--terracotta);"></div>
+    <div class="top">
+      <div class="wordmark"><span class="txt display" style="font-size:28px">Flynn</span><span class="dot" style="width:10px;height:10px"></span></div>
+      <span class="page">3 / 4</span>
+    </div>
+    <span class="eyebrow">Step three</span>
+    <h1 class="headline display">Invoices on the<br>spot. Gets you <span class="o">paid.</span></h1>
+    <div class="stage"><div class="phone tilt-l"><img src="../assets/invoice.webp" alt=""></div></div>
+  </div>
+
+  <div class="card dark" id="c4">
+    <div class="motif" style="width:300px;height:300px;top:-120px;right:-120px;border-color:rgba(244,230,206,.3);"></div>
+    <div class="top">
+      <div class="wordmark"><span class="txt display" style="font-size:28px;color:var(--cream)">Flynn</span><span class="dot" style="width:10px;height:10px"></span></div>
+      <span class="page" style="color:var(--cream)">4 / 4</span>
+    </div>
+    <span class="eyebrow">Step four</span>
+    <h1 class="headline display" style="color:var(--cream)">Learns your<br>prices, <span class="o">once.</span></h1>
+    <div class="stage"><div class="phone tilt-r" style="box-shadow:10px 10px 0 0 rgba(244,230,206,.4)"><img src="../assets/brain.webp" alt=""></div></div>
+  </div>
+
+</body></html>

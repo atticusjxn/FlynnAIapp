@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="_tokens.css">
+<style>
+  html, body { height: 100vh; }
+  body.dark {
+    display: flex; flex-direction: column;
+  }
+  .frame { flex: 1; display: flex; flex-direction: column; padding: 72px 88px; position: relative; z-index: 2; }
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .top-spacer { flex: 0.4; }
+  .eyebrow { margin-bottom: 22px; }
+  .headline { font-size: 76px; line-height: 1.04; letter-spacing: -1.5px; max-width: 880px; }
+  .stat-wrap { display: flex; align-items: baseline; gap: 20px; margin: 44px 0 26px; }
+  .stat { font-size: 220px; line-height: 1; letter-spacing: -6px; color: var(--orange); }
+  .stat-unit { font-size: 54px; color: var(--cream); opacity: .8; }
+  .sub { font-size: 38px; line-height: 1.35; color: var(--cream); opacity: .82; max-width: 760px; }
+  .mid-spacer { flex: 0.35; }
+  .bottom { display: flex; align-items: center; justify-content: space-between; gap: 32px; }
+  .mascot { width: 190px; height: auto; flex-shrink: 0; }
+</style></head>
+<body class="dark">
+  <div class="motif" style="width:520px;height:520px;top:-220px;right:-220px;"></div>
+  <div class="motif" style="width:260px;height:260px;bottom:-90px;left:-90px;border-color:var(--terracotta);opacity:.5;"></div>
+
+  <div class="frame">
+    <div class="top">
+      <div class="wordmark"><span class="txt display" style="color:var(--cream)">Flynn</span><span class="dot"></span></div>
+    </div>
+    <div class="top-spacer"></div>
+
+    <div class="eyebrow">Every missed call</div>
+    <h1 class="headline display">A job goes to<br>someone who<br><span style="color:var(--orange)">answered.</span></h1>
+
+    <div class="stat-wrap">
+      <span class="stat display">$400</span>
+      <span class="stat-unit display-semi">avg. job value*</span>
+    </div>
+    <p class="sub">Missed calls don't come back on their own. Flynn answers when you're on the tools, so the job doesn't go to the next number they try.</p>
+
+    <div class="mid-spacer"></div>
+
+    <div class="bottom">
+      <div class="cta-bar">Never miss another job</div>
+      <img class="mascot" src="../assets/mascot-thumbsup.png" alt="">
+    </div>
+  </div>
+</body></html>
