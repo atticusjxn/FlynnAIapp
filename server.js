@@ -1668,11 +1668,33 @@ app.post('/api/auth/app-link', async (req, res) => {
 // GET /app/open?token_hash=...&type=magiclink
 // HTTPS bounce for cold links (texted before the app is installed): opens the
 // custom scheme and falls back to the App Store.
+// Country-agnostic App Store link: Apple redirects /app/id<n> to the visitor's
+// own storefront, so this works for AU, NZ and US leads without a per-market
+// URL. The previous default here was 'https://apps.apple.com/app/flynn', which
+// is not a real App Store URL and returned 404. FLYNN_APP_STORE_URL was never
+// set in production, so every funnel lead who tapped their magic-link SMS
+// without the app installed - which is all of them, they are strangers who
+// heard of Flynn a minute earlier - was bounced onto a dead Apple page. Keep
+// this default pointing at something real so a missing env var can never
+// silently break the funnel again.
+const FLYNN_APP_STORE_URL = process.env.FLYNN_APP_STORE_URL || 'https://apps.apple.com/app/id6752254950';
+
 app.get('/app/open', (req, res) => {
   const tokenHash = (req.query.token_hash || '').toString();
   const type = (req.query.type || 'magiclink').toString();
   const scheme = `flynnai://auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(type)}`;
-  const appStore = process.env.FLYNN_APP_STORE_URL || 'https://apps.apple.com/app/flynn';
+  const appStore = FLYNN_APP_STORE_URL;
+
+  // The only server-side evidence that a lead ever tapped their link. Without
+  // it, a lead who never opened the SMS and a lead whose link was broken look
+  // identical in the database (both just stop at state 'sms_sent'), and those
+  // two need opposite fixes. Log a token prefix rather than the token: it is a
+  // single-use sign-in credential and does not belong in the log stream.
+  console.log('[AppLink] Open bounce hit.', {
+    tokenPrefix: tokenHash ? tokenHash.slice(0, 8) : null,
+    type,
+    userAgent: req.get('user-agent') || null,
+  });
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Opening Flynn…</title>
