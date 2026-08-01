@@ -1107,7 +1107,20 @@ const respondWithAiReceptionist = ({ req, res, inboundParams, profile, callSid }
  * org — the AI receptionist runs an intake interview and the extracted config
  * is staged for claim in the app (telephony/funnelIntake.js).
  */
-const respondWithFunnelIntake = async ({ req, res, inboundParams, callSid, fromNumber, toNumber }) => {
+const respondWithFunnelIntake = async ({
+  req,
+  res,
+  inboundParams,
+  callSid,
+  fromNumber,
+  toNumber,
+  // How this lead reached us. 'ad_line' is a prospect dialling the number in a
+  // Meta ad; 'web_callback' is the landing page "call me back" widget, where we
+  // placed the call. Both run the identical interview, so without this the two
+  // funnels are indistinguishable after the fact and the only way to tell them
+  // apart is querying the Twilio API for the call's direction.
+  source = 'ad_line',
+}) => {
   // Checks the configured think provider (Qwen by default) rather than
   // hard-coding GEMINI_API_KEY, which would drop every funnel caller into
   // voicemail on a Qwen deployment.
@@ -1142,8 +1155,10 @@ const respondWithFunnelIntake = async ({ req, res, inboundParams, callSid, fromN
     orgId: null,
     callSid,
     eventType: 'funnel_call_received',
-    direction: 'inbound',
-    payload: { fromNumber, toNumber },
+    // The web-callback leg is a call Flynn placed, so it is genuinely outbound;
+    // call_events_direction_check only permits 'inbound' or 'outbound'.
+    direction: source === 'web_callback' ? 'outbound' : 'inbound',
+    payload: { fromNumber, toNumber, source },
   });
 
   // Second call from the same number resumes the interview instead of restarting.
@@ -4635,7 +4650,10 @@ const logCallEvent = async ({
   direction = null,
   payload = {},
 }) => {
-  if (!orgId || !eventType) {
+  // A null orgId is legitimate, not a reason to drop the event: funnel callers
+  // are strangers with no org yet, and this guard is why call_events never held
+  // a single funnel_call_received row. Only a missing eventType is unusable.
+  if (!eventType) {
     return;
   }
 
@@ -5016,6 +5034,7 @@ app.post('/telephony/outbound-callback-answer', async (req, res) => {
       callSid,
       fromNumber: visitorPhone,
       toNumber: process.env.TWILIO_FLYNN_NUMBER || '+61480891471',
+      source: 'web_callback',
     });
   } catch (error) {
     console.error('[Telephony] Failed to process outbound callback-answer.', error);
@@ -5068,6 +5087,18 @@ app.post('/api/call-me-back', async (req, res) => {
     const rawPhone = req.body?.phone;
     const phone = normalizePhone(rawPhone);
     if (!phone) {
+      return res.status(400).json({ error: 'invalid phone number' });
+    }
+
+    // normalizePhone only strips separators and prepends '+', so "123" becomes
+    // "+123" and passes the truthiness check above. That is not enough on an
+    // unauthenticated endpoint that places a real billable call: without a
+    // length floor this dials anything a caller posts, including premium-rate
+    // and international numbers, at Flynn's expense. The widget enforces 8
+    // digits client-side, which protects nobody who posts to the API directly.
+    // E.164 allows at most 15 digits, and no reachable mobile has under 8.
+    const digitCount = phone.replace(/\D/g, '').length;
+    if (digitCount < 8 || digitCount > 15) {
       return res.status(400).json({ error: 'invalid phone number' });
     }
 

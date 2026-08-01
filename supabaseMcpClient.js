@@ -1103,10 +1103,9 @@ const recordCallEvent = async ({
   payload,
   occurredAt,
 }) => {
-  if (!orgId) {
-    throw new Error('orgId is required to record a call event.');
-  }
-
+  // orgId is intentionally optional: funnel/ad-line callers have no org yet,
+  // and their events are stored with a null org_id (see the
+  // 20260801000000_call_events_allow_funnel migration).
   if (!eventType) {
     throw new Error('eventType is required to record a call event.');
   }
@@ -1122,7 +1121,7 @@ const recordCallEvent = async ({
       occurred_at
     )
     values (
-      ${sqlString(orgId)},
+      ${orgId ? sqlString(orgId) : 'NULL'},
       ${numberId ? sqlString(numberId) : 'NULL'},
       ${callSid ? sqlString(callSid) : 'NULL'},
       ${sqlString(eventType)},

@@ -119,6 +119,11 @@ const buildFunnelSystemPrompt = (existingConfig) => {
     '- Then just chat. Ask ONE question at a time. React to what they actually say.',
     '- Call save_business_profile EVERY TIME you learn something new. Do not wait until',
     '  the end of the call. Partial saves are expected.',
+    '- You are reading speech-to-text off a phone line, so words come through wrong.',
+    '  Save what they OBVIOUSLY meant, not the literal text. "call detailing" is car',
+    '  detailing, "glacier" is glazier, "removal list" is removalist, "Tyler" is tiler.',
+    '  If a trade sounds made up, it was almost certainly misheard: pick the real trade',
+    '  it rhymes with. Only ask them to repeat it if you genuinely cannot tell.',
     '- If they ask how it works, what it costs, or whether you are a robot: answer straight,',
     '  short, and get back to the conversation. It is $79 a month after a 7 day free trial,',
     '  card required for the trial, cancel any time.',
@@ -178,7 +183,10 @@ const getFunnelFunctionSchema = () => [
       properties: {
         trade: {
           type: 'string',
-          description: 'Their trade or service, e.g. "plumber", "electrician", "landscaper", "cleaner"',
+          description:
+            'Their trade or service, e.g. "plumber", "electrician", "landscaper", "cleaner". '
+            + 'This is phone speech-to-text, so correct obvious mishearings before saving: write '
+            + 'the real trade they meant ("car detailing", not "call detailing"), never the raw text.',
         },
         business_name: {
           type: 'string',
@@ -215,6 +223,92 @@ const getFunnelFunctionSchema = () => [
   },
 ];
 
+/**
+ * Repair phone-ASR damage to the caller's trade before it is stored.
+ *
+ * The intake runs on 8kHz mulaw telephony audio through Deepgram Flux, which
+ * has no keyterm/keyword-prompting parameter (only eot_threshold,
+ * eager_eot_threshold, eot_timeout_ms and language_hint), so the trade cannot
+ * be biased at the STT layer. Whatever Flux hears is what the model sees, and
+ * the model saves it verbatim: a real caller's "car detailing" was stored as
+ * "call detailing", which would then configure their receptionist to answer for
+ * a business that does not exist.
+ *
+ * Two layers cover this. The system prompt tells the model to write down the
+ * real-world trade rather than the literal transcript (see
+ * buildFunnelSystemPrompt), and this function is the deterministic backstop for
+ * when it passes the mangled text through anyway.
+ *
+ * The lists below are the confusions actually seen or strongly expected on this
+ * audio path, not an exhaustive ASR error model. Anything unrecognised is left
+ * untouched so a genuine niche trade is never rewritten into the wrong one.
+ */
+
+// Whole-value corrections, matched after lowercasing and collapsing whitespace.
+const TRADE_PHRASE_FIXES = new Map([
+  ['call detailing', 'car detailing'],
+  ['cool detailing', 'car detailing'],
+  ['core detailing', 'car detailing'],
+  ['card detailing', 'car detailing'],
+  ['removal list', 'removalist'],
+  ['removal is', 'removalist'],
+  ['pest patrol', 'pest control'],
+  ['best control', 'pest control'],
+  ['air con', 'air conditioning'],
+  ['aircon', 'air conditioning'],
+  ['gyprock', 'gyprocking'],
+  ['lawn moaning', 'lawn mowing'],
+  ['lawn morning', 'lawn mowing'],
+]);
+
+// Single-token corrections, applied word by word when no phrase matched. Every
+// entry is a misheard or misspelt token, never a valid alternative name for a
+// trade: "tiling", "concreting" and "brickie" are all things a real tradie
+// legitimately says, so they are deliberately absent. This map corrects errors,
+// it does not impose preferred vocabulary on the caller.
+const TRADE_WORD_FIXES = new Map([
+  ['tyler', 'tiler'],
+  ['glacier', 'glazier'],
+  ['arbourist', 'arborist'],
+  ['aborist', 'arborist'],
+  ['concreater', 'concreter'],
+  ['carpentary', 'carpentry'],
+  ['carpentery', 'carpentry'],
+  ['plummer', 'plumber'],
+  ['plumer', 'plumber'],
+  ['electrican', 'electrician'],
+  ['mechanik', 'mechanic'],
+  ['landscapper', 'landscaper'],
+]);
+
+const normaliseTrade = (raw) => {
+  if (!raw || typeof raw !== 'string') return raw;
+
+  const cleaned = raw.trim().replace(/\s+/g, ' ');
+  if (!cleaned) return raw;
+
+  const lower = cleaned.toLowerCase();
+
+  const phraseFix = TRADE_PHRASE_FIXES.get(lower);
+  if (phraseFix) {
+    if (phraseFix !== lower) {
+      console.log('[FunnelIntake] Corrected mis-transcribed trade.', { heard: cleaned, stored: phraseFix });
+    }
+    return phraseFix;
+  }
+
+  const words = lower.split(' ');
+  const fixed = words.map((w) => TRADE_WORD_FIXES.get(w) || w);
+  const result = fixed.join(' ');
+
+  if (result !== lower) {
+    console.log('[FunnelIntake] Corrected mis-transcribed trade.', { heard: cleaned, stored: result });
+    return result;
+  }
+
+  return cleaned;
+};
+
 /** Parse "$120 inc GST" / "no callout fee" style answers into cents, or null. */
 const calloutFeeToCents = (raw) => {
   if (!raw || typeof raw !== 'string') return null;
@@ -242,9 +336,13 @@ const saveFunnelConfig = async ({ callerPhone, callSid, config, _retried }) => {
     .maybeSingle();
 
   const expired = existing && new Date(existing.expires_at) < new Date();
+  const incoming = pruneEmpty(config);
+  if (incoming.trade) {
+    incoming.trade = normaliseTrade(incoming.trade);
+  }
   const merged = {
     ...((existing && !expired ? existing.business_config : null) || {}),
-    ...pruneEmpty(config),
+    ...incoming,
   };
 
   if (existing) {
@@ -296,6 +394,47 @@ const pruneEmpty = (obj) => {
     out[k] = v;
   }
   return out;
+};
+
+// The answers that actually configure a usable receptionist. How many of these
+// we hold decides whether the follow-up SMS can honestly claim a finished setup.
+const ESSENTIAL_CONFIG_FIELDS = ['trade', 'business_name', 'owner_name', 'service_areas', 'hours'];
+
+const countCapturedEssentials = (config) => {
+  if (!config || typeof config !== 'object') return 0;
+  return ESSENTIAL_CONFIG_FIELDS.filter((field) => {
+    const value = config[field];
+    if (value === null || value === undefined || value === '') return false;
+    if (Array.isArray(value)) return value.length > 0;
+    return true;
+  }).length;
+};
+
+/**
+ * Onboarding SMS copy, keyed to how much the call actually produced.
+ *
+ * Under two essentials the caller dropped out early, so the message admits the
+ * call was cut short and asks them to finish in the app rather than claiming a
+ * receptionist that is ready to go. Tone rules from CLAUDE.md: lowercase
+ * opener, no em dashes, short sentences, prose only.
+ */
+const buildOnboardingSms = ({ url, claimCode, captured }) => {
+  const thin = captured < 2;
+
+  if (!url) {
+    return thin
+      ? `hey, it's Flynn. we got cut off before I had much to go on. grab the Flynn app from the App Store and sign in with this number, you can finish setting your receptionist up in a minute. setup code if you need it: ${claimCode}`
+      : `hey, it's Flynn. your receptionist's ready. grab the Flynn app from the App Store and sign in with this number, everything you told me is already there. setup code if you need it: ${claimCode}`;
+  }
+
+  // The sign-in tail carries the same claim as the opener, so it varies too.
+  // Telling a caller who answered one question that "everything's already
+  // there" is the exact promise this whole branch exists to avoid making.
+  const codeLine = `only if you use a different number, your setup code is ${claimCode}`;
+
+  return thin
+    ? `hey, it's Flynn. we got cut off before I had much to go on, no worries. tap this and you can finish setting your receptionist up in the app, takes about a minute: ${url}\n\nsign in with this same number. ${codeLine}`
+    : `hey, it's Flynn. your receptionist's ready, she learned your business from that call. tap this and she's live in under a minute: ${url}\n\nsign in with this same number and everything's already there. ${codeLine}`;
 };
 
 /**
@@ -368,9 +507,14 @@ const completeFunnelCall = async ({ callerPhone, callSid, transcript }) => {
   // Naming it "setup code" and saying when it's needed is what stops them
   // trying to type it into the sign-in field.
   const url = link?.httpsUrl || link?.url || null;
-  const body = url
-    ? `hey, it's Flynn. your receptionist's ready, she learned your business from that call. tap this and she's live in under a minute: ${url}\n\nsign in with this same number and everything's already there. only if you use a different number, your setup code is ${session.claim_code}`
-    : `hey, it's Flynn. your receptionist's ready. grab the Flynn app from the App Store and sign in with this number, everything you told me is already there. setup code if you need it: ${session.claim_code}`;
+
+  // Callers who hang up in the first few seconds used to get the same "she
+  // learned your business from that call" text as someone who did the full
+  // interview. Promising a finished setup to a person who answered one question
+  // reads as a lie at exactly the moment they have to decide whether to tap, so
+  // short calls get copy that matches what Flynn actually got.
+  const captured = countCapturedEssentials(session.business_config);
+  const body = buildOnboardingSms({ url, claimCode: session.claim_code, captured });
 
   try {
     await twilioClient.messages.create({
@@ -397,9 +541,18 @@ const completeFunnelCall = async ({ callerPhone, callSid, transcript }) => {
 let lastReengageSweep = 0;
 const REENGAGE_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 
+// Two variants per nudge for the same reason the onboarding SMS has two: a
+// caller who hung up after one question has no "setup" saved to come back to,
+// and telling them she remembers everything from the call is plainly false.
 const REENGAGE_MESSAGES = [
-  (url) => `hey, your receptionist's still sitting here ready to go. she remembers everything from your call. one tap and she's answering for you: ${url}`,
-  (url) => `last one from me, promise. your setup's saved for a few more days if you want it: ${url}`,
+  {
+    rich: (url) => `hey, your receptionist's still sitting here ready to go. she remembers everything from your call. one tap and she's answering for you: ${url}`,
+    thin: (url) => `hey, we got cut off the other day before I had much to go on. still keen? it's a couple of questions in the app and she's answering your calls: ${url}`,
+  },
+  {
+    rich: (url) => `last one from me, promise. your setup's saved for a few more days if you want it: ${url}`,
+    thin: (url) => `last one from me, promise. if you want to finish setting her up, the link still works for a few more days: ${url}`,
+  },
 ];
 
 const processFunnelReengage = async () => {
@@ -435,7 +588,9 @@ const processFunnelReengage = async () => {
       await twilioClient.messages.create({
         to: session.caller_phone,
         from: SMS_FROM_NUMBER,
-        body: REENGAGE_MESSAGES[session.reengage_count](url),
+        body: REENGAGE_MESSAGES[session.reengage_count][
+          countCapturedEssentials(session.business_config) < 2 ? 'thin' : 'rich'
+        ](url),
       });
       await supabase
         .from('voice_onboarding_sessions')
@@ -466,4 +621,7 @@ module.exports = {
   completeFunnelCall,
   calloutFeeToCents,
   generateClaimCode,
+  normaliseTrade,
+  countCapturedEssentials,
+  buildOnboardingSms,
 };
