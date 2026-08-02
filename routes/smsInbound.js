@@ -6,6 +6,7 @@ const { sendToUser } = require('../services/flynnOutbound');
 const { sanitiseReply } = require('../services/flynnTone');
 const { ensureAuthUser, generateAppLink } = require('../services/authLink');
 const { provisionDemoAccount, isDemoCode } = require('../services/demoAccount');
+const { isAgentAllowed } = require('../services/agentGate');
 
 const router = express.Router();
 
@@ -62,6 +63,28 @@ router.post('/inbound', async (req, res) => {
   if (supabase && isDemoCode(body)) {
     try { await provisionDemoAccount(from, { supabase, channel: 'sms' }); }
     catch (e) { console.error('[demo] sms provision failed:', e?.message || e); }
+    return res.sendStatus(200);
+  }
+
+  // Default-deny gate. Everything below this point creates a user record and
+  // runs the agent, so an unknown sender must never reach it: that is how a
+  // wrong number and a gym's billing line both ended up in a conversation with
+  // Flynn. The message is still recorded for visibility, but nothing is created
+  // and nothing is sent back.
+  const gate = await isAgentAllowed({ phone: from, supabase });
+  if (!gate.allowed) {
+    console.log('[SMSInbound] Ignoring message from a sender the agent is not allowed to engage.', {
+      from,
+      reason: gate.reason,
+      bodyLength: body.length,
+    });
+    if (supabase) {
+      await supabase.from('sms_messages').insert({
+        user_phone: from,
+        direction: 'in',
+        body,
+      }).then(() => {}).catch(() => {});
+    }
     return res.sendStatus(200);
   }
 

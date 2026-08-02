@@ -27,6 +27,7 @@ const { sendToUser } = require('../services/flynnOutbound');
 const { sanitiseReply } = require('../services/flynnTone');
 const { provisionDemoAccount, isDemoCode } = require('../services/demoAccount');
 const { ensureAuthUser } = require('../services/authLink');
+const { isAgentAllowed } = require('../services/agentGate');
 const metaCapi = require('../services/metaCapi');
 const generator = require('../services/dashboard/manifestGenerator');
 const { createDashboardLoginLink } = require('../services/dashboardLink');
@@ -265,6 +266,29 @@ async function processInbound(payload) {
     } catch (e) {
       console.error('[demo] command failed:', e?.message || e);
       await sendToUser(from, `demo command failed: ${e?.message || e}`, { channel: 'imessage', supabase }).catch(() => {});
+    }
+    return;
+  }
+
+  // Default-deny gate, and it has to sit above markRead/setTyping rather than
+  // just above the agent call: a read receipt and a typing indicator are both
+  // visible to the sender, so running them for a stranger already tells that
+  // person someone is reading their message. This relay reads the operator's
+  // own iMessage, so "stranger" here means their friends, clients and the
+  // automated lines they get billed by, none of whom are Flynn users.
+  const gate = await isAgentAllowed({ phone: from, supabase });
+  if (!gate.allowed) {
+    console.log('[iMessageInbound] Ignoring message from a sender the agent is not allowed to engage.', {
+      from,
+      reason: gate.reason,
+      bodyLength: (body || '').length,
+    });
+    if (supabase) {
+      await supabase.from('sms_messages').insert({
+        user_phone: from,
+        direction: 'in',
+        body,
+      }).then(() => {}, () => {});
     }
     return;
   }
