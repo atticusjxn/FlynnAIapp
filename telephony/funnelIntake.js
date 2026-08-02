@@ -469,11 +469,46 @@ const completeFunnelCall = async ({ callerPhone, callSid, transcript }) => {
     }
   }
 
-  const session = await getFunnelSession(phone);
+  let session = await getFunnelSession(phone);
+
+  // No session means the caller hung up before saying anything the model could
+  // save, so save_business_profile was never called and nothing was staged.
+  // That used to end the call here with no SMS at all: a lead who asked to be
+  // rung back, answered, and listened to the greeting got total silence, and
+  // the re-engage sweep could not reach them either because it only looks at
+  // sessions in state 'sms_sent'. One of the first three real leads was lost
+  // exactly this way.
+  //
+  // Creating the session anyway is safe. This function only runs from the
+  // Voice Agent's cleanup, which is reached only once the media stream has
+  // actually connected, so anyone here answered the phone and heard Flynn.
+  // Unanswered, busy and failed calls never get this far. Requiring a turn of
+  // transcript keeps out the degenerate case where the agent never spoke.
+  //
+  // saveFunnelConfig does the creation rather than a bare insert here because
+  // it already handles the two edge cases: an expired row still owns the
+  // caller's unique phone slot and has to be revived in place, and a concurrent
+  // save can lose a unique-violation race. Empty config is a legitimate state.
   if (!session) {
-    console.warn('[FunnelIntake] Call completed but no session found (caller may not have said anything useful).', { phone, callSid });
-    return;
+    if (!Array.isArray(transcript) || transcript.length === 0) {
+      console.warn('[FunnelIntake] Call completed with no session and no transcript; nothing to send.', { phone, callSid });
+      return;
+    }
+
+    console.log('[FunnelIntake] Call completed before anything was captured; staging a session so the lead still gets a link.', { phone, callSid });
+    const created = await saveFunnelConfig({ callerPhone: phone, callSid, config: {} });
+    if (!created?.success) {
+      console.error('[FunnelIntake] Failed to stage session for an empty call.', { phone, callSid, error: created?.error });
+      return;
+    }
+
+    session = await getFunnelSession(phone);
+    if (!session) {
+      console.error('[FunnelIntake] Staged session for an empty call but could not read it back.', { phone, callSid });
+      return;
+    }
   }
+
   if (session.state === 'claimed' || session.state === 'receptionist_live') {
     // Existing customer ringing the ad line again; nothing to send.
     return;
