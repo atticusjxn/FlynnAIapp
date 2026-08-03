@@ -102,20 +102,24 @@ const buildFunnelSystemPrompt = (existingConfig) => {
     'an AI if asked, and confident about it. You are the product and you know it.',
     '',
     'GOAL:',
-    'Have a natural conversation that captures how their business works. Every answer you',
-    'collect configures THEIR receptionist. By the end of the call you want:',
+    'Get TWO things and then get off the phone:',
     '- their trade (plumber, sparky, chippy, landscaper, cleaner, etc.)',
-    '- business name (if they have one)',
     '- their name',
-    '- suburbs or areas they service',
-    '- working hours (rough is fine: "weekdays 7 to 4" is enough)',
-    '- what they charge for a callout, if they charge one',
-    '- what they want done with after-hours calls (take a message, book for next day, or flag emergencies)',
+    '',
+    'That is the whole required list. Everything else about their business (areas,',
+    'hours, callout fee, after-hours handling) is set up later in the app, and you',
+    'must NOT ask for any of it.',
+    '',
+    'WHY THE LIST IS THIS SHORT:',
+    'The people on this call are strangers who saw an ad a minute ago. Real ones have',
+    'hung up 17 and 34 seconds in, part-way through being asked a seventh question,',
+    'and we lost them. A stranger will give you two answers, not seven. Two answers',
+    'and a texted link beats a complete profile you never get because they hung up.',
+    'If they volunteer more, save it. Never go fishing for it.',
     '',
     'HOW TO RUN THE CALL:',
-    '- Open by explaining the deal in one breath: they talk to you for a minute or two,',
-    '  and their own receptionist is set up from the conversation, live on their phone',
-    '  within about a minute of hanging up. Free week to try it.',
+    '- Open by explaining the deal in one breath: two quick answers and their own',
+    '  receptionist is live on their phone within about a minute. Free week to try it.',
     '- Then just chat. Ask ONE question at a time. React to what they actually say.',
     '- Call save_business_profile EVERY TIME you learn something new. Do not wait until',
     '  the end of the call. Partial saves are expected.',
@@ -134,13 +138,24 @@ const buildFunnelSystemPrompt = (existingConfig) => {
     '- Casual, warm, Australian. "no worries", "too easy", "arvo" where natural.',
     '- SHORT responses, 1 to 2 sentences. Contractions always.',
     '- Never corporate, never salesy. You are demonstrating, not pitching.',
-    '- One question at a time. Never repeat a question they have answered.',
+    '',
+    'ASK, THEN STOP:',
+    'When you ask a question, that is the END of your turn. Say nothing else until they',
+    'have replied. Do not follow your own question with a rephrasing, an example, or a',
+    'prompt to answer. On real calls we asked "Whereabouts do you service?" and then, a',
+    'second and a half later, "Any suburbs or areas you\'re active in?" before the caller',
+    'had drawn breath. That is talking over them, and both callers who heard it hung up.',
+    'Silence after a question is correct and you must leave it there. Never repeat a',
+    'question they have already answered.',
     '',
     'CLOSING:',
-    '- Once you have the essentials (trade, area, hours at minimum), wrap up:',
-    '  "Righto, I\'ve got everything I need. I\'ll text you a link right now, tap it and',
+    '- The moment you have their trade AND their name, you are done. Do not ask anything',
+    '  further, do not confirm details back to them one by one, wrap up:',
+    '  "Righto, that\'s all I need. I\'ll text you a link right now, tap it and',
     '  your receptionist\'s live in under a minute. Sound good?"',
     '- Confirm, say goodbye briefly, and END THE CALL. Do not keep chatting.',
+    '- If they stall or go quiet before you have both, do not chase. Offer the link',
+    '  anyway: "no dramas, I\'ll text you the link and you can have a look later."',
   ];
 
   if (resume) {
@@ -166,7 +181,12 @@ const buildFunnelGreeting = (existingConfig) => {
     const name = existingConfig.owner_name ? ` ${String(existingConfig.owner_name).split(' ')[0]}` : '';
     return `Hey${name}, good to hear from you again! Want to pick up where we left off?`;
   }
-  return "G'day, you've got Flynn! Quick heads up, I'm an AI receptionist, and here's the fun part: if you tell me a bit about your business, you'll have your own version of me answering your calls in about a minute. What trade are you in?";
+  // Kept deliberately short. The previous greeting ran about thirteen seconds of
+  // a stranger's attention before it reached the question, and one real lead hung
+  // up seventeen seconds into the call having answered once. The pitch has to
+  // land and hand over inside a breath, so promise "two quick answers" (which is
+  // now literally true) and ask the first question immediately.
+  return "G'day, you've got Flynn. I'm an AI receptionist, and if you give me two quick answers you'll have your own version of me answering your phone in about a minute. What trade are you in?";
 };
 
 /**
@@ -396,9 +416,15 @@ const pruneEmpty = (obj) => {
   return out;
 };
 
-// The answers that actually configure a usable receptionist. How many of these
-// we hold decides whether the follow-up SMS can honestly claim a finished setup.
-const ESSENTIAL_CONFIG_FIELDS = ['trade', 'business_name', 'owner_name', 'service_areas', 'hours'];
+// The answers the call actually asks for. How many of these we hold decides
+// whether the follow-up SMS can honestly claim a finished setup.
+//
+// This used to also list business_name, service_areas and hours, from when the
+// call worked through seven questions. The call now asks two and sets the rest
+// up in the app, so scoring the SMS against questions we never ask would mark
+// every successful call as a drop-out. Anything the caller volunteers still
+// gets saved by save_business_profile, it just does not gate the copy.
+const ESSENTIAL_CONFIG_FIELDS = ['trade', 'owner_name'];
 
 const countCapturedEssentials = (config) => {
   if (!config || typeof config !== 'object') return 0;
@@ -413,7 +439,7 @@ const countCapturedEssentials = (config) => {
 /**
  * Onboarding SMS copy, keyed to how much the call actually produced.
  *
- * Under two essentials the caller dropped out early, so the message admits the
+ * Without both answers the caller dropped out early, so the message admits the
  * call was cut short and asks them to finish in the app rather than claiming a
  * receptionist that is ready to go. Tone rules from CLAUDE.md: lowercase
  * opener, no em dashes, short sentences, prose only.
@@ -424,7 +450,7 @@ const buildOnboardingSms = ({ url, claimCode, captured }) => {
   if (!url) {
     return thin
       ? `hey, it's Flynn. we got cut off before I had much to go on. grab the Flynn app from the App Store and sign in with this number, you can finish setting your receptionist up in a minute. setup code if you need it: ${claimCode}`
-      : `hey, it's Flynn. your receptionist's ready. grab the Flynn app from the App Store and sign in with this number, everything you told me is already there. setup code if you need it: ${claimCode}`;
+      : `hey, it's Flynn. your receptionist's ready to go. grab the Flynn app from the App Store and sign in with this number, everything you told me is already there. setup code if you need it: ${claimCode}`;
   }
 
   // The sign-in tail carries the same claim as the opener, so it varies too.
@@ -434,7 +460,7 @@ const buildOnboardingSms = ({ url, claimCode, captured }) => {
 
   return thin
     ? `hey, it's Flynn. we got cut off before I had much to go on, no worries. tap this and you can finish setting your receptionist up in the app, takes about a minute: ${url}\n\nsign in with this same number. ${codeLine}`
-    : `hey, it's Flynn. your receptionist's ready, she learned your business from that call. tap this and she's live in under a minute: ${url}\n\nsign in with this same number and everything's already there. ${codeLine}`;
+    : `hey, it's Flynn. your receptionist's ready to go. tap this and she's live in under a minute: ${url}\n\nsign in with this same number and everything you told me is already there. ${codeLine}`;
 };
 
 /**
