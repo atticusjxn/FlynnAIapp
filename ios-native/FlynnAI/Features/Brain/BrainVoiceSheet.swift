@@ -34,6 +34,7 @@ struct BrainVoiceSheet: View {
             }
             .background(FlynnColor.background)
             .navigationTitle("What Flynn heard")
+            .dismissKeyboardOnTap()
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: FlynnSpacing.xs) {

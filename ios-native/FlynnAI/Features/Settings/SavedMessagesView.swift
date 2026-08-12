@@ -52,6 +52,7 @@ struct SavedMessagesView: View {
         .listStyle(.insetGrouped)
         .flynnListSurface()
         .navigationTitle("Quick messages")
+        .dismissKeyboardOnTap()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .topBarTrailing) { EditButton() } }
         .onAppear { messages = SharedStore.savedMessages }

@@ -137,6 +137,7 @@ struct QuoteFormView: View {
             }
             .flynnListSurface()
             .navigationTitle(editQuote == nil ? "New Quote" : "Edit Quote")
+            .dismissKeyboardOnTap()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .disabled(isBusy)

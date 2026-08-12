@@ -65,6 +65,7 @@ struct RememberedContextView: View {
         }
         .flynnListSurface()
         .navigationTitle("What Flynn remembers")
+        .dismissKeyboardOnTap()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

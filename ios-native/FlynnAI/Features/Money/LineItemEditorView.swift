@@ -50,6 +50,7 @@ struct LineItemEditorView: View {
             }
             .flynnListSurface()
             .navigationTitle("Line Item")
+            .dismissKeyboardOnTap()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

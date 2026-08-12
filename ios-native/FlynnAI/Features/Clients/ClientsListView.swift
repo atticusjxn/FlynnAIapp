@@ -20,10 +20,10 @@ struct ClientsListView: View {
                 }
             case .loaded:
                 if store.clients.isEmpty {
-                    ContentUnavailableView(
-                        "No clients yet",
-                        systemImage: "person.2",
-                        description: Text("Clients you've captured leads or jobs for will appear here.")
+                    MascotEmptyState(
+                        pose: .wave,
+                        title: "No clients yet",
+                        message: "Clients you've captured leads or jobs for show up here — Flynn adds them automatically from calls and texts."
                     )
                 } else {
                     list
@@ -57,7 +57,7 @@ struct ClientsListView: View {
                     NavigationLink(value: Route.clientDetail(id: client.id)) {
                         ClientRow(client: client)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FlynnPressable())
                 }
             }
             .padding(.horizontal, FlynnSpacing.lg)

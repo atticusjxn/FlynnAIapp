@@ -67,6 +67,7 @@ struct QuoteStyleView: View {
         }
         .flynnListSurface()
         .navigationTitle("Your quote style")
+        .dismissKeyboardOnTap()
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
         .onChange(of: pickedItem) { _, item in

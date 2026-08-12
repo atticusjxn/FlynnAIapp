@@ -27,6 +27,7 @@ struct AddReplySheet: View {
             .padding(FlynnSpacing.lg)
             .background(FlynnColor.background)
             .navigationTitle("Add a reply")
+            .dismissKeyboardOnTap()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }

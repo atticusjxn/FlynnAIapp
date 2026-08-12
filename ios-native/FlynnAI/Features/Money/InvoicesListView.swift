@@ -66,7 +66,7 @@ struct InvoicesListView: View {
                     NavigationLink(value: Route.invoiceDetail(id: invoice.id)) {
                         InvoiceRow(invoice: invoice)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FlynnPressable())
                 }
             }
             .padding(.horizontal, FlynnSpacing.lg)

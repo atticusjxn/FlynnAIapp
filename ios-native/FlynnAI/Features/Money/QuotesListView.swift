@@ -68,7 +68,7 @@ struct QuotesListView: View {
                     NavigationLink(value: Route.quoteDetail(id: quote.id)) {
                         QuoteRow(quote: quote)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FlynnPressable())
                 }
             }
             .padding(.horizontal, FlynnSpacing.lg)

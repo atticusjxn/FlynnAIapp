@@ -78,7 +78,7 @@ struct EventsListView: View {
         NavigationLink(value: Route.eventDetail(id: event.id)) {
             EventRow(event: event)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FlynnPressable())
     }
 }
 

@@ -31,6 +31,7 @@ struct ClientPickerSheet: View {
                 }
             }
             .navigationTitle("Select Client")
+            .dismissKeyboardOnTap()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

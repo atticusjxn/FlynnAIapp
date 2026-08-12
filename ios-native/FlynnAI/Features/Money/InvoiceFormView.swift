@@ -149,6 +149,7 @@ struct InvoiceFormView: View {
             }
             .flynnListSurface()
             .navigationTitle(editInvoice == nil ? "New Invoice" : "Edit Invoice")
+            .dismissKeyboardOnTap()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .disabled(isBusy)

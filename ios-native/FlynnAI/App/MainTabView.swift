@@ -91,6 +91,10 @@ struct MainTabView: View {
             root()
                 .navigationDestination(for: Route.self) { route in destination(for: route) }
                 .toolbar { ToolbarItem(placement: .topBarLeading) { DrawerButton() } }
+                // One place to cover every screen pushed in this tab — the Money
+                // form stack, the note fields, the detail editors — that used to
+                // strand the keyboard with no way to dismiss it.
+                .dismissKeyboardOnTap()
         }
         .tabItem { Label(t.title, systemImage: t.systemImage) }
         .tag(t)
