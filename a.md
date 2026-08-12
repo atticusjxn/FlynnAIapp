@@ -163,25 +163,39 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
 - [ ] **3.8** Both sides confirmed by SMS; writes a calendar event and a `jobs` row.
 - [ ] **3.9** No deposit; built so opt-in deposit slots in later.
 
-## Gate 4 — Bugs
+## Gate 4 — Bugs + Design rollout (6 passes, all committed, building clean on iOS 26 SDK)
 
-- [ ] **4.1** Keyboard dismissal — **12 screens have none** (whole Money form stack). Repo-wide
-      there are 3 `onTapGesture` calls and none dismiss a keyboard.
-- [ ] **4.2** Mic: a *tap* starts and aborts a recording, surfacing "Didn't catch that."
-      (`VoiceHoldButton.swift:73-96`, `DragGesture(minimumDistance: 0)`, no hold guard).
-- [ ] **4.3** Missing third haptic (documented at `:188`, doesn't exist); larger base size.
-      *Amplitude reactivity is already real — don't rebuild it.*
-- [ ] **4.4** Home "Recent activity" / "Waiting on your OK" not tappable — and the models carry
-      **no id**, so there is nothing to navigate to. Add ids, then `NavigationLink`s.
-- [ ] **4.5** The Calls tab doesn't exist, but "See all" and the deep-link router both select
-      it — undefined shell state.
-- [ ] **4.6** Real Terms / Support / Account screens (currently `PlaceholderDetailView`,
-      reachable by deep link — App Store review exposure).
-- [ ] **4.7** Notification labels describe the wrong keys.
+- [x] **4.1** Keyboard dismissal — shared `dismissKeyboardOnTap()` applied at the tab-stack root
+      + all 9 input sheets.
+- [x] **4.2** Mic tap-starts-a-recording → 160ms hold-guard; a tap now shows "hold the mic to talk".
+- [x] **4.3** Third haptic added; mic bigger (60pt), filled orange, glowing.
+- [x] **4.4** Home "Recent activity" tappable (opens full message); "Waiting on your OK" gets real
+      Confirm/Cancel routed to the agent.
+- [x] **4.5** Calls tab undefined-state fixed — real `Route.callsList` pushes `CallsListView`.
+- [x] **4.6** Real `SupportView` / `LegalView` (Terms) screens; Account routes to `AccountView`.
+- [x] **4.7** Notification labels corrected (`new_call` → "Calls answered", `usage_warning` →
+      "Usage warning"; trial "3 days" claim dropped).
 - [ ] **4.8** 23 fixed-size SF Symbols + `minimumScaleFactor`. *Dynamic Type is otherwise fine.*
-- [ ] **4.9** Remove the dead "Referrals are coming soon" (top drawer item).
-- [ ] **4.10** "Play recording" is an empty action with hit-testing disabled.
-- [ ] **4.11** Delete dead-but-compiled UI.
+      **Deferred** — mostly icons, low impact.
+- [x] **4.9** Dead "Referrals are coming soon" drawer row removed.
+- [x] **4.10** "Play recording" is now a real button that opens the recording.
+- [ ] **4.11** Delete dead-but-compiled UI (UsageBarCard, CalendarConnectCard, CallModeSelectorView,
+      IVRScriptEditorView). **Deferred** — harmless, some goes with Gate 5's keyboard cut.
+
+### Design rollout (beyond the bug list)
+
+- [x] **Design thesis** — kept the mid-century identity; killed the uniform brutalism. One hero
+      per screen, everything else quiet. Real iOS 26 Liquid Glass on the floating bars.
+- [x] **Home** rebuilt — money hero, quiet everything-else, floating glass agent bar, unified tabs.
+- [x] **Agent bar + ContextualVoiceBar** — both the same floating Liquid Glass capsule + big mic,
+      on Home and every detail screen.
+- [x] **All 5 tabs** — unified filled icon set (multicolour brain → sparkle), branded empty
+      states, pressable rows.
+- [x] **All detail screens** (client/invoice/quote/event/call) — graduated hierarchy.
+- [x] **Settings** rebuilt off the stock inset-List onto Flynn's grouped quiet cards.
+- [x] **CLAUDE.md design system** rewritten to the real Swift tokens.
+- [ ] **Money segmented control** — the saturated-orange pill could calm. Minor.
+- [ ] **Onboarding funnel** — the one design item that's also Gate 2 (functional). Not started.
 
 ## Gate 5 — Surface cuts
 
