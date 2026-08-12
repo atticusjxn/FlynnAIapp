@@ -11,6 +11,12 @@ SUPABASE_URL = https:/$()/zvfeafmmtfplzpnocyjw.supabase.co
 // Flynn telephony / API base
 FLYNN_API_BASE_URL = https:/$()/flynnai-telephony.fly.dev
 
+// PostHog. The project key is a publishable client key, not a secret — the
+// same one is already embedded in the landing page's JavaScript. It only
+// permits writes, which is why it can ship in a client bundle.
+POSTHOG_API_KEY = phc_BHXAEfwYDkbwoHQANDTMnDj9XwhFPFECLSeA4cs4r94C
+POSTHOG_HOST = https:/$()/us.i.posthog.com
+
 // Facebook / Meta SDK — real values live in Secrets.local.xcconfig (gitignored).
 // Get these from developers.facebook.com → My Apps → FlynnAI → Settings → Basic.
 FACEBOOK_APP_ID =

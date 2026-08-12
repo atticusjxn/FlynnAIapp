@@ -18,5 +18,27 @@ final class PaywallPresentation {
     func present(reason: Reason = .manual) {
         self.reason = reason
         isPresented = true
+        Analytics.capture(.paywallViewed, ["reason": reason.analyticsValue])
+    }
+
+    /// Call when the sheet closes without a purchase. Paired with
+    /// `paywall_viewed`, the gap between the two is the single number that says
+    /// whether the price or the pitch is wrong.
+    func dismissed(purchased: Bool) {
+        isPresented = false
+        guard !purchased else { return }
+        Analytics.capture(.paywallDismissed, ["reason": reason.analyticsValue])
+    }
+}
+
+extension PaywallPresentation.Reason {
+    /// Low-cardinality label — `featureGate` keeps its feature name because
+    /// which gate sent them there is the interesting part.
+    var analyticsValue: String {
+        switch self {
+        case .manual: return "manual"
+        case .usageLimit: return "usage_limit"
+        case .featureGate(let feature): return "feature_gate:\(feature)"
+        }
     }
 }

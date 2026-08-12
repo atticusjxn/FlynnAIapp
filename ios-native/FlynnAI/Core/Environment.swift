@@ -31,6 +31,19 @@ enum FlynnEnv {
         infoString("STRIPE_PUBLISHABLE_KEY")
     }
 
+    /// PostHog project key. Publishable and write-only, so it ships in the
+    /// bundle — the same key is already in the landing page's JavaScript.
+    /// Nil disables analytics rather than crashing.
+    static var posthogAPIKey: String? {
+        let value = infoString("POSTHOG_API_KEY")
+        return (value?.isEmpty ?? true) ? nil : value
+    }
+
+    static var posthogHost: String {
+        let value = infoString("POSTHOG_HOST")
+        return (value?.isEmpty ?? true) ? "https://us.i.posthog.com" : value!
+    }
+
     /// Australian Business Register web services GUID. Nil until configured,
     /// which the Getting Paid screen treats as "let them type the ABN".
     static var abrGUID: String? {

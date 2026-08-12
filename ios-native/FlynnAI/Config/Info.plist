@@ -74,6 +74,10 @@
 	<string>Flynn notifies you when a booking is added to your calendar or a draft is ready.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>FlynnAI uses this identifier to measure ad performance and show you more relevant ads.</string>
+	<key>POSTHOG_API_KEY</key>
+	<string>$(POSTHOG_API_KEY)</string>
+	<key>POSTHOG_HOST</key>
+	<string>$(POSTHOG_HOST)</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>

@@ -32,6 +32,9 @@ packages:
   FacebookSDK:
     url: https://github.com/facebook/facebook-ios-sdk
     from: "17.0.0"
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios
+    from: "3.0.0"
 
 targets:
   FlynnAI:
@@ -88,6 +91,8 @@ targets:
         SUPABASE_URL: $(SUPABASE_URL)
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         FLYNN_API_BASE_URL: $(FLYNN_API_BASE_URL)
+        POSTHOG_API_KEY: $(POSTHOG_API_KEY)
+        POSTHOG_HOST: $(POSTHOG_HOST)
         ABR_GUID: $(ABR_GUID)
         FacebookAppID: $(FACEBOOK_APP_ID)
         FacebookClientToken: $(FACEBOOK_CLIENT_TOKEN)
@@ -118,6 +123,8 @@ targets:
         product: Supabase
       - package: FacebookSDK
         product: FacebookCore
+      - package: PostHog
+        product: PostHog
       - sdk: AdServices.framework
       - target: FlynnKeyboard
     scheme:

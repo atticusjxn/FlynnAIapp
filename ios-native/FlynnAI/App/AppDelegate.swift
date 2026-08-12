@@ -13,9 +13,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
 
+        // Analytics first, so nothing during launch is missed.
+        Analytics.start()
+
         // Initialise the Meta Facebook SDK for app-install attribution and event logging.
-        // Auto-events (App Install, app activation) fire automatically. We log
-        // StartTrial / CompletedRegistration / Purchase manually from the relevant views.
+        // Auto-events (App Install, app activation) fire automatically.
+        //
+        // StartTrial and Subscribe are sent SERVER-side from the Apple webhook
+        // (telephony/subscriptionService.js) rather than from a view: that is
+        // the only place a trial is actually Apple-verified, and it cannot be
+        // lost to the app being backgrounded mid-purchase. This comment used to
+        // claim they were logged manually here; they never were.
         ApplicationDelegate.shared.application(
             application,
             didFinishLaunchingWithOptions: launchOptions

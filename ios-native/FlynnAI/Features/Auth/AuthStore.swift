@@ -76,6 +76,9 @@ final class AuthStore {
             if let session { setSignedIn(session: session) }
         case .signedOut, .userDeleted:
             state = .signedOut
+            // Otherwise the next person to use this device is recorded as the
+            // previous one.
+            Analytics.reset()
         default:
             break
         }
@@ -83,6 +86,15 @@ final class AuthStore {
 
     private func setSignedIn(session: Session) {
         state = .signedIn(userID: session.user.id, email: session.user.email)
+
+        // Bind analytics to the Supabase user id. This exact value is what the
+        // backend uses as its PostHog distinctId, so client and server events
+        // describe one person — without that, every funnel step that crosses
+        // the boundary reads as a total drop-off.
+        Analytics.identify(
+            userId: session.user.id.uuidString,
+            properties: ["email": session.user.email ?? ""]
+        )
     }
 
     /// Confirms the restored session still maps to a live user server-side by

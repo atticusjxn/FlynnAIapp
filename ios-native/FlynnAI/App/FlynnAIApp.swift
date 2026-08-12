@@ -38,7 +38,17 @@ struct FlynnAIApp: App {
                 .preferredColorScheme(colorScheme)
                 .sheet(isPresented: Binding(
                     get: { paywall.isPresented },
-                    set: { paywall.isPresented = $0 }
+                    set: { presenting in
+                        // Route closing through the coordinator so a dismissal
+                        // without a purchase is recorded. paywall_viewed minus
+                        // paywall_dismissed is the clearest read on whether the
+                        // price or the pitch is the problem.
+                        if presenting {
+                            paywall.isPresented = true
+                        } else {
+                            paywall.dismissed(purchased: subscription.currentEntitlement != nil)
+                        }
+                    }
                 )) {
                     SubscriptionView()
                         .environment(flash)

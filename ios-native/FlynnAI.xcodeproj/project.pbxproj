@@ -15,6 +15,7 @@
 		11A967ABA57C7123C2212EC6 /* QuoteStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E477CD4C4B62B7E7CCB333 /* QuoteStatusBadge.swift */; };
 		14270E604923FD22002556F6 /* EventInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 955D33A2EBF6B1FDF8450FCE /* EventInput.swift */; };
 		17B96BADEC38A05FDCB20B4C /* ClientFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0C92C67EA205426776B5B83 /* ClientFormView.swift */; };
+		19149AC6473A0AD6C8C27199 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = E187A6110C8E0E7432C52E42 /* PostHog */; };
 		1A490B08CFCAA5B9F83EB85F /* QuoteStyleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B22162BD14B348F81C9EC4B /* QuoteStyleStore.swift */; };
 		1C38EC0CC70889291F9E99BA /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2D50EEC1E429C31A4AFE34F /* DashboardView.swift */; };
 		1F5EEB8B5CA034D0FB2C1004 /* BrainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D814965D344034186B5002B5 /* BrainStore.swift */; };
@@ -190,6 +191,7 @@
 		F4A6C13D01C56E7B43ECC6EE /* VoiceCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 054AADFF941257A29E658561 /* VoiceCaptureManager.swift */; };
 		F544DA454D4EC1EF97703410 /* OnboardingSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731E3C4A9179C783D08F7C00 /* OnboardingSteps.swift */; };
 		F75B0A3217D7E2C49260D607 /* GoogleCalendarConnect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139819673423D6AB673F53BD /* GoogleCalendarConnect.swift */; };
+		F9E8CF33B065D34FDED262FD /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E3EE40241CE5AB1D036DA4 /* Analytics.swift */; };
 		FB213FABBCDEC210463A6AF4 /* QuoteRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C0093A1FCD01BB6E63E6E9 /* QuoteRow.swift */; };
 		FF4F53D1524ED8E6B612DD92 /* KeyboardDraftClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8C35B740660515C2D64307 /* KeyboardDraftClient.swift */; };
 /* End PBXBuildFile section */
@@ -366,6 +368,7 @@
 		C07CC15E91E63348D5BE0497 /* CallEventsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallEventsRepository.swift; sourceTree = "<group>"; };
 		C1A853CD7DA4C44732339D25 /* PaywallPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallPresentation.swift; sourceTree = "<group>"; };
 		C3B5682766FA50AA8B174C31 /* ClientRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientRow.swift; sourceTree = "<group>"; };
+		C5E3EE40241CE5AB1D036DA4 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		C7136EDB81E28083036459F5 /* BusinessProfileEditorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessProfileEditorStore.swift; sourceTree = "<group>"; };
 		C83315D778BFDD5095CB678E /* SubscriptionDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionDTO.swift; sourceTree = "<group>"; };
 		C8963C2DC24A1EC7C5488402 /* CallsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallsListView.swift; sourceTree = "<group>"; };
@@ -410,6 +413,7 @@
 			files = (
 				23EEB803C60E20E2E03ABDF8 /* Supabase in Frameworks */,
 				BEE97EB57890B6A1790C0AA7 /* FacebookCore in Frameworks */,
+				19149AC6473A0AD6C8C27199 /* PostHog in Frameworks */,
 				6EED3AB633829910FF35A6BD /* AdServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -560,6 +564,7 @@
 			isa = PBXGroup;
 			children = (
 				5DBA6F20CE13AA27265FB952 /* Calendar */,
+				C5E3EE40241CE5AB1D036DA4 /* Analytics.swift */,
 				312A0A151B052FD4DCB18274 /* AppleSearchAdsAttributionStore.swift */,
 				355F5E44CAB6D203E0036B66 /* BrainGapNudge.swift */,
 				1BEED2AD81D1FF35BC339A71 /* DeviceCapability.swift */,
@@ -930,6 +935,7 @@
 			packageProductDependencies = (
 				20E0D0AE264C68C3B4911E18 /* Supabase */,
 				FEA1F272489DDB59DED247D2 /* FacebookCore */,
+				E187A6110C8E0E7432C52E42 /* PostHog */,
 			);
 			productName = FlynnAI;
 			productReference = DD0BFDE0091F66879C8CA695 /* FlynnAI.app */;
@@ -983,6 +989,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				030D571B73E094BED0CB5B3B /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */,
+				D306E538018EC04BF46668A5 /* XCRemoteSwiftPackageReference "posthog-ios" */,
 				26E0C0BC2A36A9207C4C7C53 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -1032,6 +1039,7 @@
 				A40D43C4DF6D41C58C9D5554 /* AgentClient.swift in Sources */,
 				E04C9A9C6175CB04FE776F02 /* AgentConversationStore.swift in Sources */,
 				E819202224624FE338AB11FC /* AgentInputBar.swift in Sources */,
+				F9E8CF33B065D34FDED262FD /* Analytics.swift in Sources */,
 				6B4869B1B129F7B25F0FFD7F /* AppDelegate.swift in Sources */,
 				04E47062D19D438ED921AAC9 /* AppearanceView.swift in Sources */,
 				6F05E635F3CE5F3D73ABA513 /* AppleCalendarService.swift in Sources */,
@@ -1477,6 +1485,14 @@
 				minimumVersion = 2.0.0;
 			};
 		};
+		D306E538018EC04BF46668A5 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1484,6 +1500,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 26E0C0BC2A36A9207C4C7C53 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		E187A6110C8E0E7432C52E42 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D306E538018EC04BF46668A5 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 		FEA1F272489DDB59DED247D2 /* FacebookCore */ = {
 			isa = XCSwiftPackageProductDependency;
