@@ -93,6 +93,16 @@ enum Analytics {
         config.sessionReplayConfig.maskAllTextInputs = true
         config.sessionReplayConfig.maskAllImages = false
 
+        // Uncaught-exception capture is NOT a client setting — posthog-ios gates
+        // it on remote config (`errorTracking.autocaptureExceptions`), so it is
+        // turned on in PostHog under Project settings → Error tracking, and this
+        // build picks it up on the next remote-config fetch. Leaving
+        // config.remoteConfig at its default is what makes that possible.
+        //
+        // Symbolicated crash traces additionally need dSYMs uploaded at build
+        // time (posthog-cli, which needs a personal API key). Until that is set
+        // up, crashes arrive but the stack frames are addresses.
+
         PostHogSDK.shared.setup(config)
         FlynnLog.app.notice("Analytics started")
     }
@@ -127,10 +137,11 @@ enum Analytics {
         PostHogSDK.shared.capture(name, properties: properties)
     }
 
-    /// Record a caught error. Not a crash reporter — PostHog's own exception
-    /// autocapture handles uncaught ones — this is for failures the app
-    /// swallows, which until now went only to the device console and were
-    /// therefore unobservable in production.
+    /// Record a caught error. This is for failures the app *swallows* — which
+    /// is most of them: every repository falls back to an empty list and logs
+    /// to `FlynnLog`, so a broken API read looked identical to a user with no
+    /// data. Uncaught crashes are handled separately by PostHog's exception
+    /// autocapture (see the remote-config note in `start()`).
     static func captureFailure(_ context: String, error: Error) {
         guard isEnabled else { return }
         PostHogSDK.shared.capture("app_error", properties: [
