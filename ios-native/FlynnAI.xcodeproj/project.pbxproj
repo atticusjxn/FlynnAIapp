@@ -81,6 +81,7 @@
 		6865D1A8F7161D69132F937A /* LineItemEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCB6CEB71C56CE019A3560D0 /* LineItemEditorView.swift */; };
 		69352FAC0C7BC063FCCE3483 /* KeyboardDraftClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8C35B740660515C2D64307 /* KeyboardDraftClient.swift */; };
 		6ADF0BF2F246C41298FB8691 /* VoiceProfilesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016C61DC16F111E157CF1402 /* VoiceProfilesRepository.swift */; };
+		6B1DB2AA39F7ADB839F476F4 /* SupportLegalScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C37F8E3275A255A80354E66 /* SupportLegalScreens.swift */; };
 		6B4869B1B129F7B25F0FFD7F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92E4E91B0BD1F6B57E77EB0A /* AppDelegate.swift */; };
 		6EED3AB633829910FF35A6BD /* AdServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9113E666C44DCD6102F3B353 /* AdServices.framework */; };
 		6F05E635F3CE5F3D73ABA513 /* AppleCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C5068E960417E649CCCBAF /* AppleCalendarService.swift */; };
@@ -282,6 +283,7 @@
 		4AEEDE39516F623943897BFE /* KeyboardSetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardSetupFlow.swift; sourceTree = "<group>"; };
 		4B570D00B5D7BD87F308E37D /* SubscriptionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionDetailView.swift; sourceTree = "<group>"; };
 		4C283C2FC4BD3E0A574751EC /* QuotesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotesRepository.swift; sourceTree = "<group>"; };
+		4C37F8E3275A255A80354E66 /* SupportLegalScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportLegalScreens.swift; sourceTree = "<group>"; };
 		4D11AE286A282D7E9D7BF40D /* ClientDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientDetailView.swift; sourceTree = "<group>"; };
 		4FB586DF6E61D37C789DCC86 /* BusinessProfileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessProfileEditorView.swift; sourceTree = "<group>"; };
 		51D352FB477574D2F391449F /* PlansRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlansRepository.swift; sourceTree = "<group>"; };
@@ -673,6 +675,7 @@
 				1D4CB6D4D5A44CA3B43172C9 /* PaymentDetailsView.swift */,
 				EB25A8296327793A669D06F4 /* SavedMessagesView.swift */,
 				3DFB3A91B8765EB59CAAB44F /* SettingsView.swift */,
+				4C37F8E3275A255A80354E66 /* SupportLegalScreens.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -1196,6 +1199,7 @@
 				6F40B0C5F3462A47540208A3 /* SubscriptionView.swift in Sources */,
 				82AFD630B76742EE96692736 /* SubscriptionsRepository.swift in Sources */,
 				CE2E72B03B428D52F0258213 /* SupabaseClient+Flynn.swift in Sources */,
+				6B1DB2AA39F7ADB839F476F4 /* SupportLegalScreens.swift in Sources */,
 				245331E6475477D2AA78CC20 /* Typography.swift in Sources */,
 				D5A8C3376081E4AE0496C82F /* UsageBarCard.swift in Sources */,
 				CB3386EE73D20C93264D63F8 /* UsageDTO.swift in Sources */,

@@ -141,7 +141,13 @@ struct MainTabView: View {
             PaymentDetailsView()
         case .callForwarding:
             CallForwardingView()
-        case .bookingPage, .businessType, .support, .terms, .account:
+        case .support:
+            SupportView()
+        case .terms:
+            LegalView(kind: .terms)
+        case .account:
+            AccountView()
+        case .bookingPage, .businessType:
             PlaceholderDetailView(title: section.title, id: nil)
         }
     }

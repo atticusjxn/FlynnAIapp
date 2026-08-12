@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CallDetailView: View {
     let callId: UUID
+    @Environment(\.openURL) private var openURL
 
     @State private var call: CallDTO?
     @State private var errorMessage: String?
@@ -28,7 +29,7 @@ struct CallDetailView: View {
                         NavigationLink(value: Route.eventDetail(id: jobId)) {
                             linkedEventCard
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FlynnPressable())
                     }
                 } else if let errorMessage {
                     ContentUnavailableView(
@@ -75,7 +76,7 @@ struct CallDetailView: View {
     }
 
     private func transcriptCard(call: CallDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
                 HStack {
                     Text("Transcript")
@@ -96,23 +97,29 @@ struct CallDetailView: View {
     }
 
     private func recordingCard(call: CallDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Recording")
                     .flynnType(FlynnTypography.overline)
                     .foregroundColor(FlynnColor.textTertiary)
                 if let urlString = call.recordingUrl, let url = URL(string: urlString) {
-                    Link(destination: url) {
-                        FlynnButton(title: "Play recording", action: {}, variant: .secondary, icon: Image(systemName: "play.circle"))
-                            .allowsHitTesting(false)
-                    }
+                    // Was a FlynnButton with an empty action wrapped in a Link
+                    // with hit-testing disabled — it looked like an in-app
+                    // player but did nothing on its own control. Now a real
+                    // button with press feedback that opens the recording.
+                    FlynnButton(
+                        title: "Play recording",
+                        action: { openURL(url) },
+                        variant: .secondary,
+                        icon: Image(systemName: "play.circle.fill")
+                    )
                 }
             }
         }
     }
 
     private var linkedEventCard: some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             HStack {
                 VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
                     Text("Linked event")
