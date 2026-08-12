@@ -31,68 +31,97 @@ struct ContextualVoiceBar: View {
     }
 
     var body: some View {
-        HStack(spacing: FlynnSpacing.md) {
-            VStack(alignment: .leading, spacing: 2) {
-                if voice.state == .listening {
-                    HStack(alignment: .center, spacing: FlynnSpacing.xs) {
-                        VoiceLevelMeter(
-                            level: voice.level,
-                            barCount: 4,
-                            tint: cancelArmed ? FlynnColor.textTertiary : FlynnColor.primary
-                        )
-                        Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
-                            .flynnType(FlynnTypography.bodyMedium)
-                            .foregroundColor(cancelArmed ? FlynnColor.textTertiary
-                                             : (voice.transcript.isEmpty ? FlynnColor.textTertiary : FlynnColor.textPrimary))
-                            .strikethrough(cancelArmed)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    VoiceCancelHint(armed: cancelArmed)
-                } else if conversation.isSending {
-                    HStack(spacing: FlynnSpacing.xs) {
-                        ProgressView().controlSize(.small)
-                        Text("Flynn's on it…")
-                            .flynnType(FlynnTypography.bodyMedium)
-                            .foregroundColor(FlynnColor.textSecondary)
-                    }
-                } else if let errorText {
-                    Text(errorText)
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(FlynnColor.error)
-                        .lineLimit(2)
-                } else {
-                    Text(prompt)
-                        .flynnType(FlynnTypography.bodyMedium)
-                        .foregroundColor(FlynnColor.textPrimary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+        FlynnGlassGroup(spacing: FlynnSpacing.xs) {
+            HStack(spacing: FlynnSpacing.sm) {
+                statusPill
+                VoiceHoldButton(
+                    voice: voice,
+                    onSubmit: { transcript in Task { await send(transcript) } },
+                    onCancel: { errorText = nil },
+                    onNothingHeard: { errorText = "didn't catch that, hold and try again" },
+                    onTapTooQuick: {},   // hold guard already blocks the stray-tap recording
+                    onStart: { errorText = nil },
+                    onCancelArmedChange: { cancelArmed = $0 }
+                )
+                .disabled(conversation.isSending)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-
-            VoiceHoldButton(
-                voice: voice,
-                onSubmit: { transcript in Task { await send(transcript) } },
-                onCancel: { errorText = nil },
-                onNothingHeard: { errorText = "Didn't catch that." },
-                onStart: { errorText = nil },
-                onCancelArmedChange: { cancelArmed = $0 }
-            )
-            .disabled(conversation.isSending)
         }
-        .padding(.horizontal, FlynnSpacing.lg)
-        .padding(.vertical, FlynnSpacing.sm)
+        .padding(.horizontal, FlynnSpacing.md)
+        .padding(.top, FlynnSpacing.md)
+        .padding(.bottom, FlynnSpacing.sm)
+        // Same grounding scrim as the Home agent bar so content fades into the
+        // page behind the floating glass instead of clashing with it.
         .background(
-            FlynnColor.backgroundSecondary
-                .ignoresSafeArea(edges: .bottom)
-                .overlay(alignment: .top) {
-                    Rectangle().fill(FlynnColor.borderSubtle).frame(height: FlynnStroke.hairline)
-                }
+            LinearGradient(
+                stops: [
+                    .init(color: FlynnColor.background.opacity(0), location: 0),
+                    .init(color: FlynnColor.background.opacity(0.96), location: 0.4),
+                    .init(color: FlynnColor.background, location: 0.75),
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .bottom)
+            .allowsHitTesting(false)
         )
         .sheet(item: $reply) { r in
             ContextualVoiceReplySheet(reply: r) { onCompleted() }
+        }
+    }
+
+    /// The floating glass pill that mirrors the Home agent bar's field, but shows
+    /// state (prompt / live transcript / sending / error) rather than being an
+    /// input — on a detail screen you talk, you don't type.
+    private var statusPill: some View {
+        pillContent
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, FlynnSpacing.md)
+            .padding(.vertical, 14)
+            .flynnGlass(in: Capsule(style: .continuous), interactive: true)
+            .background {
+                Capsule(style: .continuous).fill(FlynnColor.backgroundSecondary.opacity(0.72))
+            }
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(FlynnColor.borderSubtle.opacity(0.6), lineWidth: 1)
+            )
+            .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var pillContent: some View {
+        if voice.state == .listening {
+            VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
+                HStack(alignment: .center, spacing: FlynnSpacing.xs) {
+                    VoiceLevelMeter(level: voice.level, barCount: 4,
+                                    tint: cancelArmed ? FlynnColor.textTertiary : FlynnColor.primary)
+                    Text(voice.transcript.isEmpty ? "listening…" : voice.transcript)
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(cancelArmed ? FlynnColor.textTertiary
+                                         : (voice.transcript.isEmpty ? FlynnColor.textTertiary : FlynnColor.textPrimary))
+                        .strikethrough(cancelArmed)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                VoiceCancelHint(armed: cancelArmed)
+            }
+        } else if conversation.isSending {
+            HStack(spacing: FlynnSpacing.xs) {
+                ProgressView().controlSize(.small)
+                Text("Flynn's on it…")
+                    .flynnType(FlynnTypography.bodyMedium)
+                    .foregroundColor(FlynnColor.textSecondary)
+            }
+        } else if let errorText {
+            Text(errorText)
+                .flynnType(FlynnTypography.bodyMedium)
+                .foregroundColor(FlynnColor.error)
+                .lineLimit(2)
+        } else {
+            Text(prompt)
+                .flynnType(FlynnTypography.bodyMedium)
+                .foregroundColor(FlynnColor.textSecondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

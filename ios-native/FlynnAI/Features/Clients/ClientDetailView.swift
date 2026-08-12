@@ -127,7 +127,7 @@ struct ClientDetailView: View {
     }
 
     private func contactCard(client: ClientDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Contact")
                     .flynnType(FlynnTypography.overline)
@@ -175,7 +175,7 @@ struct ClientDetailView: View {
     }
 
     private func statsCard(client: ClientDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Activity")
                     .flynnType(FlynnTypography.overline)
@@ -204,7 +204,7 @@ struct ClientDetailView: View {
     }
 
     private func notesCard(notes: String) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
                 Text("Notes")
                     .flynnType(FlynnTypography.overline)
