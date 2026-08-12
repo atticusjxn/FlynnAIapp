@@ -71,27 +71,45 @@ on ~A$900/mo of Meta spend plus organic.
       ships in the iOS bundle and the landing page JS. A sweep found **12 more** open the same
       way, including `merge_user_into` (account takeover) and `get_upcoming_events` /
       `get_user_stats` (any tenant's data, RLS bypassed). All 13 now service_role only.
-- [ ] **0.5** CI/CD: GitHub Action test → deploy on merge to `main`. Stand up
-      `flynnai-telephony-staging`.
-- [ ] **0.6** Purge dead Telnyx secrets from Fly. Delete `telephony/realtimeHandler.js` (59KB),
+- [x] **0.5** CI/CD: GitHub Action runs tests **and a clean-checkout boot check** on every push
+      and PR, deploys to Fly only when `main` is green, then polls `/health` and fails the run
+      if prod doesn't come back. Deploys now go through CI (v288, v289 landed this way).
+      ⏸️ *Staging deliberately not stood up:* it would need its own Supabase project. Pointing
+      `flynnai-telephony-staging` at prod would write test data into real tenants — worse than
+      no staging.
+- [x] **0.6** Dead Telnyx secrets purged from Fly. Deleted 77KB: `realtimeHandler.js` (59KB),
       `cartesiaTTS.js`, `quoteLinkHandler.js`, `usageGuard.js`.
-- [ ] **0.7** Set `CARTESIA_VOICE_AU_MALE` (absent — male voice falls through to a US default).
+- [x] **0.7** `CARTESIA_VOICE_AU_MALE` is set-but-**empty**, and `buildSpeakConfig` read that as
+      "no Cartesia voice" and fell through to Deepgram's `aura-2-theia-en` — **an American voice
+      answering the phone for an Australian tradie**, silently. Now falls back to the other AU
+      voice and warns. ⏳ *Still needs a real male AU voice UUID from Cartesia's library.*
 
 > **Deferred deliberately:** the `draft_picks` keyboard-sources migration. It exists only to
 > let the keyboard write `'rewrite'`/`'chip'`, and Gate 5.1 deletes the keyboard — so the
 > constraint gets dropped with it rather than widened for dead code.
 
-## Gate 1 — Instrumentation
+## Gate 1 — Instrumentation ✅ (code complete; 3 dashboard actions left)
 
-- [ ] **1.1** PostHog iOS SDK; identify on auth, alias the pre-auth anonymous id.
-- [ ] **1.2** PostHog Node SDK in `server.js`, same distinct ids.
-- [ ] **1.3** PostHog on the landing page; pass `fbclid`/UTM through to install attribution.
-- [ ] **1.4** Ship the canonical event schema (below).
-- [ ] **1.5** Mobile session replay ON (2,500/mo free) — watch people fail onboarding.
-- [ ] **1.6** Error tracking + dSYM upload. A production crash is currently invisible.
-- [ ] **1.7** Fix Meta CAPI: fire real server-side `StartTrial` / `CompletedRegistration`.
-      `AppDelegate.swift:17` claims these exist; only `logPurchase` does.
-- [ ] **1.8** Build the funnel dashboard.
+- [x] **1.1** PostHog iOS SDK (`Core/Analytics.swift`), identify on sign-in, reset on sign-out.
+      Autocapture deliberately OFF so the named funnel steps aren't buried.
+- [x] **1.2** PostHog Node SDK (`services/analytics.js`). **Verified live in prod:**
+      `[Analytics] PostHog enabled` in the Fly logs on v289.
+- [x] **1.3** Landing page already had a live project key — same project, so web/app/server
+      land together. *(Web→app identity cannot join through PostHog; nothing survives the App
+      Store handoff. That join is Meta CAPI + the phone bridge.)*
+- [x] **1.4** Canonical event schema shipped in both, with a shared `distinctId` = Supabase
+      user id so client and server events describe one person.
+- [x] **1.5** Mobile session replay ON, text inputs masked.
+- [x] **1.7** Meta CAPI now fires **StartTrial** and **Subscribe** server-side from the Apple
+      webhook, carrying the click bridge. `AppDelegate` claimed these were logged from the
+      views; they never were, so Meta had nothing downstream of the install to learn from.
+- [ ] **1.6** ⚠️ **Needs a toggle in PostHog** — posthog-ios gates crash capture on *remote
+      config*, not client code. Turn on Project settings → Error tracking → autocapture
+      exceptions. Symbolication additionally needs dSYM upload via posthog-cli.
+- [ ] **1.8** Build the funnel dashboard in the PostHog UI.
+
+> Verified: the project key accepts events (`{"status":"Ok"}`), iOS builds clean against
+> PostHog 3.69.5, and the backend logs confirm initialisation in production.
 
 ```
 app_installed · signup_started · signup_completed
