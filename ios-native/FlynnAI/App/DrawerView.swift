@@ -49,13 +49,8 @@ struct DrawerView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-                    row(icon: "gift", title: "Get a free month") {
-                        close()
-                        flash.success("Referrals are coming soon")
-                    }
-
-                    Divider().padding(.vertical, FlynnSpacing.xs)
-
+                    // The "Get a free month" referral row was removed — it was
+                    // the top item and did nothing but flash "coming soon".
                     row(icon: "questionmark.circle", title: "Help center", external: true) {
                         close()
                         if let url = URL(string: "https://flynn.so/help") { openURL(url) }

@@ -65,6 +65,7 @@ enum Route: Hashable, Codable, Sendable {
     case eventDetail(id: UUID)
     case clientDetail(id: UUID)
     case callDetail(id: UUID)
+    case callsList
     case quoteDetail(id: UUID)
     case invoiceDetail(id: UUID)
     case settingsRoot

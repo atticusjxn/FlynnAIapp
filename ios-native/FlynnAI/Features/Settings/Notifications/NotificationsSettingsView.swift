@@ -103,9 +103,9 @@ struct NotificationsSettingsView: View {
     private var togglesSection: some View {
         VStack(spacing: FlynnSpacing.sm) {
             toggleRow(
-                icon: "calendar.badge.clock",
-                title: "Booking reminders",
-                subtitle: "A nudge before your upcoming jobs.",
+                icon: "phone.badge.waveform.fill",
+                title: "Calls answered",
+                subtitle: "When Flynn answers a call and captures a job for you.",
                 isOn: Binding(
                     get: { store.prefs.new_call },
                     set: { v in store.prefs.new_call = v; Task { await store.save() } }
@@ -113,8 +113,8 @@ struct NotificationsSettingsView: View {
             )
             toggleRow(
                 icon: "gauge.with.dots.needle.bottom.50percent",
-                title: "Draft limit warning",
-                subtitle: "Heads-up before you hit your free daily drafts.",
+                title: "Usage warning",
+                subtitle: "A heads-up before you reach your plan's limit.",
                 isOn: Binding(
                     get: { store.prefs.usage_warning },
                     set: { v in store.prefs.usage_warning = v; Task { await store.save() } }
@@ -123,7 +123,7 @@ struct NotificationsSettingsView: View {
             toggleRow(
                 icon: "clock.badge.exclamationmark",
                 title: "Trial ending",
-                subtitle: "Reminder 3 days before trial auto-renews.",
+                subtitle: "A reminder before your trial converts to paid.",
                 isOn: Binding(
                     get: { store.prefs.trial_ending },
                     set: { v in store.prefs.trial_ending = v; Task { await store.save() } }

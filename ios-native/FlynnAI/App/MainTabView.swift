@@ -109,6 +109,8 @@ struct MainTabView: View {
             ClientDetailView(clientId: id)
         case .callDetail(let id):
             CallDetailView(callId: id)
+        case .callsList:
+            CallsListView()
         case .quoteDetail(let id):
             QuoteDetailView(quoteId: id)
         case .invoiceDetail(let id):
@@ -150,6 +152,16 @@ struct MainTabView: View {
         if link.tab == .connected {
             selection = .dashboard
             dashboardPath.append(Route.settingsSection(.integrations))
+            return
+        }
+        // `calls` is not a rendered tab either. Selecting it left the TabView in
+        // an undefined state (a blank shell) — the "See all" on Home and the
+        // flynnai://calls deep link both hit this. Push the calls list onto Home
+        // instead, and the specific call after it if the link carried one.
+        if link.tab == .calls {
+            selection = .dashboard
+            dashboardPath.append(Route.callsList)
+            if let route = link.route { dashboardPath.append(route) }
             return
         }
         selection = link.tab

@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Settings (presented from the drawer). The granular toggles; Business Brain and
-/// Voice are their own tabs now, and Account is its own drawer entry.
+/// Settings (presented from the drawer). Rebuilt off the stock inset-grouped
+/// `List` — which rendered as system iOS with a cream tint, the most obviously
+/// "default" surface left — onto Flynn's own grouped quiet cards: overline
+/// section headers, orange row glyphs, one card per group.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -12,65 +14,86 @@ struct SettingsView: View {
     @State private var showClaimFlow = false
 
     var body: some View {
-        List {
-            Section(header: FlynnSectionHeader("Setup")) {
-                Button {
-                    showClaimFlow = true
-                } label: {
-                    Label("Set up my receptionist", systemImage: "phone.badge.waveform")
+        ScrollView {
+            VStack(alignment: .leading, spacing: FlynnSpacing.lg) {
+                group("Setup") {
+                    actionRow("phone.badge.waveform", "Set up my receptionist") { showClaimFlow = true }
+                    rowDivider
+                    linkRow("phone.arrow.right", "Divert your calls") { CallForwardingView() }
+                    rowDivider
+                    linkRow("banknote", "Getting paid") { PaymentDetailsView() }
+                    rowDivider
+                    linkRow("square.stack.3d.up.fill", "Connected apps") { IntegrationsView() }
+                    rowDivider
+                    linkRow("keyboard.fill", "Flynn Keyboard") { KeyboardSetupFlow() }
+                    rowDivider
+                    linkRow("text.bubble.fill", "Quick messages") { SavedMessagesView() }
                 }
-                NavigationLink {
-                    CallForwardingView()
-                } label: {
-                    Label("Divert your calls", systemImage: "phone.arrow.right")
+
+                group("Preferences") {
+                    linkRow("bell.fill", "Notifications") { NotificationsSettingsView() }
+                    rowDivider
+                    linkRow("paintbrush.fill", "Appearance") { AppearanceView() }
                 }
-                NavigationLink {
-                    PaymentDetailsView()
-                } label: {
-                    Label("Getting paid", systemImage: "banknote")
-                }
-                NavigationLink {
-                    IntegrationsView()
-                } label: {
-                    Label("Connected apps", systemImage: "square.stack.3d.up")
-                }
-                NavigationLink {
-                    KeyboardSetupFlow()
-                } label: {
-                    Label("Flynn Keyboard", systemImage: "keyboard")
-                }
-                NavigationLink {
-                    SavedMessagesView()
-                } label: {
-                    Label("Quick messages", systemImage: "text.bubble")
+
+                group("Billing") {
+                    linkRow("creditcard.fill", "Subscription") { SubscriptionDetailView() }
                 }
             }
-            Section(header: FlynnSectionHeader("Preferences")) {
-                NavigationLink {
-                    NotificationsSettingsView()
-                } label: {
-                    Label("Notifications", systemImage: "bell")
-                }
-                NavigationLink {
-                    AppearanceView()
-                } label: {
-                    Label("Appearance", systemImage: "paintbrush")
-                }
-            }
-            Section(header: FlynnSectionHeader("Billing")) {
-                NavigationLink {
-                    SubscriptionDetailView()
-                } label: {
-                    Label("Subscription", systemImage: "creditcard")
-                }
-            }
+            .padding(.horizontal, FlynnSpacing.lg)
+            .padding(.vertical, FlynnSpacing.md)
         }
-        .listStyle(.insetGrouped)
-        .flynnListSurface()
+        .background(FlynnColor.background)
         .navigationTitle("Settings")
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } } }
         .fullScreenCover(isPresented: $showClaimFlow) {
             ReceptionistClaimFlow(staged: nil) { showClaimFlow = false }
         }
+    }
+
+    // MARK: - Building blocks
+
+    private func group<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+            Text(title)
+                .flynnType(FlynnTypography.overline)
+                .foregroundColor(FlynnColor.textTertiary)
+                .padding(.leading, FlynnSpacing.xs)
+            VStack(spacing: 0) { content() }
+                .flynnCardSurface(.quiet)
+        }
+    }
+
+    private var rowDivider: some View {
+        Divider().overlay(FlynnColor.borderSubtle).padding(.leading, 52)
+    }
+
+    private func rowLabel(_ icon: String, _ title: String) -> some View {
+        HStack(spacing: FlynnSpacing.md) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(FlynnColor.primary)
+                .frame(width: 24)
+            Text(title)
+                .flynnType(FlynnTypography.bodyLarge)
+                .foregroundColor(FlynnColor.textPrimary)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(FlynnColor.textTertiary)
+        }
+        .padding(.horizontal, FlynnSpacing.md)
+        .frame(minHeight: 54)
+        .contentShape(Rectangle())
+    }
+
+    private func actionRow(_ icon: String, _ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { rowLabel(icon, title) }
+            .buttonStyle(FlynnPressable())
+    }
+
+    private func linkRow<Destination: View>(_ icon: String, _ title: String, @ViewBuilder destination: @escaping () -> Destination) -> some View {
+        NavigationLink { destination() } label: { rowLabel(icon, title) }
+            .buttonStyle(FlynnPressable())
     }
 }
