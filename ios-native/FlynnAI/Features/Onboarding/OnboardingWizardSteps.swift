@@ -452,12 +452,36 @@ struct ForwardingStep: View {
             .padding(.top, FlynnSpacing.sm)
         } footer: {
             VStack(spacing: FlynnSpacing.xs) {
-                FlynnGlassButton(title: model.forwardingDialled ? "I've dialled it" : "Divert my calls",
-                                 action: dialForwarding, icon: Image(systemName: "phone.arrow.right.fill"))
-                Button("Skip for now") { model.advance(to: .done) }
-                    .flynnType(FlynnTypography.caption)
-                    .foregroundColor(FlynnColor.textTertiary)
-                    .frame(minHeight: 40)
+                if model.forwardingStatus == .verifying {
+                    HStack(spacing: FlynnSpacing.xs) {
+                        ProgressView().controlSize(.small)
+                        Text("Checking your divert…").flynnType(FlynnTypography.label).foregroundColor(FlynnColor.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 56)
+                } else if !model.forwardingDialled {
+                    FlynnGlassButton(title: "Divert my calls",
+                                     action: dialForwarding,
+                                     icon: Image(systemName: "phone.arrow.right.fill"))
+                    Button("Skip for now") { model.advance(to: .done) }
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textTertiary)
+                        .frame(minHeight: 40)
+                } else {
+                    if model.forwardingStatus == .unconfirmed {
+                        Text("Couldn't confirm it yet — make sure you pressed call after the code, then try again.")
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    FlynnGlassButton(title: "Check it's working",
+                                     action: { Task { await model.verifyForwarding() } },
+                                     icon: Image(systemName: "checkmark.shield.fill"))
+                    Button("It's set — continue") { model.advance(to: .done) }
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textTertiary)
+                        .frame(minHeight: 40)
+                }
             }
         }
     }
@@ -484,15 +508,12 @@ struct ForwardingStep: View {
         let code = "**61*\(digits)#".replacingOccurrences(of: "#", with: "%23")
         if let url = URL(string: "tel://\(code)") {
             model.forwardingDialled = true
+            model.forwardingStatus = .idle
             Analytics.capture(.forwardingCodeDialled)
             openURL(url)
-            // BACKEND: after the divert, place a server-side test call to their
-            // real mobile and fire forwarding_verified when it lands on the
-            // Flynn number (Gate 2.9). For now, advance on their confirmation.
-            Task {
-                try? await Task.sleep(for: .seconds(1))
-                model.advance(to: .done)
-            }
+            // The user leaves for the Phone app to press call, then comes back
+            // and taps "Check it's working" (server test call, Gate 2.9) or
+            // "It's set — continue".
         }
     }
 

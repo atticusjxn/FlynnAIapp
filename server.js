@@ -58,6 +58,11 @@ const {
   resolveOrgIdForUser,
 } = require('./supabaseMcpClient');
 const demoCallStore = require('./services/demoCallStore');
+const forwardingVerifyStore = require('./services/forwardingVerifyStore');
+// Gate 2.9 is carrier-dependent and touches the live inbound path, so it stays
+// OFF until validated on a real AU phone + a diverted Flynn number. Off = the
+// verify endpoints are disabled and the inbound hook is a no-op.
+const FORWARDING_VERIFY_ENABLED = process.env.FLYNN_FORWARDING_VERIFY === '1';
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 const { scrapeWebsiteWithGemini } = require('./services/geminiUrlScraper');
 const { generateReceptionistConfig } = require('./services/businessProfileGenerator');
@@ -4449,6 +4454,28 @@ const handleInboundVoice = async (req, res) => {
       return respondWithFunnelIntake({ req, res, inboundParams, callSid, fromNumber, toNumber });
     }
 
+    // Call-forwarding verification (Gate 2.9), gated by FLYNN_FORWARDING_VERIFY.
+    // When a test call to a user's mobile forwards to their Flynn number, it
+    // arrives here — proof the divert is live. This is a strict no-op unless the
+    // flag is on AND there is a checking verification for exactly this number,
+    // so it can never touch a real customer call.
+    if (FORWARDING_VERIFY_ENABLED) {
+      const match = forwardingVerifyStore.matchInbound({ toNumber, fromNumber });
+      if (match) {
+        console.log('[ForwardingVerify] Divert confirmed via inbound call.', { userId: match.userId, toNumber });
+        markForwardingVerified(match.userId).catch((e) =>
+          console.warn('[ForwardingVerify] Failed to persist verified_at.', { userId: match.userId, error: e.message }));
+        logCallEvent({ orgId: null, callSid, eventType: 'forwarding_verified', direction: 'inbound', payload: { toNumber } })
+          .catch(() => {});
+        analytics.capture(match.userId, analytics.EVENTS.FORWARDING_VERIFIED, {});
+        const vr = new twilio.twiml.VoiceResponse();
+        vr.say("Your calls are diverting to Flynn. You're all set.");
+        vr.hangup();
+        res.type('text/xml');
+        return res.send(vr.toString());
+      }
+    }
+
     let receptionistProfile = null;
 
     if (toNumber) {
@@ -4852,6 +4879,34 @@ app.post('/telephony/demo-call-status', async (req, res) => {
     await demoCallStore.applyTwilioStatus(demoId, status).catch((error) =>
       console.warn('[DemoCall] status update failed.', { demoId, status, error: error.message }));
   }
+  res.sendStatus(204);
+});
+
+/** Persist that a user's divert is confirmed live. */
+const markForwardingVerified = async (userId) => {
+  await supabaseServiceClient
+    .from('users')
+    .update({ forwarding_verified_at: new Date().toISOString(), forwarding_active: true })
+    .eq('id', userId);
+};
+
+// The verification test call was answered. We DON'T decide anything from this
+// leg — across carriers it fires both when the user picks up (no divert) and
+// when the forward connects — so it just plays a brief note and hangs up.
+// Verification is decided solely by the forwarded call landing at the Flynn
+// number (the inbound hook above). No match by the window's end = not confirmed.
+app.post('/telephony/forwarding-verify-answer', (req, res) => {
+  const vr = new twilio.twiml.VoiceResponse();
+  vr.say('Checking your call divert. You can hang up now.');
+  vr.hangup();
+  res.type('text/xml');
+  res.send(vr.toString());
+});
+
+app.post('/telephony/forwarding-verify-status', (req, res) => {
+  console.log('[ForwardingVerify] Test-call status.', {
+    callSid: req.body?.CallSid, status: req.body?.CallStatus, to: req.body?.To,
+  });
   res.sendStatus(204);
 });
 

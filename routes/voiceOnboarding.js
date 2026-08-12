@@ -16,12 +16,17 @@ const { calloutFeeToCents } = require('../telephony/funnelIntake');
 const { hasVerifiedSubscription, syncOrgEntitlement } = require('../telephony/subscriptionService');
 const analytics = require('../services/analytics');
 const demoCallStore = require('../services/demoCallStore');
+const forwardingVerifyStore = require('../services/forwardingVerifyStore');
+const { randomUUID } = require('crypto');
 
 const router = express.Router();
 
 const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
 const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioClient = twilioAccountSid && twilioAuthToken ? twilio(twilioAccountSid, twilioAuthToken) : null;
+
+// Gate 2.9 — off until validated on a real carrier (see server.js).
+const FORWARDING_VERIFY_ENABLED = process.env.FLYNN_FORWARDING_VERIFY === '1';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey =
@@ -432,6 +437,71 @@ router.get('/demo-call/:id', authenticateJwt, async (req, res) => {
     console.error('[DemoCall] Status lookup failed.', { id: req.params.id, error: error.message });
     return res.status(500).json({ error: 'lookup_failed' });
   }
+});
+
+/**
+ * Gate 2.9 — server-verified call forwarding. Place a test call to the user's
+ * own mobile; if their conditional divert is live and they let it ring out, the
+ * carrier forwards it to their Flynn number, and that inbound call (detected in
+ * server.js) is the proof. Flag-gated OFF until validated on a real carrier —
+ * while off, this returns `{ enabled: false }` and the app keeps advancing on
+ * the user's own confirmation.
+ */
+router.post('/verify-forwarding', authenticateJwt, async (req, res) => {
+  if (!FORWARDING_VERIFY_ENABLED) return res.json({ enabled: false });
+  if (!supabase) return res.status(500).json({ error: 'storage unavailable' });
+  if (!twilioClient) return res.status(503).json({ error: 'verification unavailable' });
+  try {
+    const user = await loadUser(req.user.id);
+    if (!user) return res.status(404).json({ error: 'user not found' });
+    if (!user.phone) return res.status(400).json({ error: 'no_verified_phone' });
+
+    const { data: numberRow } = await supabase
+      .from('users').select('twilio_phone_number').eq('id', user.id).maybeSingle();
+    const flynnNumber = numberRow?.twilio_phone_number;
+    if (!flynnNumber) return res.status(409).json({ error: 'no_flynn_number' });
+
+    const baseUrl = process.env.PUBLIC_BASE_URL || process.env.SERVER_PUBLIC_URL;
+    if (!baseUrl) return res.status(503).json({ error: 'verification unavailable' });
+    // A number distinct from the user's Flynn number is ideal so the forwarded
+    // leg's caller id is unambiguous; falls back to the shared Flynn number.
+    const verifyFrom = process.env.TWILIO_VERIFY_FROM || process.env.TWILIO_DEMO_FROM
+      || process.env.TWILIO_FLYNN_NUMBER || '+61480891471';
+
+    const id = randomUUID();
+    forwardingVerifyStore.start({ id, userId: user.id, flynnNumber, userMobile: user.phone, verifyFrom });
+
+    try {
+      await twilioClient.calls.create({
+        to: user.phone,
+        from: verifyFrom,
+        url: `${baseUrl}/telephony/forwarding-verify-answer?vid=${encodeURIComponent(id)}`,
+        method: 'POST',
+        statusCallback: `${baseUrl}/telephony/forwarding-verify-status?vid=${encodeURIComponent(id)}`,
+        statusCallbackMethod: 'POST',
+        statusCallbackEvent: ['completed', 'no-answer', 'failed', 'busy'],
+        // Long enough to ring out and trigger the no-answer divert.
+        timeout: 20,
+      });
+    } catch (err) {
+      console.error('[ForwardingVerify] Failed to place test call.', { userId: user.id, error: err.message });
+      return res.status(502).json({ error: 'call_failed' });
+    }
+
+    analytics.capture(user.id, analytics.EVENTS.FORWARDING_CODE_DIALLED, { verifying: true });
+    return res.json({ enabled: true, verification_id: id, status: 'checking' });
+  } catch (error) {
+    console.error('[ForwardingVerify] Trigger failed.', { userId: req.user?.id, error: error.message });
+    return res.status(500).json({ error: 'verify_failed' });
+  }
+});
+
+/** Poll the verification result: checking | verified | not_forwarded | expired. */
+router.get('/verify-forwarding/:id', authenticateJwt, async (req, res) => {
+  if (!FORWARDING_VERIFY_ENABLED) return res.json({ enabled: false });
+  const entry = forwardingVerifyStore.getById(req.params.id);
+  if (!entry || entry.userId !== req.user.id) return res.status(404).json({ error: 'not_found' });
+  return res.json({ enabled: true, status: entry.status });
 });
 
 module.exports = router;

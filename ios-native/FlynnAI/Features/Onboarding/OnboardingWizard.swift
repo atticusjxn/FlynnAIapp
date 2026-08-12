@@ -160,6 +160,8 @@ final class OnboardingModel {
 
     // Forwarding
     var forwardingDialled = false
+    enum ForwardingStatus { case idle, verifying, verified, unconfirmed }
+    var forwardingStatus: ForwardingStatus = .idle
 
     // Demo call
     enum DemoStatus { case idle, ringing, completed, failed }
@@ -270,6 +272,40 @@ final class OnboardingModel {
             assignedNumber = ""   // provisioning lagging; forwarding step handles it
         } catch {
             numberError = error.localizedDescription
+        }
+    }
+
+    /// After the user dials the divert code, ask the server to confirm it via a
+    /// test call. When the feature is off (prod default) this just proceeds on
+    /// their confirmation.
+    func verifyForwarding() async {
+        forwardingStatus = .verifying
+        do {
+            let start = try await VoiceOnboardingClient.startForwardingVerify()
+            guard start.enabled, let id = start.verificationId else {
+                forwardingStatus = .idle
+                advance(to: .done)
+                return
+            }
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .seconds(2))
+                guard let result = try? await VoiceOnboardingClient.forwardingVerifyStatus(id: id) else { continue }
+                switch result.status {
+                case "verified":
+                    forwardingStatus = .verified
+                    Analytics.capture(.forwardingVerified)
+                    advance(to: .done)
+                    return
+                case "not_forwarded", "expired":
+                    forwardingStatus = .unconfirmed
+                    return
+                default:
+                    continue
+                }
+            }
+            forwardingStatus = .unconfirmed
+        } catch {
+            forwardingStatus = .unconfirmed
         }
     }
 

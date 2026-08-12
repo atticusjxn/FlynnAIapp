@@ -146,6 +146,39 @@ enum VoiceOnboardingClient {
         return try JSONDecoder().decode(DemoCallStatus.self, from: data)
     }
 
+    // MARK: - Forwarding verification (Gate 2.9)
+
+    struct ForwardingVerify: Decodable {
+        let enabled: Bool
+        let verificationId: String?
+        let status: String?
+        enum CodingKeys: String, CodingKey {
+            case enabled
+            case verificationId = "verification_id"
+            case status
+        }
+    }
+
+    /// Ask the server to place a test call that confirms the divert. Returns
+    /// `enabled: false` when the feature is off (the app then relies on the
+    /// user's own confirmation).
+    static func startForwardingVerify() async throws -> ForwardingVerify {
+        let body = try JSONEncoder().encode([String: String]())
+        let (data, code) = try await rawRequest(path: "api/voice-onboarding/verify-forwarding", method: "POST", body: body)
+        guard (200..<300).contains(code) else {
+            throw VoiceOnboardingError.server("verify failed (\(code))")
+        }
+        return try JSONDecoder().decode(ForwardingVerify.self, from: data)
+    }
+
+    static func forwardingVerifyStatus(id: String) async throws -> ForwardingVerify {
+        let (data, code) = try await rawRequest(path: "api/voice-onboarding/verify-forwarding/\(id)", method: "GET", body: nil)
+        guard (200..<300).contains(code) else {
+            throw VoiceOnboardingError.server("status \(code)")
+        }
+        return try JSONDecoder().decode(ForwardingVerify.self, from: data)
+    }
+
     /// Like `request`, but returns the raw status code instead of mapping it to
     /// the claim-flow error cases (503 = pool empty, 402 = subscription) that
     /// don't apply to the demo endpoints.
