@@ -131,16 +131,26 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
 - [ ] **2.2** Trade picker → services + rough pricing, voice or type
       (reuse `POST /api/business-profile/parse`).
 - [ ] **2.3** Calendar connect, skippable.
-- [ ] **2.4** **The demo call** — Flynn rings their verified number from a shared pool, seeded
+- [x] **2.4** **The demo call** — Flynn rings their verified number from a shared pool, seeded
       with what they just entered. Auth + OTP gated, rate-limited (the old `/api/call-me-back`
-      would dial arbitrary strings — a toll-fraud vector on a billable endpoint).
+      would dial arbitrary strings — a toll-fraud vector on a billable endpoint). See detail below.
 - [ ] **2.5** Post-call payoff: transcript, extracted job, booking-link preview.
-- [ ] **2.6** Rewrite `SubscriptionView` — it sells the deleted keyboard product and renders no
-      features on any plan (`PlanDTO.features` is hardcoded `[]`).
-- [ ] **2.7** Rebuild `FlynnAI.storekit`: two products, A$29 / A$69, 7-day (`P1W`) trials.
-      Update `plans.apple_product_id`.
+- [x] **2.6** `SubscriptionView` no longer sells the deleted keyboard product — header rewritten
+      to the locked positioning, `PlanDTO.features` now returns real per-plan bullets instead of
+      hardcoded `[]`, CTA says "7-day" not "14-day". Visual/motion redesign is a separate pass
+      (see Roadmap → UI/UX overhaul); this fixed the copy that actively lied.
+- [x] **2.7** Rebuilt `FlynnAI.storekit`: two products, `com.flynnai.receptionist.monthly` A$69 /
+      `com.flynnai.link.monthly` A$29, 7-day (`P1W`) free intro offers, matching `services/pricing.js`.
+      `plans` table repurposed in place (starter→link, growth→receptionist, pro retired via
+      `is_active=false`) and the change captured in migration `20260813020000_two_tier_plans.sql`
+      so `supabase db reset` seeds the same two rows — `plans` was never seeded by a migration
+      before this, so a fresh reset booted with an empty catalog. Stale `google_product_id`
+      values (pointed at the old starter/growth ids) nulled out; Android is parked so nothing
+      reads them today. **Still open: the matching in-app-purchase products don't exist yet in
+      App Store Connect** — that's a real product creation + submission-for-review step on
+      Apple's site, needs your login (I won't enter your Apple ID password), see below.
 - [ ] **2.8** Number provisioning after payment; real retry on `pool_empty`.
-- [ ] **2.9** **Server-verified forwarding** — Flynn test-calls their mobile; if the divert took,
+- [x] **2.9** **Server-verified forwarding** — Flynn test-calls their mobile; if the divert took,
       it lands on their Flynn number and fires `forwarding_verified`. Carrier-specific help for
       Telstra/Optus/Vodafone. Nobody finishes onboarding unverified.
 - [ ] **2.10** Persist `users.forwarding_verified_at`, show state on Home and Settings.
@@ -261,6 +271,17 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
 - [ ] **Retire `execute_sql`** once `supabaseMcpClient` stops issuing raw SQL.
 - [ ] Rate-limit `send-sms` / `extract-job` / `lookup-carrier` in `secureApiRoutes.js` —
       billable and unthrottled, though not cross-tenant.
+- [ ] *(found during 2.7)* `telephony/scheduled/usageWatcher.js` queries a view `v_current_usage`
+      that **does not exist** in the database (not in any migration — created out-of-band like
+      `plans`/`users` were, per 0.4, except this one was never reconstructed). The hourly cron
+      has been silently failing and returning `{checked:0, sent:0}` since whenever it was written
+      — the 80%/100% AI-minutes usage-warning push has never fired. Needs the view's intended
+      join (plans + subscriptions + `ai_call_usage`) designed and migrated; out of scope for 2.7.
+- [ ] *(found during 2.7)* `server.js:5076-5212` (`POST /voice/profiles/:id/clone`) is a live,
+      ElevenLabs-backed voice-cloning endpoint gated only by auth + ownership — no plan check,
+      no feature flag. Voice cloning is an explicit CLAUDE.md Non-Goal. Currently orphaned (no
+      caller in `ios-native/`, only the retired Expo app used it) but reachable by any
+      authenticated user today. Worth deleting outright rather than leaving a Non-Goal live.
 
 ## Risks
 

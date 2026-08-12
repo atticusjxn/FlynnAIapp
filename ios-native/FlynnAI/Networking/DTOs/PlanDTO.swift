@@ -14,7 +14,26 @@ struct PlanDTO: Codable, Identifiable, Hashable, Sendable {
     // Convenience aliases / defaults for fields not in the current DB schema
     var slug: String { name }
     var seats: Int { 1 }
-    var features: [String] { [] }
+
+    /// Feature bullets for the paywall. Not a DB column — the two-tier catalog
+    /// (`link` / `receptionist`, see services/pricing.js) is small and stable
+    /// enough that keeping this in Swift beats a schema migration for two rows.
+    var features: [String] {
+        switch name {
+        case "receptionist":
+            return [
+                "Flynn answers your calls and books the job",
+                "Everything in Flynn Link",
+            ]
+        case "link":
+            return [
+                "Missed-call booking link sent automatically",
+                "Invoices & quotes with photos",
+            ]
+        default:
+            return []
+        }
+    }
     // Legacy alias — callers that used priceAudCents get cents approximation
     var priceAudCents: Int { Int(priceMonthlyAud * 100) }
 

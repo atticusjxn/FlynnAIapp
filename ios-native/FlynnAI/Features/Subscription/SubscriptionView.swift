@@ -53,10 +53,10 @@ struct SubscriptionView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
-            Text("Reply in your voice. Book the job.")
+            Text("Never miss a job. Never chase a payment.")
                 .flynnType(FlynnTypography.h2)
                 .foregroundColor(FlynnColor.textPrimary)
-            Text("Flynn drafts replies that sound like you and books jobs into your calendar. Free to start — go Pro for unlimited drafts and calendar booking.")
+            Text("Pick a plan and start your 7-day free trial. Cancel anytime before it ends and you won't be charged.")
                 .flynnType(FlynnTypography.bodyMedium)
                 .foregroundColor(FlynnColor.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -92,14 +92,6 @@ struct SubscriptionView: View {
                             .flynnType(FlynnTypography.caption)
                             .foregroundColor(FlynnColor.textTertiary)
                     }
-                }
-
-                HStack(spacing: FlynnSpacing.xs) {
-                    Image(systemName: "infinity")
-                        .foregroundColor(FlynnColor.primary)
-                    Text("Unlimited drafts in your voice")
-                        .flynnType(FlynnTypography.bodyMedium)
-                        .foregroundColor(FlynnColor.textPrimary)
                 }
 
                 ForEach(item.plan.features, id: \.self) { line in
@@ -150,7 +142,7 @@ struct SubscriptionView: View {
         else {
             return "Subscribe"
         }
-        return "Start 14-day free trial"
+        return "Start 7-day free trial"
     }
 
     private var isPurchasing: Bool {

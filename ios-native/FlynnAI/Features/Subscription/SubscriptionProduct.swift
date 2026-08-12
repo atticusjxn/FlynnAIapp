@@ -26,7 +26,7 @@ struct SubscriptionProduct: Identifiable, Hashable, Sendable {
         }
     }
 
-    var isMostPopular: Bool { plan.slug == "growth" }
+    var isMostPopular: Bool { plan.slug == "receptionist" }
 
     private func formattedPeriod(_ period: Product.SubscriptionPeriod) -> String {
         let value = period.value
