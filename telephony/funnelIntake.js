@@ -16,6 +16,7 @@ const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 const { normalizePhone, generateAppLink } = require('../services/authLink');
 const { estimateCallCost } = require('./callCostEstimate');
+const { spokenPriceLine } = require('../services/pricing');
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey =
@@ -129,8 +130,7 @@ const buildFunnelSystemPrompt = (existingConfig) => {
     '  If a trade sounds made up, it was almost certainly misheard: pick the real trade',
     '  it rhymes with. Only ask them to repeat it if you genuinely cannot tell.',
     '- If they ask how it works, what it costs, or whether you are a robot: answer straight,',
-    '  short, and get back to the conversation. It is $79 a month after a 7 day free trial,',
-    '  card required for the trial, cancel any time.',
+    `  short, and get back to the conversation. ${spokenPriceLine()}`,
     '- If they go quiet or hesitant, do not push. Offer to text them the link so they can',
     '  look at it later.',
     '',

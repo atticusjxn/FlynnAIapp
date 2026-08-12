@@ -2,9 +2,10 @@
  * Per-call cost estimation for the voice pipeline, in USD cents.
  *
  * Rates are July-2026 PAYG list prices, env-overridable so they can be trued
- * up against real invoices without a deploy. The margin model ($79/mo against
- * a ~70% gross-margin floor) depends on this telemetry being honest — log the
- * estimate on every call, then reconcile monthly against provider bills.
+ * up against real invoices without a deploy. The margin model (the headline
+ * tier in services/pricing.js against a ~70% gross-margin floor) depends on
+ * this telemetry being honest — log the estimate on every call, then reconcile
+ * monthly against provider bills.
  */
 
 const RATES_PER_MIN_USD = {

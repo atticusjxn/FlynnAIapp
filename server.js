@@ -63,6 +63,7 @@ const { generateSiteFromInstagram } = require('./services/sites/siteGenerationSe
 const { generateSpeech: generateGeminiSpeech, resolveVoiceName: resolveGeminiVoice } = require('./services/geminiTTSService');
 const reminderScheduler = require('./services/reminderScheduler');
 const { getTrialExpiryEmailHTML } = require('./services/emails/trialExpiryTemplate');
+const PRICING = require('./services/pricing');
 const { Resend } = require('resend');
 
 dotenv.config();
@@ -456,7 +457,7 @@ const handleCheckoutSessionCompleted = async (session) => {
       const updateData = {
         stripe_customer_id: session.customer,
         stripe_subscription_id: subscriptionId,
-        subscription_status: 'trialing', // New subscriptions start with 14-day trial
+        subscription_status: 'trialing', // New subscriptions start in the free trial
         billing_plan_id: planId,
       };
 
@@ -3750,7 +3751,7 @@ app.post('/api/billing/create-checkout-session', authenticateJwt, async (req, re
       console.log('[Billing] Created Stripe customer', { customerId, orgId: userData.default_org_id });
     }
 
-    // Create checkout session with 14-day trial
+    // Create checkout session with the standard free trial (services/pricing.js)
     const session = await stripeClient.checkout.sessions.create({
       customer: customerId,
       client_reference_id: userData.default_org_id,
@@ -3762,7 +3763,7 @@ app.post('/api/billing/create-checkout-session', authenticateJwt, async (req, re
         },
       ],
       subscription_data: {
-        trial_period_days: 14,
+        trial_period_days: PRICING.TRIAL_DAYS,
         trial_settings: {
           end_behavior: {
             missing_payment_method: 'cancel', // Cancel subscription if no payment method after trial

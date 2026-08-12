@@ -5,6 +5,7 @@
  */
 
 const Stripe = require('stripe');
+const { TRIAL_DAYS } = require('../services/pricing');
 
 module.exports = function attachStripeSubscriptionRoutes(app, {
   authenticateJwt,
@@ -30,7 +31,7 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
 
   /**
    * POST /api/stripe/create-subscription
-   * Create a new subscription with 14-day trial
+   * Create a new subscription with the standard free trial (services/pricing.js)
    * Collects payment method upfront but doesn't charge during trial
    */
   app.post('/api/stripe/create-subscription', authenticateJwt, async (req, res) => {
@@ -83,12 +84,11 @@ module.exports = function attachStripeSubscriptionRoutes(app, {
         console.log(`[StripeRoutes] Created new Stripe customer: ${customerId}`);
       }
 
-      // Create subscription with 14-day trial
       // Support both card and Apple Pay payment methods
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
-        trial_period_days: 14,
+        trial_period_days: TRIAL_DAYS,
         payment_settings: {
           payment_method_types: ['card', 'us_bank_account'], // Apple Pay uses 'card' type
           save_default_payment_method: 'on_subscription',

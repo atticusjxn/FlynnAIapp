@@ -17,6 +17,7 @@
 
 const { decodeJWS, upsertFromTransaction } = require('../subscriptionService');
 const { sendToUser } = require('../pushNotifier');
+const { trialBlurb } = require('../../services/pricing');
 
 /**
  * Apple ASSN2 webhook handler.
@@ -66,7 +67,7 @@ async function handleAssn2(req, res) {
         userId: result.userId,
         category: 'trial_ending',
         title: 'Your Flynn trial is live',
-        body: "14 days free — we'll remind you before it converts to a paid plan.",
+        body: trialBlurb(),
         data: { deepLink: 'flynnai://settings/billing' },
         threadId: 'billing',
       }).catch((err) => console.error('[AppStore] push failed:', err.message));
