@@ -201,8 +201,17 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
       paywall → number → forwarding → done, to the new bar, PostHog on every step, wired to
       the real endpoints (business save, gated number assign, StoreKit paywall). Two backend
       seams left, marked `BACKEND` and degrading gracefully:
-      - **Gate 2.4** — place the live demo call from a shared demo pool (needs the endpoint).
-      - **Gate 2.9** — server-side forwarding test-call → `forwarding_verified`.
+      - [x] **Gate 2.4** — the live demo call is **built and deployed** (v296): rings the user's
+        own verified mobile, connects them to their receptionist (seeded from what they entered),
+        captures the transcript + extracted job into `demo_calls`, and the wizard polls for the
+        payoff. Dials only the user's OTP-verified number, rate-limited, tenant call path
+        untouched. ⏳ *Needs a real-device pass before ads.*
+      - [ ] **Gate 2.9** — server-side forwarding verification. The one piece that touches the
+        **live inbound call path** and is **carrier-dependent** (conditional `**61*` forward
+        behaviour differs across Telstra/Optus/Vodafone). Building it blind and shipping into the
+        path of every real call is against the "best standard" bar — do it with a real AU phone +
+        a diverted Flynn number in the loop, ideally flag-gated OFF in prod until validated.
+        Until then the wizard advances forwarding on the user's own confirmation (safe).
 - [x] **Both themes verified** (light cream + dark warm brown).
 
 ## Gate 5 — Surface cuts
