@@ -146,9 +146,16 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
       so `supabase db reset` seeds the same two rows — `plans` was never seeded by a migration
       before this, so a fresh reset booted with an empty catalog. Stale `google_product_id`
       values (pointed at the old starter/growth ids) nulled out; Android is parked so nothing
-      reads them today. **Still open: the matching in-app-purchase products don't exist yet in
-      App Store Connect** — that's a real product creation + submission-for-review step on
-      Apple's site, needs your login (I won't enter your Apple ID password), see below.
+      reads them today. **App Store Connect side done too**: created `Flynn Receptionist Monthly`
+      ($69.99 AUD, level 1) and `Flynn Link Monthly` ($29.99 AUD, level 2) in the `Flynn
+      Subscription` group — availability all 175 territories, English (U.S.) localization, 7-day
+      free intro offer on both, matching product IDs. Deleted the 3 old draft tiers
+      (starter/growth/pro — never submitted, no real customers). Both new subscriptions are
+      "Prepare for Submission"; they go live with the next app version submission.
+      *(found while here)* the 3.0.3 rejection (Guideline 2.1.0, "app didn't respond when tapped
+      on start free trial") lines up exactly with this — the old subscriptions were still in
+      draft/never-submitted state when that build was reviewed, so `Product.products(for:)` had
+      nothing real to resolve. Should be moot once this version ships with real products behind it.
 - [ ] **2.8** Number provisioning after payment; real retry on `pool_empty`.
 - [x] **2.9** **Server-verified forwarding** — Flynn test-calls their mobile; if the divert took,
       it lands on their Flynn number and fires `forwarding_verified`. Carrier-specific help for
