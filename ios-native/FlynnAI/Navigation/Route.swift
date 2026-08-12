@@ -42,15 +42,19 @@ enum FlynnTab: String, Hashable, Codable, CaseIterable, Sendable {
 
     /// SF Symbol name. Liquid Glass refraction is tuned for SF Symbols, so we
     /// deliberately use them instead of custom icon assets for tab bar items.
+    /// One consistent language: all `.fill`, no enclosing circles, even optical
+    /// weight. The old set mixed a busy multicolour `brain.head.profile`, an
+    /// enclosed `dollarsign.circle`, and a plain `house` — three different
+    /// visual densities in one bar, which is what made it read as unfinished.
     var systemImage: String {
         switch self {
-        case .dashboard: return "house"
-        case .brain: return "brain.head.profile"
+        case .dashboard: return "house.fill"
+        case .brain: return "sparkles"
         case .events: return "calendar"
-        case .connected: return "square.stack.3d.up"
-        case .calls: return "phone"
-        case .clients: return "person.2"
-        case .money: return "dollarsign.circle"
+        case .connected: return "square.stack.3d.up.fill"
+        case .calls: return "phone.fill"
+        case .clients: return "person.2.fill"
+        case .money: return "banknote.fill"
         }
     }
 }

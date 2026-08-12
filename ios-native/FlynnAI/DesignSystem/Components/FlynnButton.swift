@@ -138,6 +138,19 @@ private struct OptionalBrutalistShadow: ViewModifier {
     }
 }
 
+/// A calm press response for tappable rows and cards: a slight scale and dim on
+/// press, spring back on release. Gives every hand-built row the tactile
+/// feedback a system Button has, without altering its resting visuals. Use it in
+/// place of `.buttonStyle(.plain)` on custom card/row buttons.
+struct FlynnPressable: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.spring(response: 0.28, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
 #Preview {
     VStack(spacing: FlynnSpacing.md) {
         FlynnButton(title: "Primary", action: {})
