@@ -332,7 +332,9 @@ describe('tool registry', () => {
     const tools = registry.getOpenAITools(ctx);
     const names = tools.map((t) => t.function.name);
     expect(names).toEqual(expect.arrayContaining([
-      'calendar_book_event', 'gmail_send_email', 'sheets_log_expense', 'xero_send_invoice', 'order_parts', 'save_login',
+      // `send_email`, not `gmail_send_email` — the tool went multi-provider
+      // (Gmail / Outlook / IMAP) and the Gmail-specific name went with it.
+      'calendar_book_event', 'send_email', 'sheets_log_expense', 'xero_send_invoice', 'order_parts', 'save_login',
     ]));
     const calendarTool = tools.find((t) => t.function.name === 'calendar_book_event');
     expect(calendarTool.function.description).toContain('NOT connected');

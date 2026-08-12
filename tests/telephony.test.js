@@ -227,10 +227,10 @@ describe('Telephony API', () => {
       const request = require('supertest')(app);
       const response = await request.post(`/jobs/${JOB_ID}/confirm`);
 
+      // The response deliberately stays generic — the env var names it takes to
+      // fix this go to the server log, not to an API client.
       expect(response.status).toBe(500);
-      expect(response.body).toEqual({
-        error: 'Configure TWILIO_MESSAGING_SERVICE_SID or TWILIO_SMS_FROM_NUMBER to send SMS.',
-      });
+      expect(response.body).toEqual({ error: 'Messaging not configured' });
     });
 
     test('returns 404 when job not found', async () => {

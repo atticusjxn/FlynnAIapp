@@ -6151,7 +6151,10 @@ app.post('/jobs/:id/confirm', async (req, res) => {
   }
 
   if (!twilioMessagingClient) {
-    console.error('[Jobs] Twilio messaging client unavailable; cannot send confirmation SMS.');
+    console.error(
+      '[Jobs] Twilio messaging client unavailable; cannot send confirmation SMS. ' +
+        'Configure TWILIO_MESSAGING_SERVICE_SID or TWILIO_SMS_FROM_NUMBER.'
+    );
     return res.status(500).json({ error: 'Messaging not configured' });
   }
 
