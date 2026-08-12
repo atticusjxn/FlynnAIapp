@@ -13,6 +13,7 @@ const { createClient } = require('@supabase/supabase-js');
 const authenticateJwt = require('../middleware/authenticateJwt');
 const { calloutFeeToCents } = require('../telephony/funnelIntake');
 const { hasVerifiedSubscription, syncOrgEntitlement } = require('../telephony/subscriptionService');
+const analytics = require('../services/analytics');
 
 const router = express.Router();
 
@@ -278,6 +279,9 @@ router.post('/assign-number', authenticateJwt, async (req, res) => {
     }
     if (!phoneNumber) {
       console.error('[VoiceOnboarding] NUMBER POOL EMPTY — top up AU numbers in Twilio.', { userId: user.id });
+      // Worth an event: a paying user who cannot be given a number is the most
+      // expensive failure in the funnel, and it is invisible from the app side.
+      analytics.capture(user.id, 'number_pool_empty', { org_id: user.default_org_id });
       return res.status(503).json({ error: 'pool_empty' });
     }
 
@@ -304,6 +308,11 @@ router.post('/assign-number', authenticateJwt, async (req, res) => {
       userId: user.id,
       orgId: user.default_org_id,
       phoneNumber,
+    });
+
+    analytics.capture(user.id, analytics.EVENTS.NUMBER_ASSIGNED, {
+      org_id: user.default_org_id,
+      phone_number: phoneNumber,
     });
 
     return res.json({ phone_number: phoneNumber, receptionist_live: true });

@@ -64,6 +64,7 @@ const { generateSpeech: generateGeminiSpeech, resolveVoiceName: resolveGeminiVoi
 const reminderScheduler = require('./services/reminderScheduler');
 const { getTrialExpiryEmailHTML } = require('./services/emails/trialExpiryTemplate');
 const PRICING = require('./services/pricing');
+const analytics = require('./services/analytics');
 const { Resend } = require('resend');
 
 dotenv.config();
@@ -4670,6 +4671,16 @@ const handleInboundVoice = async (req, res) => {
         direction: 'inbound',
         payload: { callHandlingMode },
       });
+
+      // The product doing the thing it is sold for. Keyed on the tenant's user
+      // id so it lands on the same person as their onboarding funnel.
+      if (receptionistProfile?.id) {
+        analytics.capture(receptionistProfile.id, analytics.EVENTS.CALL_ANSWERED, {
+          org_id: orgId,
+          call_sid: callSid,
+          call_handling_mode: callHandlingMode,
+        });
+      }
     }
 
     return respondWithAiReceptionist({
@@ -6826,5 +6837,17 @@ app.delete('/api/quote-style', authenticateJwt, async (req, res) => {
     res.status(500).json({ error: 'Failed to reset quote style' });
   }
 });
+
+// Fly sends SIGTERM on every deploy and the machine is gone shortly after, so
+// buffered PostHog events would be dropped — which would silently lose exactly
+// the conversions that happen around a release.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    analytics
+      .shutdown()
+      .catch(() => {})
+      .finally(() => process.exit(0));
+  });
+}
 
 module.exports = app;

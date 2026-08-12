@@ -13,6 +13,9 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { supabase } = require('./supabaseClient');
 const { recordSubscriptionConversionEvent } = require('./appleSearchAdsAttributionService');
+const analytics = require('../services/analytics');
+const metaCapi = require('../services/metaCapi');
+const PRICING = require('../services/pricing');
 
 const APPLE_ROOT_CERT_PATH = process.env.APPLE_ROOT_CA_PATH;
 const EXPECTED_BUNDLE_ID = process.env.APPLE_BUNDLE_ID || 'com.flynnai.app';
@@ -210,6 +213,68 @@ async function userIdForTransaction(tx) {
  * @param {object} tx — decoded JWS body (productId, expiresDate, originalTransactionId,
  *                     transactionId, revocationDate, appAccountToken, purchaseDate …)
  */
+/**
+ * Fire trial_started / subscription_purchased into PostHog, and StartTrial /
+ * Subscribe into Meta.
+ *
+ * Meta has been optimising app-install campaigns with nothing downstream of
+ * the install to learn from — AppDelegate claimed these were logged from the
+ * views, but only logPurchase ever existed. Sending them server-side from the
+ * verified webhook is both more accurate and impossible to lose to an app
+ * being backgrounded mid-purchase.
+ *
+ * The click bridge carries the browser identity captured at the original ad
+ * click, so an in-app conversion still attributes to the ad that caused it.
+ */
+async function emitConversionAnalytics({ userId, plan, tx, isTrial, isActive }) {
+  if (!userId) return;
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('phone, phone_number')
+    .eq('id', userId)
+    .maybeSingle();
+
+  const phone = user?.phone || user?.phone_number || null;
+
+  const tier = Object.values(PRICING.TIERS)
+    .find((t) => t.appleProductId === tx.productId);
+  const value = tier?.priceMonthly ?? Number(plan?.price_monthly_aud) ?? null;
+
+  const properties = {
+    plan_id: plan?.id,
+    plan_name: plan?.name,
+    product_id: tx.productId,
+    tier: tier?.slug || null,
+    value,
+    currency: PRICING.CURRENCY,
+  };
+
+  if (isTrial) analytics.capture(userId, analytics.EVENTS.TRIAL_STARTED, properties);
+  if (isActive) analytics.capture(userId, analytics.EVENTS.SUBSCRIPTION_PURCHASED, properties);
+
+  if (!phone || !metaCapi.isConfigured()) return;
+
+  const { data: bridge } = await supabase
+    .from('capi_click_bridge')
+    .select('fbp, fbc, fbclid, event_source_url')
+    .eq('user_phone', phone)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (isTrial) {
+    await metaCapi
+      .trackStartTrial(phone, { value, currency: PRICING.CURRENCY }, bridge || {})
+      .catch(() => {});
+  }
+  if (isActive) {
+    await metaCapi
+      .trackSubscribe(phone, { value, currency: PRICING.CURRENCY }, bridge || {})
+      .catch(() => {});
+  }
+}
+
 async function upsertFromTransaction(tx) {
   if (!tx || !tx.productId || !tx.originalTransactionId) {
     console.warn('[AppStore] upsertFromTransaction called with incomplete payload');
@@ -259,6 +324,19 @@ async function upsertFromTransaction(tx) {
   const occurredAt = tx.purchaseDate
     ? new Date(tx.purchaseDate).toISOString()
     : currentPeriodStart;
+
+  // Mirror the two money moments into PostHog and Meta. This webhook is the
+  // only place a trial or a renewal is Apple-verified, so it is the only
+  // honest place to fire them. Both are fire-and-forget — a tracking outage
+  // must never fail a subscription upsert.
+  emitConversionAnalytics({
+    userId,
+    plan,
+    tx,
+    isTrial: !!(tx.isTrialPeriod || tx.offerType === 1),
+    isActive: status === 'active',
+  }).catch((err) => console.error('[AppStore] conversion analytics failed:', err.message));
+
   if (tx.isTrialPeriod || tx.offerType === 1) {
     await recordSubscriptionConversionEvent({
       userId,

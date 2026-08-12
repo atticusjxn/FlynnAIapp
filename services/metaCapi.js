@@ -150,4 +150,60 @@ function trackActivated(phone, bridge = {}, customData) {
   });
 }
 
-module.exports = { isConfigured, track, trackMessagedFlynn, trackActivated };
+// The three money events, server side.
+//
+// AppDelegate.swift claimed "We log StartTrial / CompletedRegistration /
+// Purchase manually from the relevant views", but only logPurchase ever
+// existed — so Meta has been optimising app-install campaigns against installs
+// alone, with nothing downstream to learn from. These fire from the Apple
+// webhook, which is the only place a trial or a renewal is actually confirmed,
+// and they carry the stored browser identity so an in-app conversion still
+// attributes back to the original ad click.
+//
+// `action_source: 'app'` is what Meta expects for an in-app purchase.
+
+function trackCompleteRegistration(phone, bridge = {}) {
+  return track('CompleteRegistration', {
+    phone,
+    actionSource: 'app',
+    fbp: bridge.fbp,
+    fbc: bridge.fbc,
+    fbclid: bridge.fbclid,
+  });
+}
+
+function trackStartTrial(phone, { value, currency = 'AUD', predictedLtv } = {}, bridge = {}) {
+  return track('StartTrial', {
+    phone,
+    actionSource: 'app',
+    fbp: bridge.fbp,
+    fbc: bridge.fbc,
+    fbclid: bridge.fbclid,
+    customData: {
+      currency,
+      ...(value != null ? { value } : {}),
+      ...(predictedLtv != null ? { predicted_ltv: predictedLtv } : {}),
+    },
+  });
+}
+
+function trackSubscribe(phone, { value, currency = 'AUD' } = {}, bridge = {}) {
+  return track('Subscribe', {
+    phone,
+    actionSource: 'app',
+    fbp: bridge.fbp,
+    fbc: bridge.fbc,
+    fbclid: bridge.fbclid,
+    customData: { currency, ...(value != null ? { value } : {}) },
+  });
+}
+
+module.exports = {
+  isConfigured,
+  track,
+  trackMessagedFlynn,
+  trackActivated,
+  trackCompleteRegistration,
+  trackStartTrial,
+  trackSubscribe,
+};
