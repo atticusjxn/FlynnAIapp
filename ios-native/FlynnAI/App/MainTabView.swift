@@ -184,24 +184,6 @@ struct MainTabView: View {
     }
 }
 
-/// Lightweight placeholder used for tabs/screens not yet ported in Phase 1.
-struct PlaceholderTabView: View {
-    let title: String
-
-    var body: some View {
-        VStack(spacing: FlynnSpacing.md) {
-            Text(title)
-                .flynnType(FlynnTypography.displayMedium)
-            Text("Coming in a later phase.")
-                .flynnType(FlynnTypography.bodyLarge)
-                .foregroundColor(FlynnColor.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(FlynnColor.background)
-        .navigationTitle(title)
-    }
-}
-
 struct PlaceholderDetailView: View {
     let title: String
     let id: UUID?

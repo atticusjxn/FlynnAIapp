@@ -23,7 +23,10 @@ enum FlynnChrome {
     private static func applySegmentedControl() {
         let seg = UISegmentedControl.appearance()
         seg.backgroundColor = UIColor.dynamic(lightHex: "#ECE0C8", darkHex: "#322A22")
-        seg.selectedSegmentTintColor = UIColor(hex: "#FB5B1E")
+        // A raised cream/card thumb with orange text, not a saturated orange
+        // pill. The full-orange fill read as loud — this is the calmer Wise/
+        // Granola selected-segment look while staying on-brand.
+        seg.selectedSegmentTintColor = UIColor.dynamic(lightHex: "#FFFBF4", darkHex: "#3E352B")
 
         seg.setTitleTextAttributes([
             .foregroundColor: UIColor.dynamic(lightHex: "#5A4A3C", darkHex: "#D6C9B6"),
@@ -31,7 +34,7 @@ enum FlynnChrome {
         ], for: .normal)
 
         seg.setTitleTextAttributes([
-            .foregroundColor: UIColor(hex: "#FFFBF4"),
+            .foregroundColor: UIColor(hex: "#FB5B1E"),
             .font: chromeFont(FlynnFontName.spaceGroteskBold, size: 13)
         ], for: .selected)
     }
