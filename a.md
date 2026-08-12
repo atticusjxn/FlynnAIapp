@@ -206,12 +206,21 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
         captures the transcript + extracted job into `demo_calls`, and the wizard polls for the
         payoff. Dials only the user's OTP-verified number, rate-limited, tenant call path
         untouched. ⏳ *Needs a real-device pass before ads.*
-      - [ ] **Gate 2.9** — server-side forwarding verification. The one piece that touches the
-        **live inbound call path** and is **carrier-dependent** (conditional `**61*` forward
-        behaviour differs across Telstra/Optus/Vodafone). Building it blind and shipping into the
-        path of every real call is against the "best standard" bar — do it with a real AU phone +
-        a diverted Flynn number in the loop, ideally flag-gated OFF in prod until validated.
-        Until then the wizard advances forwarding on the user's own confirmation (safe).
+      - [x] **Gate 2.9** — server-side forwarding verification is **built and deployed, flag-gated
+        OFF** (`FLYNN_FORWARDING_VERIFY`). Places a test call to the user's mobile; the forwarded
+        call reaching their Flynn number is the proof (writes `users.forwarding_verified_at`).
+        Touches the live inbound path, so it's a strict no-op until the flag is on. ⏳ **Turn on
+        only after validating on a real AU phone + a diverted Flynn number** — the `**61*`
+        no-answer forward is carrier-specific. iOS forwarding step wired with an honest
+        verify/retry path; falls back to user confirmation when off.
+
+> **Validation runbook for 2.4 + 2.9** (needs a real AU phone):
+> 1. Sign up in TestFlight with a real mobile, run onboarding to the demo-call step, tap "Call me
+>    now" — Flynn should ring you, talk as your receptionist, and the payoff should show your real
+>    transcript + extracted job. Check `demo_calls` and that no job/SMS hit your real account.
+> 2. Assign a number, dial the divert code, `fly secrets set FLYNN_FORWARDING_VERIFY=1`, tap
+>    "Check it's working", let the test call ring out — it should verify and stamp
+>    `forwarding_verified_at`. Repeat on a second carrier before trusting it.
 - [x] **Both themes verified** (light cream + dark warm brown).
 
 ## Gate 5 — Surface cuts
