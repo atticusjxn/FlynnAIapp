@@ -13,7 +13,7 @@
  */
 
 const twilio = require('twilio');
-const blueBubbles = require('./blueBubbles');
+const blueBubbles = require('./imessageTransport');
 const { splitBubbles } = require('./flynnTone');
 
 const FLYNN_NUMBER = process.env.TWILIO_FLYNN_NUMBER || '+61480891471';

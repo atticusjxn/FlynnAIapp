@@ -23,11 +23,28 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
   : null;
 
 const FLYNN_NUMBER = process.env.TWILIO_FLYNN_NUMBER || '+61480891471';
-// The number Flynn actually answers iMessages on (the eSIM via BlueBubbles).
-// The contact card MUST carry this, not the Twilio SMS-fallback number, or the
-// user saves the wrong number and their next text goes to a dead inbox.
-const FLYNN_IMESSAGE_NUMBER = process.env.FLYNN_IMESSAGE_NUMBER || '+61495023092';
+// The number Flynn actually answers iMessages on. MUST carry the active
+// iMessage provider's number, not the Twilio SMS fallback, or the user saves a
+// dead inbox. On the Sendblue provider this is the Sendblue sender number;
+// otherwise the BlueBubbles eSIM number. Overridable via FLYNN_IMESSAGE_NUMBER.
+const FLYNN_IMESSAGE_NUMBER = process.env.FLYNN_IMESSAGE_NUMBER
+  || (process.env.FLYNN_IMESSAGE_PROVIDER === 'sendblue' ? process.env.SENDBLUE_FROM_NUMBER : null)
+  || '+61495023092';
 const SERVER_URL = process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev';
+
+// Embedded logo (base64 JPEG). iOS Contacts only renders embedded photos, not
+// remote PHOTO URIs, so we inline it. See services/flynnVcardPhoto.js.
+const FLYNN_VCARD_PHOTO = require('../services/flynnVcardPhoto');
+
+// Fold a long vCard line to 75 octets per RFC 2426 (continuation lines start
+// with a single space). iOS is strict about this for embedded photos.
+function foldVcardLine(line) {
+  const chunks = [line.slice(0, 75)];
+  for (let i = 75; i < line.length; i += 74) {
+    chunks.push(' ' + line.slice(i, i + 74));
+  }
+  return chunks.join('\r\n');
+}
 
 // Serve the Flynn contact card (VCF) — sent on first iMessage so they can save
 // Flynn with the logo. iMessage users save the iMessage number; the SMS-only
@@ -37,9 +54,10 @@ router.get('/contact.vcf', (req, res) => {
   const vcf = [
     'BEGIN:VCARD',
     'VERSION:3.0',
+    'N:;Flynn;;;',
     'FN:Flynn',
     `TEL;TYPE=CELL:${tel}`,
-    'PHOTO;VALUE=URI:https://flynnai.app/apple-touch-icon.png',
+    foldVcardLine(`PHOTO;ENCODING=b;TYPE=JPEG:${FLYNN_VCARD_PHOTO}`),
     'END:VCARD',
   ].join('\r\n');
 
