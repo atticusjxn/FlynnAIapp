@@ -14,144 +14,14 @@ module.exports = function attachSecureApiRoutes(app, {
 }) {
   console.log('[SecureAPI] Attaching secure API routes for mobile app');
 
-  // POST /api/twilio/search-numbers - Search for available Twilio phone numbers
-  app.post('/api/twilio/search-numbers', authenticateJwt, async (req, res) => {
-    try {
-      const { countryCode = 'US', limit = 5, voiceEnabled = true } = req.body;
-
-      if (!twilioAccountSid || !twilioAuthToken) {
-        return res.status(500).json({
-          error: true,
-          message: 'Twilio credentials not configured on server'
-        });
-      }
-
-      console.log(`[SecureAPI] Searching for numbers in ${countryCode}, limit: ${limit}`);
-
-      const twilioClient = twilio(twilioAccountSid, twilioAuthToken);
-
-      const availableNumbers = await twilioClient
-        .availablePhoneNumbers(countryCode)
-        .local
-        .list({ limit, voiceEnabled });
-
-      const formattedNumbers = availableNumbers.map(num => ({
-        phone_number: num.phoneNumber,
-        friendly_name: num.friendlyName,
-        capabilities: num.capabilities,
-        locality: num.locality,
-        region: num.region,
-        postal_code: num.postalCode,
-        iso_country: num.isoCountry,
-      }));
-
-      console.log(`[SecureAPI] Found ${formattedNumbers.length} available numbers`);
-      res.status(200).json({ availableNumbers: formattedNumbers });
-
-    } catch (error) {
-      console.error('[SecureAPI] Error searching numbers:', error);
-      res.status(500).json({
-        error: true,
-        message: error.message || 'Failed to search for available phone numbers'
-      });
-    }
-  });
-
-  // POST /api/twilio/purchase-number - Purchase a Twilio phone number
-  app.post('/api/twilio/purchase-number', authenticateJwt, async (req, res) => {
-    try {
-      const { phoneNumber, userId } = req.body;
-      const authenticatedUserId = req.user?.id;
-      const orgId = req.user?.org_id;
-
-      if (!userId || !authenticatedUserId) {
-        return res.status(400).json({ error: true, message: 'User ID required' });
-      }
-
-      if (userId !== authenticatedUserId) {
-        return res.status(403).json({ error: true, message: 'Forbidden - User ID mismatch' });
-      }
-
-      if (!phoneNumber) {
-        return res.status(400).json({ error: true, message: 'Phone number required' });
-      }
-
-      if (!twilioAccountSid || !twilioAuthToken) {
-        return res.status(500).json({
-          error: true,
-          message: 'Twilio credentials not configured on server'
-        });
-      }
-
-      console.log(`[SecureAPI] Purchasing number ${phoneNumber} for user ${userId}, org ${orgId}`);
-
-      const twilioClient = twilio(twilioAccountSid, twilioAuthToken);
-      const serverPublicUrl = process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev';
-
-      const purchasedNumber = await twilioClient.incomingPhoneNumbers.create({
-        phoneNumber,
-        voiceUrl: `${serverPublicUrl}/webhook/voice/${userId}`,
-        voiceMethod: 'POST',
-        statusCallback: `${serverPublicUrl}/webhook/status/${userId}`,
-        statusCallbackMethod: 'POST',
-      });
-
-      console.log(`[SecureAPI] Successfully purchased ${purchasedNumber.phoneNumber} (SID: ${purchasedNumber.sid})`);
-
-      res.status(200).json({
-        phoneNumber: purchasedNumber.phoneNumber,
-        phoneNumberSid: purchasedNumber.sid,
-        cost: 1.15,
-        monthlyCost: 1.15,
-      });
-
-    } catch (error) {
-      console.error('[SecureAPI] Error purchasing number:', error);
-      res.status(500).json({
-        error: true,
-        message: error.message || 'Failed to purchase phone number'
-      });
-    }
-  });
-
-  // DELETE /api/twilio/release-number - Release a Twilio phone number
-  app.delete('/api/twilio/release-number', authenticateJwt, async (req, res) => {
-    try {
-      const { phoneNumberSid } = req.body;
-      const userId = req.user?.id;
-      const orgId = req.user?.org_id;
-
-      if (!phoneNumberSid) {
-        return res.status(400).json({ error: true, message: 'Phone number SID required' });
-      }
-
-      if (!twilioAccountSid || !twilioAuthToken) {
-        return res.status(500).json({
-          error: true,
-          message: 'Twilio credentials not configured on server'
-        });
-      }
-
-      console.log(`[SecureAPI] Releasing number ${phoneNumberSid} for user ${userId}, org ${orgId}`);
-
-      const twilioClient = twilio(twilioAccountSid, twilioAuthToken);
-      await twilioClient.incomingPhoneNumbers(phoneNumberSid).remove();
-
-      console.log(`[SecureAPI] Successfully released number ${phoneNumberSid}`);
-
-      res.status(200).json({
-        success: true,
-        message: 'Phone number released successfully',
-      });
-
-    } catch (error) {
-      console.error('[SecureAPI] Error releasing number:', error);
-      res.status(500).json({
-        error: true,
-        message: error.message || 'Failed to release phone number'
-      });
-    }
-  });
+  // Number provisioning is NOT here. /api/twilio/search-numbers,
+  // /api/twilio/purchase-number and /api/twilio/release-number were removed:
+  // none of them checked entitlement, purchase bought any country with no
+  // regulatory bundle and never recorded the number against a user, and
+  // release took a phoneNumberSid straight from the request body with no
+  // ownership check at all, so any authenticated user could disconnect any
+  // other tenant's receptionist number. Provisioning lives behind the
+  // entitlement gate in routes/voiceOnboarding.js.
 
   // POST /api/twilio/send-sms - Send SMS message
   app.post('/api/twilio/send-sms', authenticateJwt, async (req, res) => {
@@ -337,9 +207,6 @@ If information is unclear or missing, set those fields to null.
       service: 'Flynn AI Secure API',
       timestamp: new Date().toISOString(),
       endpoints: {
-        'POST /api/twilio/search-numbers': 'Search available numbers',
-        'POST /api/twilio/purchase-number': 'Purchase phone number',
-        'DELETE /api/twilio/release-number': 'Release phone number',
         'POST /api/twilio/send-sms': 'Send SMS message',
         'POST /api/ai/extract-job': 'Extract job from transcript',
         'POST /api/twilio/lookup-carrier': 'Lookup carrier info (optional)',
