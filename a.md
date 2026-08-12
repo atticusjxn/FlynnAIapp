@@ -194,8 +194,16 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
 - [x] **All detail screens** (client/invoice/quote/event/call) — graduated hierarchy.
 - [x] **Settings** rebuilt off the stock inset-List onto Flynn's grouped quiet cards.
 - [x] **CLAUDE.md design system** rewritten to the real Swift tokens.
-- [ ] **Money segmented control** — the saturated-orange pill could calm. Minor.
-- [ ] **Onboarding funnel** — the one design item that's also Gate 2 (functional). Not started.
+- [x] **Money segmented control** — calmed to a raised thumb with orange text.
+- [x] **Dead UI deleted** (UsageBarCard, CalendarConnectCard, CallModeSelectorView,
+      IVRScriptEditorView, PlaceholderTabView).
+- [x] **Onboarding wizard built** — welcome → trade → business → calendar → demo call →
+      paywall → number → forwarding → done, to the new bar, PostHog on every step, wired to
+      the real endpoints (business save, gated number assign, StoreKit paywall). Two backend
+      seams left, marked `BACKEND` and degrading gracefully:
+      - **Gate 2.4** — place the live demo call from a shared demo pool (needs the endpoint).
+      - **Gate 2.9** — server-side forwarding test-call → `forwarding_verified`.
+- [x] **Both themes verified** (light cream + dark warm brown).
 
 ## Gate 5 — Surface cuts
 
