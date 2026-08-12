@@ -1,0 +1,90 @@
+name: Backend CI / Deploy
+
+# Deploys were manual `fly deploy` from a laptop, which is how production ended
+# up 61 commits behind and running an intake script that lost real ad leads.
+# This runs the tests on every push and PR, and deploys to Fly only when main
+# is green.
+
+on:
+  push:
+    branches: [main, voice-front-door]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  # A newer push to the same branch supersedes an in-flight run, but never
+  # cancel a deploy midway.
+  group: backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Jest
+        run: npm test
+
+      # Catches the class of bug that took a whole session to find: server.js
+      # and services/agent/toolRegistry.js required modules that were never
+      # committed. Fly deploys from the working tree, so the running image had
+      # them and nothing complained — but a clone could not start the server.
+      # Booting from a clean checkout is the only thing that proves it.
+      - name: Boot from a clean checkout
+        env:
+          SUPABASE_URL: https://example.test
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+          SERVER_PUBLIC_URL: https://example.test
+          OPENAI_API_KEY: sk-ci-placeholder
+          DASHSCOPE_API_KEY: ci-placeholder
+          PORT: '0'
+        run: |
+          node -e "
+            process.on('uncaughtException', (e) => {
+              console.error('BOOT FAILED:', e.message);
+              process.exit(1);
+            });
+            require('./server.js');
+            console.log('Boot OK — server.js loads from a clean checkout');
+            process.exit(0);
+          "
+
+  deploy:
+    name: Deploy to Fly
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy
+        run: flyctl deploy --remote-only --app flynnai-telephony
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # A deploy that leaves the app unhealthy should fail the run, not sit
+      # there green while the receptionist is down.
+      - name: Verify production health
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://flynnai-telephony.fly.dev/health || true)
+            if [ "$code" = "200" ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i: got '$code', retrying in 10s"
+            sleep 10
+          done
+          echo "Production did not return a healthy /health after deploy"
+          exit 1

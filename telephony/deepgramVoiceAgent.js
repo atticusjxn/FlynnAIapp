@@ -113,8 +113,27 @@ const buildSpeakConfig = (businessContext) => {
   const gender = (vp?.gender || 'female').toLowerCase();
 
   if (provider === 'cartesia' && hasCartesia) {
-    const voiceId = vp?.provider_voice_id
-      || (gender === 'male' ? process.env.CARTESIA_VOICE_AU_MALE : process.env.CARTESIA_VOICE_AU_FEMALE);
+    // Fall back to the other gender's AU voice before giving up on Cartesia.
+    // CARTESIA_VOICE_AU_MALE is currently unset, and without this a business
+    // whose voice_profile says "male" dropped all the way through to
+    // Deepgram's aura-2-theia-en — an American voice answering the phone for
+    // an Australian tradie. An AU voice of the wrong gender is a far smaller
+    // problem than the wrong accent.
+    const preferred = gender === 'male'
+      ? process.env.CARTESIA_VOICE_AU_MALE
+      : process.env.CARTESIA_VOICE_AU_FEMALE;
+    const alternate = gender === 'male'
+      ? process.env.CARTESIA_VOICE_AU_FEMALE
+      : process.env.CARTESIA_VOICE_AU_MALE;
+
+    if (!vp?.provider_voice_id && !preferred && alternate) {
+      console.warn(
+        `[DeepgramAgent] No AU ${gender} voice configured; using the other AU voice ` +
+          'rather than dropping to the American default'
+      );
+    }
+
+    const voiceId = vp?.provider_voice_id || preferred || alternate;
     if (voiceId) {
       return {
         provider: {
