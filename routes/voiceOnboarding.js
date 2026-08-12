@@ -9,13 +9,19 @@
  */
 
 const express = require('express');
+const twilio = require('twilio');
 const { createClient } = require('@supabase/supabase-js');
 const authenticateJwt = require('../middleware/authenticateJwt');
 const { calloutFeeToCents } = require('../telephony/funnelIntake');
 const { hasVerifiedSubscription, syncOrgEntitlement } = require('../telephony/subscriptionService');
 const analytics = require('../services/analytics');
+const demoCallStore = require('../services/demoCallStore');
 
 const router = express.Router();
+
+const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioClient = twilioAccountSid && twilioAuthToken ? twilio(twilioAccountSid, twilioAuthToken) : null;
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey =
@@ -319,6 +325,112 @@ router.post('/assign-number', authenticateJwt, async (req, res) => {
   } catch (error) {
     console.error('[VoiceOnboarding] Assign-number failed.', { userId: req.user?.id, error: error.message });
     return res.status(500).json({ error: 'assignment failed' });
+  }
+});
+
+/**
+ * The onboarding value moment: ring the user's OWN verified mobile and connect
+ * them to their AI receptionist, seeded from the business profile they just
+ * entered, so they hear the product before the paywall.
+ *
+ * Security, learnt from the /api/call-me-back toll-fraud fix: the number dialled
+ * is ALWAYS the authenticated user's own phone (an OTP-verified mobile mirrored
+ * from auth.users), never a value from the request body. There is no way to make
+ * this dial an arbitrary number.
+ */
+router.post('/demo-call', authenticateJwt, async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'storage unavailable' });
+  if (!twilioClient) {
+    console.error('[DemoCall] Twilio not configured; cannot place demo call.');
+    return res.status(503).json({ error: 'calling temporarily unavailable' });
+  }
+  if (!demoCallStore.isConfigured()) return res.status(503).json({ error: 'calling temporarily unavailable' });
+
+  try {
+    const user = await loadUser(req.user.id);
+    if (!user) return res.status(404).json({ error: 'user not found' });
+    if (!user.phone) {
+      // No verified mobile on file — nothing safe to call. (Email-only signup.)
+      return res.status(400).json({ error: 'no_verified_phone' });
+    }
+
+    // Rate limit: one in flight at a time, and a small daily ceiling. Each call
+    // costs real Twilio minutes, so this is a hard gate, not advisory.
+    if (await demoCallStore.hasActiveDemoCall(user.id)) {
+      return res.status(429).json({ error: 'demo_in_progress' });
+    }
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    if (await demoCallStore.countDemoCallsSince(user.id, dayAgo) >= 5) {
+      return res.status(429).json({ error: 'daily_limit' });
+    }
+
+    const baseUrl = process.env.PUBLIC_BASE_URL || process.env.SERVER_PUBLIC_URL;
+    if (!baseUrl) {
+      console.error('[DemoCall] No PUBLIC_BASE_URL / SERVER_PUBLIC_URL set.');
+      return res.status(503).json({ error: 'calling temporarily unavailable' });
+    }
+    const fromNumber = process.env.TWILIO_DEMO_FROM || process.env.TWILIO_FLYNN_NUMBER || '+61480891471';
+
+    // Create the tracking row first so the status callback has an id to update.
+    const demo = await demoCallStore.createDemoCall({
+      userId: user.id,
+      orgId: user.default_org_id,
+      callSid: null,
+      toPhone: user.phone,
+    });
+
+    let call;
+    try {
+      call = await twilioClient.calls.create({
+        to: user.phone,
+        from: fromNumber,
+        url: `${baseUrl}/telephony/demo-call-answer?userId=${encodeURIComponent(user.id)}`,
+        method: 'POST',
+        statusCallback: `${baseUrl}/telephony/demo-call-status?demoId=${encodeURIComponent(demo.id)}`,
+        statusCallbackMethod: 'POST',
+        statusCallbackEvent: ['answered', 'completed', 'no-answer', 'failed', 'busy'],
+        // Ring for a sensible window then give up rather than hang on the user.
+        timeout: 25,
+      });
+    } catch (err) {
+      await demoCallStore.setDemoCallStatus(demo.id, 'failed');
+      console.error('[DemoCall] Failed to place call.', { userId: user.id, error: err.message });
+      return res.status(502).json({ error: 'call_failed' });
+    }
+
+    // Record the SID so the completion handler can find this call and divert it
+    // out of the tenant pipeline. Set synchronously — the call takes seconds to
+    // connect, so this always lands before completion.
+    await supabase.from('demo_calls').update({ call_sid: call.sid }).eq('id', demo.id);
+
+    analytics.capture(user.id, analytics.EVENTS.DEMO_CALL_REQUESTED, { demo_call_id: demo.id });
+    console.log('[DemoCall] Placed.', { userId: user.id, demoId: demo.id, callSid: call.sid });
+
+    return res.json({ demo_call_id: demo.id, status: 'ringing' });
+  } catch (error) {
+    console.error('[DemoCall] Trigger failed.', { userId: req.user?.id, error: error.message });
+    return res.status(500).json({ error: 'demo_call_failed' });
+  }
+});
+
+/** Poll for the demo call's status and payoff (transcript + extracted job). */
+router.get('/demo-call/:id', authenticateJwt, async (req, res) => {
+  if (!demoCallStore.isConfigured()) return res.status(503).json({ error: 'unavailable' });
+  try {
+    const demo = await demoCallStore.getDemoCallById(req.params.id);
+    // Ownership check — never leak another user's demo transcript.
+    if (!demo || demo.user_id !== req.user.id) return res.status(404).json({ error: 'not_found' });
+    return res.json({
+      id: demo.id,
+      status: demo.status,
+      transcript: demo.transcript || null,
+      extracted_job: demo.extracted_job || null,
+      created_at: demo.created_at,
+      completed_at: demo.completed_at || null,
+    });
+  } catch (error) {
+    console.error('[DemoCall] Status lookup failed.', { id: req.params.id, error: error.message });
+    return res.status(500).json({ error: 'lookup_failed' });
   }
 });
 

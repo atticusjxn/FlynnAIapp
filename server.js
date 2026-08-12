@@ -51,11 +51,13 @@ const {
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,
   getReceptionistProfileByNumber,
+  getReceptionistProfileById,
   recordCallEvent,
   getBusinessContextForOrg,
   getBusinessContextForUser,
   resolveOrgIdForUser,
 } = require('./supabaseMcpClient');
+const demoCallStore = require('./services/demoCallStore');
 const { sendJobCreatedNotification } = require('./notifications/pushService');
 const { scrapeWebsiteWithGemini } = require('./services/geminiUrlScraper');
 const { generateReceptionistConfig } = require('./services/businessProfileGenerator');
@@ -1308,6 +1310,45 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
     }
     return '';
   })().trim();
+
+  // Demo calls (the onboarding "hear it for yourself" ring) run the full agent
+  // but must NOT create a real job, bill the tenant, or text anyone — the caller
+  // is the user playing customer, not a real lead. Capture the transcript and
+  // the extracted job into demo_calls for the payoff, then stop. Keyed on the
+  // Twilio call SID so this needs no change to how the tenant path is invoked.
+  try {
+    const demo = await demoCallStore.getDemoCallBySid(callSid);
+    if (demo) {
+      await demoCallStore.completeDemoCall({
+        id: demo.id,
+        transcript: transcriptText,
+        extractedJob: extractedData || null,
+      });
+      // Log it as funnel usage (CAC, not COGS) so cost dashboards can see demo
+      // spend without counting it against tenant margin.
+      if (demo.org_id && demo.user_id && callSid) {
+        const durationSeconds = (await getCallBySid(callSid).catch(() => null))?.call_duration || 0;
+        const { totalCents, breakdown } = estimateCallCost(durationSeconds);
+        const billingMonth = new Date(); billingMonth.setDate(1); billingMonth.setHours(0, 0, 0, 0);
+        await supabaseClient.from('ai_call_usage').insert({
+          organization_id: demo.org_id,
+          user_id: demo.user_id,
+          call_sid: callSid,
+          call_duration_seconds: durationSeconds,
+          call_cost_cents: totalCents,
+          cost_breakdown: breakdown,
+          funnel: true,
+          billing_period_month: billingMonth.toISOString().split('T')[0],
+        }).then(({ error }) => {
+          if (error) console.warn('[DemoCall] usage log failed.', { callSid, error: error.message });
+        });
+      }
+      console.log('[Realtime] Demo call captured; skipping tenant pipeline.', { callSid, demoId: demo.id });
+      return;
+    }
+  } catch (demoError) {
+    console.warn('[Realtime] Demo-call check failed; continuing as tenant call.', { callSid, error: demoError.message });
+  }
 
   let callContext = null;
   try {
@@ -4748,6 +4789,69 @@ app.post('/telephony/outbound-callback-status', (req, res) => {
     status: req.body?.CallStatus,
     to: req.body?.To,
   });
+  res.sendStatus(204);
+});
+
+/**
+ * Demo call answer leg: the user (mid-onboarding) picks up the call Flynn placed
+ * to their own mobile, and we connect them to THEIR receptionist so they hear
+ * the product. Seeded by `userId` (query param), not by number, because a demo
+ * runs before a number is assigned. The agent loads their business context from
+ * business_profiles by org, exactly as a real inbound call would.
+ */
+app.post('/telephony/demo-call-answer', async (req, res) => {
+  try {
+    if (shouldValidateSignature && twilioAuthToken) {
+      const signature = req.headers['x-twilio-signature'];
+      const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      if (!signature || !twilio.validateRequest(twilioAuthToken, signature, url, req.body || {})) {
+        console.warn('[DemoCall] Signature validation failed for answer leg.');
+        return res.status(403).send('Twilio signature validation failed');
+      }
+    }
+
+    const userId = req.query?.userId;
+    const callSid = req.body?.CallSid;
+    if (!userId) {
+      console.warn('[DemoCall] Answer leg missing userId.', { callSid });
+      return respondWithVoicemail(req, res, req.body || {});
+    }
+
+    const profile = await getReceptionistProfileById(userId);
+    if (!profile) {
+      console.warn('[DemoCall] No profile for demo user; playing a short message.', { userId, callSid });
+      const vr = new twilio.twiml.VoiceResponse();
+      vr.say("G'day! This is a quick demo of Flynn. Finish setting up in the app and I'll be answering your real calls.");
+      res.type('text/xml');
+      return res.send(vr.toString());
+    }
+
+    // Force the receptionist mode for the demo (the user may still be on the
+    // sms_links default), and give the agent a greeting even if theirs is blank.
+    const greeting = (profile.receptionist_greeting || '').trim()
+      || (profile.business_name ? `G'day, you've called ${profile.business_name}!` : "G'day, thanks for calling!");
+    const demoProfile = {
+      ...profile,
+      call_handling_mode: 'ai_receptionist',
+      receptionist_greeting: greeting,
+    };
+
+    return respondWithAiReceptionist({ req, res, inboundParams: req.body || {}, profile: demoProfile, callSid });
+  } catch (error) {
+    console.error('[DemoCall] Answer leg failed.', error);
+    return respondWithVoicemail(req, res, req.body || {});
+  }
+});
+
+// Twilio call-status pings for a demo call → mirror the lifecycle onto the row
+// so the app's poll can show ringing / no-answer / completed.
+app.post('/telephony/demo-call-status', async (req, res) => {
+  const demoId = req.query?.demoId;
+  const status = req.body?.CallStatus;
+  if (demoId && status) {
+    await demoCallStore.applyTwilioStatus(demoId, status).catch((error) =>
+      console.warn('[DemoCall] status update failed.', { demoId, status, error: error.message }));
+  }
   res.sendStatus(204);
 });
 

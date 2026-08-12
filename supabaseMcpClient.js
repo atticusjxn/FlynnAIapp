@@ -734,6 +734,62 @@ const getReceptionistProfileByNumber = async (phoneNumber) => {
   }
 };
 
+/**
+ * Same receptionist profile as getReceptionistProfileByNumber, but keyed on the
+ * user id. The demo call (onboarding) needs to seed the agent before a user has
+ * a twilio_phone_number, so it can't look up by number — it connects the call
+ * to *this* user's receptionist directly.
+ */
+const getReceptionistProfileById = async (userId) => {
+  if (!userId) throw new Error('userId is required to lookup receptionist profile.');
+  try {
+    const client = getDirectClient();
+    const { data, error } = await client
+      .from('users')
+      .select(`
+        id,
+        default_org_id,
+        business_name,
+        business_type,
+        phone_number,
+        twilio_phone_number,
+        receptionist_configured,
+        call_handling_mode,
+        receptionist_voice,
+        receptionist_greeting,
+        receptionist_questions,
+        receptionist_voice_profile_id,
+        receptionist_ack_library,
+        receptionist_business_profile,
+        voice_profiles!receptionist_voice_profile_id (
+          voice_id,
+          status
+        )
+      `)
+      .eq('id', userId)
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('[Supabase] getReceptionistProfileById query error:', error);
+      return null;
+    }
+    if (!data) return null;
+
+    const voiceProfile = data.voice_profiles;
+    const profile = {
+      ...data,
+      receptionist_voice_id: voiceProfile?.voice_id || null,
+      receptionist_voice_status: voiceProfile?.status || null,
+    };
+    delete profile.voice_profiles;
+    return profile;
+  } catch (error) {
+    console.error('[Supabase] Failed to get receptionist profile by id:', error);
+    return null;
+  }
+};
+
 const findExpiredRecordingCalls = async ({ cutoffIso, limit = 50 }) => {
   if (!cutoffIso) {
     throw new Error('cutoffIso is required to locate expired recordings.');
@@ -1229,6 +1285,7 @@ module.exports = {
   insertJob,
   getUserProfileById,
   getReceptionistProfileByNumber,
+  getReceptionistProfileById,
   upsertNotificationToken,
   listNotificationTokensForUser,
   findExpiredRecordingCalls,

@@ -254,43 +254,70 @@ struct CalendarStep: View {
 
 struct DemoCallStep: View {
     @Bindable var model: OnboardingModel
-    @State private var phase: Phase = .prompt
-    private enum Phase { case prompt, ringing, payoff }
+
+    private var status: OnboardingModel.DemoStatus { model.demoStatus }
 
     var body: some View {
         WizardScaffold(
             eyebrow: "Hear it for yourself",
-            title: phase == .payoff ? "That's Flynn." : "Flynn's going to ring you",
-            subtitle: phase == .payoff
-                ? "Every call you miss gets answered like that — and the job lands on your Home screen, ready to send."
-                : "Pick up and talk like a customer — ask about a job, a price, when you could come out. Flynn uses what you just told it."
+            title: title,
+            subtitle: subtitle
         ) {
             Group {
-                switch phase {
-                case .prompt:  promptArt
-                case .ringing: ringingArt
-                case .payoff:  payoffCard
+                switch status {
+                case .idle:      Mascot(.phone, size: 132, backdrop: .cream)
+                case .ringing:   ringingArt
+                case .completed: payoffCard
+                case .failed:    Mascot(.thinking, size: 120, backdrop: .cream)
                 }
             }
             .padding(.top, FlynnSpacing.lg)
             .frame(maxWidth: .infinity)
         } footer: {
-            switch phase {
-            case .prompt:
-                FlynnGlassButton(title: "Call me now", action: startCall, icon: Image(systemName: "phone.fill"))
+            switch status {
+            case .idle:
+                FlynnGlassButton(title: "Call me now",
+                                 action: { Task { await model.startDemoCall() } },
+                                 icon: Image(systemName: "phone.fill"))
             case .ringing:
-                Text("Calling you now…")
-                    .flynnType(FlynnTypography.label)
-                    .foregroundColor(FlynnColor.textSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 56)
-            case .payoff:
+                HStack(spacing: FlynnSpacing.xs) {
+                    ProgressView().controlSize(.small)
+                    Text("Calling you now…").flynnType(FlynnTypography.label).foregroundColor(FlynnColor.textSecondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 56)
+            case .completed:
                 FlynnGlassButton(title: "Set Flynn live", action: { model.next() })
+            case .failed:
+                VStack(spacing: FlynnSpacing.xs) {
+                    FlynnGlassButton(title: "Try the call again",
+                                     action: { Task { await model.startDemoCall() } },
+                                     icon: Image(systemName: "arrow.clockwise"))
+                    Button("Skip for now") { model.next() }
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textTertiary)
+                        .frame(minHeight: 40)
+                }
             }
         }
     }
 
-    private var promptArt: some View {
-        Mascot(.phone, size: 132, backdrop: .cream)
+    private var title: String {
+        switch status {
+        case .completed: return "That's Flynn."
+        case .failed:    return "Didn't quite connect"
+        default:         return "Flynn's going to ring you"
+        }
+    }
+
+    private var subtitle: String {
+        switch status {
+        case .completed:
+            return "Every call you miss gets answered like that — and the job lands on your Home screen, ready to send."
+        case .failed:
+            return "We couldn't reach your phone just now. Give it another go, or skip and set Flynn live — you can always test it later."
+        default:
+            return "Pick up and talk like a customer — ask about a job, a price, when you could come out. Flynn uses what you just told it."
+        }
     }
 
     private var ringingArt: some View {
@@ -298,9 +325,9 @@ struct DemoCallStep: View {
             ForEach(0..<3) { i in
                 Circle().stroke(FlynnColor.primary.opacity(0.4), lineWidth: 2)
                     .frame(width: 120 + CGFloat(i) * 44, height: 120 + CGFloat(i) * 44)
-                    .scaleEffect(phase == .ringing ? 1.05 : 1)
-                    .opacity(phase == .ringing ? 0.2 : 0.6)
-                    .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: true).delay(Double(i) * 0.2), value: phase)
+                    .scaleEffect(status == .ringing ? 1.05 : 1)
+                    .opacity(status == .ringing ? 0.2 : 0.6)
+                    .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: true).delay(Double(i) * 0.2), value: status)
             }
             Image(systemName: "phone.fill")
                 .font(.system(size: 44, weight: .semibold))
@@ -316,32 +343,31 @@ struct DemoCallStep: View {
             Label("Job captured", systemImage: "checkmark.seal.fill")
                 .flynnType(FlynnTypography.overline)
                 .foregroundColor(FlynnColor.success)
-            Text(model.trade.map { "\($0) job" } ?? "New job")
+            Text(jobTitle)
                 .flynnType(FlynnTypography.h3)
                 .foregroundColor(FlynnColor.textPrimary)
-            Text("Flynn booked a time, texted the caller back, and left it on your Home screen ready to quote or invoice.")
-                .flynnType(FlynnTypography.bodyMedium)
-                .foregroundColor(FlynnColor.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if let transcript = model.demoTranscript, !transcript.isEmpty {
+                Text(transcript)
+                    .flynnType(FlynnTypography.bodyMedium)
+                    .foregroundColor(FlynnColor.textSecondary)
+                    .lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Flynn took the details, texted the caller back, and left it on your Home screen ready to quote or invoice.")
+                    .flynnType(FlynnTypography.bodyMedium)
+                    .foregroundColor(FlynnColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(FlynnSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .flynnCardSurface(.raised)
     }
 
-    private func startCall() {
-        Analytics.capture(.demoCallRequested)
-        withAnimation { phase = .ringing }
-        // BACKEND: POST /api/voice-onboarding/demo-call to place the live call
-        // from the shared demo pool, seeded with the entered trade/services.
-        // Until that endpoint exists, walk to the payoff so the flow is
-        // complete and demoable. The real version transitions on the call's
-        // completion webhook / a poll.
-        Task {
-            try? await Task.sleep(for: .seconds(2.2))
-            Analytics.capture(.demoCallCompleted)
-            withAnimation { phase = .payoff }
-        }
+    private var jobTitle: String {
+        if let job = model.demoJobTitle, !job.isEmpty { return job.capitalized }
+        if let trade = model.trade { return "\(trade) job" }
+        return "New job"
     }
 }
 

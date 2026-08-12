@@ -161,6 +161,13 @@ final class OnboardingModel {
     // Forwarding
     var forwardingDialled = false
 
+    // Demo call
+    enum DemoStatus { case idle, ringing, completed, failed }
+    var demoStatus: DemoStatus = .idle
+    var demoCallId: String?
+    var demoTranscript: String?
+    var demoJobTitle: String?
+
     func advance(to next: OnboardingStep) {
         Analytics.capture(next.enterEvent, next.eventProps)
         step = next
@@ -210,6 +217,45 @@ final class OnboardingModel {
         } catch {
             FlynnLog.network.error("Onboarding business save failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Ring the user's own mobile, then poll for the transcript + extracted job.
+    func startDemoCall() async {
+        demoStatus = .ringing
+        demoTranscript = nil
+        demoJobTitle = nil
+        do {
+            let id = try await VoiceOnboardingClient.startDemoCall()
+            demoCallId = id
+            Analytics.capture(.demoCallRequested)
+            await pollDemoCall(id: id)
+        } catch {
+            FlynnLog.network.error("Demo call failed to start: \(error.localizedDescription, privacy: .public)")
+            demoStatus = .failed
+        }
+    }
+
+    private func pollDemoCall(id: String) async {
+        // The call rings up to ~25s, then the conversation, then the server
+        // captures the transcript on hang-up. Poll for ~2 minutes at 2s.
+        for _ in 0..<60 {
+            try? await Task.sleep(for: .seconds(2))
+            guard let status = try? await VoiceOnboardingClient.demoCallStatus(id: id) else { continue }
+            switch status.status {
+            case "completed":
+                demoTranscript = status.transcript
+                demoJobTitle = status.extractedJob?.serviceType
+                demoStatus = .completed
+                Analytics.capture(.demoCallCompleted)
+                return
+            case "no_answer", "failed", "canceled":
+                demoStatus = .failed
+                return
+            default:
+                continue   // ringing / in_progress
+            }
+        }
+        demoStatus = .failed
     }
 
     func assignNumber() async {

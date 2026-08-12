@@ -103,6 +103,68 @@ enum VoiceOnboardingClient {
         return try JSONDecoder().decode(AssignResult.self, from: data)
     }
 
+    // MARK: - Demo call (onboarding value moment)
+
+    struct DemoCallStatus: Decodable {
+        let id: String
+        let status: String          // ringing | in_progress | completed | no_answer | failed | canceled
+        let transcript: String?
+        let extractedJob: ExtractedJob?
+
+        struct ExtractedJob: Decodable {
+            let serviceType: String?
+            let callerName: String?
+            enum CodingKeys: String, CodingKey {
+                case serviceType = "service_type"
+                case callerName = "caller_name"
+            }
+        }
+        enum CodingKeys: String, CodingKey {
+            case id, status, transcript
+            case extractedJob = "extracted_job"
+        }
+    }
+
+    /// Ask Flynn to ring the signed-in user's own mobile. Returns the demo-call
+    /// id to poll. The server only ever dials the user's verified number.
+    static func startDemoCall() async throws -> String {
+        let body = try JSONEncoder().encode([String: String]())
+        let (data, code) = try await rawRequest(path: "api/voice-onboarding/demo-call", method: "POST", body: body)
+        guard (200..<300).contains(code) else {
+            let message = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
+            throw VoiceOnboardingError.server(message ?? "Couldn't place the call (\(code))")
+        }
+        struct Response: Decodable { let demo_call_id: String }
+        return try JSONDecoder().decode(Response.self, from: data).demo_call_id
+    }
+
+    static func demoCallStatus(id: String) async throws -> DemoCallStatus {
+        let (data, code) = try await rawRequest(path: "api/voice-onboarding/demo-call/\(id)", method: "GET", body: nil)
+        guard (200..<300).contains(code) else {
+            throw VoiceOnboardingError.server("status \(code)")
+        }
+        return try JSONDecoder().decode(DemoCallStatus.self, from: data)
+    }
+
+    /// Like `request`, but returns the raw status code instead of mapping it to
+    /// the claim-flow error cases (503 = pool empty, 402 = subscription) that
+    /// don't apply to the demo endpoints.
+    private static func rawRequest(path: String, method: String, body: Data?) async throws -> (Data, Int) {
+        let session = try await FlynnSupabase.client.auth.session
+        var request = URLRequest(url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent(path))
+        request.httpMethod = method
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+        }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw VoiceOnboardingError.server("No response from Flynn")
+        }
+        return (data, http.statusCode)
+    }
+
     private static func request(path: String, method: String, body: Data?) async throws -> Data {
         let session = try await FlynnSupabase.client.auth.session
         var request = URLRequest(url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent(path))
