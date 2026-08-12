@@ -190,7 +190,7 @@ struct InvoiceDetailView: View {
     }
 
     private func lineItemsCard(invoice: InvoiceDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Line items")
                     .flynnType(FlynnTypography.overline)
@@ -224,7 +224,7 @@ struct InvoiceDetailView: View {
     }
 
     private func totalsCard(invoice: InvoiceDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Totals")
                     .flynnType(FlynnTypography.overline)
@@ -246,7 +246,7 @@ struct InvoiceDetailView: View {
     }
 
     private func timelineCard(invoice: InvoiceDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Timeline")
                     .flynnType(FlynnTypography.overline)
@@ -261,7 +261,7 @@ struct InvoiceDetailView: View {
     }
 
     private func paymentLinkCard(invoice: InvoiceDTO, url: URL) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 HStack {
                     Text("Payment")
@@ -332,7 +332,7 @@ struct InvoiceDetailView: View {
     }
 
     private func notesCard(notes: String) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
                 Text("Notes")
                     .flynnType(FlynnTypography.overline)

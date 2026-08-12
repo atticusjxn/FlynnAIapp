@@ -200,7 +200,7 @@ struct EventDetailView: View {
     }
 
     private func notesCard(notes: String) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
                 Text("Notes")
                     .flynnType(FlynnTypography.overline)
@@ -215,7 +215,7 @@ struct EventDetailView: View {
 
     private func clientLinkCard(client: ClientDTO) -> some View {
         NavigationLink(value: Route.clientDetail(id: client.id)) {
-            FlynnCard(shadow: .sm) {
+            FlynnCard(style: .quiet) {
                 HStack(spacing: FlynnSpacing.sm) {
                     Image(systemName: "person.crop.circle")
                         .foregroundColor(FlynnColor.primary)

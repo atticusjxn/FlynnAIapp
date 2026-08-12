@@ -152,7 +152,7 @@ struct QuoteDetailView: View {
     }
 
     private func lineItemsCard(quote: QuoteDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Line items")
                     .flynnType(FlynnTypography.overline)
@@ -186,7 +186,7 @@ struct QuoteDetailView: View {
     }
 
     private func totalsCard(quote: QuoteDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Totals")
                     .flynnType(FlynnTypography.overline)
@@ -202,7 +202,7 @@ struct QuoteDetailView: View {
     }
 
     private func timelineCard(quote: QuoteDTO) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Timeline")
                     .flynnType(FlynnTypography.overline)
@@ -218,7 +218,7 @@ struct QuoteDetailView: View {
     }
 
     private func paymentLinkCard(url: URL) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 Text("Payment")
                     .flynnType(FlynnTypography.overline)
@@ -233,7 +233,7 @@ struct QuoteDetailView: View {
     }
 
     private func notesCard(notes: String) -> some View {
-        FlynnCard(shadow: .sm) {
+        FlynnCard(style: .quiet) {
             VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
                 Text("Notes")
                     .flynnType(FlynnTypography.overline)
