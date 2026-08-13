@@ -368,7 +368,20 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
   > **Note:** this gate was first attempted by a background agent that stalled mid-edit
   > (`services/agent/toolRegistry.js`); its completed partial work was reviewed file-by-file
   > and found correct before finishing the rest directly.
-- [ ] **5.4** Rewrite `CLAUDE.md` to the locked positioning.
+- [x] **5.4** Rewrite `CLAUDE.md` to the locked positioning.
+  > Full rewrite: "What Flynn Is" now leads with the AI receptionist as the acquisition hook
+  > (positioning: "Never miss a job. Never chase a payment.") with the A$29/A$69 StoreKit tiers,
+  > instead of the old keyboard-era framing. Un-retired telephony in the Reconciliation Notes
+  > table (it previously said "IVR, telephony, voicemail pipeline — Retired", which was flatly
+  > wrong given Gates 0-4 this session). Removed the Team Flynn surface section and the keyboard
+  > extension surface entirely; Non-Goals now explicitly lists all three Gate 5 cuts as physically
+  > deleted, not just demoted. Fixed the Design System's "Known inconsistencies" list (it named
+  > three files — `PracticeStepView`/`KeyboardTourStepView`/`OnboardingSteps` — that Gate 5.1
+  > deleted) and the dev-rules line claiming a `FlynnKeyboard` Xcode target still exists. Softened
+  > the onboarding-sequence claim in Surfaces to point at `a.md` Gate 2 rather than imply the
+  > funnel is fully wired (it isn't — 2.1/2.2/2.3/2.5/2.8/2.10/2.11 are still open). Added a
+  > v5.0.0 Version History entry. Verified every pricing/product-id claim against the actual
+  > `2.7` entry above before writing it down.
 
 ## Gate 6 — Launch
 
