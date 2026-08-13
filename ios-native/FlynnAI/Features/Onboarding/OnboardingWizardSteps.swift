@@ -493,10 +493,34 @@ struct DemoCallStep: View {
                     .foregroundColor(FlynnColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if let url = model.demoBookingUrl {
+                bookingLinkPreview(url)
+            }
         }
         .padding(FlynnSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .flynnCardSurface(.raised)
+    }
+
+    /// The actual link a real missed call would have texted the caller — not a
+    /// mockup. It's provisioned the moment the demo call completes.
+    private func bookingLinkPreview(_ url: String) -> some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
+            Text("This is the link a missed call would text back")
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textTertiary)
+            HStack(spacing: FlynnSpacing.xs) {
+                Image(systemName: "link")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(FlynnColor.primary)
+                Text(url)
+                    .flynnType(FlynnTypography.bodyMedium)
+                    .foregroundColor(FlynnColor.primary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .padding(.top, FlynnSpacing.xs)
     }
 
     private var jobTitle: String {

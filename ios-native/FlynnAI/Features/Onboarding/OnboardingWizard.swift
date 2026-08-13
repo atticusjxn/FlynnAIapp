@@ -246,6 +246,10 @@ final class OnboardingModel {
     var demoCallId: String?
     var demoTranscript: String?
     var demoJobTitle: String?
+    /// The tenant's real booking page, provisioned as soon as the demo call
+    /// completes — shown on the payoff screen as "the link that would have
+    /// gone out". A genuine link, not a mockup.
+    var demoBookingUrl: String?
 
     /// Step transitions carry no automatic analytics fire — each meaningful
     /// action (trade picked, business saved, calendar connected, demo
@@ -331,6 +335,7 @@ final class OnboardingModel {
             case "completed":
                 demoTranscript = status.transcript
                 demoJobTitle = status.extractedJob?.serviceType
+                demoBookingUrl = status.bookingUrl
                 demoStatus = .completed
                 Analytics.capture(.demoCallCompleted)
                 return

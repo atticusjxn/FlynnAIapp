@@ -435,11 +435,24 @@ router.get('/demo-call/:id', authenticateJwt, async (req, res) => {
     const demo = await demoCallStore.getDemoCallById(req.params.id);
     // Ownership check — never leak another user's demo transcript.
     if (!demo || demo.user_id !== req.user.id) return res.status(404).json({ error: 'not_found' });
+
+    // The payoff screen's whole pitch is "this is the link that would have
+    // gone out" — a real one, not a mockup. ensureBookingPage only needs the
+    // user/org (no phone number required), so it's safe to provision here,
+    // well before number assignment. Idempotent: a re-poll after completion
+    // just re-reads the same row.
+    let bookingUrl = null;
+    if (demo.status === 'completed') {
+      const page = await ensureBookingPage({ userId: req.user.id });
+      bookingUrl = page?.url || null;
+    }
+
     return res.json({
       id: demo.id,
       status: demo.status,
       transcript: demo.transcript || null,
       extracted_job: demo.extracted_job || null,
+      booking_url: bookingUrl,
       created_at: demo.created_at,
       completed_at: demo.completed_at || null,
     });

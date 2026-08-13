@@ -173,11 +173,16 @@ actual code before touching anything; see the precise PARTIAL/DONE status on eac
 - [x] **2.4** **The demo call** — Flynn rings their verified number from a shared pool, seeded
       with what they just entered. Auth + OTP gated, rate-limited (the old `/api/call-me-back`
       would dial arbitrary strings — a toll-fraud vector on a billable endpoint). See detail below.
-- [ ] **2.5** Post-call payoff: transcript, extracted job, booking-link preview.
-      **PARTIAL** — transcript + extracted job are real and shown
-      (`OnboardingWizardSteps.swift:341-371`, sourced from `GET
-      /api/voice-onboarding/demo-call/:id`). No booking-link preview exists anywhere in the
-      payoff card — "booking" only appears in the paywall's marketing copy.
+- [x] **2.5** Post-call payoff: transcript, extracted job, booking-link preview.
+      The booking link shown is real, not a mockup: `services/bookingPage.js`'s
+      `ensureBookingPage()` only ever needed a user/org (never a phone number — that dependency
+      was assumed, not actual), so it's idempotent to call as soon as the demo call completes,
+      well before number assignment (Gate 3.3 already called it there; this just moves the first
+      call earlier). `GET /api/voice-onboarding/demo-call/:id` now returns `booking_url` once
+      `status === 'completed'`, which the app surfaces on the payoff card: "This is the link a
+      missed call would text back." Degrades cleanly if the org isn't provisioned yet — the
+      section just doesn't render, same as the existing transcript/job fallback pattern.
+      `xcodebuild` `BUILD SUCCEEDED`, `npx jest` 63/63, boot check green.
 - [x] **2.6** `SubscriptionView` no longer sells the deleted keyboard product — header rewritten
       to the locked positioning, `PlanDTO.features` now returns real per-plan bullets instead of
       hardcoded `[]`, CTA says "7-day" not "14-day". Visual/motion redesign is a separate pass

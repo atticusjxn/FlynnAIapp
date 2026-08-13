@@ -110,6 +110,10 @@ enum VoiceOnboardingClient {
         let status: String          // ringing | in_progress | completed | no_answer | failed | canceled
         let transcript: String?
         let extractedJob: ExtractedJob?
+        /// The tenant's real booking page — provisioned as soon as the demo call
+        /// completes (no phone number required), so this is a genuine link, not
+        /// a mockup. Nil until `status == "completed"`.
+        let bookingUrl: String?
 
         struct ExtractedJob: Decodable {
             let serviceType: String?
@@ -122,6 +126,7 @@ enum VoiceOnboardingClient {
         enum CodingKeys: String, CodingKey {
             case id, status, transcript
             case extractedJob = "extracted_job"
+            case bookingUrl = "booking_url"
         }
     }
 
