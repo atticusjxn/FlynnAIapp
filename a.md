@@ -186,6 +186,22 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
       + all 9 input sheets.
 - [x] **4.2** Mic tap-starts-a-recording → 160ms hold-guard; a tap now shows "hold the mic to talk".
 - [x] **4.3** Third haptic added; mic bigger (60pt), filled orange, glowing.
+- [x] **4.3a** *(found — your simulator report)* **The mic latched on after the first-run permission
+      grant.** Reproduced on a clean install every time: hold the mic, the Speech Recognition alert
+      takes the touch, accept, and the bar sticks on "listening..." forever with the meter running
+      and nobody holding the button. `startListening()` spans two permission round-trips, but every
+      stop path gated on `isListening`, so a release landing mid-start no-op'd and the awaited start
+      then opened the recogniser with no finger down. Fixed with a `stopRequested` flag re-checked
+      after each `await`, plus unconditional stops on release/cancel/background/disappear.
+      Two more defects fixed in the same pass, both found by inspection rather than reproduced:
+      teardown called `endAudio()` *before* stopping the engine and removing the tap, leaving a
+      ~21ms window where the realtime audio thread could `append` to an ended request — an ObjC
+      exception Swift can't catch, i.e. a hard crash, and the likely explanation for it being
+      intermittent; and Home/Brain/the contextual bar each own a `VoiceCaptureManager`, so two
+      engines could run on the one shared `AVAudioSession` with whichever stopped first
+      deactivating it under the other. ⏳ *Final visual re-verification pending — the Mac screen
+      locked mid-test. Build is clean and the latch-on logic is fixed; worth one more clean-install
+      hold to confirm before ads.*
 - [x] **4.4** Home "Recent activity" tappable (opens full message); "Waiting on your OK" gets real
       Confirm/Cancel routed to the agent.
 - [x] **4.5** Calls tab undefined-state fixed — real `Route.callsList` pushes `CallsListView`.
