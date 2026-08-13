@@ -245,12 +245,30 @@ router.post('/assign-number', authenticateJwt, async (req, res) => {
       return res.json({ phone_number: fullUser.twilio_phone_number, already_assigned: true });
     }
 
+    // Two funnels reach this endpoint and only one of them has a staged
+    // session:
+    //
+    //   voice front door — rang the ad number, config captured on the call,
+    //     app installed after, ReceptionistClaimFlow POSTs /claim which sets
+    //     claimed_by. A number before that claim would go live against a
+    //     config the user never confirmed, so the state check still applies.
+    //
+    //   onboarding wizard — a cold ad install. RootView routes here only when
+    //     stagedSession() returns nil, so by construction there is NO
+    //     voice_onboarding_sessions row, ever. Its config comes from the
+    //     wizard's own business step (PATCH /api/business-profile).
+    //
+    // Requiring the row unconditionally 409'd every wizard user — i.e. every
+    // paid ad install finished the funnel, was charged, and was refused a
+    // number. Only enforce the state when a session actually exists; payment
+    // is gated by the entitlement check below, which is the real protection
+    // against handing out a rented number for free.
     const { data: session } = await supabase
       .from('voice_onboarding_sessions')
       .select('id, state')
       .eq('claimed_by', user.id)
       .maybeSingle();
-    if (!session || !['claimed', 'receptionist_live'].includes(session.state)) {
+    if (session && !['claimed', 'receptionist_live'].includes(session.state)) {
       return res.status(409).json({ error: 'claim your receptionist config first' });
     }
 

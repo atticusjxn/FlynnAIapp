@@ -2551,30 +2551,26 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
         `${config.greetingScript || `G'day, you've reached ${businessName || 'us'}.`} ` +
         `For a booking link, press 1. For a quote, press 2. Or leave a voicemail.`;
 
-      const { error: bpError } = await supabaseStorageClient
-        .from('business_profiles')
-        .upsert(
-          {
-            user_id: userId,
-            business_name: businessName,
-            business_type: inferredIndustry,
-            website_url: url,
-            services: parsedServices,
-            pricing_notes: config.businessProfile?.pricing_summary || null,
-            ai_instructions: aiInstructions,
-            ai_greeting_text: config.greetingScript,
-            ai_followup_questions: config.intakeQuestions,
-            ivr_custom_script: ivrScript,
-            website_scrape_data: {
-              rawScrape: scrapedData,
-              businessProfile: config.businessProfile,
-              greetingScript: config.greetingScript,
-              intakeQuestions: config.intakeQuestions,
-            },
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' }
-        );
+      // Same org-keyed write as PATCH /api/business-profile — see
+      // writeBusinessProfile() for why user_id is the wrong conflict target.
+      const { error: bpError } = await writeBusinessProfile(userId, {
+        business_name: businessName,
+        business_type: inferredIndustry,
+        website_url: url,
+        services: parsedServices,
+        pricing_notes: config.businessProfile?.pricing_summary || null,
+        ai_instructions: aiInstructions,
+        ai_greeting_text: config.greetingScript,
+        ai_followup_questions: config.intakeQuestions,
+        ivr_custom_script: ivrScript,
+        website_scrape_data: {
+          rawScrape: scrapedData,
+          businessProfile: config.businessProfile,
+          greetingScript: config.greetingScript,
+          intakeQuestions: config.intakeQuestions,
+        },
+        updated_at: new Date().toISOString(),
+      });
 
       if (bpError) {
         console.warn('[API] Failed to write to business_profiles (non-fatal):', bpError.message);
@@ -2666,6 +2662,51 @@ app.post('/api/demo/start-voice-session', authenticateJwt, (req, res) => {
 });
 
 /**
+ * Write business-profile fields for a user, keyed the way the table is
+ * actually populated.
+ *
+ * business_profiles carries UNIQUE(user_id) AND UNIQUE(org_id), and the signup
+ * trigger (handle_new_auth_user -> create_org_with_defaults) inserts the row
+ * with org_id set and user_id NULL. In production 103 of 130 rows have a NULL
+ * user_id and none have a NULL org_id. So `upsert(..., { onConflict: 'user_id' })`
+ * matched nothing, fell through to an INSERT, and died on the org_id unique
+ * constraint — a 500 on EVERY new account, silently discarding the trade,
+ * services and pricing collected in onboarding (all three iOS call sites
+ * ignore the response).
+ *
+ * Keying on org_id instead hits the row that actually exists, and stamps
+ * user_id on the way past so the column backfills as people save.
+ */
+async function writeBusinessProfile(userId, updates) {
+  const { data: userRow, error: userErr } = await supabaseStorageClient
+    .from('users')
+    .select('default_org_id')
+    .eq('id', userId)
+    .maybeSingle();
+  if (userErr) return { error: userErr };
+
+  const orgId = userRow?.default_org_id;
+  if (!orgId) {
+    // No org yet (signup trigger hasn't landed). Fall back to the user-keyed
+    // row so the write still succeeds rather than 500ing.
+    return supabaseStorageClient
+      .from('business_profiles')
+      .upsert({ user_id: userId, ...updates }, { onConflict: 'user_id' });
+  }
+
+  // Deliberately does NOT stamp user_id. business_profiles.user_id is a FK to
+  // auth.users, and 62 public.users rows have no auth.users counterpart
+  // (legacy/agent-created records) — stamping it would trade the old
+  // org_id-unique 500 for a new foreign-key 500 for those accounts. Verified
+  // against production: the org-keyed write with no user_id stamp succeeds
+  // where both the old path and a user_id-stamping variant fail. org_id is
+  // present on all 130 rows and is what every read here keys on anyway.
+  return supabaseStorageClient
+    .from('business_profiles')
+    .upsert({ org_id: orgId, ...updates }, { onConflict: 'org_id' });
+}
+
+/**
  * Update business profile completion fields (hours, services, call-out fee etc.)
  * PATCH /api/business-profile
  */
@@ -2687,9 +2728,7 @@ app.patch('/api/business-profile', authenticateJwt, async (req, res) => {
   }
   updates.updated_at = new Date().toISOString();
 
-  const { error } = await supabaseStorageClient
-    .from('business_profiles')
-    .upsert({ user_id: userId, ...updates }, { onConflict: 'user_id' });
+  const { error } = await writeBusinessProfile(userId, updates);
 
   if (error) {
     console.error('[API] Failed to update business profile:', error);
