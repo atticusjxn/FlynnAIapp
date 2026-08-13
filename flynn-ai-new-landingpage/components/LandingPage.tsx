@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import StoreButtons from './StoreButtons';
 import CallMeBackWidget from './CallMeBackWidget';
 import AppShowcase from './AppShowcase';
@@ -28,23 +28,104 @@ const Reveal = ({ children, delay = 0, className = '' }: any) => (
     className={className}>{children}</motion.div>
 );
 
+/** Scroll-linked vertical drift — the whole point of "reactive scrolling":
+ *  the decorative shapes on every section aren't static, they read the
+ *  page's own scroll position and move at different rates as it passes. */
 const Motifs = ({ variant = 0 }: { variant?: number }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
+  const yFast = useTransform(scrollYProgress, [0, 1], [-64, 64]);
+  const ySlow = useTransform(scrollYProgress, [0, 1], [-26, 26]);
   const sets = [
     <>
-      <span className="absolute top-[-80px] right-[-80px] w-[160px] h-[160px] rounded-full bg-[#3C8A86] border-[3px] border-[#2C2018]" />
-      <span className="absolute bottom-[-104px] right-[-104px] w-[208px] h-[208px] rounded-full bg-[#E0A436] border-[3px] border-[#2C2018]" />
-      <span className="absolute bottom-[-28px] left-[-28px] w-[56px] h-[56px] rounded-full bg-[#FB5B1E] border-[3px] border-[#2C2018]" />
+      <motion.span style={{ y: yFast }} className="absolute top-[-80px] right-[-80px] w-[160px] h-[160px] rounded-full bg-[#3C8A86] border-[3px] border-[#2C2018]" />
+      <motion.span style={{ y: ySlow }} className="absolute bottom-[-104px] right-[-104px] w-[208px] h-[208px] rounded-full bg-[#E0A436] border-[3px] border-[#2C2018]" />
+      <motion.span style={{ y: yFast }} className="absolute bottom-[-28px] left-[-28px] w-[56px] h-[56px] rounded-full bg-[#FB5B1E] border-[3px] border-[#2C2018]" />
     </>,
     <>
-      <span className="absolute top-[15%] right-[-88px] w-[176px] h-[176px] rounded-full bg-[#C5532B] border-[3px] border-[#2C2018]" />
-      <span className="absolute bottom-[-112px] right-[-112px] w-[224px] h-[224px] rounded-full bg-[#7E8B4F] border-[3px] border-[#2C2018]" />
+      <motion.span style={{ y: ySlow }} className="absolute top-[15%] right-[-88px] w-[176px] h-[176px] rounded-full bg-[#C5532B] border-[3px] border-[#2C2018]" />
+      <motion.span style={{ y: yFast }} className="absolute bottom-[-112px] right-[-112px] w-[224px] h-[224px] rounded-full bg-[#7E8B4F] border-[3px] border-[#2C2018]" />
     </>,
     <>
-      <span className="absolute top-[35%] left-[-120px] w-[240px] h-[240px] rounded-full bg-[#3C8A86] border-[3px] border-[#2C2018]" />
-      <span className="absolute bottom-[-48px] right-[-48px] w-[96px] h-[96px] rounded-full bg-[#E0A436] border-[3px] border-[#2C2018]" />
+      <motion.span style={{ y: yFast }} className="absolute top-[35%] left-[-120px] w-[240px] h-[240px] rounded-full bg-[#3C8A86] border-[3px] border-[#2C2018]" />
+      <motion.span style={{ y: ySlow }} className="absolute bottom-[-48px] right-[-48px] w-[96px] h-[96px] rounded-full bg-[#E0A436] border-[3px] border-[#2C2018]" />
     </>,
   ];
-  return <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-75">{sets[variant % sets.length]}</div>;
+  return <div ref={ref} className="absolute inset-0 overflow-hidden pointer-events-none opacity-75">{sets[variant % sets.length]}</div>;
+};
+
+/** A thin fill bar pinned to the very top of the viewport, tracking overall
+ *  scroll progress — the page visibly "responds" to scroll from the first
+ *  pixel, not just individual sections fading in. */
+const ScrollProgressBar = () => {
+  const { scrollYProgress } = useScroll();
+  return (
+    <motion.div
+      style={{ scaleX: scrollYProgress }}
+      className="fixed top-0 left-0 right-0 h-[3px] bg-[#FB5B1E] origin-left z-[70]"
+    />
+  );
+};
+
+/** The hero visual. Replaces a single static phone screenshot with a live,
+ *  looping "watch Flynn work" card — it never sits still, cycling through
+ *  the actual product loop (answer → book → text) on its own, and floats
+ *  gently the whole time. This is the thing that should read as alive
+ *  rather than a flat marketing photo. */
+const HERO_BEATS = [
+  { icon: '📞', eyebrow: 'Incoming call', title: 'Answering…', sub: 'Sounds like a real person, not a menu' },
+  { icon: '🗓️', eyebrow: 'Job booked', title: 'Thu · 9:00am', sub: 'Straight into the calendar, no back-and-forth' },
+  { icon: '💬', eyebrow: 'Client texted', title: "You're all booked in", sub: 'Booking link sent automatically' },
+];
+
+const HeroMoment = () => {
+  const [beat, setBeat] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setBeat((b) => (b + 1) % HERO_BEATS.length), 2700);
+    return () => clearInterval(id);
+  }, []);
+  const current = HERO_BEATS[beat];
+  return (
+    <motion.div
+      animate={{ y: [0, -12, 0] }}
+      transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+      className="relative w-full max-w-[420px]"
+    >
+      <div className="relative bg-[#FFFBF4] border-[3px] border-[#2C2018] rounded-[32px] p-6 sm:p-7 shadow-[10px_10px_0_0_#2C2018]">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FB5B1E] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#FB5B1E]" />
+            </span>
+            <span className="font-display font-bold text-xs uppercase tracking-[0.14em] text-[#8C7B6A]">Flynn, live</span>
+          </div>
+          <img src="/mascots/mark.png" className="w-9 h-9" alt="" aria-hidden="true" draggable={false} />
+        </div>
+        <div className="min-h-[132px]">
+          <motion.div
+            key={beat}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <span className="text-4xl leading-none">{current.icon}</span>
+            <p className="mt-3 font-display font-bold text-[13px] uppercase tracking-[0.1em] text-[#FB5B1E]">{current.eyebrow}</p>
+            <p className="mt-1 font-display font-bold text-3xl leading-tight">{current.title}</p>
+            <p className="mt-2 text-[#5A4A3C]">{current.sub}</p>
+          </motion.div>
+        </div>
+        <div className="flex gap-1.5 mt-6">
+          {HERO_BEATS.map((_, i) => (
+            <span key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i === beat ? 'w-7 bg-[#FB5B1E]' : 'w-1.5 bg-[#2C2018]/15'}`} />
+          ))}
+        </div>
+      </div>
+      {/* Two smaller cards peeking out behind, for depth */}
+      <div className="absolute -z-10 -right-4 top-8 w-full h-full rounded-[32px] border-[3px] border-[#2C2018]/25 bg-[#E0A436]/25 rotate-3" />
+      <div className="absolute -z-20 -right-8 top-16 w-full h-full rounded-[32px] border-[3px] border-[#2C2018]/15 bg-[#3C8A86]/15 rotate-6" />
+    </motion.div>
+  );
 };
 
 const Starburst = ({ className = '' }: { className?: string }) => (
@@ -130,6 +211,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 export default function LandingPage() {
   return (
     <div className="bg-[#F4E6CE] text-[#2C2018] overflow-hidden">
+      <ScrollProgressBar />
 
       {/* ===================== HERO ===================== */}
       <section className="relative">
@@ -142,7 +224,6 @@ export default function LandingPage() {
             <p className="mt-6 text-lg sm:text-xl text-[#5A4A3C] max-w-xl leading-relaxed">
               When you're on the tools, Flynn picks up — a receptionist that sounds like a real person, books the job, and texts the client back in seconds. Then it does the rest: the invoice with the photos on it, the pay link, and the chasing until the money lands.
             </p>
-            <p className="mt-5 text-sm font-medium text-[#8C7B6A]">Sounds like a real person · 7 day free trial · AU &amp; NZ</p>
             <div className="mt-7">
               <p className="font-display font-bold text-lg mb-3">Hear it for yourself, free:</p>
               <CallMeBackWidget />
@@ -155,7 +236,7 @@ export default function LandingPage() {
 
           <Reveal delay={0.1} className="relative flex flex-col items-center lg:items-end gap-4">
             <Starburst className="absolute -left-2 top-10 w-16 h-16 hidden sm:block" />
-            <img src="/phone/hero-call.png" alt="Flynn answering a call on the tradie's own phone, with a notification confirming the job was booked" className="w-full max-w-[443px] sm:max-w-[492px]" />
+            <HeroMoment />
           </Reveal>
         </div>
       </section>
@@ -181,7 +262,7 @@ export default function LandingPage() {
             <a href={FLYNN_SMS_LINK} className="font-semibold text-[#2C2018] hover:text-[#FB5B1E] transition-colors">
               Message Flynn directly
             </a>{' '}
-            on iMessage or SMS at {FLYNN_NUMBER_DISPLAY}.
+by text at {FLYNN_NUMBER_DISPLAY}.
           </p>
         </div>
       </section>

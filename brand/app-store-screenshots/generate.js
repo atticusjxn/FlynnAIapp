@@ -174,10 +174,9 @@ function bookingsScreen() {
 // device's own rounded corners would just continue unseen past the edge).
 // That reads as an intentional, Apple-marketing-style crop instead of the
 // "chopped mid-content" look a fake crop window gave.
-const PHONE_W = 1200;
+const PHONE_W = 1230;
 const PHONE_LEFT = (1290 - PHONE_W) / 2;
-const PHONE_TOP = 726;
-const STATS_TOP = 500;
+const PHONE_TOP = 560;
 
 const before = fs.readFileSync(path.join(__dirname, '../../flynn-ai-new-landingpage/public/before.jpg')).toString('base64');
 const after = fs.readFileSync(path.join(__dirname, '../../flynn-ai-new-landingpage/public/after.jpg')).toString('base64');
@@ -189,20 +188,15 @@ const SHARED_CSS = `
     font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; color:${C.ink}; }
   .shapes { position:absolute; inset:0; z-index:0; }
   .sh { position:absolute; border:8px solid ${C.ink}; box-sizing:border-box; }
-  .wordmark { position:absolute; top:112px; left:130px; z-index:5; display:flex; align-items:flex-start; gap:6px; }
-  .wordmark .txt { font-weight:800; font-size:40px; letter-spacing:1px; color:${C.ink}; }
-  .wordmark .dot { width:14px; height:14px; border-radius:50%; background:${C.orange}; margin-top:4px; }
-  .eyebrow { position:absolute; top:200px; left:130px; z-index:5; color:${C.orange};
-    font-weight:800; font-size:34px; letter-spacing:4px; }
-  .headline { position:absolute; top:268px; left:126px; z-index:5; font-weight:800;
-    font-size:100px; line-height:106px; letter-spacing:-2px; }
+  .wordmark { position:absolute; top:96px; left:126px; z-index:5; display:flex; align-items:flex-start; gap:6px; }
+  .wordmark .txt { font-weight:800; font-size:38px; letter-spacing:1px; color:${C.ink}; }
+  .wordmark .dot { width:13px; height:13px; border-radius:50%; background:${C.orange}; margin-top:4px; }
+  /* One big statement, full stop — no eyebrow label, no stat pills underneath.
+     That eyebrow+headline+sub-line stack was the exact "AI slide" pattern:
+     a huge point should just BE the huge point. */
+  .headline { position:absolute; top:210px; left:122px; right:122px; z-index:5; font-weight:800;
+    font-size:128px; line-height:132px; letter-spacing:-3px; }
   .headline .o { color:${C.orange}; }
-
-  .stat-row { position:absolute; left:130px; right:130px; z-index:5; display:flex; flex-direction:column;
-    gap:18px; align-items:center; }
-  .stat-pill { background:${C.card}; border:3px solid ${C.ink}; border-radius:999px; padding:22px 34px;
-    font-weight:800; font-size:34px; display:flex; align-items:center; gap:14px; white-space:nowrap;
-    box-shadow:6px 6px 0 0 ${C.ink}; }
 
   /* screen content — all percentages are of the SCREEN box, not the phone */
   .status { position:absolute; top:2.6%; left:8%; right:8%; display:flex; align-items:center;
@@ -281,30 +275,25 @@ const SHARED_CSS = `
   .badge.green-b { background:#DDF3E5; color:#1E9E54; }
 `;
 
-function page({ variant, eyebrow, l1, l2, screenHtml, screenBg = '#fff', stats = [] }) {
+function page({ variant, headline, screenHtml, screenBg = '#fff' }) {
   const frame = iphoneFrame({ left: PHONE_LEFT, top: PHONE_TOP, width: PHONE_W, contentHtml: screenHtml, screenBg });
-  const statsRow = stats.length
-    ? `<div class="stat-row" style="top:${STATS_TOP}px">${stats.map((s) => `<div class="stat-pill">${s}</div>`).join('')}</div>`
-    : '';
 
   return `<!doctype html><html><head><meta charset="utf-8"><style>${SHARED_CSS}</style></head><body>
     <div class="shapes">${shapes(variant)}</div>
     <div class="wordmark"><span class="txt">FLYNN</span><span class="dot"></span></div>
-    <div class="eyebrow">${eyebrow}</div>
-    <div class="headline">${l1}<br><span class="o">${l2}</span></div>
-    ${statsRow}
+    <div class="headline">${headline}</div>
     ${frame.html}
   </body></html>`;
 }
 
+// One bold statement per slide — no eyebrow tag, no sub-line, no stat pills.
+// The old l1/l2 pattern ("Books the job," / "confirms with you") was a
+// headline-plus-explainer in miniature; this is a single thought each time.
 const pages = [
   {
     file: '01-hero',
     variant: 0,
-    eyebrow: 'NEVER MISS A JOB',
-    l1: 'Flynn answers',
-    l2: 'when you can’t',
-    stats: ['🎙️ Sounds like a real person', '✅ Books the job on the call'],
+    headline: 'Never miss<br><span class="o">a job.</span>',
     screenBg: 'linear-gradient(160deg,#2b2320 0%,#171310 60%,#0d0b09 100%)',
     screenHtml: lockScreen({
       note: 'Booked the caller in for <b>Thursday 2pm</b> — deck repaint, 14 Marine Pde.',
@@ -313,9 +302,7 @@ const pages = [
   {
     file: '02-voice',
     variant: 1,
-    eyebrow: 'BOOKED ON THE CALL',
-    l1: 'Books the job,',
-    l2: 'confirms with you',
+    headline: 'Booked before<br><span class="o">you hang up.</span>',
     screenHtml: chatScreen({
       avatar: 'F',
       name: 'Flynn',
@@ -324,15 +311,15 @@ const pages = [
         { out: false, text: "Thursday 2pm, deck repaint, 14 Marine Pde. Sound right?" },
         { out: true, text: "yep all good" },
         { out: false, text: "Added to your calendar and texted them a confirmation." },
+        { out: false, text: "They just replied — “perfect, see you then!”" },
+        { out: true, text: "nice one" },
       ],
     }),
   },
   {
     file: '03-anyone',
     variant: 2,
-    eyebrow: 'PHOTO INVOICES',
-    l1: 'Invoices with',
-    l2: 'photos on them',
+    headline: 'Photo in.<br><span class="o">Invoice out.</span>',
     screenHtml: chatScreen({
       avatar: 'F',
       name: 'Flynn',
@@ -341,15 +328,15 @@ const pages = [
         { out: true, text: 'invoice Sarah $650 for the deck repaint' },
         { out: false, text: 'Invoice ready with photos. Sent to sarah@jenkins.com. View: flynnai.app/i/abc' },
         { out: false, text: 'Sarah just viewed the invoice.' },
+        { out: false, text: "I'll chase it automatically if it goes quiet — you don't have to." },
+        { out: true, text: 'legend' },
       ],
     }),
   },
   {
     file: '04-booking',
     variant: 3,
-    eyebrow: 'AUTO-CHASING',
-    l1: 'Chases it',
-    l2: 'till it’s paid',
+    headline: 'No more<br><span class="o">awkward texts.</span>',
     screenHtml: chatScreen({
       avatar: 'F',
       name: 'Flynn',
@@ -359,16 +346,14 @@ const pages = [
         { out: false, text: "Heads up — Dave's invoice is 3 days late. I've sent a friendly reminder." },
         { out: false, text: 'Dave just paid $340 via bank transfer.' },
         { out: true, text: 'awesome thanks' },
+        { out: false, text: "All sorted. On to the next one." },
       ],
     }),
   },
   {
     file: '05-brain',
     variant: 4,
-    eyebrow: 'ALL SORTED',
-    l1: 'Every job,',
-    l2: 'booked & tracked',
-    stats: ['📅 Every job in one place', '✓ Booked straight off the call'],
+    headline: 'Every job.<br><span class="o">Sorted.</span>',
     screenHtml: bookingsScreen(),
   },
 ];
