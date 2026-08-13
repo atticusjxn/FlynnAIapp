@@ -67,7 +67,6 @@ const { generateReceptionistConfig } = require('./services/businessProfileGenera
 const { generateSiteFromInstagram } = require('./services/sites/siteGenerationService');
 const { generateSpeech: generateGeminiSpeech, resolveVoiceName: resolveGeminiVoice } = require('./services/geminiTTSService');
 const reminderScheduler = require('./services/reminderScheduler');
-const { getTrialExpiryEmailHTML } = require('./services/emails/trialExpiryTemplate');
 const PRICING = require('./services/pricing');
 const analytics = require('./services/analytics');
 const { bookingUrlForUser } = require('./services/bookingPage');
@@ -1765,11 +1764,56 @@ app.use('/', opsDashboardRoutes);
 const { generateAppLink: mintAppLink } = require('./services/authLink');
 
 // POST /api/auth/app-link  { phone }
-// Mints + texts a sign-in link to the given number. Like an OTP request, the only
-// way to use the link is to receive it on that phone, so this is intentionally open.
+// Mints + texts a sign-in link to the given number. Deliberately unauthenticated
+// (like an OTP request: the only way to USE the link is to receive it on that
+// phone), but "safe to leave open" and "safe to leave unlimited" are different
+// claims. Each call bills a Twilio SMS and — via generateAppLink → ensureAuthUser
+// → the on_auth_user_created trigger — creates a Supabase auth user, org,
+// receptionist_config and business_profiles row. Unlimited, that is both a
+// funded SMS relay to arbitrary international numbers and a database-pollution
+// vector, so it gets the same phone/IP limits as /api/call-me-back.
+const appLinkLastSentByPhone = new Map();
+const appLinkRequestsByIp = new Map();
+const APP_LINK_PHONE_COOLDOWN_MS = 5 * 60 * 1000;
+const APP_LINK_IP_WINDOW_MS = 60 * 60 * 1000;
+const APP_LINK_IP_MAX_PER_WINDOW = 10;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [phone, t] of appLinkLastSentByPhone) {
+    if (now - t > APP_LINK_PHONE_COOLDOWN_MS) appLinkLastSentByPhone.delete(phone);
+  }
+  for (const [ip, hits] of appLinkRequestsByIp) {
+    const fresh = hits.filter((t) => now - t < APP_LINK_IP_WINDOW_MS);
+    if (fresh.length === 0) appLinkRequestsByIp.delete(ip);
+    else appLinkRequestsByIp.set(ip, fresh);
+  }
+}, 30 * 60 * 1000);
+
 app.post('/api/auth/app-link', async (req, res) => {
   const rawPhone = (req.body?.phone || '').trim();
   if (!rawPhone) return res.status(400).json({ error: 'Phone number required' });
+
+  // Every gate below runs BEFORE mintAppLink, because generateAppLink creates
+  // the auth user (and its org/config rows) as a side effect — rejecting after
+  // that call would still leave the junk row behind.
+  if (!isSendablePhone(rawPhone)) {
+    return res.status(400).json({ error: 'Phone number required' });
+  }
+
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  const now = Date.now();
+
+  const lastSent = appLinkLastSentByPhone.get(rawPhone);
+  if (lastSent && now - lastSent < APP_LINK_PHONE_COOLDOWN_MS) {
+    return res.status(429).json({ error: 'link already sent to that number, check your messages' });
+  }
+
+  const ipHits = (appLinkRequestsByIp.get(ip) || []).filter((t) => now - t < APP_LINK_IP_WINDOW_MS);
+  if (ipHits.length >= APP_LINK_IP_MAX_PER_WINDOW) {
+    return res.status(429).json({ error: 'too many requests, try again later' });
+  }
+  appLinkRequestsByIp.set(ip, [...ipHits, now]);
 
   try {
     const link = await mintAppLink(rawPhone);
@@ -1789,6 +1833,9 @@ app.post('/api/auth/app-link', async (req, res) => {
     }
 
     if (!delivered) return res.status(500).json({ error: 'No messaging channel configured' });
+    // Only start the cooldown once a message actually went out, so a
+    // misconfigured Twilio doesn't lock the user out of retrying.
+    appLinkLastSentByPhone.set(rawPhone, Date.now());
     return res.json({ ok: true });
   } catch (err) {
     console.error('[AppLink] Error:', err?.message || err);
@@ -5227,40 +5274,20 @@ app.post('/me/notifications/token', authenticateJwt, async (req, res) => {
   }
 });
 
-app.post('/api/notifications/trial-expiry', async (req, res) => {
-  const { userId, email, daysRemaining } = req.body || {};
-
-  if (!userId || !email || typeof daysRemaining !== 'number') {
-    return res.status(400).json({ error: 'userId, email, and daysRemaining are required' });
-  }
-
-  if (!resendClient) {
-    console.error('[TrialExpiry] Resend client not configured');
-    return res.status(500).json({ error: 'Email service not configured' });
-  }
-
-  try {
-    const htmlContent = getTrialExpiryEmailHTML(daysRemaining);
-    const subject = daysRemaining === 5
-      ? 'Your Flynn AI trial ends in 5 days'
-      : daysRemaining === 1
-      ? 'Your Flynn AI trial ends tomorrow!'
-      : 'Your Flynn AI trial has ended';
-
-    await resendClient.emails.send({
-      from: fromEmail,
-      to: email,
-      subject,
-      html: htmlContent,
-    });
-
-    console.log(`[TrialExpiry] Email sent to ${email} (${daysRemaining} days remaining)`);
-    return res.status(200).json({ success: true });
-  } catch (error) {
-    console.error('[TrialExpiry] Failed to send email:', error);
-    return res.status(500).json({ error: 'Failed to send trial expiry email' });
-  }
-});
+// REMOVED: POST /api/notifications/trial-expiry
+//
+// It was unauthenticated and took both the recipient (`to: email`) and the
+// message variant straight from the request body, sending from
+// notifications@flynnai.app on the same Resend key that delivers invoices —
+// an open relay that could have torched the sending domain's reputation.
+// Its only caller was src/services/TrialNotificationService.ts, part of the
+// stale Expo app that is explicitly not shipped (see CLAUDE.md Development
+// Rules), so nothing in the real product regressed by deleting it.
+//
+// If trial-expiry email comes back it belongs in a server-side scheduler
+// alongside quoteChaseScheduler/weeklyDigestScheduler, deriving the recipient
+// from the subscriptions table — never from a client telling the server who to
+// email. The template (services/emails/trialExpiryTemplate.js) is kept for that.
 
 app.post('/me/account/delete', authenticateJwt, async (req, res) => {
   const userId = req.user?.id;
@@ -6099,6 +6126,43 @@ const resolveUserOrg = async (userId) => {
   return { orgId: data.default_org_id, user: data };
 };
 
+/**
+ * Is this a plausible destination for a billable SMS? Same floor as the
+ * /api/call-me-back hardening: E.164 tops out at 15 digits and no reachable
+ * mobile has fewer than 8, so anything outside that is junk or an attempt to
+ * dial something short and expensive.
+ */
+const isSendablePhone = (raw) => {
+  if (typeof raw !== 'string') return false;
+  const digitCount = raw.replace(/\D/g, '').length;
+  return digitCount >= 8 && digitCount <= 15;
+};
+
+/**
+ * Fetch a quote/invoice by id, scoped to the caller's org.
+ *
+ * These routes read through supabaseStorageClient, which holds the service-role
+ * key and therefore BYPASSES the org-scoped RLS policies on these tables
+ * (supabase/migrations/20250222000002_create_quotes_invoices.sql). Without an
+ * explicit org filter, any authenticated user could read — and SMS — another
+ * tenant's invoice just by guessing its UUID. The filter has to be re-applied
+ * by hand here because the service-role key is what makes PDF generation and
+ * storage upload possible in the first place.
+ *
+ * Returns null when the row doesn't exist OR belongs to another org — the
+ * caller renders both as 404 so this never confirms that an id exists.
+ */
+const fetchOwnedDoc = async (table, id, orgId) => {
+  const { data, error } = await supabaseStorageClient
+    .from(table)
+    .select('*')
+    .eq('id', id)
+    .eq('org_id', orgId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data;
+};
+
 const buildDocFromRow = (row, kind, user) => ({
   type: kind,
   number: kind === 'invoice' ? row.invoice_number : row.quote_number,
@@ -6142,9 +6206,9 @@ const generatePDFAndUpload = async (kind, row, user) => {
 
 app.post('/api/quotes/:id/pdf', authenticateJwt, async (req, res) => {
   try {
-    const { user } = await resolveUserOrg(req.user.id);
-    const { data: quote, error } = await supabaseStorageClient.from('quotes').select('*').eq('id', req.params.id).single();
-    if (error || !quote) return res.status(404).json({ error: 'Quote not found' });
+    const { orgId, user } = await resolveUserOrg(req.user.id);
+    const quote = await fetchOwnedDoc('quotes', req.params.id, orgId);
+    if (!quote) return res.status(404).json({ error: 'Quote not found' });
     const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('quote', quote, user);
     res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
   } catch (err) {
@@ -6156,10 +6220,10 @@ app.post('/api/quotes/:id/pdf', authenticateJwt, async (req, res) => {
 app.post('/api/quotes/:id/send', authenticateJwt, async (req, res) => {
   try {
     const { toPhone } = req.body;
-    if (!toPhone) return res.status(400).json({ error: 'toPhone is required' });
-    const { user } = await resolveUserOrg(req.user.id);
-    const { data: quote, error } = await supabaseStorageClient.from('quotes').select('*').eq('id', req.params.id).single();
-    if (error || !quote) return res.status(404).json({ error: 'Quote not found' });
+    if (!isSendablePhone(toPhone)) return res.status(400).json({ error: 'A valid toPhone is required' });
+    const { orgId, user } = await resolveUserOrg(req.user.id);
+    const quote = await fetchOwnedDoc('quotes', req.params.id, orgId);
+    if (!quote) return res.status(404).json({ error: 'Quote not found' });
     const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('quote', quote, user);
     const businessName = user.business_name || user.full_name || 'Flynn';
     const smsBody = `Hi! Here's your quote ${quote.quote_number} from ${businessName}: ${pdfUrl}`;
@@ -6178,9 +6242,9 @@ app.post('/api/quotes/:id/send', authenticateJwt, async (req, res) => {
 
 app.post('/api/quotes/:id/convert', authenticateJwt, async (req, res) => {
   try {
-    const { orgId, user } = await resolveUserOrg(req.user.id);
-    const { data: quote, error: qErr } = await supabaseStorageClient.from('quotes').select('*').eq('id', req.params.id).single();
-    if (qErr || !quote) return res.status(404).json({ error: 'Quote not found' });
+    const { orgId } = await resolveUserOrg(req.user.id);
+    const quote = await fetchOwnedDoc('quotes', req.params.id, orgId);
+    if (!quote) return res.status(404).json({ error: 'Quote not found' });
     const { data: numResult } = await supabaseStorageClient.rpc('generate_invoice_number', { p_org_id: orgId });
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 14);
@@ -6216,9 +6280,9 @@ app.post('/api/quotes/:id/convert', authenticateJwt, async (req, res) => {
 
 app.post('/api/invoices/:id/pdf', authenticateJwt, async (req, res) => {
   try {
-    const { user } = await resolveUserOrg(req.user.id);
-    const { data: invoice, error } = await supabaseStorageClient.from('invoices').select('*').eq('id', req.params.id).single();
-    if (error || !invoice) return res.status(404).json({ error: 'Invoice not found' });
+    const { orgId, user } = await resolveUserOrg(req.user.id);
+    const invoice = await fetchOwnedDoc('invoices', req.params.id, orgId);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
     const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('invoice', invoice, user);
     res.json({ pdfUrl, pdfData: pdfBuffer.toString('base64') });
   } catch (err) {
@@ -6230,10 +6294,10 @@ app.post('/api/invoices/:id/pdf', authenticateJwt, async (req, res) => {
 app.post('/api/invoices/:id/send', authenticateJwt, async (req, res) => {
   try {
     const { toPhone } = req.body;
-    if (!toPhone) return res.status(400).json({ error: 'toPhone is required' });
-    const { user } = await resolveUserOrg(req.user.id);
-    const { data: invoice, error } = await supabaseStorageClient.from('invoices').select('*').eq('id', req.params.id).single();
-    if (error || !invoice) return res.status(404).json({ error: 'Invoice not found' });
+    if (!isSendablePhone(toPhone)) return res.status(400).json({ error: 'A valid toPhone is required' });
+    const { orgId, user } = await resolveUserOrg(req.user.id);
+    const invoice = await fetchOwnedDoc('invoices', req.params.id, orgId);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
     const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('invoice', invoice, user);
     const businessName = user.business_name || user.full_name || 'Flynn';
     const smsBody = `Hi! Here's your invoice ${invoice.invoice_number} from ${businessName}: ${pdfUrl}`;
