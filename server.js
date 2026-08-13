@@ -1752,6 +1752,12 @@ app.use('/', invoicePageRoutes);
 const bookingPageRoutes = require('./routes/bookingPage');
 app.use('/', bookingPageRoutes);
 
+// Private ops dashboard (/ops) — provider balances + PostHog funnel summary,
+// passphrase-gated. Proxied onto flynnai.app/ops by the landing page's
+// Cloudflare Worker; see flynn-ai-new-landingpage/worker.js.
+const opsDashboardRoutes = require('./routes/opsDashboard');
+app.use('/', opsDashboardRoutes);
+
 // ========================================
 // Frictionless app sign-in (no OTP) — text the user a single-use magic deep link
 // that opens the app already signed in. See services/authLink.js.
