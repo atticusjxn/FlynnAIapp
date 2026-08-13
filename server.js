@@ -72,6 +72,7 @@ const reminderScheduler = require('./services/reminderScheduler');
 const { getTrialExpiryEmailHTML } = require('./services/emails/trialExpiryTemplate');
 const PRICING = require('./services/pricing');
 const analytics = require('./services/analytics');
+const { bookingUrlForUser } = require('./services/bookingPage');
 const { Resend } = require('resend');
 
 dotenv.config();
@@ -1288,11 +1289,31 @@ const sendBookingConfirmationSms = async ({ callSid, userId, callContext, extrac
     ? `${businessName} will be in touch to confirm.`
     : `we'll be in touch to confirm.`;
 
+  // The agent's booking flow ends with "Perfect, I'll send you a booking link
+  // by SMS right now" (telephony/deepgramVoiceAgent.js). Nothing ever sent one
+  // on this path: sendBookingLinkSMS was only reachable from the legacy DTMF
+  // IVR, which is a different call-handling mode. So the receptionist has been
+  // promising every caller a link that never arrived.
+  const bookingUrl = await bookingUrlForUser(userId).catch(() => null);
+  const linkSentence = bookingUrl ? `pick a time that suits you here: ${bookingUrl}` : '';
+
   const { sanitiseReply } = require('./services/flynnTone');
-  const body = sanitiseReply(`${opener} ${signoff}`);
+  const body = sanitiseReply([opener, linkSentence, signoff].filter(Boolean).join(' '));
 
   await twilioMessagingClient.messages.create({ to: toNumber, from: fromNumber, body });
-  console.log('[Realtime] Booking confirmation SMS sent.', { callSid, to: toNumber, from: fromNumber });
+  console.log('[Realtime] Booking confirmation SMS sent.', {
+    callSid,
+    to: toNumber,
+    from: fromNumber,
+    withBookingLink: Boolean(bookingUrl),
+  });
+
+  if (bookingUrl && userId) {
+    analytics.capture(userId, analytics.EVENTS.BOOKING_LINK_SENT, {
+      call_sid: callSid,
+      channel: 'post_call_sms',
+    });
+  }
 };
 
 const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, transcript, turns, reason, extractedData }) => {
@@ -1667,6 +1688,12 @@ if ((process.env.NANGO_SECRET_KEY || '').trim()) {
 // phone-keyed and don't need any third-party connection to be viewable.
 const invoicePageRoutes = require('./routes/invoicePage');
 app.use('/', invoicePageRoutes);
+
+// Public branded booking pages (/b/:slug). Server-rendered here rather than in
+// the separate booking-pages/ Next.js app, whose /api rewrite points at
+// localhost:3000 and so can never load a slot from its own Fly machine.
+const bookingPageRoutes = require('./routes/bookingPage');
+app.use('/', bookingPageRoutes);
 
 // ========================================
 // Frictionless app sign-in (no OTP) — text the user a single-use magic deep link

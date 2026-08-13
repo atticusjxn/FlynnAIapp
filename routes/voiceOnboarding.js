@@ -15,6 +15,7 @@ const authenticateJwt = require('../middleware/authenticateJwt');
 const { calloutFeeToCents } = require('../telephony/funnelIntake');
 const { hasVerifiedSubscription, syncOrgEntitlement } = require('../telephony/subscriptionService');
 const analytics = require('../services/analytics');
+const { ensureBookingPage } = require('../services/bookingPage');
 const demoCallStore = require('../services/demoCallStore');
 const forwardingVerifyStore = require('../services/forwardingVerifyStore');
 const { randomUUID } = require('crypto');
@@ -314,6 +315,15 @@ router.post('/assign-number', authenticateJwt, async (req, res) => {
       .from('voice_onboarding_sessions')
       .update({ state: 'receptionist_live', updated_at: new Date().toISOString() })
       .eq('id', session.id);
+
+    // Give them a booking page at the same moment they become reachable. The
+    // receptionist tells every caller "I'll send you a booking link by SMS
+    // right now", and until this existed there was no link to send: nothing
+    // server-side ever created a booking_pages row.
+    await ensureBookingPage({
+      userId: user.id,
+      orgId: user.default_org_id,
+    });
 
     console.log('[VoiceOnboarding] Number assigned, receptionist live.', {
       userId: user.id,
