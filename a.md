@@ -103,21 +103,24 @@ on ~A$900/mo of Meta spend plus organic.
 - [x] **1.7** Meta CAPI now fires **StartTrial** and **Subscribe** server-side from the Apple
       webhook, carrying the click bridge. `AppDelegate` claimed these were logged from the
       views; they never were, so Meta had nothing downstream of the install to learn from.
-- [ ] **1.6** ⚠️ **Needs a toggle in PostHog** — posthog-ios gates crash capture on *remote
-      config*, not client code. Turn on Project settings → Error tracking → autocapture
-      exceptions. Symbolication additionally needs dSYM upload via posthog-cli.
+- [x] **1.6** Enabled in PostHog (Settings → Error tracking → **Enable exception autocapture**,
+      confirmed toggled on, project `Flannel` / 550834). ⏳ **Symbolication still open**: created a
+      personal API key scoped to `error_tracking:write` on this project only
+      (`flynn-ios-dsym-upload`), stored in the existing gitignored
+      `ios-native/FlynnAI/Config/Secrets.local.xcconfig` pattern (never committed) — but I could not
+      verify from here that `posthog-cli` actually supports iOS dSYM upload today (network access
+      to check its docs/releases failed in this environment). Don't trust a build phase wiring this
+      up unattended until that's confirmed; for now, crashes will report but may show unsymbolicated
+      stack traces until dSYMs are uploaded some other way.
 - [ ] **1.8** Build the funnel dashboard in the PostHog UI.
-- [ ] **1.9** ⚠️ **Needs you, in Google Cloud Console** — the Google OAuth consent screen is (or
-      was) in **Testing** mode: your "this app is not verified" sighting, plus hard proof from
-      prod — the one `google_calendar` connection, still marked *connected*, has a refresh token
-      that returns `invalid_grant` and has been dead since June 9. Testing mode expires refresh
-      tokens after **7 days**, so every calendar connect quietly dies a week later. Publish the
-      consent screen to **Production** (on the project that owns `EXPO_PUBLIC_GOOGLE_CLIENT_ID`),
-      then reconnect Google Calendar once in the app. Verification proper (privacy-policy URL +
-      calendar-scope justification) removes the scary interstitial and the 100-user cap; it can
-      trail the ad test. Code side is handled: `invalid_grant` now flips the connection to
-      `reauth_required` instead of showing green forever, and booking availability fails open to
-      bookings-only when calendars are unreachable.
+- [x] **1.9** Published. Google Auth Platform → Audience now shows **"In production"** for
+      project `gen-lang-client-0768465473` (was Testing — the confirmed cause of the dead refresh
+      token, silent since June 9: Testing mode expires refresh tokens after 7 days). Still pending:
+      **reconnect Google Calendar once in the app** to mint a token that won't expire, and full
+      verification (privacy-policy URL + calendar-scope justification) before the 100-user cap /
+      "unverified app" screen go away — neither blocks the ad test. Code side already handles the
+      interim: `invalid_grant` flips the connection to `reauth_required` instead of showing green
+      forever, and booking availability fails open to bookings-only when calendars are unreachable.
 
 > Verified: the project key accepts events (`{"status":"Ok"}`), iOS builds clean against
 > PostHog 3.69.5, and the backend logs confirm initialisation in production.
