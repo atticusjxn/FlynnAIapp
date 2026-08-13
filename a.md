@@ -191,10 +191,14 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
       *server's* zone — a Sydney 9-5 came out 10-11h off on a UTC Fly machine), plus
       `booking_notice_hours` and `max_days_advance`, both configured on every page and applied by
       nothing. Regression tests cover AEST, AEDT, non-DST Perth, NZ and month/year boundaries.
-      ⚠️ Google Calendar free/busy is still **not** consulted (the audit's claim that it was is
-      wrong — `CalendarIntegrationService` is only used to *write* events after a booking, and it's
-      a `.ts` file the backend can't require, hence *"calendar sync disabled"* on every boot).
-      Double-booking against the tradie's own calendar remains possible. Open.
+      ~~⚠️ Google Calendar free/busy is still **not** consulted~~ **Closed**: availability and the
+      book-time re-check now consult the tradie's real calendars — Google via the org's
+      `integration_connections` (token refresh included), Apple via the SMS agent's stored
+      credentials — merged with the page's own bookings, failing open to bookings-only when a
+      calendar errors. The dead `../src/services/CalendarIntegrationService` require (a React
+      Native `.ts` file Node can't load) is gone. **Gated on 1.9**: the only Google connection in
+      prod has a refresh token dead since June (Testing-mode OAuth), so free/busy has no live data
+      until the consent screen is published and the calendar reconnected.
 - [x] **3.2a** *(found)* `POST /api/booking/:slug/book` returned **409 "no longer available" for
       every booking after the first one a page ever took** — the overlap test was an `.or()` of the
       two halves of an interval comparison, so a booking next month matched `end_time > new.start`.
@@ -214,8 +218,20 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
       the per-tenant template, the transient-error retry and the `sms_sent` `call_events` row.
 - [x] **3.7** Flynn-branded, "Get this for your business" footer; `booking_link_sent` →
       `booking_link_opened` → `booking_made` all firing.
-- [ ] **3.8** Both sides confirmed by SMS; writes a calendar event and a `jobs` row. *(Customer
-      confirmation + business notification already fire; the `jobs` row does not.)*
+- [x] **3.7a** **Page rebuilt to the Flynn design system** — cream ground / warm-brown dark mode,
+      ink 3px outline on exactly one hero card (the time picker), Space Grotesk over Inter, single
+      orange chunky offset-shadow pill CTA. Day chips (closed days pre-skipped), slot skeletons,
+      client-side day cache with stale-response guard, CTA restating the chosen time, 409 explains
+      itself and refreshes slots in place, success screen with Add to Google/iPhone calendar,
+      honeypot, 16px inputs (no iOS zoom), focus-visible rings, reduced-motion respected. Plus
+      `/b/:slug/og.png` — a sharp-rendered branded unfurl card so the link previews as the
+      business's booking card in iMessage (302 static fallback so previews never break).
+- [x] **3.8** A confirmed booking now writes back a Google/Apple calendar event (ids stored on
+      the `bookings` row) and mirrors into **`jobs`** (source `booking_page`, scheduled date/time
+      in the business's zone) so online bookings appear in the app next to call-booked work —
+      `bookings` is a table the app never reads. Customer/business notifications were already
+      firing. `POST /book` also gained a honeypot, per-IP rate limit, phone/time-range validation,
+      and server-derived `duration_minutes`.
 - [x] **3.9** No deposit; the page is structured so an opt-in deposit slots in later.
 
 ## Gate 4 — Bugs + Design rollout (6 passes, all committed, building clean on iOS 26 SDK)
