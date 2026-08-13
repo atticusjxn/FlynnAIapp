@@ -202,11 +202,16 @@ actual code before touching anything; see the precise PARTIAL/DONE status on eac
 - [x] **2.9** **Server-verified forwarding** — Flynn test-calls their mobile; if the divert took,
       it lands on their Flynn number and fires `forwarding_verified`. Carrier-specific help for
       Telstra/Optus/Vodafone. Nobody finishes onboarding unverified.
-- [ ] **2.10** Persist `users.forwarding_verified_at`, show state on Home and Settings.
-      **PARTIAL** — the write path is real (`server.js:4330-4336`, on the inbound verification
-      call landing). Nothing reads it: zero Swift references to `forwarding_verified_at`
-      anywhere in `ios-native/`. `CallForwardingView`'s store only checks whether a number
-      exists, not whether forwarding is verified. No Home/Settings surface shows this state.
+- [x] **2.10** Persist `users.forwarding_verified_at`, show state on Home and Settings.
+      `DashboardStore` now loads `twilio_phone_number`/`forwarding_verified_at` alongside the
+      rest of the profile and exposes `forwardingNeedsAttention` (has a number, not yet
+      verified). Home shows a quiet banner — only when it needs attention, nothing shown when
+      verified, matching the "one hero, everything else quiet" design thesis — linking straight
+      into Settings → Divert your calls via `deepLink.pending`. That screen now has a real
+      status card (verified/not, with a timestamp) and a **"Check it's working"** button that
+      calls the same `startForwardingVerify`/poll flow the onboarding wizard uses, so anyone who
+      skipped it — or changed carriers since — can re-verify without redoing onboarding.
+      `xcodebuild` `BUILD SUCCEEDED`.
 - [ ] **2.11** Every step instrumented and resumable.
       **PARTIAL** — event names match the plan's canonical list and mostly fire
       (`Core/Analytics.swift:31-54`). Timing bug: several `_completed`-style events

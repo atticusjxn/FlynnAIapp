@@ -12,6 +12,10 @@ final class DashboardStore {
     var events: [EventDTO] = []
     var firstName: String?
     var calendarConnected: Bool = false
+    /// Has a Flynn number, but call diversion hasn't been confirmed working yet.
+    /// Surfaced as a quiet nudge on Home — a receptionist nobody's calls reach
+    /// is a silent failure otherwise.
+    var forwardingNeedsAttention: Bool = false
     /// Recent things Flynn did over text (latest outbound replies), and actions it
     /// has staged that are waiting on the user's OK. Both are vertical-agnostic —
     /// whatever the user actually uses Flynn for shows up here.
@@ -97,7 +101,7 @@ final class DashboardStore {
     func load() async {
         state = .loading
         async let eventsTask = repository.list(limit: 10)
-        async let profileTask: (String?, Bool) = loadProfile()
+        async let profileTask: ProfileInfo = loadProfile()
         async let activityTask = loadActivity()
         async let moneyTask = loadMoney()
         async let callsTask = loadCalls()
@@ -106,8 +110,9 @@ final class DashboardStore {
             let (list, profile, activity, snapshot) = try await (eventsTask, profileTask, activityTask, moneyTask)
             recentCalls = await callsTask
             events = list
-            firstName = profile.0
-            calendarConnected = profile.1
+            firstName = profile.firstName
+            calendarConnected = profile.calendarConnected
+            forwardingNeedsAttention = profile.hasNumber && !profile.forwardingVerified
             recentActivity = activity.replies
             awaitingConfirmation = activity.pending
             money = snapshot
@@ -159,23 +164,39 @@ final class DashboardStore {
         do { return try await calls.list(limit: 8) } catch { return [] }
     }
 
-    private func loadProfile() async throws -> (String?, Bool) {
+    struct ProfileInfo {
+        let firstName: String?
+        let calendarConnected: Bool
+        let hasNumber: Bool
+        let forwardingVerified: Bool
+    }
+
+    private func loadProfile() async throws -> ProfileInfo {
         #if DEBUG
-        if FlynnDemo.isOn { return ("Atticus", true) }
+        if FlynnDemo.isOn {
+            return ProfileInfo(firstName: "Atticus", calendarConnected: true, hasNumber: true, forwardingVerified: true)
+        }
         #endif
         struct Row: Decodable {
             let full_name: String?
             let calendar_sync_enabled: Bool?
+            let twilio_phone_number: String?
+            let forwarding_verified_at: String?
         }
         let session = try await FlynnSupabase.client.auth.session
         let row: Row = try await FlynnSupabase.client
             .from("users")
-            .select("full_name, calendar_sync_enabled")
+            .select("full_name, calendar_sync_enabled, twilio_phone_number, forwarding_verified_at")
             .eq("id", value: session.user.id.uuidString)
             .single()
             .execute()
             .value
         let first = row.full_name?.components(separatedBy: " ").first
-        return (first, row.calendar_sync_enabled ?? false)
+        return ProfileInfo(
+            firstName: first,
+            calendarConnected: row.calendar_sync_enabled ?? false,
+            hasNumber: row.twilio_phone_number?.isEmpty == false,
+            forwardingVerified: row.forwarding_verified_at != nil
+        )
     }
 }

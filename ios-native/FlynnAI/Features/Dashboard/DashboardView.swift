@@ -33,7 +33,11 @@ struct DashboardView: View {
                     case .loaded:
                         // Money first — the thing that costs real money to miss.
                         // Then decisions Flynn is blocked on, the day's work, the
-                        // feed, and admin shortcuts last.
+                        // feed, and admin shortcuts last. Forwarding sits above all
+                        // of it: a receptionist nobody's calls reach makes the rest
+                        // of Home meaningless, so it's the one banner that appears
+                        // even on a quiet day.
+                        if store.forwardingNeedsAttention { forwardingBanner }
                         if store.money.hasAnything { moneySection }
                         if !store.awaitingConfirmation.isEmpty { awaitingSection }
                         if !store.recentCalls.isEmpty { callsSection }
@@ -130,6 +134,42 @@ struct DashboardView: View {
             }
         }
         .padding(.bottom, FlynnSpacing.xs)
+    }
+
+    // MARK: – Forwarding nudge (only shown when it needs attention)
+
+    private var forwardingBanner: some View {
+        Button {
+            deepLink.pending = .init(tab: .dashboard, route: .settingsSection(.callForwarding))
+        } label: {
+            HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+                Image(systemName: "phone.badge.waveform")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(FlynnColor.primary)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Calls aren't confirmed forwarding yet")
+                        .flynnType(FlynnTypography.h4)
+                        .foregroundColor(FlynnColor.textPrimary)
+                    Text("Set up call diversion so missed calls actually reach your receptionist.")
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(FlynnColor.textSecondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(FlynnColor.textTertiary)
+                    .padding(.top, 4)
+            }
+            .padding(FlynnSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous)
+                    .fill(FlynnColor.primaryLight.opacity(0.5))
+            )
+        }
+        .buttonStyle(FlynnPressable())
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: – Money hero (the one emphasised surface)

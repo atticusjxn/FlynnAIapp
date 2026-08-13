@@ -17,9 +17,12 @@ import UIKit
 @Observable
 final class CallForwardingStore {
     enum LoadState: Equatable { case idle, loading, loaded, error(String) }
+    enum VerifyState: Equatable { case idle, checking, verified, unconfirmed(String) }
 
     private(set) var loadState: LoadState = .idle
     private(set) var flynnNumber: String?
+    private(set) var verifiedAt: Date?
+    var verifyState: VerifyState = .idle
 
     private let client: SupabaseClient
 
@@ -29,20 +32,57 @@ final class CallForwardingStore {
 
     func load() async {
         loadState = .loading
-        struct Row: Decodable { let twilio_phone_number: String? }
+        struct Row: Decodable {
+            let twilio_phone_number: String?
+            let forwarding_verified_at: String?
+        }
         do {
             let session = try await client.auth.session
             let row: Row = try await client
                 .from("users")
-                .select("twilio_phone_number")
+                .select("twilio_phone_number, forwarding_verified_at")
                 .eq("id", value: session.user.id.uuidString)
                 .single()
                 .execute()
                 .value
             flynnNumber = row.twilio_phone_number?.isEmpty == false ? row.twilio_phone_number : nil
+            verifiedAt = row.forwarding_verified_at.flatMap { ISO8601DateFormatter().date(from: $0) }
             loadState = .loaded
         } catch {
             loadState = .error(error.localizedDescription)
+        }
+    }
+
+    /// Places a real test call to the user's mobile and polls for the divert to be
+    /// detected — the same check the onboarding wizard runs, reachable again here
+    /// for anyone who skipped it, or whose carrier/forwarding setup changed since.
+    func checkItsWorking() async {
+        verifyState = .checking
+        do {
+            let start = try await VoiceOnboardingClient.startForwardingVerify()
+            guard start.enabled, let id = start.verificationId else {
+                verifyState = .unconfirmed("Verification isn't turned on yet — ring your number and check Flynn picks up instead.")
+                return
+            }
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .seconds(2))
+                guard let result = try? await VoiceOnboardingClient.forwardingVerifyStatus(id: id) else { continue }
+                switch result.status {
+                case "verified":
+                    verifyState = .verified
+                    verifiedAt = Date()
+                    Analytics.capture(.forwardingVerified)
+                    return
+                case "not_forwarded", "expired":
+                    verifyState = .unconfirmed("Didn't land on your Flynn number. Make sure you dialled the code below, then try again.")
+                    return
+                default:
+                    continue
+                }
+            }
+            verifyState = .unconfirmed("Took too long to confirm — check the code below is set and try again.")
+        } catch {
+            verifyState = .unconfirmed(error.localizedDescription)
         }
     }
 }
@@ -105,6 +145,7 @@ struct CallForwardingView: View {
                 case .loaded:
                     if let number = store.flynnNumber {
                         numberCard(number)
+                        statusCard
                         rulesSection(number)
                         testSection
                         turnOffSection
@@ -161,6 +202,35 @@ struct CallForwardingView: View {
         .background(
             RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous)
                 .fill(FlynnColor.backgroundSecondary)
+        )
+    }
+
+    private var statusCard: some View {
+        HStack(spacing: FlynnSpacing.sm) {
+            Image(systemName: store.verifiedAt != nil ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(store.verifiedAt != nil ? FlynnColor.success : FlynnColor.error)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.verifiedAt != nil ? "Forwarding confirmed" : "Forwarding not confirmed yet")
+                    .flynnType(FlynnTypography.h4)
+                    .foregroundColor(FlynnColor.textPrimary)
+                if let date = store.verifiedAt {
+                    Text("Checked \(date.formatted(date: .abbreviated, time: .shortened))")
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textSecondary)
+                } else {
+                    Text("Set the codes below, then check it's working.")
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textSecondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(FlynnSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: FlynnRadii.lg, style: .continuous)
+                .fill(store.verifiedAt != nil ? FlynnColor.success.opacity(0.12) : FlynnColor.error.opacity(0.1))
         )
     }
 
@@ -230,13 +300,35 @@ struct CallForwardingView: View {
     }
 
     private var testSection: some View {
-        VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
             Text("Check it worked")
                 .flynnType(FlynnTypography.overline)
                 .foregroundColor(FlynnColor.textTertiary)
-            Text("Your phone can't tell us whether the carrier took it, so test it the real way: get someone to ring your normal number and just don't answer. Flynn should pick up after a few rings.")
+            Text("Your phone can't tell us whether the carrier took it, so Flynn calls your number and checks whether the divert lands. Don't answer it — let it ring out.")
                 .flynnType(FlynnTypography.bodyMedium)
                 .foregroundColor(FlynnColor.textSecondary)
+
+            switch store.verifyState {
+            case .idle, .verified:
+                FlynnButton(title: "Check it's working", action: {
+                    Task { await store.checkItsWorking() }
+                }, variant: .secondary)
+            case .checking:
+                HStack(spacing: FlynnSpacing.xs) {
+                    ProgressView()
+                    Text("Ringing your number, let it ring out…")
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(FlynnColor.textSecondary)
+                }
+                .padding(.top, FlynnSpacing.xxs)
+            case .unconfirmed(let reason):
+                Text(reason)
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.error)
+                FlynnButton(title: "Try again", action: {
+                    Task { await store.checkItsWorking() }
+                }, variant: .secondary)
+            }
         }
         .padding(FlynnSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
