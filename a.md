@@ -156,12 +156,15 @@ actual code before touching anything; see the precise PARTIAL/DONE status on eac
       (`OnboardingWizard.swift:194-222`, `server.js:2619-2647`). "Voice or type" isn't built:
       `BusinessStep` is text-fields-only, never calls the `parse` endpoint, and doesn't reuse
       the existing `Features/Brain/BrainVoiceFill.swift` component.
-- [ ] **2.3** Calendar connect, skippable.
-      **PARTIAL** — skip is real (no forced wall, `OnboardingWizardSteps.swift:230-234`). Both
-      Google/Apple rows are stubs that just fire analytics and advance
-      (`OnboardingWizardSteps.swift:217-226`, literally commented `// BACKEND: real Google OAuth
-      connect`) — no OAuth actually runs, despite `Core/GoogleCalendarConnect.swift` existing
-      and working elsewhere in the app.
+- [x] **2.3** Calendar connect, skippable.
+      Both rows now do real work instead of just advancing. Google reuses `GoogleCalendarConnect`
+      (the same `ASWebAuthenticationSession` OAuth flow `IntegrationsView` uses) — cancel is
+      silent (stays on the step), other failures show inline error text, success advances.
+      Apple reuses `AppleCalendarService.requestAccess()` (real EventKit permission prompt) then
+      PATCHes `apple_calendar_connected`, same shape `IntegrationsStore.setAppleCalendar` writes.
+      Denied access shows a plain-English hint to enable it in Settings instead of silently
+      advancing. Per-row spinner + all rows disabled while one is connecting; "I'll connect it
+      later" still works as a real skip. `xcodebuild` `BUILD SUCCEEDED`, `npx jest` 63/63.
 - [x] **2.4** **The demo call** — Flynn rings their verified number from a shared pool, seeded
       with what they just entered. Auth + OTP gated, rate-limited (the old `/api/call-me-back`
       would dial arbitrary strings — a toll-fraud vector on a billable endpoint). See detail below.

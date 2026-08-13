@@ -211,6 +211,9 @@ struct BusinessStep: View {
 
 struct CalendarStep: View {
     @Bindable var model: OnboardingModel
+    @State private var connecting: String?
+    @State private var errorMessage: String?
+
     var body: some View {
         WizardScaffold(
             eyebrow: "So it can book",
@@ -218,15 +221,16 @@ struct CalendarStep: View {
             subtitle: "Flynn only offers times you're actually free, and drops booked jobs straight into your calendar."
         ) {
             VStack(spacing: FlynnSpacing.sm) {
-                connectRow("Google Calendar", "calendar", tint: FlynnColor.primary) {
-                    // BACKEND: real Google OAuth connect (IntegrationsView / Nango).
-                    Analytics.capture(.onboardCalendarConnected, ["provider": "google"])
-                    model.next()
+                connectRow("Google Calendar", "calendar", tint: FlynnColor.primary, connecting: connecting == "google") {
+                    Task { await connectGoogle() }
                 }
-                connectRow("Apple Calendar", "calendar.badge.plus", tint: FlynnColor.textPrimary) {
-                    // BACKEND: CalDAV login connect.
-                    Analytics.capture(.onboardCalendarConnected, ["provider": "apple"])
-                    model.next()
+                connectRow("Apple Calendar", "calendar.badge.plus", tint: FlynnColor.textPrimary, connecting: connecting == "apple") {
+                    Task { await connectApple() }
+                }
+                if let errorMessage {
+                    Text(errorMessage)
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.error)
                 }
             }
             .padding(.top, FlynnSpacing.sm)
@@ -235,22 +239,74 @@ struct CalendarStep: View {
                 .flynnType(FlynnTypography.label)
                 .foregroundColor(FlynnColor.textSecondary)
                 .frame(maxWidth: .infinity, minHeight: 44)
+                .disabled(connecting != nil)
         }
     }
 
-    private func connectRow(_ title: String, _ icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+    private func connectGoogle() async {
+        connecting = "google"
+        errorMessage = nil
+        do {
+            try await GoogleCalendarConnect.connect()
+            Analytics.capture(.onboardCalendarConnected, ["provider": "google"])
+            connecting = nil
+            model.next()
+        } catch GoogleCalendarConnect.ConnectError.cancelled {
+            connecting = nil
+        } catch {
+            connecting = nil
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func connectApple() async {
+        connecting = "apple"
+        errorMessage = nil
+        do {
+            let granted = try await AppleCalendarService().requestAccess()
+            guard granted else {
+                connecting = nil
+                errorMessage = "Calendar access is off — turn it on in Settings to connect Apple Calendar."
+                return
+            }
+            try await setAppleCalendarConnected()
+            Analytics.capture(.onboardCalendarConnected, ["provider": "apple"])
+            connecting = nil
+            model.next()
+        } catch {
+            connecting = nil
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func setAppleCalendarConnected() async throws {
+        struct Patch: Encodable { let apple_calendar_connected: Bool }
+        let session = try await FlynnSupabase.client.auth.session
+        try await FlynnSupabase.client
+            .from("users")
+            .update(Patch(apple_calendar_connected: true))
+            .eq("id", value: session.user.id.uuidString)
+            .execute()
+    }
+
+    private func connectRow(_ title: String, _ icon: String, tint: Color, connecting: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: FlynnSpacing.md) {
                 Image(systemName: icon).font(.system(size: 20, weight: .semibold)).foregroundColor(tint).frame(width: 28)
                 Text(title).flynnType(FlynnTypography.h4).foregroundColor(FlynnColor.textPrimary)
                 Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundColor(FlynnColor.textTertiary)
+                if connecting {
+                    ProgressView()
+                } else {
+                    Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundColor(FlynnColor.textTertiary)
+                }
             }
             .padding(FlynnSpacing.md)
             .frame(maxWidth: .infinity)
             .flynnCardSurface(.quiet)
         }
         .buttonStyle(FlynnPressable())
+        .disabled(self.connecting != nil)
     }
 }
 
