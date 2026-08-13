@@ -165,20 +165,42 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
 
 ## Gate 3 — The branded booking link
 
-- [ ] **3.1** Hosted page beside `routes/invoicePage.js` (do NOT revive the suspended
-      `flynnai-booking-pages` Fly app).
-- [ ] **3.2** Real availability — reuse `GET /api/booking/:slug/availability`, which works and
-      is connected to nothing. ⚠️ Its calendar integration is currently dead: `bookingRoutes.js`
-      requires `../src/services/CalendarIntegrationService`, which only exists as `.ts`, so it
-      logs *"calendar sync disabled"* on every boot.
-- [ ] **3.3** Auto-provision a booking page per tenant at number assignment.
-- [ ] **3.4** Price disclosure (ACL obligation, not a nice-to-have).
-- [ ] **3.5** Wire `smsLinkSender` into the AI path. The agent prompt promises *"I'll send you a
-      booking link by SMS right now"* and never sends one.
-- [ ] **3.6** Missed-call fallback (uses the existing unused `fallbackApology`).
-- [ ] **3.7** Flynn-branded, "get this for your business" footer, sent/opened/booked tracked.
-- [ ] **3.8** Both sides confirmed by SMS; writes a calendar event and a `jobs` row.
-- [ ] **3.9** No deposit; built so opt-in deposit slots in later.
+> **Found on entry:** worse than the audit thought. Prod had **130 business profiles with
+> `booking_link_enabled = true` and exactly zero `booking_link_url`s** — so the receptionist wasn't
+> just failing to send the link, there was no link in existence to send. The one tenant with a live
+> Flynn number had no booking page; the one booking page that existed belonged to an org with no
+> number.
+
+- [x] **3.1** Hosted page at `/b/:slug`, server-rendered by the telephony app beside
+      `routes/invoicePage.js` (same pattern: one origin, inline CSS, no external requests, OG tags).
+      Confirmed the audit's instinct was right and then some — `booking-pages/` isn't merely
+      suspended, its `next.config.js` rewrites `/api/*` to `http://localhost:3000`, which cannot
+      resolve from its own Fly machine, so it could never have loaded a slot in production.
+- [x] **3.2** Availability now honours the page's **timezone** (it used `setHours()`, i.e. the
+      *server's* zone — a Sydney 9-5 came out 10-11h off on a UTC Fly machine), plus
+      `booking_notice_hours` and `max_days_advance`, both configured on every page and applied by
+      nothing. Regression tests cover AEST, AEDT, non-DST Perth, NZ and month/year boundaries.
+      ⚠️ Google Calendar free/busy is still **not** consulted (the audit's claim that it was is
+      wrong — `CalendarIntegrationService` is only used to *write* events after a booking, and it's
+      a `.ts` file the backend can't require, hence *"calendar sync disabled"* on every boot).
+      Double-booking against the tradie's own calendar remains possible. Open.
+- [x] **3.2a** *(found)* `POST /api/booking/:slug/book` returned **409 "no longer available" for
+      every booking after the first one a page ever took** — the overlap test was an `.or()` of the
+      two halves of an interval comparison, so a booking next month matched `end_time > new.start`.
+      Chained filters are ANDed; fixed.
+- [x] **3.3** Auto-provisioned at number assignment via `services/bookingPage.js`, idempotent, and
+      mirrored onto `business_profiles.booking_link_url` keyed on **org_id** (all 130 profiles carry
+      an org; only 27 carry a user, so keying on user would have skipped most tenants). Backfilled
+      the one live tenant through the real code path.
+- [x] **3.4** Price disclosure — call-out fee and pricing notes render *above* the form, per ACL.
+- [x] **3.5** The post-call confirmation SMS now carries the link and fires `booking_link_sent`.
+- [ ] **3.6** Missed-call fallback (the existing unused `fallbackApology` prefix in
+      `smsLinkSender.js:59` is still waiting for its first caller).
+- [x] **3.7** Flynn-branded, "Get this for your business" footer; `booking_link_sent` →
+      `booking_link_opened` → `booking_made` all firing.
+- [ ] **3.8** Both sides confirmed by SMS; writes a calendar event and a `jobs` row. *(Customer
+      confirmation + business notification already fire; the `jobs` row does not.)*
+- [x] **3.9** No deposit; the page is structured so an opt-in deposit slots in later.
 
 ## Gate 4 — Bugs + Design rollout (6 passes, all committed, building clean on iOS 26 SDK)
 
