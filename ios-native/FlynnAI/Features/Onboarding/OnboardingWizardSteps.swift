@@ -443,6 +443,20 @@ struct ForwardingStep: View {
                     .flynnCardSurface(.quiet)
                 } else if model.working {
                     ProgressView("Grabbing your number…").padding(FlynnSpacing.lg)
+                } else if model.poolEmpty {
+                    VStack(spacing: FlynnSpacing.xs) {
+                        Image(systemName: "phone.badge.plus")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(FlynnColor.textTertiary)
+                        Text("We're out of numbers right this second")
+                            .flynnType(FlynnTypography.h4).foregroundColor(FlynnColor.textPrimary)
+                        Text("More come free constantly — try again in a moment.")
+                            .flynnType(FlynnTypography.caption).foregroundColor(FlynnColor.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(FlynnSpacing.lg)
+                    .flynnCardSurface(.quiet)
                 }
 
                 stepRow(1, "Tap ‘Divert my calls’ — it dials a short code")
@@ -458,6 +472,14 @@ struct ForwardingStep: View {
                         Text("Checking your divert…").flynnType(FlynnTypography.label).foregroundColor(FlynnColor.textSecondary)
                     }
                     .frame(maxWidth: .infinity, minHeight: 56)
+                } else if model.poolEmpty {
+                    FlynnGlassButton(title: "Try again",
+                                     action: { Task { await model.assignNumber() } },
+                                     icon: Image(systemName: "arrow.clockwise"))
+                    Button("I'll finish this later") { model.advance(to: .done) }
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textTertiary)
+                        .frame(minHeight: 40)
                 } else if !model.forwardingDialled {
                     FlynnGlassButton(title: "Divert my calls",
                                      action: dialForwarding,

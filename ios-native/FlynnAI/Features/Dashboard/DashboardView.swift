@@ -37,7 +37,7 @@ struct DashboardView: View {
                         // of it: a receptionist nobody's calls reach makes the rest
                         // of Home meaningless, so it's the one banner that appears
                         // even on a quiet day.
-                        if store.forwardingNeedsAttention { forwardingBanner }
+                        if store.receptionistStatus != .ok { forwardingBanner }
                         if store.money.hasAnything { moneySection }
                         if !store.awaitingConfirmation.isEmpty { awaitingSection }
                         if !store.recentCalls.isEmpty { callsSection }
@@ -148,10 +148,10 @@ struct DashboardView: View {
                     .foregroundColor(FlynnColor.primary)
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Calls aren't confirmed forwarding yet")
+                    Text(forwardingBannerTitle)
                         .flynnType(FlynnTypography.h4)
                         .foregroundColor(FlynnColor.textPrimary)
-                    Text("Set up call diversion so missed calls actually reach your receptionist.")
+                    Text(forwardingBannerSubtitle)
                         .flynnType(FlynnTypography.bodyMedium)
                         .foregroundColor(FlynnColor.textSecondary)
                 }
@@ -170,6 +170,16 @@ struct DashboardView: View {
         }
         .buttonStyle(FlynnPressable())
         .accessibilityElement(children: .combine)
+    }
+
+    private var forwardingBannerTitle: String {
+        store.receptionistStatus == .noNumber ? "Your receptionist doesn't have a number yet" : "Calls aren't confirmed forwarding yet"
+    }
+
+    private var forwardingBannerSubtitle: String {
+        store.receptionistStatus == .noNumber
+            ? "Numbers were briefly out when you signed up — grab yours to go live."
+            : "Set up call diversion so missed calls actually reach your receptionist."
     }
 
     // MARK: – Money hero (the one emphasised surface)

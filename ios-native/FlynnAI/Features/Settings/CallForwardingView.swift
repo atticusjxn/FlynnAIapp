@@ -18,11 +18,13 @@ import UIKit
 final class CallForwardingStore {
     enum LoadState: Equatable { case idle, loading, loaded, error(String) }
     enum VerifyState: Equatable { case idle, checking, verified, unconfirmed(String) }
+    enum AssignState: Equatable { case idle, assigning, poolEmpty, subscriptionRequired, error(String) }
 
     private(set) var loadState: LoadState = .idle
     private(set) var flynnNumber: String?
     private(set) var verifiedAt: Date?
     var verifyState: VerifyState = .idle
+    var assignState: AssignState = .idle
 
     private let client: SupabaseClient
 
@@ -83,6 +85,24 @@ final class CallForwardingStore {
             verifyState = .unconfirmed("Took too long to confirm — check the code below is set and try again.")
         } catch {
             verifyState = .unconfirmed(error.localizedDescription)
+        }
+    }
+
+    /// Real retry for anyone who hit `pool_empty` during onboarding and skipped
+    /// past it with no number — reachable here instead of a dead end.
+    func getMyNumber() async {
+        assignState = .assigning
+        do {
+            _ = try await VoiceOnboardingClient.assignNumber()
+            Analytics.capture(.numberAssigned, ["source": "settings"])
+            assignState = .idle
+            await load()
+        } catch VoiceOnboardingClient.VoiceOnboardingError.poolEmpty {
+            assignState = .poolEmpty
+        } catch VoiceOnboardingClient.VoiceOnboardingError.subscriptionRequired {
+            assignState = .subscriptionRequired
+        } catch {
+            assignState = .error(error.localizedDescription)
         }
     }
 }
@@ -360,9 +380,39 @@ struct CallForwardingView: View {
             Text("You don't have a Flynn number yet")
                 .flynnType(FlynnTypography.h4)
                 .foregroundColor(FlynnColor.textPrimary)
-            Text("Once your receptionist is set up you'll get your own number, and this is where you point your missed calls at it.")
+            Text("This is usually because numbers ran out for a moment during signup. Grab yours now.")
                 .flynnType(FlynnTypography.bodyMedium)
                 .foregroundColor(FlynnColor.textSecondary)
+
+            switch store.assignState {
+            case .idle, .poolEmpty:
+                if case .poolEmpty = store.assignState {
+                    Text("Still none free — try again in a moment.")
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.error)
+                }
+                FlynnButton(title: "Get my number", action: {
+                    Task { await store.getMyNumber() }
+                }, variant: .primary)
+            case .assigning:
+                HStack(spacing: FlynnSpacing.xs) {
+                    ProgressView()
+                    Text("Grabbing your number…")
+                        .flynnType(FlynnTypography.bodyMedium)
+                        .foregroundColor(FlynnColor.textSecondary)
+                }
+            case .subscriptionRequired:
+                Text("Start your subscription first, then come back here.")
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.error)
+            case .error(let message):
+                Text(message)
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.error)
+                FlynnButton(title: "Try again", action: {
+                    Task { await store.getMyNumber() }
+                }, variant: .secondary)
+            }
         }
         .padding(FlynnSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)

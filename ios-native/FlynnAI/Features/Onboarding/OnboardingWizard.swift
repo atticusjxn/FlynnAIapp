@@ -156,6 +156,12 @@ final class OnboardingModel {
     // Provisioning
     var assignedNumber: String?
     var numberError: String?
+    /// True once assignNumber() has actually run and come back with no number
+    /// because the pool was temporarily empty — distinct from `working`, which
+    /// is only true for the moment the request is in flight. Lets the
+    /// forwarding step show a real retry instead of quietly moving on with no
+    /// number assigned.
+    var poolEmpty = false
     var working = false
 
     // Forwarding
@@ -263,13 +269,16 @@ final class OnboardingModel {
     func assignNumber() async {
         working = true
         numberError = nil
+        poolEmpty = false
         defer { working = false }
         do {
             let assigned = try await VoiceOnboardingClient.assignNumber()
             assignedNumber = assigned.phoneNumber
             Analytics.capture(.numberAssigned, ["source": "onboarding"])
         } catch VoiceOnboardingClient.VoiceOnboardingError.poolEmpty {
-            assignedNumber = ""   // provisioning lagging; forwarding step handles it
+            assignedNumber = ""
+            poolEmpty = true
+            Analytics.capture(.numberAssigned, ["source": "onboarding", "result": "pool_empty"])
         } catch {
             numberError = error.localizedDescription
         }

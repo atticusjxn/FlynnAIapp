@@ -191,23 +191,29 @@ actual code before touching anything; see the precise PARTIAL/DONE status on eac
       on start free trial") lines up exactly with this — the old subscriptions were still in
       draft/never-submitted state when that build was reviewed, so `Product.products(for:)` had
       nothing real to resolve. Should be moot once this version ships with real products behind it.
-- [ ] **2.8** Number provisioning after payment; real retry on `pool_empty`.
-      **PARTIAL** — the entitlement gate + allocation are real (`routes/voiceOnboarding.js:264-339`).
-      On `pool_empty` the server responds correctly, but the client has no retry:
-      `assignNumber()` just sets `assignedNumber = ""` with a comment saying "forwarding step
-      handles it" (`OnboardingWizard.swift:271-273`) — it doesn't. `ForwardingStep` shows no
-      progress/retry UI for an empty number and `dialForwarding()` silently jumps to `.done`
-      (`OnboardingWizardSteps.swift:501-504`). A user hitting `pool_empty` finishes onboarding
-      with no number and no indication anything went wrong.
+- [x] **2.8** Number provisioning after payment; real retry on `pool_empty`.
+      `OnboardingModel` now tracks `poolEmpty` distinctly from the brief `working` flag.
+      `ForwardingStep` shows an honest "we're out of numbers right this second" card instead of
+      silently jumping to `.done`, with a real **Try again** (re-calls `assignNumber()`) and an
+      honest "I'll finish this later" (no longer implies a text is coming — nothing sends one).
+      Closed the same dead end in Settings: `CallForwardingView`'s `noNumberCard` used to just
+      say "once your receptionist is set up you'll get your own number" with no way to act on
+      it — now has a real **Get my number** button (`CallForwardingStore.getMyNumber()`, same
+      `VoiceOnboardingClient.assignNumber()` call) so anyone who skipped past `pool_empty` during
+      onboarding can retry from Settings later, distinguishing pool-empty / subscription-required
+      / other-error states. Home's forwarding banner (2.10) now also fires on **no number at
+      all**, not just unverified — a `pool_empty` skip used to be invisible there too.
+      `xcodebuild` `BUILD SUCCEEDED`, `npx jest` 63/63.
 - [x] **2.9** **Server-verified forwarding** — Flynn test-calls their mobile; if the divert took,
       it lands on their Flynn number and fires `forwarding_verified`. Carrier-specific help for
       Telstra/Optus/Vodafone. Nobody finishes onboarding unverified.
 - [x] **2.10** Persist `users.forwarding_verified_at`, show state on Home and Settings.
       `DashboardStore` now loads `twilio_phone_number`/`forwarding_verified_at` alongside the
-      rest of the profile and exposes `forwardingNeedsAttention` (has a number, not yet
-      verified). Home shows a quiet banner — only when it needs attention, nothing shown when
-      verified, matching the "one hero, everything else quiet" design thesis — linking straight
-      into Settings → Divert your calls via `deepLink.pending`. That screen now has a real
+      rest of the profile and exposes a `receptionistStatus` (`.ok`/`.noNumber`/`.unverified` —
+      widened while fixing 2.8 below, since a `pool_empty` skip needed its own banner state too).
+      Home shows a quiet banner — only when it needs attention, nothing shown when verified,
+      matching the "one hero, everything else quiet" design thesis — linking straight into
+      Settings → Divert your calls via `deepLink.pending`. That screen now has a real
       status card (verified/not, with a timestamp) and a **"Check it's working"** button that
       calls the same `startForwardingVerify`/poll flow the onboarding wizard uses, so anyone who
       skipped it — or changed carriers since — can re-verify without redoing onboarding.

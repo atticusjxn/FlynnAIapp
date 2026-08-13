@@ -12,10 +12,11 @@ final class DashboardStore {
     var events: [EventDTO] = []
     var firstName: String?
     var calendarConnected: Bool = false
-    /// Has a Flynn number, but call diversion hasn't been confirmed working yet.
-    /// Surfaced as a quiet nudge on Home — a receptionist nobody's calls reach
-    /// is a silent failure otherwise.
-    var forwardingNeedsAttention: Bool = false
+    /// Whether the receptionist is actually reachable yet — surfaced as a quiet
+    /// nudge on Home. A receptionist nobody's calls reach is a silent failure
+    /// otherwise (e.g. onboarding hit `pool_empty` and the user skipped past it).
+    enum ReceptionistStatus { case ok, noNumber, unverified }
+    var receptionistStatus: ReceptionistStatus = .ok
     /// Recent things Flynn did over text (latest outbound replies), and actions it
     /// has staged that are waiting on the user's OK. Both are vertical-agnostic —
     /// whatever the user actually uses Flynn for shows up here.
@@ -112,7 +113,9 @@ final class DashboardStore {
             events = list
             firstName = profile.firstName
             calendarConnected = profile.calendarConnected
-            forwardingNeedsAttention = profile.hasNumber && !profile.forwardingVerified
+            receptionistStatus = !profile.hasNumber ? .noNumber
+                : !profile.forwardingVerified ? .unverified
+                : .ok
             recentActivity = activity.replies
             awaitingConfirmation = activity.pending
             money = snapshot
