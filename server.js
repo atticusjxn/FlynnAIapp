@@ -1217,7 +1217,7 @@ const respondWithFunnelIntake = async ({
  * opener, no em dashes, short sentences, prose not bullets.
  */
 const sendBookingConfirmationSms = async ({ callSid, userId, callContext, extractedData }) => {
-  if (!twilioMessagingClient) return;
+  if (!twilioMessagingClient) return false;
 
   // Prefer the job we just wrote over the agent's extract_booking_details tool.
   // The tool is only called when the model decides to call it — on live calls it
@@ -1246,11 +1246,12 @@ const sendBookingConfirmationSms = async ({ callSid, userId, callContext, extrac
 
   const toNumber = details.caller_phone || callContext?.from_number;
   const fromNumber = callContext?.to_number;
-  if (!toNumber || !fromNumber) return;
+  if (!toNumber || !fromNumber) return false;
 
-  // Nothing was actually booked — don't text someone who just asked a question.
+  // Nothing was actually booked. Don't send a confirmation for a job that
+  // doesn't exist — the caller gets the fallback link instead (see 3.6).
   const service = (details.service_type || '').trim();
-  if (!service) return;
+  if (!service) return false;
 
   let businessName = null;
   if (userId) {
@@ -1314,6 +1315,59 @@ const sendBookingConfirmationSms = async ({ callSid, userId, callContext, extrac
       channel: 'post_call_sms',
     });
   }
+  return true;
+};
+
+/**
+ * The second chance. A call that ends without a booking used to end in silence:
+ * no text, no link, nothing for the caller to act on and nothing for the tradie
+ * to chase. This texts them the booking page instead, prefixed with the
+ * "Sorry we just missed you" apology that has lived unused in smsLinkSender
+ * since it was written.
+ *
+ * Routed through smsLinkSender rather than a raw Twilio call so it inherits the
+ * per-tenant template, the retry on transient Twilio errors, and the `sms_sent`
+ * call_events row — none of which the confirmation path has.
+ */
+const sendMissedCallBookingLink = async ({ callSid, userId, callContext }) => {
+  const toNumber = callContext?.from_number;
+  if (!toNumber || !userId) return false;
+
+  const bookingUrl = await bookingUrlForUser(userId).catch(() => null);
+  if (!bookingUrl) return false;
+
+  let businessName = null;
+  const { data } = await supabaseClient
+    .from('users')
+    .select('business_name')
+    .eq('id', userId)
+    .maybeSingle()
+    .catch(() => ({ data: null }));
+  businessName = data?.business_name || null;
+
+  const smsLinkSender = require('./telephony/smsLinkSender');
+  const result = await smsLinkSender.sendBookingLinkSMS(
+    toNumber,
+    businessName,
+    bookingUrl,
+    userId,
+    callSid,
+    { fallbackApology: true }
+  );
+
+  console.log('[Realtime] Missed-call booking link.', {
+    callSid,
+    to: toNumber,
+    sent: Boolean(result?.success),
+  });
+
+  if (result?.success) {
+    analytics.capture(userId, analytics.EVENTS.BOOKING_LINK_SENT, {
+      call_sid: callSid,
+      channel: 'missed_call_sms',
+    });
+  }
+  return Boolean(result?.success);
 };
 
 const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, transcript, turns, reason, extractedData }) => {
@@ -1477,8 +1531,22 @@ const handleRealtimeConversationComplete = async ({ callSid, userId, orgId, tran
     // one: extractedData reached this callback and was dropped on the floor.
     // Send it from the tenant's own Flynn number so it threads under the call
     // the customer just made.
-    await sendBookingConfirmationSms({ callSid, userId, callContext, extractedData })
-      .catch((error) => console.warn('[Realtime] Confirmation SMS failed.', { callSid, error: error?.message || error }));
+    const confirmationSent = await sendBookingConfirmationSms({ callSid, userId, callContext, extractedData })
+      .catch((error) => {
+        console.warn('[Realtime] Confirmation SMS failed.', { callSid, error: error?.message || error });
+        return false;
+      });
+
+    // Missed-opportunity fallback. The call connected but nothing was booked —
+    // the caller hung up mid-flow, or the agent never got a service type, or
+    // the Deepgram session dropped and they heard silence. Until now that
+    // produced nothing at all: no text, no link, no second chance. Send the
+    // booking link anyway with the apology prefix, which has been sitting
+    // unused in smsLinkSender since it was written (nothing ever passed opts).
+    if (!confirmationSent) {
+      await sendMissedCallBookingLink({ callSid, userId, callContext })
+        .catch((error) => console.warn('[Realtime] Fallback booking link failed.', { callSid, error: error?.message || error }));
+    }
 
     await logCallEvent({
       orgId: callContext?.org_id || null,
