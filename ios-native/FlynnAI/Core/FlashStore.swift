@@ -62,6 +62,20 @@ final class FlashStore {
     }
 }
 
+extension View {
+    /// Attach a flash banner to a view that is presented **modally**.
+    ///
+    /// The app-wide banner lives in `RootView`'s ZStack, which sits *below* any
+    /// presented sheet in SwiftUI's window hierarchy. A flash raised from inside
+    /// a sheet — Save on Payment details, a StoreKit purchase failure on the
+    /// paywall, a failed account delete — therefore rendered underneath the
+    /// modal where nobody could see it, and the action read as silently doing
+    /// nothing. Every sheet root that can raise a flash opts in with this.
+    func flynnFlashOverlay() -> some View {
+        overlay(FlashBanner())
+    }
+}
+
 struct FlashBanner: View {
     @Environment(FlashStore.self) private var store
 

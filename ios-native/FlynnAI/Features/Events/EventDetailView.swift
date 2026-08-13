@@ -18,9 +18,6 @@ struct EventDetailView: View {
     @State private var notes: [JobNoteDTO] = []
     @State private var photos: [JobPhotoDTO] = []
     @State private var linkedClient: ClientDTO?
-    @State private var newNoteBody: String = ""
-    @State private var isAddingNote = false
-    @FocusState private var noteFieldFocused: Bool
 
     private let repository: EventsRepositoryType = EventsRepository()
     private let notesRepository: JobNotesRepositoryType = JobNotesRepository()
@@ -94,6 +91,7 @@ struct EventDetailView: View {
                 EventFormView(mode: .edit(event)) { updated in
                     self.event = updated
                 }
+                .flynnFlashOverlay()
             }
         }
         .alert("Delete this event?", isPresented: $showingDeleteAlert) {
@@ -271,64 +269,32 @@ struct EventDetailView: View {
 
     // MARK: – Notes thread (job_notes — replaces the single jobs.notes field
     // for anything added going forward; the legacy `notesCard` above still
-    // shows the original free-text note if one exists)
+    // shows the original free-text note if one exists. Adding a note happens
+    // through the contextual voice bar, so this section is display-only and
+    // hidden entirely until a note exists.)
 
+    @ViewBuilder
     private var notesThreadSection: some View {
-        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            Text("Activity")
-                .flynnType(FlynnTypography.h4)
-                .foregroundColor(FlynnColor.textPrimary)
+        if !notes.isEmpty {
+            VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
+                Text("Activity")
+                    .flynnType(FlynnTypography.h4)
+                    .foregroundColor(FlynnColor.textPrimary)
 
-            ForEach(notes) { note in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(note.body)
-                        .flynnType(FlynnTypography.bodyMedium)
-                        .foregroundColor(FlynnColor.textPrimary)
-                    Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(FlynnColor.textTertiary)
+                ForEach(notes) { note in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(note.body)
+                            .flynnType(FlynnTypography.bodyMedium)
+                            .foregroundColor(FlynnColor.textPrimary)
+                        Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(FlynnColor.textTertiary)
+                    }
+                    .padding(FlynnSpacing.sm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
+                    .brutalistBorder(cornerRadius: FlynnRadii.md)
                 }
-                .padding(FlynnSpacing.sm)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
-                .brutalistBorder(cornerRadius: FlynnRadii.md)
-            }
-
-            HStack(spacing: FlynnSpacing.sm) {
-                TextField("Add a note…", text: $newNoteBody, axis: .vertical)
-                    .flynnType(FlynnTypography.bodyMedium)
-                    .lineLimit(1...4)
-                    .focused($noteFieldFocused)
-                    .padding(.horizontal, FlynnSpacing.sm)
-                    .padding(.vertical, FlynnSpacing.xs)
-                    .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.background))
-                    .brutalistBorder(cornerRadius: FlynnRadii.md, color: noteFieldFocused ? FlynnColor.borderFocus : FlynnColor.border)
-
-                Button(action: addNote) {
-                    Image(systemName: "arrow.up")
-                        .foregroundColor(FlynnColor.white)
-                        .frame(width: 44, height: 44)
-                        .background(Circle().fill(FlynnColor.primary))
-                }
-                .disabled(newNoteBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isAddingNote)
-            }
-        }
-    }
-
-    private func addNote() {
-        let body = newNoteBody.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { return }
-        isAddingNote = true
-        noteFieldFocused = false
-        Task {
-            defer { isAddingNote = false }
-            do {
-                let note = try await notesRepository.add(jobId: eventId, body: body)
-                notes.append(note)
-                newNoteBody = ""
-            } catch {
-                FlynnLog.network.error("Add job note failed: \(error.localizedDescription, privacy: .public)")
-                flash.error("Couldn't add note")
             }
         }
     }

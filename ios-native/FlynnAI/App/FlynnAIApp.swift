@@ -54,6 +54,7 @@ struct FlynnAIApp: App {
                         .environment(flash)
                         .environment(subscription)
                         .preferredColorScheme(colorScheme)
+                        .flynnFlashOverlay()
                 }
                 .onOpenURL { url in
                     // Auth callback (email confirmation / magic link) takes priority —

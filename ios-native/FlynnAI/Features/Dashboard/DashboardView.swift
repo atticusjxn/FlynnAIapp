@@ -71,7 +71,7 @@ struct DashboardView: View {
             AgentInputBar(conversation: conversation)
         }
         .sheet(isPresented: $showingAddReply) {
-            AddReplySheet { Task { await store.load() } }
+            AddReplySheet { Task { await store.load() } }.flynnFlashOverlay()
         }
         .sheet(item: $activityDetail) { reply in ActivityDetailSheet(reply: reply) }
         .task { await store.load() }

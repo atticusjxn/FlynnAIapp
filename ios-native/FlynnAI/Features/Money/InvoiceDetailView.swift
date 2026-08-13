@@ -66,6 +66,7 @@ struct InvoiceDetailView: View {
         .sheet(isPresented: $showingEditSheet) {
             if let inv = invoice {
                 InvoiceFormView(editInvoice: inv) { updated in invoice = updated }
+                    .flynnFlashOverlay()
             }
         }
         .alert("Send via SMS", isPresented: $showingSendPrompt) {

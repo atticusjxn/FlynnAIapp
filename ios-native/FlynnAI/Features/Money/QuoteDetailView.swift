@@ -67,6 +67,7 @@ struct QuoteDetailView: View {
                 QuoteFormView(editQuote: q) { updated in
                     quote = updated
                 }
+                .flynnFlashOverlay()
             }
         }
         .sheet(isPresented: $showingConvertSheet) {
@@ -74,6 +75,7 @@ struct QuoteDetailView: View {
                 InvoiceFormView(fromQuote: q) { _ in
                     flash.success("Invoice created from quote")
                 }
+                .flynnFlashOverlay()
             }
         }
         .alert("Send via SMS", isPresented: $showingSendPrompt) {

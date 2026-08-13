@@ -2,8 +2,8 @@ import SwiftUI
 import StoreKit
 import FBSDKCoreKit
 
-/// Paywall — lists the 3 Flynn plans with App Store-resolved prices and a
-/// "Start 14-day free trial" CTA. Auto-renewable fine print follows Apple's
+/// Paywall — lists the Flynn plans with App Store-resolved prices and a
+/// "Start 7-day free trial" CTA. Auto-renewable fine print follows Apple's
 /// required disclosures (Apple Guideline 3.1.2).
 struct SubscriptionView: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,6 +11,12 @@ struct SubscriptionView: View {
     @Environment(SubscriptionStore.self) private var store
 
     @State private var selectedProductId: String?
+    /// Purchase failures shown inline, not only as a flash. This screen is
+    /// presented as a sheet, and for a long time the flash banner lived only in
+    /// RootView underneath it — so a failed purchase produced no visible
+    /// feedback at all. The sheet now carries its own banner too, but the CTA
+    /// is the thing a reviewer taps, so it states its own errors directly.
+    @State private var purchaseError: String?
 
     var body: some View {
         NavigationStack {
@@ -29,6 +35,14 @@ struct SubscriptionView: View {
                             emptyState
                         } else {
                             planCards
+                            if let purchaseError {
+                                Text(purchaseError)
+                                    .flynnType(FlynnTypography.bodyMedium)
+                                    .foregroundColor(FlynnColor.error)
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: .infinity)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                             ctaButton
                             restoreAndLinks
                         }
@@ -46,6 +60,16 @@ struct SubscriptionView: View {
                 }
             }
             .task { await store.bootstrap() }
+            // Nothing was ever selected by default, so the very first tap of the
+            // CTA fell through startPurchase()'s guard and did nothing visible —
+            // the exact "app didn't respond when tapped on start free trial"
+            // Apple rejected build 3.0.3 for. Default to the featured plan (or
+            // the first available) the moment products resolve, so the primary
+            // action is always live.
+            .onChange(of: store.products.map(\.product.id)) { _, ids in
+                guard selectedProductId == nil, !ids.isEmpty else { return }
+                selectedProductId = store.products.first(where: { $0.isMostPopular })?.product.id ?? ids.first
+            }
         }
     }
 
@@ -192,19 +216,31 @@ struct SubscriptionView: View {
                 .foregroundColor(FlynnColor.textSecondary)
                 .multilineTextAlignment(.center)
             FlynnButton(title: "Retry", action: { Task { await store.load() } })
+            restoreAndLinks
+                .padding(.top, FlynnSpacing.xs)
         }
         .padding(FlynnSpacing.md)
     }
 
+    /// Shown when StoreKit resolves no products — most likely the IAPs aren't
+    /// approved/live yet. This used to print "Check your App Store Connect
+    /// product configuration", an internal instruction shipped as user copy,
+    /// and rendered without the Terms/Privacy links (which live in
+    /// `restoreAndLinks`, only reachable on the loaded branch), leaving a
+    /// reviewer on a dead screen with no legal links. Now it says something a
+    /// customer can act on, offers a retry, and always carries the links.
     private var emptyState: some View {
         VStack(spacing: FlynnSpacing.sm) {
-            Text("Plans not available")
+            Text("Plans aren't available right now")
                 .flynnType(FlynnTypography.h4)
                 .foregroundColor(FlynnColor.textPrimary)
-            Text("Check your App Store Connect product configuration.")
+            Text("This is usually a temporary App Store hiccup. Try again in a moment.")
                 .flynnType(FlynnTypography.bodyMedium)
                 .foregroundColor(FlynnColor.textSecondary)
                 .multilineTextAlignment(.center)
+            FlynnButton(title: "Try again", action: { Task { await store.load() } })
+            restoreAndLinks
+                .padding(.top, FlynnSpacing.xs)
         }
         .padding(FlynnSpacing.md)
     }
@@ -212,13 +248,19 @@ struct SubscriptionView: View {
     // MARK: Actions
 
     private func startPurchase() {
+        purchaseError = nil
+        // Fall back to the first available product rather than bailing: the CTA
+        // must never be a no-op tap. A selection is normally set as soon as
+        // products resolve (see .onChange above); this covers the window before
+        // that lands and any state where it somehow didn't.
         guard
-            let productId = selectedProductId,
-            let product = store.products.first(where: { $0.product.id == productId })
+            let product = store.products.first(where: { $0.product.id == selectedProductId })
+                ?? store.products.first
         else {
-            flash.error("Select a plan first")
+            purchaseError = "Plans are still loading — give it a second and try again."
             return
         }
+        selectedProductId = product.product.id
         Task {
             await store.purchase(product)
             if case .success = store.purchaseState {
@@ -234,6 +276,7 @@ struct SubscriptionView: View {
                 flash.success("Welcome to \(product.plan.displayName)")
                 dismiss()
             } else if case .failed(let message) = store.purchaseState {
+                purchaseError = message
                 flash.error(message)
             }
         }

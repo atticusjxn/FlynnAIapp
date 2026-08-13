@@ -77,6 +77,7 @@ struct ClientDetailView: View {
                 ClientFormView(mode: .edit(client)) { updated in
                     self.client = updated
                 }
+                .flynnFlashOverlay()
             }
         }
         .alert("Delete this client?", isPresented: $showingDeleteAlert) {

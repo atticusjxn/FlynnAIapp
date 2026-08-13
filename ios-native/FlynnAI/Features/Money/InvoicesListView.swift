@@ -33,7 +33,7 @@ struct InvoicesListView: View {
             }
         }
         .sheet(isPresented: $showingCreateSheet) {
-            InvoiceFormView { _ in Task { await store.load() } }
+            InvoiceFormView { _ in Task { await store.load() } }.flynnFlashOverlay()
         }
         .task { await store.load() }
         .refreshable { await store.load() }

@@ -36,6 +36,7 @@ struct QuotesListView: View {
             QuoteFormView { _ in
                 Task { await store.load() }
             }
+            .flynnFlashOverlay()
         }
         .task { await store.load() }
         .refreshable { await store.load() }

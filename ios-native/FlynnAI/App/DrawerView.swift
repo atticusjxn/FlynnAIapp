@@ -78,10 +78,10 @@ struct DrawerView: View {
         .background(FlynnColor.background)
         .task { await loadProfile() }
         .sheet(isPresented: $showingSettings) {
-            NavigationStack { SettingsView() }
+            NavigationStack { SettingsView() }.flynnFlashOverlay()
         }
         .sheet(isPresented: $showingAccount) {
-            NavigationStack { AccountView() }
+            NavigationStack { AccountView() }.flynnFlashOverlay()
         }
     }
 
