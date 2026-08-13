@@ -11,8 +11,6 @@ struct DashboardView: View {
     @State private var store = DashboardStore()
     @State private var conversation = AgentConversationStore()
     @State private var showingAddReply = false
-    @State private var showingKeyboardSetup = false
-    @State private var showingPractice = false
     @State private var activityDetail: DashboardStore.ActivityReply?
     @Environment(DeepLinkRouter.self) private var deepLink
 
@@ -48,7 +46,6 @@ struct DashboardView: View {
 
                     if case .loaded = store.state {
                         quickActionsCard
-                        if !store.keyboardAdded { keyboardCard }
                     }
                     Color.clear.frame(height: 1).id("bottom")
                 }
@@ -71,13 +68,6 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $showingAddReply) {
             AddReplySheet { Task { await store.load() } }
-        }
-        .sheet(isPresented: $showingKeyboardSetup) { KeyboardSetupFlow() }
-        .sheet(isPresented: $showingPractice) {
-            NavigationStack {
-                PracticeStepView(onContinue: { showingPractice = false })
-                    .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { showingPractice = false } } }
-            }
         }
         .sheet(item: $activityDetail) { reply in ActivityDetailSheet(reply: reply) }
         .task { await store.load() }
@@ -478,7 +468,6 @@ struct DashboardView: View {
                 quickAction("What Flynn knows", icon: "sparkles") { deepLink.pending = .init(tab: .brain, route: nil) }
                 quickAction("Connected apps", icon: "square.stack.3d.up.fill") { deepLink.pending = .init(tab: .connected, route: .settingsSection(.integrations)) }
                 quickAction("Add a reply", icon: "text.bubble.fill") { showingAddReply = true }
-                quickAction("Flynn keyboard", icon: "keyboard.fill") { showingKeyboardSetup = true }
             }
         }
     }
@@ -504,29 +493,6 @@ struct DashboardView: View {
         .buttonStyle(FlynnPressable())
     }
 
-    // MARK: – Keyboard add-on
-
-    private var keyboardCard: some View {
-        VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            HStack(spacing: FlynnSpacing.sm) {
-                Image(systemName: "keyboard.fill").foregroundColor(FlynnColor.primary)
-                Text("Add the Flynn keyboard")
-                    .flynnType(FlynnTypography.h4)
-                    .foregroundColor(FlynnColor.textPrimary)
-            }
-            Text("Optional: draft replies in your voice right inside Messages, without leaving the app you're in.")
-                .flynnType(FlynnTypography.bodySmall)
-                .foregroundColor(FlynnColor.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: FlynnSpacing.sm) {
-                FlynnButton(title: "Set up", action: { showingKeyboardSetup = true }, variant: .secondary, size: .small)
-                FlynnButton(title: "Practice", action: { showingPractice = true }, variant: .secondary, size: .small)
-            }
-        }
-        .padding(FlynnSpacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .flynnCardSurface(.quiet)
-    }
 
     // MARK: – Helpers
 

@@ -32,10 +32,6 @@ struct IntegrationBrand: Identifiable, Equatable {
     static let gmail = IntegrationBrand(
         id: "gmail", name: "Gmail",
         logoAsset: "Integrations/logo-gmail", systemSymbol: "envelope", tint: Color(hex: "EA4335"))
-
-    static let flynnKeyboard = IntegrationBrand(
-        id: "flynn_keyboard", name: "Flynn Keyboard",
-        logoAsset: nil, systemSymbol: "keyboard", tint: FlynnColor.primary)
 }
 
 /// A clean white tile with the brand's real logo inset (or a tinted SF Symbol

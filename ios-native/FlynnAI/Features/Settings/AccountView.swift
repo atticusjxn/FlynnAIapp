@@ -30,10 +30,7 @@ struct AccountView: View {
 
                 section(title: "Account") {
                     actionRow(icon: "rectangle.portrait.and.arrow.right", title: "Sign out") {
-                        Task {
-                            KeyboardBridge.clear()
-                            await auth.signOut()
-                        }
+                        Task { await auth.signOut() }
                     }
                     actionRow(icon: "trash", title: "Delete account", destructive: true) {
                         showDeleteConfirat = true
@@ -130,7 +127,6 @@ struct AccountView: View {
             req.httpMethod = "POST"
             req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
             _ = try await URLSession.shared.data(for: req)
-            KeyboardBridge.clear()
             await auth.signOut()
         } catch {
             flash.error("Couldn't delete account — try again")

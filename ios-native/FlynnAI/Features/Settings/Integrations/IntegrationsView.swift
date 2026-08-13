@@ -123,8 +123,6 @@ struct IntegrationsView: View {
         )
 
         googleRow
-
-        keyboardRow
     }
 
     private var googleRow: some View {
@@ -207,36 +205,4 @@ struct IntegrationsView: View {
         .brutalistBorder(cornerRadius: FlynnRadii.md)
     }
 
-    private var keyboardAdded: Bool { SharedStore.keyboardHeartbeat != nil }
-
-    private var keyboardRow: some View {
-        Button {
-            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
-        } label: {
-            HStack(alignment: .top, spacing: FlynnSpacing.sm) {
-                IntegrationLogoView(brand: .flynnKeyboard)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Flynn keyboard")
-                        .flynnType(FlynnTypography.h4)
-                        .foregroundColor(FlynnColor.textPrimary)
-                    Text(keyboardAdded
-                         ? "Added — draft replies inside Messages"
-                         : "Add it in Settings → General → Keyboard, and turn on Full Access")
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(FlynnColor.textSecondary)
-                }
-                Spacer()
-                Image(systemName: keyboardAdded ? "checkmark.circle.fill" : "chevron.right")
-                    .foregroundColor(keyboardAdded ? FlynnColor.success : FlynnColor.textTertiary)
-            }
-            .padding(FlynnSpacing.md)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
-                    .fill(FlynnColor.backgroundSecondary)
-            )
-            .brutalistBorder(cornerRadius: FlynnRadii.md)
-        }
-        .buttonStyle(.plain)
-    }
 }

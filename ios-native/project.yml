@@ -47,7 +47,6 @@ targets:
           - "Config/Secrets.local.xcconfig"
           - "Config/Secrets.local.xcconfig.example"
           - "FlynnAI.entitlements"
-      - path: Shared
     resources:
       - path: FlynnAI/Resources
     info:
@@ -126,28 +125,5 @@ targets:
       - package: PostHog
         product: PostHog
       - sdk: AdServices.framework
-      - target: FlynnKeyboard
     scheme:
       storeKitConfiguration: FlynnAI/Resources/FlynnAI.storekit
-
-  FlynnKeyboard:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: FlynnKeyboard
-        excludes:
-          - "**/*.md"
-          - "Info.plist"
-          - "FlynnKeyboard.entitlements"
-      - path: Shared
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app.keyboard
-        PRODUCT_NAME: FlynnKeyboard
-        MARKETING_VERSION: "3.0.3"
-        CURRENT_PROJECT_VERSION: "126"
-        TARGETED_DEVICE_FAMILY: "1,2"
-        DEVELOPMENT_TEAM: "69T5H7R46N"
-        CODE_SIGN_STYLE: Automatic
-        CODE_SIGN_ENTITLEMENTS: FlynnKeyboard/FlynnKeyboard.entitlements
-        INFOPLIST_FILE: FlynnKeyboard/Info.plist

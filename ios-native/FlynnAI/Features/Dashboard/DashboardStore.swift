@@ -12,9 +12,6 @@ final class DashboardStore {
     var events: [EventDTO] = []
     var firstName: String?
     var calendarConnected: Bool = false
-    /// True once the Flynn keyboard has been opened at least once (it stamps a
-    /// heartbeat into the shared App Group on launch).
-    var keyboardAdded: Bool = false
     /// Recent things Flynn did over text (latest outbound replies), and actions it
     /// has staged that are waiting on the user's OK. Both are vertical-agnostic —
     /// whatever the user actually uses Flynn for shows up here.
@@ -99,11 +96,6 @@ final class DashboardStore {
 
     func load() async {
         state = .loading
-        // The keyboard stamps a heartbeat only once it's actually used; treat the
-        // "I've added it" acknowledgement as added too, so we don't nag users who set
-        // it up but haven't opened it in Messages yet.
-        keyboardAdded = SharedStore.keyboardHeartbeat != nil
-            || UserDefaults.standard.bool(forKey: "flynn.keyboardAcknowledged")
         async let eventsTask = repository.list(limit: 10)
         async let profileTask: (String?, Bool) = loadProfile()
         async let activityTask = loadActivity()

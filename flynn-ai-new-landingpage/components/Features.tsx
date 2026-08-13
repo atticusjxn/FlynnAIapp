@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Phone, Calendar, Camera, DollarSign, FileText, Brain, Keyboard, Link2 } from 'lucide-react';
+import { Phone, Calendar, Camera, DollarSign, FileText, Brain, CreditCard, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StoreButtons from './StoreButtons';
 
@@ -38,7 +38,7 @@ const features = [
   { icon: DollarSign, tint: '#7E8B4F', title: 'Chases it for you', body: "Flags a late invoice and sends the reminder so you're not the one sending awkward follow-ups." },
   { icon: FileText, tint: '#FB5B1E', title: 'Quotes on the spot', body: 'Talk the job through and Flynn writes it up, prices it off your rates, before you leave site.' },
   { icon: Brain, tint: '#3C8A86', title: 'Learns your business', body: 'Tell Flynn your trade, prices and hours once, out loud. Every reply after that uses them.' },
-  { icon: Keyboard, tint: '#E0A436', title: 'Drafts inside any app', body: 'The Flynn keyboard drafts a reply with a payment link right inside iMessage, WhatsApp or email. Tap to insert.' },
+  { icon: CreditCard, tint: '#E0A436', title: 'Free, unlimited invoicing', body: "Send as many invoices as you like, free. Flynn only takes a small cut when the client actually pays." },
   { icon: Link2, tint: '#C5532B', title: 'Syncs with your tools', body: 'Xero, Google Calendar and your email, connected once and kept in sync automatically.' },
 ];
 
@@ -85,16 +85,16 @@ const Features = () => {
         </div>
       </section>
 
-      {/* Keyboard callout */}
+      {/* Pricing callout */}
       <section className="py-10">
         <div className="max-w-4xl mx-auto px-5 sm:px-8">
           <Card className="p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-8">
             <Mascot pose="phone" className="w-28 sm:w-36 flex-shrink-0" />
             <div>
-              <h3 className="font-display font-bold text-2xl mb-2">Also included: the Flynn keyboard</h3>
+              <h3 className="font-display font-bold text-2xl mb-2">Free to send. A small cut when you're paid.</h3>
               <p className="text-[#5A4A3C] leading-relaxed">
-                Draft a tone-matched reply with a payment link right inside any messaging app —
-                iMessage, WhatsApp, email, HiPages, Airtasker. Tap to insert. Nothing sends on its own.
+                No monthly seat, no invoice limit. Flynn only makes money on a small capped fee
+                when a payment clears through Flynn, cards, Apple Pay or PayID.
               </p>
             </div>
           </Card>

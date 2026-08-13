@@ -77,7 +77,6 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
     case bookingPage
     case billing
     case businessType
-    case keyboard
     case integrations
     case notifications
     case appearance
@@ -93,7 +92,6 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
         case .bookingPage: return "Booking Page"
         case .billing: return "Billing & Plans"
         case .businessType: return "Business Type"
-        case .keyboard: return "Flynn Keyboard"
         case .integrations: return "Connected Apps"
         case .notifications: return "Notifications"
         case .appearance: return "Appearance"
@@ -111,7 +109,6 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
         case .bookingPage: return "calendar.badge.plus"
         case .billing: return "creditcard"
         case .businessType: return "tag"
-        case .keyboard: return "keyboard"
         case .integrations: return "square.stack.3d.up"
         case .notifications: return "bell"
         case .appearance: return "paintbrush"

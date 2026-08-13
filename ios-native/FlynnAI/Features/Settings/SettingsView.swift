@@ -24,10 +24,6 @@ struct SettingsView: View {
                     linkRow("banknote", "Getting paid") { PaymentDetailsView() }
                     rowDivider
                     linkRow("square.stack.3d.up.fill", "Connected apps") { IntegrationsView() }
-                    rowDivider
-                    linkRow("keyboard.fill", "Flynn Keyboard") { KeyboardSetupFlow() }
-                    rowDivider
-                    linkRow("text.bubble.fill", "Quick messages") { SavedMessagesView() }
                 }
 
                 group("Preferences") {

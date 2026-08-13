@@ -1,5 +1,11 @@
 # Flynn — App Store Connect Metadata (Build 89 / v3.0.0)
 
+> **Superseded.** This describes the retired keyboard-first product (the
+> `FlynnKeyboard` extension was deleted in Gate 5.1 of the road-to-MRR plan).
+> Kept for reference only — real v4 App Store metadata (payments-first,
+> two-tier pricing) is written fresh in Gate 6.2. Do not copy-paste this into
+> App Store Connect.
+
 Ready to copy-paste into App Store Connect once build 89 finishes processing.
 
 ---

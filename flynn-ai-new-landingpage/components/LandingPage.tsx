@@ -401,11 +401,11 @@ export default function LandingPage() {
       {/* ===================== APP SCREENS (swipeable) ===================== */}
       <AppShowcase />
 
-      {/* ===================== KEYBOARD MENTION ===================== */}
+      {/* ===================== FREE INVOICING MENTION ===================== */}
       <section className="py-10 bg-[#FFFBF4] border-y-[2px] border-[#2C2018]/20">
         <div className="max-w-3xl mx-auto px-5 text-center">
           <p className="text-[#5A4A3C] text-base sm:text-lg leading-relaxed">
-            <span className="font-semibold text-[#2C2018]">Also included:</span> The Flynn keyboard extension drafts replies right inside any messaging app — iMessage, WhatsApp, email. Tap to insert. Nothing sends on its own.
+            <span className="font-semibold text-[#2C2018]">Always free to send:</span> unlimited invoices, no monthly seat. Flynn only takes a small capped fee on payments that clear through Flynn.
           </p>
         </div>
       </section>

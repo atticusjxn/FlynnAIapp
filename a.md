@@ -315,9 +315,31 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
 
 ## Gate 5 — Surface cuts
 
-- [ ] **5.1** Remove `FlynnKeyboard` target, app/App Store/landing references, backend
+- [x] **5.1** Remove `FlynnKeyboard` target, app/App Store/landing references, backend
       `api/keyboard/*`. Drop `draft_picks` with it.
-- [ ] **5.2** Delete the Team Flynn crew-number surface.
+  > Deleted the `FlynnKeyboard` app-extension target from `project.yml`, all
+  > `ios-native/FlynnKeyboard/` and keyboard-only `Shared/` sources (`KeyboardDraftClient`,
+  > `DraftModels`, `SharedStore`, `SavedMessage`, `PendingCalendarEvent`, `SharedSecureStore`,
+  > `SharedConstants`), and every app-side call site (`KeyboardBridge`, `KeyboardSetupFlow`,
+  > the onboarding keyboard tour, `SavedMessagesView`, `PendingCalendarStore`/
+  > `PendingEventConfirmView`, Settings/Integrations/Dashboard rows). Dropped the App Group +
+  > shared-keychain entitlements now nothing reads them. Regenerated the Xcode project via
+  > `xcodegen generate` and confirmed a clean `xcodebuild` (`BUILD SUCCEEDED`).
+  > Backend: deleted the `api/keyboard/*` route block in `server.js` (provision-token,
+  > draft-replies, quick-context, compose, accept-draft, add-calendar-event), keeping the
+  > helpers still shared with live endpoints (`computeGoogleSlots`/`DEFAULT_BUSINESS_HOURS` for
+  > `/api/calendar/propose-slots`, `isUserEntitled`/`draftsUsedToday`/`FREE_DRAFTS_PER_DAY` for
+  > `/api/quote-style`). Removed `composeFromShorthand`/`buildComposePrompt`/
+  > `DEFAULT_COMPOSE_COUNT` from `services/draftReplies.js` (kept `generateDrafts`/
+  > `parseBooking`, still used by the live SMS agent path). New migration
+  > `20260813030000_drop_draft_picks.sql` drops the table rather than editing history.
+  > Rewrote keyboard mentions on the landing page (`Footer.tsx`, `Features.tsx`,
+  > `LandingPage.tsx`) to the free-invoicing/payments-first framing, and flagged
+  > `app-store-metadata-v3.md`/`play-store-screenshots/README.md` as superseded rather than
+  > word-patching docs that get a full rewrite in Gate 6.2. `npx jest` 63/63, boot check green.
+  > **Not touched:** `android-native/`'s parallel keyboard/IME — Android is already a parked
+  > non-goal, so it was deliberately left alone rather than pulled into this gate.
+- [x] **5.2** Delete the Team Flynn crew-number surface.
 - [ ] **5.3** Delete the BlueBubbles relay and `routes/iMessageInbound.js`.
 - [ ] **5.4** Rewrite `CLAUDE.md` to the locked positioning.
 

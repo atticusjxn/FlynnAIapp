@@ -1,5 +1,9 @@
 # Flynn — Google Play phone screenshots
 
+> **Superseded.** Describes the retired keyboard-first product, and Android is
+> parked as of the payments-first pivot (Swift-only for now — see CLAUDE.md
+> Non-Goals). Kept for reference only.
+
 Android phone screenshots, mirroring the 5 Apple App Store shots in `../app-store-screenshots/`
 but Android-flavoured (Flynn keyboard draft panel, Bookings + Brain screens).
 
