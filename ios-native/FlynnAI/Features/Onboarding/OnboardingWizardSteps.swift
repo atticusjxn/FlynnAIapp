@@ -113,8 +113,12 @@ struct TradeStep: View {
             }
             .padding(.top, FlynnSpacing.sm)
         } footer: {
-            FlynnGlassButton(title: "Continue", action: { model.next() },
-                             isDisabled: model.trade == nil)
+            FlynnGlassButton(title: "Continue", action: {
+                if let trade = model.trade {
+                    Analytics.capture(.onboardTradeSelected, ["trade": trade])
+                }
+                model.next()
+            }, isDisabled: model.trade == nil)
         }
     }
 
@@ -396,6 +400,7 @@ struct PaywallStep: View {
                     .foregroundColor(FlynnColor.textTertiary)
             }
         }
+        .onAppear { Analytics.capture(.paywallViewed, ["source": "onboarding"]) }
     }
 
     private func tier(_ name: String, price: String, blurb: String, featured: Bool) -> some View {

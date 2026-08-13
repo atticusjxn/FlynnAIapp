@@ -218,16 +218,27 @@ actual code before touching anything; see the precise PARTIAL/DONE status on eac
       calls the same `startForwardingVerify`/poll flow the onboarding wizard uses, so anyone who
       skipped it — or changed carriers since — can re-verify without redoing onboarding.
       `xcodebuild` `BUILD SUCCEEDED`.
-- [ ] **2.11** Every step instrumented and resumable.
-      **PARTIAL** — event names match the plan's canonical list and mostly fire
-      (`Core/Analytics.swift:31-54`). Timing bug: several `_completed`-style events
-      (`onboard_calendar_connected`, `onboard_trade_selected`, `onboard_services_entered`) fire
-      on step-*entry* via `advance(to:)`, not on the actual completing action — so e.g.
-      `onboard_calendar_connected` fires the instant the calendar screen appears, before any tap,
-      then fires again (with a provider) on a real connect. Resumability is **not started**:
-      `OnboardingModel.step` is in-memory only (`OnboardingWizard.swift:23`); the only persisted
-      state is a single `flynn.onboardingComplete` flag set at the very end. An app kill
-      mid-flow loses all entered trade/business/pricing data and restarts from `.welcome`.
+- [x] **2.11** Every step instrumented and resumable.
+      **Timing fix**: `advance(to:)` no longer auto-fires an event for the step being entered —
+      that was firing `onboard_calendar_connected`/`onboard_trade_selected`/
+      `onboard_services_entered`/`forwarding_code_dialled` the instant a screen *appeared*, then
+      again (correctly) on the real action, double-counting the funnel. Each event now fires only
+      at its true completion point: trade pick's Continue button, `saveThenNext()` after the
+      business PATCH actually succeeds, the calendar step's real connect taps (unchanged), and
+      `dialForwarding()`'s real dial (unchanged). `paywall_viewed` moved from a button-tap fire to
+      a real `.onAppear` on `PaywallStep`, since "viewed" should mean seen, not tapped.
+      `signup_completed` also used to re-fire on every resume — now gated to a genuinely fresh
+      start (`step == .welcome`).
+      **Resumability**: `OnboardingModel` persists a small `Codable` snapshot (step, trade,
+      business fields, `forwardingDialled`) to `UserDefaults` on every `advance(to:)`, restored in
+      `init()` — an app kill mid-flow now resumes where it left off instead of restarting from
+      `.welcome` and silently losing everything typed. Deliberately excludes ephemeral
+      server-owned state (the assigned number): resuming at `.forwarding`/`.done` calls
+      `rehydrateIfResumed()` to re-fetch `twilio_phone_number` from the account row instead,
+      since numbers/entitlements can genuinely change between launches and the account is the
+      source of truth, not a stale local cache. Cleared on `markComplete()` (both real finish and
+      skip, which already routes through it).
+      `xcodebuild` `BUILD SUCCEEDED`, `npx jest` 63/63.
 
 ## Gate 3 — The branded booking link
 

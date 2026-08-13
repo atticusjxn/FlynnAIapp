@@ -40,7 +40,13 @@ struct OnboardingWizard: View {
             }
         }
         .animation(.spring(response: 0.42, dampingFraction: 0.86), value: model.step)
-        .onAppear { Analytics.capture(.signupCompleted) }
+        .onAppear {
+            // Only a genuinely fresh start counts as signup_completed — a
+            // resumed session (app killed mid-flow, relaunched) starts past
+            // .welcome and would otherwise double-count the same signup.
+            if model.step == .welcome { Analytics.capture(.signupCompleted) }
+            Task { await model.rehydrateIfResumed() }
+        }
         // The paywall lives on the WindowGroup above everything; presenting it
         // just flips a flag. Resume number assignment when it closes.
         .onChange(of: paywall.isPresented) { wasUp, isUp in
@@ -106,7 +112,6 @@ struct OnboardingWizard: View {
     // MARK: - Paywall / number
 
     private func startTrial() {
-        Analytics.capture(.paywallViewed, ["source": "onboarding"])
         if subscription.currentEntitlement != nil {
             Task { await assignNumberOrPaywall() }
         } else {
@@ -135,7 +140,32 @@ struct OnboardingWizard: View {
 final class OnboardingModel {
     var step: OnboardingStep = .welcome
 
+    /// Resumable snapshot — an app kill mid-flow used to lose everything and
+    /// restart from `.welcome`, silently discarding whatever trade/business
+    /// data the user had already entered. Persisted to UserDefaults (not
+    /// Keychain: nothing here is a secret) on every step advance; cleared once
+    /// the wizard actually finishes or is skipped.
+    private struct Snapshot: Codable {
+        var step: OnboardingStep
+        var trade: String?
+        var businessName: String
+        var services: String
+        var pricing: String
+        var serviceArea: String
+        var forwardingDialled: Bool
+    }
+    private static let stateKey = "flynn.onboardingState"
+
     init() {
+        if let snap = Self.restoreState(), snap.step != .welcome, snap.step != .done {
+            step = snap.step
+            trade = snap.trade
+            businessName = snap.businessName
+            services = snap.services
+            pricing = snap.pricing
+            serviceArea = snap.serviceArea
+            forwardingDialled = snap.forwardingDialled
+        }
         #if DEBUG
         // Jump straight to a step for screenshots: -FlynnOnboardingStep demoCall
         let args = ProcessInfo.processInfo.arguments
@@ -144,6 +174,47 @@ final class OnboardingModel {
             step = s
         }
         #endif
+    }
+
+    private func persistState() {
+        let snap = Snapshot(
+            step: step, trade: trade, businessName: businessName,
+            services: services, pricing: pricing, serviceArea: serviceArea,
+            forwardingDialled: forwardingDialled
+        )
+        guard let data = try? JSONEncoder().encode(snap) else { return }
+        UserDefaults.standard.set(data, forKey: Self.stateKey)
+    }
+
+    private static func restoreState() -> Snapshot? {
+        guard let data = UserDefaults.standard.data(forKey: stateKey) else { return nil }
+        return try? JSONDecoder().decode(Snapshot.self, from: data)
+    }
+
+    private static func clearState() {
+        UserDefaults.standard.removeObject(forKey: stateKey)
+    }
+
+    /// A resumed session at `.forwarding`/`.done` needs its assigned number
+    /// re-hydrated from the server — it's ephemeral server state, deliberately
+    /// not part of the persisted snapshot (numbers/entitlements can change
+    /// between app launches; the account row is the source of truth).
+    func rehydrateIfResumed() async {
+        guard step == .forwarding || step == .done, assignedNumber == nil else { return }
+        struct Row: Decodable { let twilio_phone_number: String? }
+        do {
+            let session = try await FlynnSupabase.client.auth.session
+            let row: Row = try await FlynnSupabase.client
+                .from("users")
+                .select("twilio_phone_number")
+                .eq("id", value: session.user.id.uuidString)
+                .single()
+                .execute()
+                .value
+            assignedNumber = row.twilio_phone_number
+        } catch {
+            FlynnLog.network.error("Onboarding resume rehydrate failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // Collected details
@@ -176,9 +247,15 @@ final class OnboardingModel {
     var demoTranscript: String?
     var demoJobTitle: String?
 
+    /// Step transitions carry no automatic analytics fire — each meaningful
+    /// action (trade picked, business saved, calendar connected, demo
+    /// requested, paywall viewed, code dialled) captures its own event at the
+    /// point it actually happens. Firing generically here used to mean e.g.
+    /// "onboard_calendar_connected" landed the instant the calendar *screen*
+    /// appeared, before the user had tapped anything.
     func advance(to next: OnboardingStep) {
-        Analytics.capture(next.enterEvent, next.eventProps)
         step = next
+        persistState()
     }
 
     func next() { if let n = step.next { advance(to: n) } }
@@ -191,6 +268,7 @@ final class OnboardingModel {
             working = true
             await saveBusiness()
             working = false
+            Analytics.capture(.onboardServicesEntered)
             next()
         }
     }
@@ -320,6 +398,7 @@ final class OnboardingModel {
 
     func markComplete() {
         UserDefaults.standard.set(true, forKey: OnboardingModel.completeKey)
+        Self.clearState()
     }
 
     static let completeKey = "flynn.onboardingComplete"
@@ -328,7 +407,7 @@ final class OnboardingModel {
 
 // MARK: - Steps enum
 
-enum OnboardingStep: Int, Hashable, CaseIterable {
+enum OnboardingStep: Int, Hashable, CaseIterable, Codable {
     case welcome, trade, business, calendar, demoCall, paywall, forwarding, done
 
     var index: Int { rawValue }
@@ -356,16 +435,4 @@ enum OnboardingStep: Int, Hashable, CaseIterable {
     // the funnel — a returning user, or anyone who wants to look around first.
     var canSkip: Bool { self != .done }
 
-    var enterEvent: Analytics.Event {
-        switch self {
-        case .trade: return .onboardTradeSelected
-        case .business: return .onboardServicesEntered
-        case .calendar: return .onboardCalendarConnected
-        case .demoCall: return .demoCallRequested
-        case .paywall: return .paywallViewed
-        case .forwarding: return .forwardingCodeDialled
-        default: return .signupStarted
-        }
-    }
-    var eventProps: [String: Any] { ["step": String(describing: self)] }
 }
