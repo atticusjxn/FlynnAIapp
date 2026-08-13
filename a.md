@@ -142,11 +142,14 @@ invoice_sent · invoice_paid · chase_sent
 business → calendar → demoCall → paywall → forwarding → done. Audited item-by-item against the
 actual code before touching anything; see the precise PARTIAL/DONE status on each line below.)*
 
-- [ ] **2.1** Phone-OTP signup as the default. Fix `LoginView.swift:483` silently discarding
+- [x] **2.1** Phone-OTP signup as the default. Fix `LoginView.swift:483` silently discarding
       the business name the form collects.
-      **PARTIAL** — phone-OTP is already the default/primary CTA (`LoginView.swift:102-106`).
-      The discard bug is real and unfixed: `submitSignUp()` never passes `businessName` to
-      `AuthStore.signUp(email:password:)` (`LoginView.swift:483-486`).
+      Phone-OTP was already the default/primary CTA (`LoginView.swift:102-106`) — only the email
+      fallback path had the discard bug. `AuthStore.signUp` now takes an optional `businessName`
+      and, once a real session exists (not the email-confirmation-pending branch), PATCHes
+      `/api/business-profile` with it — the same endpoint and shape the wizard's own
+      `saveBusiness()` uses, so a name from either path lands the same way. Best-effort: never
+      blocks or fails signup if the save fails. `xcodebuild` `BUILD SUCCEEDED`.
 - [ ] **2.2** Trade picker → services + rough pricing, voice or type
       (reuse `POST /api/business-profile/parse`).
       **PARTIAL** — trade/services/pricing fields are real and PATCH `/api/business-profile`

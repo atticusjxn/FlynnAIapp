@@ -130,7 +130,7 @@ final class AuthStore {
         }
     }
 
-    func signUp(email: String, password: String) async {
+    func signUp(email: String, password: String, businessName: String = "") async {
         awaitingEmailConfirmation = false
         await run {
             let response = try await self.client.auth.signUp(
@@ -138,10 +138,33 @@ final class AuthStore {
                 password: password,
                 redirectTo: Self.authCallbackURL
             )
-            // If session is nil after signUp, Supabase is waiting on email confirmation.
+            // If session is nil after signUp, Supabase is waiting on email confirmation — there's
+            // no authenticated session yet to save the business name under, so it's picked up
+            // again in the onboarding wizard's own business step instead.
             if response.session == nil {
                 self.awaitingEmailConfirmation = true
+            } else {
+                await self.saveBusinessNameIfNeeded(businessName)
             }
+        }
+    }
+
+    /// Best-effort: persist the business name collected at signup onto business_profiles, the
+    /// same PATCH the onboarding wizard's business step uses. Never blocks or fails signup.
+    private func saveBusinessNameIfNeeded(_ businessName: String) async {
+        let trimmed = businessName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        struct Patch: Encodable { let business_name: String }
+        do {
+            let session = try await client.auth.session
+            var req = URLRequest(url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent("api/business-profile"))
+            req.httpMethod = "PATCH"
+            req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONEncoder().encode(Patch(business_name: trimmed))
+            _ = try await URLSession.shared.data(for: req)
+        } catch {
+            FlynnLog.network.error("Signup business name save failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 

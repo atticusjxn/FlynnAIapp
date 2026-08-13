@@ -464,13 +464,6 @@
 			path = Brain;
 			sourceTree = "<group>";
 		};
-		37010D556BFF4B227FE47977 /* Calendar */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Calendar;
-			sourceTree = "<group>";
-		};
 		38C1550773F9D78125E44C0E /* Config */ = {
 			isa = PBXGroup;
 			children = (
@@ -531,7 +524,6 @@
 			children = (
 				960E6882A935C2F92BE6EE7E /* Auth */,
 				2DDCD6CDB49ED03D834DBCE9 /* Brain */,
-				37010D556BFF4B227FE47977 /* Calendar */,
 				89BAC3AAB3EF3A3748636E25 /* Calls */,
 				1C6995E18F519BDDF63ACE8B /* Clients */,
 				D66CB5E6A87BABE752059E39 /* Dashboard */,

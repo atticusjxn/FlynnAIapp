@@ -482,7 +482,7 @@ struct LoginView: View {
 
     private func submitSignUp() {
         focusedField = nil
-        Task { await auth.signUp(email: email, password: password) }
+        Task { await auth.signUp(email: email, password: password, businessName: businessName) }
     }
 
     private func submitSendEmailCode() {
