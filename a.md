@@ -269,8 +269,10 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
       **Deferred** — mostly icons, low impact.
 - [x] **4.9** Dead "Referrals are coming soon" drawer row removed.
 - [x] **4.10** "Play recording" is now a real button that opens the recording.
-- [ ] **4.11** Delete dead-but-compiled UI (UsageBarCard, CalendarConnectCard, CallModeSelectorView,
-      IVRScriptEditorView). **Deferred** — harmless, some goes with Gate 5's keyboard cut.
+- [x] **4.11** Delete dead-but-compiled UI (UsageBarCard, CalendarConnectCard, CallModeSelectorView,
+      IVRScriptEditorView). Already gone — confirmed zero remaining references anywhere in
+      `ios-native/` (done as part of the Design rollout's "Dead UI deleted" pass below; this
+      checkbox was just stale).
 
 ### Design rollout (beyond the bug list)
 
