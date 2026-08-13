@@ -136,7 +136,6 @@ router.post('/:slug/book', async (req, res) => {
       customer_email,
       start_time,
       end_time,
-      duration_minutes,
       notes,
       custom_responses,
       website, // honeypot — humans never see it, bots autofill it
@@ -198,7 +197,8 @@ router.post('/:slug/book', async (req, res) => {
         customer_email,
         start_time,
         end_time,
-        duration_minutes,
+        // Derived server-side: the client's copy of this is not trusted.
+        duration_minutes: Math.round((endDate - startDate) / 60000),
         notes,
         custom_responses,
         status: 'confirmed', // Auto-confirm bookings
