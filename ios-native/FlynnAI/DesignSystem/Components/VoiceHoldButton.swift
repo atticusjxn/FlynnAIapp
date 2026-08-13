@@ -73,16 +73,20 @@ struct VoiceHoldButton: View {
         .accessibilityAddTraits(.isButton)
         // onEnded never fires if the gesture is interrupted by a call or a
         // backgrounding; without these the latch sticks and the button dies.
+        // `stopListening` is called unconditionally rather than behind an
+        // `isListening` check: the recogniser may still be opening (first run,
+        // behind the permission alert), and that in-flight start has to be
+        // cancelled too or the mic latches on with nobody holding the button.
         .onChange(of: scenePhase) { _, phase in
             guard phase != .active, isPressing else { return }
             holdTask?.cancel()
             reset()
-            if isListening { voice.stopListening() }
+            voice.stopListening()
         }
         .onDisappear {
             holdTask?.cancel()
             reset()
-            if isListening { voice.stopListening() }
+            voice.stopListening()
         }
     }
 
@@ -165,16 +169,24 @@ struct VoiceHoldButton: View {
 
     private func cancel() {
         scrapTick &+= 1
+        let started = didStart
         reset()
-        if isListening { voice.stopListening() }
+        if started { voice.stopListening() }
         onCancel()
     }
 
     private func finish() {
+        let started = didStart
         let wasListening = isListening
         reset()
-        guard wasListening else { return }
+        guard started else { return }
+        // Stop even when `isListening` is still false — on a first run the
+        // permission alert takes the touch, so the release lands while the
+        // recogniser is only part-way open. Gating this on `isListening` is
+        // what left the mic latched on and the bar stuck on "listening...".
         voice.stopListening()
+        // Nothing was ever captured, so there's no transcript to wait for.
+        guard wasListening else { return }
         // The recogniser keeps finalising briefly after stopListening, so give
         // it a beat or the tail of the sentence is lost.
         Task {

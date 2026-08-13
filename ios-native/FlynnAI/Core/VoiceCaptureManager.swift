@@ -1,6 +1,7 @@
 import Foundation
 import Speech
 import AVFoundation
+import os
 
 /// On-device push-to-talk transcription for the Home agent bar.
 ///
@@ -52,22 +53,46 @@ final class VoiceCaptureManager {
     /// mic button's repeated `onChanged` events during a single hold.
     private var isStarting = false
 
+    /// Set when a stop lands while `startListening` is still in flight.
+    ///
+    /// On a first run the permission alert takes the touch, so the button's
+    /// `onEnded` fires long before `state` becomes `.listening`. Every stop path
+    /// keys off `isListening`, so they all no-op, and then the awaited start
+    /// finally completes and opens the recogniser with nobody holding the
+    /// button — the mic latches on for the rest of the session, meter running,
+    /// UI stuck on "listening...". Reproduced on a clean install every time.
+    /// The start path re-checks this after each `await` and tears down instead.
+    private var stopRequested = false
+
+    /// Only one mic can be live at a time, but Home, Brain and the contextual
+    /// voice bar each own their own manager. Two live pipelines would share the
+    /// one `AVAudioSession`, and whichever stopped first would deactivate the
+    /// session out from under the other's running engine.
+    private static weak var activeManager: VoiceCaptureManager?
+
     /// Call on mic-button press-down. Requests permission on first use.
     func startListening() async {
         guard state != .listening, !isStarting else { return }
         isStarting = true
+        stopRequested = false
         defer { isStarting = false }
         transcript = ""
         level = 0
 
         guard await Self.requestSpeechAuthorization() == .authorized else {
-            state = .denied
+            state = stopRequested ? .idle : .denied
             return
         }
+        guard !stopRequested else { return }
+
         guard await Self.requestMicPermission() else {
-            state = .denied
+            state = stopRequested ? .idle : .denied
             return
         }
+        guard !stopRequested else { return }
+
+        // Never leave a second engine running on the shared audio session.
+        if let other = Self.activeManager, other !== self { other.finish() }
 
         let pipeline = VoiceAudioPipeline()
         guard pipeline.isAvailable else {
@@ -92,20 +117,31 @@ final class VoiceCaptureManager {
             return
         }
 
+        // The finger can lift while the engine is spinning up, too.
+        guard !stopRequested else {
+            pipeline.stop()
+            return
+        }
+
         self.pipeline = pipeline
+        Self.activeManager = self
         state = .listening
     }
 
     /// Call on mic-button release. The recogniser keeps finalising briefly
     /// after this returns — read `transcript` once `state` settles to `.idle`.
+    ///
+    /// Safe to call when idle, and safe to call while a start is still in
+    /// flight: that case is precisely what `stopRequested` exists for.
     func stopListening() {
-        pipeline?.endAudio()
+        if isStarting { stopRequested = true }
         finish()
     }
 
     private func finish() {
         pipeline?.stop()
         pipeline = nil
+        if Self.activeManager === self { Self.activeManager = nil }
         if state == .listening { state = .idle }
         level = 0
     }
@@ -151,6 +187,20 @@ final class VoiceAudioPipeline: @unchecked Sendable {
     /// this doesn't need locking despite the class being `@unchecked Sendable`.
     private var smoothedLevel: Float = 0
 
+    /// Written once by `stop()` on the main actor, read on the realtime audio
+    /// thread by the tap.
+    ///
+    /// `SFSpeechAudioBufferRecognitionRequest.append` after `endAudio` is
+    /// invalid and raises an ObjC exception — thrown from the audio render
+    /// thread, where Swift cannot catch it, so it takes the process down. The
+    /// old teardown called `endAudio()` first and only then stopped the engine
+    /// and removed the tap, leaving a window of a buffer or two (~21ms each at
+    /// 48kHz) in which exactly that could happen. Ordering the teardown
+    /// correctly closes most of it; this flag closes the rest, since
+    /// `removeTap` does not promise that a callback already in flight won't
+    /// still land. Uncontended `withLock` is a single atomic op.
+    private let stopped = OSAllocatedUnfairLock(initialState: false)
+
     init() {
         recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-AU")) ?? SFSpeechRecognizer()
     }
@@ -192,8 +242,8 @@ final class VoiceAudioPipeline: @unchecked Sendable {
         // exception Swift can't catch.
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            guard let self, !self.stopped.withLock({ $0 }) else { return }
             req.append(buffer)
-            guard let self else { return }
             let raw = Self.rmsLevel(of: buffer)
             // Fast attack / slower release: the meter should snap to a loud
             // word instantly but not flicker back to zero between syllables,
@@ -226,14 +276,19 @@ final class VoiceAudioPipeline: @unchecked Sendable {
         }
     }
 
-    func endAudio() {
-        request?.endAudio()
-    }
-
+    /// Idempotent — the release path and the recogniser's own completion can
+    /// both land here.
     func stop() {
-        engine?.stop()
-        engine?.inputNode.removeTap(onBus: 0)
+        // Order matters. Silence the tap, tear down the engine, and only then
+        // tell the request no more audio is coming: `append` after `endAudio`
+        // is what kills the process. See `stopped`.
+        stopped.withLock { $0 = true }
+        if let engine {
+            engine.stop()
+            engine.inputNode.removeTap(onBus: 0)
+        }
         engine = nil
+        request?.endAudio()
         request = nil
         task?.cancel()
         task = nil
