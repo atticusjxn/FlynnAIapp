@@ -158,6 +158,11 @@ struct BusinessStep: View {
     @FocusState private var focus: Field?
     private enum Field { case name, services, pricing, area }
 
+    @Environment(FlashStore.self) private var flash
+    @State private var voice = VoiceCaptureManager()
+    @State private var parsingVoice = false
+    @State private var voicePayload: BrainVoiceFill.Payload?
+
     var body: some View {
         WizardScaffold(
             eyebrow: "About you",
@@ -165,6 +170,7 @@ struct BusinessStep: View {
             subtitle: "The more it knows, the less it sounds like a robot. You can change any of this later."
         ) {
             VStack(spacing: FlynnSpacing.md) {
+                voiceRow
                 field("Business name", text: $model.businessName, placeholder: "e.g. Reilly Plumbing", focused: .name)
                 multiField("What you do", text: $model.services,
                            placeholder: "Blocked drains, hot water, leak repairs, bathroom renos…", focused: .services)
@@ -177,6 +183,75 @@ struct BusinessStep: View {
             FlynnGlassButton(title: "Continue", action: { model.saveThenNext() },
                              isLoading: model.working)
         }
+        .sheet(item: $voicePayload) { payload in
+            BrainVoiceSheet(transcript: payload.transcript, proposals: payload.proposals, onApply: applyVoiceProposals)
+        }
+    }
+
+    /// Hold to say your trade, prices, area and what you do in one go, instead
+    /// of typing four fields. Reuses the Brain's own voice-fill pipeline —
+    /// same "confirm before writing" sheet, since a misheard price here is
+    /// just as costly as one misheard in the Brain proper.
+    private var voiceRow: some View {
+        HStack(spacing: FlynnSpacing.sm) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Or just say it")
+                    .flynnType(FlynnTypography.label)
+                    .foregroundColor(FlynnColor.textPrimary)
+                Text("Hold and talk instead of typing")
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.textTertiary)
+            }
+            Spacer(minLength: 0)
+            VoiceHoldButton(
+                voice: voice,
+                onSubmit: { transcript in Task { await parseVoice(transcript) } },
+                onNothingHeard: { flash.show("Didn't catch that.", kind: .error) }
+            )
+            .disabled(parsingVoice)
+        }
+        .padding(FlynnSpacing.md)
+        .frame(maxWidth: .infinity)
+        .flynnCardSurface(.quiet)
+    }
+
+    private func parseVoice(_ transcript: String) async {
+        parsingVoice = true
+        defer { parsingVoice = false }
+        do {
+            let parsed = try await BrainVoiceFill.parse(transcript: transcript)
+            voicePayload = .init(transcript: transcript, proposals: parsed)
+        } catch {
+            flash.error(error.localizedDescription)
+        }
+    }
+
+    /// Maps whatever Flynn heard onto the wizard's own fields. Fields the
+    /// wizard doesn't collect (description, hours) are proposed and shown for
+    /// confirmation like any other, but have nowhere to land here — dropped
+    /// silently rather than invented a place for them.
+    private func applyVoiceProposals(_ accepted: [BrainVoiceFill.Proposal]) {
+        var services: [String] = []
+        for p in accepted {
+            switch p.field {
+            case .businessType: model.trade = p.value
+            case .pricingNotes: model.pricing = appendField(model.pricing, p.value)
+            case .serviceArea: model.serviceArea = appendField(model.serviceArea, p.value)
+            case .service:
+                let detail = p.detail.map { " (\($0))" } ?? ""
+                services.append("\(p.value)\(detail)")
+            case .businessDescription, .hours:
+                continue
+            }
+        }
+        if !services.isEmpty {
+            model.services = appendField(model.services, services.joined(separator: ", "))
+        }
+    }
+
+    private func appendField(_ existing: String, _ addition: String) -> String {
+        let trimmed = existing.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? addition : "\(trimmed), \(addition)"
     }
 
     private func field(_ label: String, text: Binding<String>, placeholder: String, focused: Field) -> some View {

@@ -150,12 +150,17 @@ actual code before touching anything; see the precise PARTIAL/DONE status on eac
       `/api/business-profile` with it — the same endpoint and shape the wizard's own
       `saveBusiness()` uses, so a name from either path lands the same way. Best-effort: never
       blocks or fails signup if the save fails. `xcodebuild` `BUILD SUCCEEDED`.
-- [ ] **2.2** Trade picker → services + rough pricing, voice or type
+- [x] **2.2** Trade picker → services + rough pricing, voice or type
       (reuse `POST /api/business-profile/parse`).
-      **PARTIAL** — trade/services/pricing fields are real and PATCH `/api/business-profile`
-      (`OnboardingWizard.swift:194-222`, `server.js:2619-2647`). "Voice or type" isn't built:
-      `BusinessStep` is text-fields-only, never calls the `parse` endpoint, and doesn't reuse
-      the existing `Features/Brain/BrainVoiceFill.swift` component.
+      `BusinessStep` now has a "hold and talk instead of typing" row reusing the Brain's own
+      pipeline verbatim — `VoiceHoldButton` → `BrainVoiceFill.parse()` (the real
+      `/api/business-profile/parse` call) → `BrainVoiceSheet`, the same "confirm before writing"
+      sheet the Brain tab uses, since a misheard price is just as costly here. On apply, proposals
+      map onto the wizard's own fields (trade, services, pricing, area) with an append-not-clobber
+      merge into whatever's already typed; `businessDescription`/`hours` proposals — real fields
+      the Brain has but the wizard doesn't collect — still show in the confirmation sheet for
+      transparency but have nowhere to land, so they're dropped rather than invented a home.
+      `xcodebuild` `BUILD SUCCEEDED`, `npx jest` 63/63.
 - [x] **2.3** Calendar connect, skippable.
       Both rows now do real work instead of just advancing. Google reuses `GoogleCalendarConnect`
       (the same `ASWebAuthenticationSession` OAuth flow `IntegrationsView` uses) — cancel is
