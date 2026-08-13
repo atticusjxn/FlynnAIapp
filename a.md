@@ -194,8 +194,13 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
       the one live tenant through the real code path.
 - [x] **3.4** Price disclosure — call-out fee and pricing notes render *above* the form, per ACL.
 - [x] **3.5** The post-call confirmation SMS now carries the link and fires `booking_link_sent`.
-- [ ] **3.6** Missed-call fallback (the existing unused `fallbackApology` prefix in
-      `smsLinkSender.js:59` is still waiting for its first caller).
+- [x] **3.6** Missed-call fallback. A call that connected but booked nothing used to end in
+      silence — caller hung up mid-flow, agent never got a service type, or the Deepgram session
+      dropped and they heard nothing; `sendBookingConfirmationSms` returned early in all of those
+      and sent no text at all. Now the confirmation reports whether it sent, and when it didn't the
+      caller gets the booking page prefixed with *"Sorry we just missed you"* — the `fallbackApology`
+      option that had sat unused since it was written. Routed through `smsLinkSender` so it inherits
+      the per-tenant template, the transient-error retry and the `sms_sent` `call_events` row.
 - [x] **3.7** Flynn-branded, "Get this for your business" footer; `booking_link_sent` →
       `booking_link_opened` → `booking_made` all firing.
 - [ ] **3.8** Both sides confirmed by SMS; writes a calendar event and a `jobs` row. *(Customer
