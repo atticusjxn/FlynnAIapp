@@ -8,14 +8,9 @@ const DEMO = [
   { out: false, text: "Invoice ready — $340 inc GST. Sending to Dave. Good?" },
 ];
 
-// iPhones reach Flynn over iMessage; Android can't, so it texts the Twilio SMS
-// number, which the backend handles identically.
-// Reverted to Twilio SMS number '+61480891471' for the Latitude 37 review to ensure reliability.
-const FLYNN_IMESSAGE = '+61480891471';
-const FLYNN_SMS = '+61480891471';
-const FLYNN_NUMBER = FLYNN_IMESSAGE;
+// One Twilio SMS number for every platform — iPhone and Android both just text it.
+const FLYNN_NUMBER = '+61480891471';
 const FLYNN_NUMBER_DISPLAY = '+61 480 891 471';
-const FLYNN_SMS_DISPLAY = '+61 480 891 471';
 
 function isAndroid() {
   return typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent || '');
@@ -23,15 +18,13 @@ function isAndroid() {
 
 // iOS Messages wants sms:NUMBER&body=… ; Android wants sms:NUMBER?body=…
 function buildSmsLink(body: string) {
-  const android = isAndroid();
-  const number = android ? FLYNN_SMS : FLYNN_IMESSAGE;
-  const sep = android ? '?' : '&';
-  return `sms:${number}${sep}body=${encodeURIComponent(body)}`;
+  const sep = isAndroid() ? '?' : '&';
+  return `sms:${FLYNN_NUMBER}${sep}body=${encodeURIComponent(body)}`;
 }
 
-const SMS_LINK = `sms:${FLYNN_IMESSAGE}&body=${encodeURIComponent('Hi Flynn')}`;
+const SMS_LINK = `sms:${FLYNN_NUMBER}&body=${encodeURIComponent('Hi Flynn')}`;
 
-function IMessageIcon({ size = 28 }: { size?: number }) {
+function MessageIcon({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <rect width="24" height="24" rx="5.5" fill="#34C759" />
@@ -54,7 +47,7 @@ export default function PhoneSignupChat() {
     } catch {}
   }
 
-  // Fire the MessagedFlynn conversion + attribution bridge, then open iMessage
+  // Fire the MessagedFlynn conversion + attribution bridge, then open Messages
   // with the ref embedded so the later Activated event attributes to this click.
   // The static href stays as a no-JS fallback.
   function handleMessageFlynn(e: React.MouseEvent<HTMLAnchorElement>) {
@@ -116,7 +109,7 @@ export default function PhoneSignupChat() {
           {/* Decorative compose bar */}
           <div className="px-3 pb-3 pt-1 flex items-center gap-2">
             <div className="flex-1 h-9 rounded-full border border-gray-300 bg-white flex items-center px-3">
-              <span className="text-[13px] text-gray-400 select-none">iMessage</span>
+              <span className="text-[13px] text-gray-400 select-none">Text Message</span>
             </div>
             <span className="w-8 h-8 rounded-full bg-[#D1D1D6] flex items-center justify-center flex-shrink-0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="white" aria-hidden="true">
@@ -127,7 +120,7 @@ export default function PhoneSignupChat() {
         </div>
       </div>
 
-      {/* Primary CTA — glassmorphic light pill with green iMessage icon.
+      {/* Primary CTA — glassmorphic light pill with a green message icon.
           Uses the shared .flynn-glass system (index.html) so the landing page,
           the hosted invoice page and the iOS app share one button language. */}
       <a
@@ -135,8 +128,8 @@ export default function PhoneSignupChat() {
         onClick={handleMessageFlynn}
         className="flynn-glass flynn-glass--light !rounded-full flex items-center gap-3 px-5 py-3.5 order-1 lg:order-2"
       >
-        <IMessageIcon size={30} />
-        <span className="text-[17px] font-semibold text-[#1A1A1A]">Message Flynn</span>
+        <MessageIcon size={30} />
+        <span className="text-[17px] font-semibold text-[#1A1A1A]">Text Flynn</span>
       </a>
 
       {/* Desktop fallback */}
@@ -148,7 +141,7 @@ export default function PhoneSignupChat() {
         >
           {copied ? 'Copied!' : FLYNN_NUMBER_DISPLAY}
         </button>
-        {' '}from your iPhone, or {FLYNN_SMS_DISPLAY} from Android.
+        {' '}from your phone.
       </p>
     </div>
   );

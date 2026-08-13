@@ -9,10 +9,10 @@
  *      optimisation signal intact;
  *   2. persist the browser's Meta identifiers (fbp/fbc/fbclid) against the ref
  *      token, so when the user later texts Flynn we can attribute their
- *      Activated event back to this ad click (see iMessageInbound.js).
+ *      Activated event back to this ad click (see routes/smsInbound.js).
  *
  * Sent via navigator.sendBeacon as text/plain, so it's a CORS "simple request"
- * (no preflight) and is delivered even as the page unloads to open iMessage.
+ * (no preflight) and is delivered even as the page unloads to open Messages.
  * We still set permissive CORS headers for any fetch() fallback.
  */
 

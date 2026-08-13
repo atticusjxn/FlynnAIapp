@@ -23,13 +23,6 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
   : null;
 
 const FLYNN_NUMBER = process.env.TWILIO_FLYNN_NUMBER || '+61480891471';
-// The number Flynn actually answers iMessages on. MUST carry the active
-// iMessage provider's number, not the Twilio SMS fallback, or the user saves a
-// dead inbox. On the Sendblue provider this is the Sendblue sender number;
-// otherwise the BlueBubbles eSIM number. Overridable via FLYNN_IMESSAGE_NUMBER.
-const FLYNN_IMESSAGE_NUMBER = process.env.FLYNN_IMESSAGE_NUMBER
-  || (process.env.FLYNN_IMESSAGE_PROVIDER === 'sendblue' ? process.env.SENDBLUE_FROM_NUMBER : null)
-  || '+61495023092';
 const SERVER_URL = process.env.SERVER_PUBLIC_URL || 'https://flynnai-telephony.fly.dev';
 
 // Embedded logo (base64 JPEG). iOS Contacts only renders embedded photos, not
@@ -46,11 +39,13 @@ function foldVcardLine(line) {
   return chunks.join('\r\n');
 }
 
-// Serve the Flynn contact card (VCF) — sent on first iMessage so they can save
-// Flynn with the logo. iMessage users save the iMessage number; the SMS-only
-// signup path can override via ?channel=sms to surface the Twilio number.
+// Serve the Flynn contact card (VCF) — sent on first text so they can save
+// Flynn with the logo. SMS is the only client channel now, so this always
+// carries the live Twilio number (see CLAUDE.md Non-Goals — the iMessage/
+// BlueBubbles relay was retired; a prior version of this route could serve a
+// vCard pointing at a dead iMessage inbox).
 router.get('/contact.vcf', (req, res) => {
-  const tel = req.query.channel === 'sms' ? FLYNN_NUMBER : FLYNN_IMESSAGE_NUMBER;
+  const tel = FLYNN_NUMBER;
   const vcf = [
     'BEGIN:VCARD',
     'VERSION:3.0',

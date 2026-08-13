@@ -245,9 +245,9 @@ router.post('/api/dashboard/action', authenticateJwt, async (req, res) => {
 // "hold a button, talk or type" from the payments-first pivot
 // (~/.claude/plans/iridescent-floating-moore.md). Runs the SAME brain as
 // texting Flynn (processMessage, which internally picks the tool-loop or
-// legacy router per FLYNN_TOOL_LOOP), just over JSON instead of SMS/iMessage,
+// legacy router per FLYNN_TOOL_LOOP), just over JSON instead of SMS,
 // so a job created by voice in the app and one created by text land in the
-// exact same place. Mirrors the orchestration in routes/iMessageInbound.js
+// exact same place. Mirrors the orchestration in routes/smsInbound.js
 // (pending action / integrations / connections load, brain persistence,
 // pending_actions upsert) minus the parts specific to SMS delivery.
 // ---------------------------------------------------------------------------

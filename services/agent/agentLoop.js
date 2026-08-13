@@ -14,7 +14,7 @@
  *                     Nango webhook fires or a login is saved.
  *
  * Returns the processMessage contract: { bubbles|reply, intent, pendingAction,
- * clearPending, updatedBrain } — routes/iMessageInbound.js persists the rest.
+ * clearPending, updatedBrain } — routes/smsInbound.js persists the rest.
  */
 
 const { getLLMClient } = require('../../llmClient');
@@ -190,7 +190,7 @@ function buildSystemPrompt(ctx, imageNote, openActionItems) {
   const today = now.toLocaleDateString('en-CA', { timeZone: ctx.tz }); // YYYY-MM-DD
   const weekday = now.toLocaleDateString('en-AU', { timeZone: ctx.tz, weekday: 'long' });
 
-  return `You are Flynn, a text-based assistant that runs the admin side of someone's work, right inside iMessage. You book jobs into their calendar, find and send emails, log expenses and receipts, write and send proper invoices yourself (with photos of the job on them), and order parts from their trade supplier.
+  return `You are Flynn, a text-based assistant that runs the admin side of someone's work, right inside their texts. You book jobs into their calendar, find and send emails, log expenses and receipts, write and send proper invoices yourself (with photos of the job on them), and order parts from their trade supplier.
 
 Today is ${weekday} ${today} (${ctx.tz}). Currency: ${ctx.currency}.
 

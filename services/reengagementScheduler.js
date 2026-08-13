@@ -1,6 +1,6 @@
 // services/reengagementScheduler.js
 //
-// Win back signups who never replied. A user who arrives via the web/SMS/iMessage
+// Win back signups who never replied. A user who arrives via the web/SMS
 // signup but never texts Flynn back is stuck at onboarding_step='brain_pending'.
 // This sweep sends up to three spaced, value-first nudges then stops for good.
 // Any inbound message from the user ends the sequence naturally (the zero-inbound
@@ -10,8 +10,7 @@
 // actual DB sweep to ~10 minutes so it doesn't hammer Supabase every tick.
 
 const { createClient } = require('@supabase/supabase-js');
-const { sendToUser, resolveChannel } = require('./flynnOutbound');
-const { sendAttachment } = require('./blueBubbles');
+const { sendToUser, resolveChannel, sendAttachment } = require('./flynnOutbound');
 
 const HOUR = 60 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 10 * 60 * 1000; // run the candidate query at most every 10 min
@@ -19,10 +18,11 @@ const SWEEP_INTERVAL_MS = 10 * 60 * 1000; // run the candidate query at most eve
 const SERVER_URL = process.env.SERVER_URL || 'https://flynnai-telephony.fly.dev';
 const VCARD_URL = `${SERVER_URL}/api/signup/contact.vcf`;
 
-// iMessage gives us no signal for whether someone actually saved Flynn as a
-// contact, so we treat "signed up, never replied" as the proxy. The first nudge
-// re-sends the contact card with a "save me so you don't lose me" line, tailored
-// to whatever business context we have; the later two are value-first follow-ups.
+// We get no signal for whether someone actually saved Flynn as a contact, so we
+// treat "signed up, never replied" as the proxy. The first nudge re-sends the
+// contact card (vCard MMS over Twilio) with a "save me so you don't lose me"
+// line, tailored to whatever business context we have; the later two are
+// value-first follow-ups.
 const FOLLOWUPS = [
   "still here whenever you're ready. tell me your trade and i'll start handling the boring stuff, invoices, parts, replies",
   "last one from me. text me anytime and i'll pick up where we left off",
@@ -75,15 +75,15 @@ class ReengagementScheduler {
   // Shared by the timed cron sweep and the immediate backfill.
   async sendNudge(user, now) {
     const count = user.reengagement_sent_count || 0;
-    const channel = resolveChannel(user); // iMessage-first; SMS fallback inside sendToUser
+    const channel = resolveChannel(user); // always 'sms'
     const message = count === 0 ? contactNudge(user) : FOLLOWUPS[count - 1];
 
     await sendToUser(user.phone, message, { channel, supabase: this.supabase });
 
-    // The "save me as a contact" touch carries the card again. iMessage only —
-    // vCard MMS at signup already covered the SMS path.
-    if (count === 0 && channel === 'imessage') {
-      await sendAttachment(user.phone, VCARD_URL, 'Flynn.vcf')
+    // The "save me as a contact" touch carries the card again, as an MMS vCard
+    // over Twilio (matches the initial signup send in routes/webSignup.js).
+    if (count === 0) {
+      await sendAttachment(user.phone, VCARD_URL, 'Flynn.vcf', "here's my card again.")
         .catch((err) => console.warn('[Reengagement] vCard re-send failed:', err?.message));
     }
 

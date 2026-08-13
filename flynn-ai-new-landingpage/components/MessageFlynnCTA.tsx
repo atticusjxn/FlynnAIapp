@@ -8,7 +8,7 @@ const FLYNN_NUMBER = '+61480891471';
 const FLYNN_NUMBER_DISPLAY = '+61 480 891 471';
 const SMS_LINK = `sms:${FLYNN_NUMBER}&body=${encodeURIComponent('Hi Flynn')}`;
 
-function IMessageIcon({ size = 28 }: { size?: number }) {
+function MessageIcon({ size = 28 }: { size?: number }) {
     return (
         <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <rect width="24" height="24" rx="5.5" fill="#34C759" />
@@ -76,8 +76,8 @@ const MessageFlynnCTA: React.FC<MessageFlynnCTAProps> = ({
                         onClick={handleMessageFlynn}
                         className="flynn-glass flynn-glass--light !rounded-full inline-flex items-center gap-3 px-6 py-3.5"
                     >
-                        <IMessageIcon size={28} />
-                        <span className="text-[17px] font-semibold text-[#1A1A1A]">Message Flynn</span>
+                        <MessageIcon size={28} />
+                        <span className="text-[17px] font-semibold text-[#1A1A1A]">Text Flynn</span>
                     </a>
 
                     <p className="text-sm text-gray-400 mt-4">

@@ -1,23 +1,22 @@
 /**
  * Flynn outbound — one place that sends a reply to a user and logs it.
  *
- * Centralises the send+log that was duplicated across the iMessage and SMS
- * inbound routes, and adds two things the product needs:
- *   1. Channel awareness — each user has a preferred_channel ('imessage' | 'sms').
- *      iMessage is primary for now (BlueBubbles); Twilio SMS is the fallback when
- *      iMessage isn't deliverable. Designed so Apple Business Messenger can slot
- *      in later as another channel without touching callers.
- *   2. Human texting — a reply can be several short bubbles (see splitBubbles),
- *      sent with a typing indicator and a small gap so it reads like a real person
- *      texting, not a wall of product copy.
+ * Centralises the send+log that was duplicated across inbound routes, and adds
+ * the thing the product needs on top of a bare Twilio call:
+ *   1. Human texting — a reply can be several short bubbles (see splitBubbles),
+ *      sent with a small gap so it reads like a real person texting, not a wall
+ *      of product copy.
+ *
+ * SMS is the only client channel (see CLAUDE.md Non-Goals — the iMessage/
+ * BlueBubbles relay was retired as platform risk). `resolveChannel` and the
+ * `channel` field on `sendToUser`'s return value are kept for callers that
+ * still branch on them, but they will only ever resolve to 'sms' now.
  */
 
 const twilio = require('twilio');
-const blueBubbles = require('./imessageTransport');
 const { splitBubbles } = require('./flynnTone');
 
 const FLYNN_NUMBER = process.env.TWILIO_FLYNN_NUMBER || '+61480891471';
-const DEFAULT_CHANNEL = process.env.FLYNN_DEFAULT_CHANNEL || 'imessage';
 const BUBBLE_GAP_MS = Number(process.env.FLYNN_BUBBLE_GAP_MS || 700);
 
 const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
@@ -27,13 +26,12 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Which channel should we use to reach this user?
+ * Which channel should we use to reach this user? SMS only, always.
  * @param {{preferred_channel?: string}|null} user
- * @returns {'imessage'|'sms'}
+ * @returns {'sms'}
  */
-function resolveChannel(user) {
-  const pref = user?.preferred_channel;
-  return pref === 'imessage' || pref === 'sms' ? pref : DEFAULT_CHANNEL;
+function resolveChannel(_user) {
+  return 'sms';
 }
 
 async function logOutbound(supabase, phone, body, channel) {
@@ -50,63 +48,43 @@ async function sendOneSms(phone, text) {
   await twilioClient.messages.create({ to: phone, from: FLYNN_NUMBER, body: text });
 }
 
-// iMessage sends can blip (BlueBubbles server/network); retry before we give up
-// and fall back to green SMS, so transient hiccups don't turn replies green.
-async function sendImessageWithRetry(phone, text, tries = 2) {
-  let lastErr;
-  for (let t = 0; t < tries; t++) {
-    try { await blueBubbles.sendMessage(phone, text); return; }
-    catch (err) { lastErr = err; if (t < tries - 1) await sleep(800); }
-  }
-  throw lastErr;
+/**
+ * Send a single media attachment (e.g. an invoice card image, a vCard) as an
+ * MMS. `filename` is accepted for API parity with the old iMessage transport
+ * but Twilio's MMS API has no filename field, so it's unused.
+ * @param {string} phone E.164
+ * @param {string} mediaUrl publicly reachable URL of the attachment
+ * @param {string} [_filename]
+ * @param {string} [caption] optional message body alongside the media
+ */
+async function sendAttachment(phone, mediaUrl, _filename, caption = '') {
+  if (!twilioClient) throw new Error('Twilio not configured');
+  await twilioClient.messages.create({ to: phone, from: FLYNN_NUMBER, body: caption, mediaUrl: [mediaUrl] });
 }
 
 /**
- * Send a reply to a user across the resolved channel, as one or more bubbles,
- * and log each bubble. iMessage failures fall back to SMS once (and the user's
- * preferred_channel is flipped to 'sms' so we stop trying iMessage).
+ * Send a reply to a user over SMS, as one or more bubbles, and log each bubble.
  *
  * @param {string} phone E.164
  * @param {string|string[]} content single reply or array of bubbles
- * @param {{channel?: string, supabase?: any}} opts channel = the inbound channel
- *        (lets callers honour where the user just texted from); falls back to the
- *        user's stored preference / the default.
+ * @param {{channel?: string, supabase?: any}} opts channel is accepted for
+ *        backwards compatibility with callers that still pass the inbound
+ *        channel, but is ignored — SMS is the only outbound channel.
  * @returns {Promise<{channel: string, bubbles: number}>}
  */
-async function sendToUser(phone, content, { channel, supabase } = {}) {
+async function sendToUser(phone, content, { supabase } = {}) {
   const bubbles = splitBubbles(content);
-  if (bubbles.length === 0) return { channel: channel || DEFAULT_CHANNEL, bubbles: 0 };
-
-  let activeChannel = channel === 'imessage' || channel === 'sms' ? channel : DEFAULT_CHANNEL;
+  if (bubbles.length === 0) return { channel: 'sms', bubbles: 0 };
 
   for (let i = 0; i < bubbles.length; i++) {
     const text = bubbles[i];
     if (i > 0) await sleep(BUBBLE_GAP_MS);
 
-    if (activeChannel === 'imessage') {
-      try {
-        await blueBubbles.setTyping(phone, true);
-        await sendImessageWithRetry(phone, text);
-        await blueBubbles.setTyping(phone, false);
-      } catch (err) {
-        // iMessage send failed even after retries — fall back to SMS for the
-        // rest of THIS reply only. Deliberately NOT persisting preferred_channel
-        // = 'sms': a transient BlueBubbles blip shouldn't strand a real iMessage
-        // user on green forever. The inbound route re-affirms imessage on their
-        // next text, and we retry iMessage first on the next reply.
-        console.warn('[FlynnOutbound] iMessage send failed after retries, SMS fallback:', err?.message || err);
-        await blueBubbles.setTyping(phone, false).catch(() => {});
-        activeChannel = 'sms';
-        await sendOneSms(phone, text);
-      }
-    } else {
-      await sendOneSms(phone, text);
-    }
-
-    await logOutbound(supabase, phone, text, activeChannel);
+    await sendOneSms(phone, text);
+    await logOutbound(supabase, phone, text, 'sms');
   }
 
-  return { channel: activeChannel, bubbles: bubbles.length };
+  return { channel: 'sms', bubbles: bubbles.length };
 }
 
-module.exports = { sendToUser, resolveChannel };
+module.exports = { sendToUser, resolveChannel, sendAttachment };

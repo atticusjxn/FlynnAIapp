@@ -1,8 +1,13 @@
 ---
-description: Replay a timed Flynn conversation onto a real iMessage thread via BlueBubbles, so the user can screen-record it lined up with a video.
+description: "BROKEN: relies on services/blueBubbles.js, deleted in Gate 5.3 (the BlueBubbles relay was retired). Kept for reference; needs an SMS-based rewrite before use."
 ---
 
 # /flynn-imessage-replay — play a scripted iMessage convo through BlueBubbles for screen-recording
+
+> **This command no longer works.** `services/blueBubbles.js` was deleted when the
+> BlueBubbles relay was retired (Gate 5.3, payments-first pivot — see CLAUDE.md
+> Non-Goals). It's kept below for reference in case the demo-recording workflow
+> is rebuilt around SMS, but do not attempt to run it as written.
 
 Replay a timed Flynn conversation onto a real iPhone iMessage thread so the user can screen-record it, lined up with a video. The timing comes from the voice demo's **"copy transcript"** button — a JSON array of `{ "at": <seconds from first message>, "from": "me"|"flynn", "text": "..." }`.
 

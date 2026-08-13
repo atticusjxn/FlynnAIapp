@@ -340,7 +340,34 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
   > **Not touched:** `android-native/`'s parallel keyboard/IME — Android is already a parked
   > non-goal, so it was deliberately left alone rather than pulled into this gate.
 - [x] **5.2** Delete the Team Flynn crew-number surface.
-- [ ] **5.3** Delete the BlueBubbles relay and `routes/iMessageInbound.js`.
+- [x] **5.3** Delete the BlueBubbles relay and `routes/iMessageInbound.js`.
+  > Deleted `routes/iMessageInbound.js`, `routes/sendblueInbound.js`, `services/blueBubbles.js`,
+  > `services/sendblue.js`, `services/imessageTransport.js`, and all of `services/groupAgent/`
+  > (the group-chat note-taker — cut alongside iMessage per the locked answer earlier this
+  > session, since it depended entirely on the BlueBubbles relay). Removed the two webhook
+  > mounts and the group-digest scheduler tick in `server.js`, and replaced the BlueBubbles-first
+  > send in `/api/auth/app-link`'s fallback with SMS-only (it was already the fallback, now
+  > it's the only path). `services/flynnOutbound.js` lost its iMessage branch/retry/typing-
+  > indicator logic entirely — `resolveChannel` now always returns `'sms'` (kept as a no-op for
+  > callers that still branch on it) — and gained a `sendAttachment` (MMS via Twilio) so
+  > `services/reengagementScheduler.js` and `services/agent/toolRegistry.js` (which used to pull
+  > it from the now-deleted `imessageTransport`) keep working unchanged. `routes/webSignup.js`'s
+  > contact vCard now always serves the Twilio SMS number — it used to resolve a separate
+  > `FLYNN_IMESSAGE_NUMBER`, which was the "dead inbox" risk flagged in the plan. Rewrote the
+  > landing page's `PhoneSignupChat.tsx`/`MessageFlynnCTA.tsx` to drop iMessage-specific
+  > copy/icon naming (SMS `sms:` links were already in use under the hood, so this was framing
+  > only) — safe per the locked answer that no Meta ads are currently live against that CTA.
+  > Fixed stale `iMessageInbound.js` references in `services/agent/agentLoop.js`'s system
+  > prompt and doc comment, `routes/trackingRoutes.js`, and `routes/dashboard.js` to point at
+  > `routes/smsInbound.js`/describe SMS instead. New migration
+  > `20260813040000_drop_group_chats.sql` drops `group_action_items`/`group_messages`/
+  > `group_members`/`group_chats` (child-to-parent FK order) rather than editing history.
+  > Flagged `.claude/commands/flynn-imessage-replay.md` (a personal demo-recording tool, not
+  > product code) as broken now that `services/blueBubbles.js` is gone, rather than silently
+  > leaving a slash command that fails on first use. `npx jest` 63/63, boot check green.
+  > **Note:** this gate was first attempted by a background agent that stalled mid-edit
+  > (`services/agent/toolRegistry.js`); its completed partial work was reviewed file-by-file
+  > and found correct before finishing the rest directly.
 - [ ] **5.4** Rewrite `CLAUDE.md` to the locked positioning.
 
 ## Gate 6 — Launch

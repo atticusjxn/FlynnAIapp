@@ -1718,15 +1718,6 @@ app.use('/api/voice-onboarding', voiceOnboardingRoutes);
 const smsInboundRoutes = require('./routes/smsInbound');
 app.use('/webhooks/sms', smsInboundRoutes);
 
-const iMessageInboundRoutes = require('./routes/iMessageInbound');
-app.use('/webhooks/imessage', iMessageInboundRoutes);
-
-// Sendblue managed-relay inbound (alternative iMessage provider). Translates the
-// Sendblue webhook into the BlueBubbles shape and reuses the same brain flow.
-// Active outbound provider is chosen by FLYNN_IMESSAGE_PROVIDER=sendblue.
-const sendblueInboundRoutes = require('./routes/sendblueInbound');
-app.use('/webhooks/sendblue', sendblueInboundRoutes);
-
 // Demo "director" — secret-gated endpoint to fire each proactive demo beat on
 // cue for a choreographed shoot (see routes/demoDirector.js).
 const demoDirectorRoutes = require('./routes/demoDirector');
@@ -1783,16 +1774,9 @@ app.post('/api/auth/app-link', async (req, res) => {
     const body = `tap to open Flynn, you're already signed in: ${link.url}`;
     let delivered = false;
 
-    // Prefer iMessage (Flynn's home turf); fall back to SMS.
-    try {
-      const bb = require('./services/blueBubbles');
-      await bb.sendMessage(link.phone, body);
-      delivered = true;
-    } catch (bbErr) {
-      console.warn('[AppLink] BlueBubbles send failed, trying SMS:', bbErr?.message);
-    }
-
-    if (!delivered && twilioMessagingClient) {
+    // SMS is the only client channel now (see CLAUDE.md Non-Goals — iMessage/
+    // BlueBubbles relay retired).
+    if (twilioMessagingClient) {
       const fromNumber = process.env.TWILIO_FLYNN_NUMBER || twilioSmsFromNumber || '+61480891471';
       await twilioMessagingClient.messages.create({ to: link.phone, from: fromNumber, body });
       delivered = true;
@@ -5967,7 +5951,6 @@ if (require.main === module) {
 
   const bookingReminderScheduler = require('./services/bookingReminderScheduler');
   const reengagementScheduler = require('./services/reengagementScheduler');
-  const groupDigestScheduler = require('./services/groupAgent/digestScheduler');
   const quoteChaseScheduler = require('./services/quoteChaseScheduler');
   const weeklyDigestScheduler = require('./services/weeklyDigestScheduler');
   const weatherScheduler = require('./services/weatherScheduler');
@@ -5979,9 +5962,6 @@ if (require.main === module) {
       await bookingReminderScheduler.processPendingBookingReminders();
       // Re-engage stalled signups (internally throttled to ~10 min between sweeps).
       await reengagementScheduler.processReengagement();
-      // Group note-taker: batch-extract action items + send the daily boss digest
-      // (internally throttled to ~3 min between sweeps).
-      await groupDigestScheduler.processTick();
       // Chase quotes that have gone cold (internally throttled to ~15 min).
       await quoteChaseScheduler.processTick();
       // Weekly money/admin digest at the operator's digest hour (throttled ~20 min).

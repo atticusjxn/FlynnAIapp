@@ -22,7 +22,7 @@ const appleCalendar = require('../appleCalendar');
 const xeroReceivables = require('../xeroReceivables');
 const imapEmail = require('../imapEmail');
 const photoInvoice = require('../photoInvoice');
-const imessageTransport = require('../imessageTransport');
+const { sendAttachment } = require('../flynnOutbound');
 const priceCompare = require('../priceCompare');
 const { createDashboardLoginLink } = require('../dashboardLink');
 const manifestGenerator = require('../dashboard/manifestGenerator');
@@ -1019,13 +1019,13 @@ async function createPhotoInvoice(ctx, args) {
   const label = String(clientName).toLowerCase();
 
   // Send the invoice card as an INLINE IMAGE (the og.png, which is rendered to
-  // look like the invoice) rather than relying on iMessage to unfurl the link —
-  // a relay-sent link shows a "tap to load preview" placeholder, an image
-  // attachment renders instantly. The interactive link is delivered later at the
-  // send step (send_invoice), so we don't double-unfurl here.
+  // look like the invoice) as an MMS rather than relying on the client to
+  // unfurl the link — a link can show a "tap to load preview" placeholder,
+  // an image attachment renders instantly. The interactive link is delivered
+  // later at the send step (send_invoice), so we don't double-unfurl here.
   const cardImageUrl = invoice.public_token ? `${url}/og.png` : null;
   if (cardImageUrl) {
-    await imessageTransport.sendAttachment(ctx.phone, cardImageUrl, 'invoice.png')
+    await sendAttachment(ctx.phone, cardImageUrl, 'invoice.png')
       .catch((e) => console.warn('[create_photo_invoice] card image send failed:', e?.message));
   }
 
