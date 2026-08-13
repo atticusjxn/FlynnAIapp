@@ -137,18 +137,36 @@ invoice_sent · invoice_paid · chase_sent
 
 ## Gate 2 — The onboarding funnel
 
-*There is no onboarding wizard today — it was deleted. An email-signup user never sees a
-paywall, never gets a number, never sets up forwarding, and lands on an empty Home.*
+*(Correction 2026-08-13: the note below claiming "there is no onboarding wizard" is stale.
+`OnboardingWizard.swift`/`OnboardingWizardSteps.swift` exist and are real — welcome → trade →
+business → calendar → demoCall → paywall → forwarding → done. Audited item-by-item against the
+actual code before touching anything; see the precise PARTIAL/DONE status on each line below.)*
 
 - [ ] **2.1** Phone-OTP signup as the default. Fix `LoginView.swift:483` silently discarding
       the business name the form collects.
+      **PARTIAL** — phone-OTP is already the default/primary CTA (`LoginView.swift:102-106`).
+      The discard bug is real and unfixed: `submitSignUp()` never passes `businessName` to
+      `AuthStore.signUp(email:password:)` (`LoginView.swift:483-486`).
 - [ ] **2.2** Trade picker → services + rough pricing, voice or type
       (reuse `POST /api/business-profile/parse`).
+      **PARTIAL** — trade/services/pricing fields are real and PATCH `/api/business-profile`
+      (`OnboardingWizard.swift:194-222`, `server.js:2619-2647`). "Voice or type" isn't built:
+      `BusinessStep` is text-fields-only, never calls the `parse` endpoint, and doesn't reuse
+      the existing `Features/Brain/BrainVoiceFill.swift` component.
 - [ ] **2.3** Calendar connect, skippable.
+      **PARTIAL** — skip is real (no forced wall, `OnboardingWizardSteps.swift:230-234`). Both
+      Google/Apple rows are stubs that just fire analytics and advance
+      (`OnboardingWizardSteps.swift:217-226`, literally commented `// BACKEND: real Google OAuth
+      connect`) — no OAuth actually runs, despite `Core/GoogleCalendarConnect.swift` existing
+      and working elsewhere in the app.
 - [x] **2.4** **The demo call** — Flynn rings their verified number from a shared pool, seeded
       with what they just entered. Auth + OTP gated, rate-limited (the old `/api/call-me-back`
       would dial arbitrary strings — a toll-fraud vector on a billable endpoint). See detail below.
 - [ ] **2.5** Post-call payoff: transcript, extracted job, booking-link preview.
+      **PARTIAL** — transcript + extracted job are real and shown
+      (`OnboardingWizardSteps.swift:341-371`, sourced from `GET
+      /api/voice-onboarding/demo-call/:id`). No booking-link preview exists anywhere in the
+      payoff card — "booking" only appears in the paywall's marketing copy.
 - [x] **2.6** `SubscriptionView` no longer sells the deleted keyboard product — header rewritten
       to the locked positioning, `PlanDTO.features` now returns real per-plan bullets instead of
       hardcoded `[]`, CTA says "7-day" not "14-day". Visual/motion redesign is a separate pass
@@ -171,11 +189,31 @@ paywall, never gets a number, never sets up forwarding, and lands on an empty Ho
       draft/never-submitted state when that build was reviewed, so `Product.products(for:)` had
       nothing real to resolve. Should be moot once this version ships with real products behind it.
 - [ ] **2.8** Number provisioning after payment; real retry on `pool_empty`.
+      **PARTIAL** — the entitlement gate + allocation are real (`routes/voiceOnboarding.js:264-339`).
+      On `pool_empty` the server responds correctly, but the client has no retry:
+      `assignNumber()` just sets `assignedNumber = ""` with a comment saying "forwarding step
+      handles it" (`OnboardingWizard.swift:271-273`) — it doesn't. `ForwardingStep` shows no
+      progress/retry UI for an empty number and `dialForwarding()` silently jumps to `.done`
+      (`OnboardingWizardSteps.swift:501-504`). A user hitting `pool_empty` finishes onboarding
+      with no number and no indication anything went wrong.
 - [x] **2.9** **Server-verified forwarding** — Flynn test-calls their mobile; if the divert took,
       it lands on their Flynn number and fires `forwarding_verified`. Carrier-specific help for
       Telstra/Optus/Vodafone. Nobody finishes onboarding unverified.
 - [ ] **2.10** Persist `users.forwarding_verified_at`, show state on Home and Settings.
+      **PARTIAL** — the write path is real (`server.js:4330-4336`, on the inbound verification
+      call landing). Nothing reads it: zero Swift references to `forwarding_verified_at`
+      anywhere in `ios-native/`. `CallForwardingView`'s store only checks whether a number
+      exists, not whether forwarding is verified. No Home/Settings surface shows this state.
 - [ ] **2.11** Every step instrumented and resumable.
+      **PARTIAL** — event names match the plan's canonical list and mostly fire
+      (`Core/Analytics.swift:31-54`). Timing bug: several `_completed`-style events
+      (`onboard_calendar_connected`, `onboard_trade_selected`, `onboard_services_entered`) fire
+      on step-*entry* via `advance(to:)`, not on the actual completing action — so e.g.
+      `onboard_calendar_connected` fires the instant the calendar screen appears, before any tap,
+      then fires again (with a provider) on a real connect. Resumability is **not started**:
+      `OnboardingModel.step` is in-memory only (`OnboardingWizard.swift:23`); the only persisted
+      state is a single `flynn.onboardingComplete` flag set at the very end. An app kill
+      mid-flow loses all entered trade/business/pricing data and restarts from `.welcome`.
 
 ## Gate 3 — The branded booking link
 
