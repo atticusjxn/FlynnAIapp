@@ -191,7 +191,7 @@ const faqs = [
   { q: 'How do my clients pay me?', a: "Once the job's done, Flynn sends an invoice with the job photos on it and a pay link, then chases it for you until it's paid — so you're not the one sending awkward follow-ups. Pay-by-bank is rolling out, so they'll soon be able to pay straight from their bank too." },
   { q: 'Does Flynn send things on its own?', a: "Never anything irreversible without you. Flynn books calls and drafts invoices, and you can review anything before it goes out. You're always in the loop." },
   { q: 'Do I need to set anything up?', a: "Just a few minutes: tell Flynn your services, prices and hours, then divert your calls. After that it already sounds like it knows your business, because it does." },
-  { q: 'What does it cost?', a: "$79 a month, after a 7 day free trial. That's unlimited calls answered, invoices with photos, auto-chasing late payments, and full business-brain personalisation. You'll need a card to start the trial, and you can cancel any time." },
+  { q: 'What does it cost?', a: "Two plans, both with 7 days free: Flynn Link at $29 a month gets you the missed-call booking link, invoices with photos, quotes and auto-chasing. Flynn Receptionist at $69 adds the bit most people come for — Flynn actually answering the calls you miss, on your own Flynn number. You'll need a card to start the trial, and you can cancel any time." },
   { q: 'Is my data safe?', a: "Flynn only knows what you tell it during setup and on calls. No scanning your contacts, no reading your messages. You control what it has access to." },
 ];
 
@@ -496,16 +496,16 @@ by text at {FLYNN_NUMBER_DISPLAY}.
         <div className="max-w-5xl mx-auto px-5 sm:px-8">
           <Reveal className="text-center max-w-2xl mx-auto mb-14">
             <span className="inline-block font-display font-bold text-[13px] tracking-[0.18em] uppercase text-[#FB5B1E] mb-4">Pricing</span>
-            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">Start free. Go unlimited when it's saving you time.</h2>
+            <h2 className="font-display font-bold text-[clamp(2rem,5vw,3.2rem)] leading-tight">Seven days free. Then pick your lane.</h2>
           </Reveal>
           <div className="grid md:grid-cols-2 gap-6">
             <Reveal>
               <div className="h-full rounded-3xl bg-[#F4E6CE] text-[#2C2018] border-[3px] border-[#2C2018] p-8">
-                <h3 className="font-display font-bold text-2xl">Free</h3>
-                <p className="font-display font-bold text-5xl mt-2">$0</p>
-                <p className="text-[#5A4A3C] mt-1 mb-6">the app on its own, without a receptionist answering</p>
+                <h3 className="font-display font-bold text-2xl">Flynn Link</h3>
+                <p className="font-display font-bold text-5xl mt-2">$29<span className="text-2xl font-bold">/mo</span></p>
+                <p className="text-[#5A4A3C] mt-1 mb-6">the booking link and the money side, without the receptionist</p>
                 <ul className="space-y-3">
-                  {['A few actions every day', 'Reply drafts in your voice', 'One connected calendar'].map(t => (
+                  {['Missed-call booking link', 'Invoices with photos on them', 'Quotes, drafted by voice', 'Auto-chase until it’s paid'].map(t => (
                     <li key={t} className="flex gap-3"><span className="text-[#FB5B1E] font-bold">✓</span>{t}</li>
                   ))}
                 </ul>
@@ -513,12 +513,12 @@ by text at {FLYNN_NUMBER_DISPLAY}.
             </Reveal>
             <Reveal delay={0.1}>
               <div className="relative h-full rounded-3xl bg-[#FB5B1E] text-white border-[3px] border-[#2C2018] p-8 shadow-[8px_8px_0_0_#000]">
-                <span className="absolute -top-3 right-6 bg-[#E0A436] text-[#2C2018] text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full border-2 border-[#2C2018]">7-day free trial</span>
-                <h3 className="font-display font-bold text-2xl">Pro</h3>
-                <p className="font-display font-bold text-5xl mt-2">$79<span className="text-2xl font-bold">/mo</span></p>
-                <p className="text-white/80 mt-1 mb-6">unlimited, for when it's part of your day</p>
+                <span className="absolute -top-3 right-6 bg-[#E0A436] text-[#2C2018] text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full border-2 border-[#2C2018]">Most popular</span>
+                <h3 className="font-display font-bold text-2xl">Flynn Receptionist</h3>
+                <p className="font-display font-bold text-5xl mt-2">$69<span className="text-2xl font-bold">/mo</span></p>
+                <p className="text-white/80 mt-1 mb-6">everything above, plus Flynn actually answering the phone</p>
                 <ul className="space-y-3">
-                  {['Unlimited actions', 'Invoices with photos', 'Auto-chase unpaid invoices', 'Quote drafting in your voice', 'Supplier ordering + accounting sync', 'Full voice tuning + your business brain'].map(t => (
+                  {['Answers the calls you miss', 'Books the job on the call', 'Your own Flynn number', 'Everything in Flynn Link'].map(t => (
                     <li key={t} className="flex gap-3"><span className="font-bold">✓</span>{t}</li>
                   ))}
                 </ul>
@@ -529,6 +529,9 @@ by text at {FLYNN_NUMBER_DISPLAY}.
               </div>
             </Reveal>
           </div>
+          <p className="text-center text-sm text-[#F4E6CE]/60 mt-8">
+            7 days free on both. Card required to start, cancel any time. Prices in AUD.
+          </p>
           <div className="flex justify-center mt-12"><StoreButtons /></div>
         </div>
       </section>
