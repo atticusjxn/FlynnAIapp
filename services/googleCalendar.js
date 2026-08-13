@@ -69,6 +69,21 @@ const ensureFreshAccessToken = async (supabase, connection) => {
   });
   if (!resp.ok) {
     const body = await resp.text().catch(() => '');
+    // invalid_grant is not transient: the refresh token itself is dead
+    // (revoked, or minted while the OAuth consent screen was in Testing mode,
+    // where Google expires them after 7 days). Leaving the row "connected"
+    // makes the app show a green calendar integration that hasn't worked in
+    // months — flip it so the UI can ask for a reconnect instead.
+    if (resp.status === 400 && body.includes('invalid_grant')) {
+      await supabase
+        .from('integration_connections')
+        .update({ status: 'reauth_required', updated_at: new Date().toISOString() })
+        .eq('id', connection.id);
+      console.warn('[GoogleCalendar] Refresh token dead (invalid_grant); connection marked reauth_required.', {
+        connectionId: connection.id,
+        orgId: connection.org_id,
+      });
+    }
     const err = new Error('Google token refresh failed');
     err.status = resp.status;
     err.body = body;

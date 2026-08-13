@@ -11,22 +11,13 @@ const {
   weekdayForCalendarDate,
   zonedWallTimeToUtc,
   formatSlotLabel,
+  formatDayLabel,
   addDays,
 } = require('../services/bookingPage');
-
-// Calendar services are optional (may not be available in backend-only deployment)
-let CalendarIntegrationService = null;
-let AppleCalendarService = null;
-try {
-  CalendarIntegrationService = require('../src/services/CalendarIntegrationService');
-} catch (e) {
-  console.log('[BookingRoutes] CalendarIntegrationService not available - calendar sync disabled');
-}
-try {
-  AppleCalendarService = require('../src/services/AppleCalendarService');
-} catch (e) {
-  console.log('[BookingRoutes] AppleCalendarService not available - Apple Calendar sync disabled');
-}
+const {
+  busyIntervalsForOrg,
+  createCalendarEventsForBooking,
+} = require('../services/bookingCalendarSync');
 
 const router = express.Router();
 
@@ -123,11 +114,23 @@ router.get('/:slug/availability', async (req, res) => {
  * POST /api/booking/:slug/book
  * Create a new booking
  */
+// Public, unauthenticated POST — keep a lid on it. Same in-memory pattern as
+// the invoice page's email endpoint: fine at one Fly machine, revisit if we
+// ever scale out.
+const bookHits = new Map();
+const bookAllowed = (ip) => {
+  const now = Date.now();
+  const hits = (bookHits.get(ip) || []).filter((t) => now - t < 10 * 60 * 1000);
+  if (hits.length >= 10) return false;
+  hits.push(now);
+  bookHits.set(ip, hits);
+  return true;
+};
+
 router.post('/:slug/book', async (req, res) => {
   try {
     const { slug } = req.params;
     const {
-      booking_page_id,
       customer_name,
       customer_phone,
       customer_email,
@@ -136,11 +139,31 @@ router.post('/:slug/book', async (req, res) => {
       duration_minutes,
       notes,
       custom_responses,
+      website, // honeypot — humans never see it, bots autofill it
     } = req.body;
+
+    // A filled honeypot gets a fake success: a 4xx just teaches the bot to
+    // drop the field.
+    if (website) {
+      return res.status(201).json({ id: 'ok', status: 'confirmed' });
+    }
+
+    if (!bookAllowed(req.ip || 'unknown')) {
+      return res.status(429).json({ error: 'Too many requests, try again shortly' });
+    }
 
     // Validate required fields
     if (!customer_name || !customer_phone || !start_time || !end_time) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const startDate = new Date(start_time);
+    const endDate = new Date(end_time);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
+      return res.status(400).json({ error: 'Invalid time range' });
+    }
+    const phoneDigits = String(customer_phone).replace(/\D/g, '');
+    if (phoneDigits.length < 8 || phoneDigits.length > 15) {
+      return res.status(400).json({ error: 'That phone number doesn\'t look right' });
     }
 
     // Get booking page to verify it exists and get org_id
@@ -155,12 +178,10 @@ router.post('/:slug/book', async (req, res) => {
       return res.status(404).json({ error: 'Booking page not found' });
     }
 
-    // Check if time slot is still available
-    const isAvailable = await checkSlotAvailability(
-      bookingPage.id,
-      new Date(start_time),
-      new Date(end_time)
-    );
+    // Re-check the slot against BOTH busy sources — the page's own bookings
+    // and the tradie's calendars. Availability already filtered on both, but
+    // the slot list can be minutes stale by the time the form is submitted.
+    const isAvailable = await checkSlotAvailability(bookingPage, startDate, endDate);
 
     if (!isAvailable) {
       return res.status(409).json({ error: 'Time slot is no longer available' });
@@ -208,11 +229,20 @@ router.post('/:slug/book', async (req, res) => {
       console.error('[Booking] Failed to send notifications:', error);
     });
 
-    // Create calendar events (non-blocking)
-    createCalendarEvents(bookingPage.org_id, booking, bookingPage.business_name)
-      .catch(error => {
-        console.error('[Booking] Failed to create calendar events:', error);
-      });
+    // Write the slot back into the tradie's real calendar(s), and mirror the
+    // booking into `jobs` so it shows up in the app alongside call-booked work.
+    // Both non-blocking: the customer already has their 201.
+    createCalendarEventsForBooking({ orgId: bookingPage.org_id, bookingPage, booking })
+      .then((eventIds) => {
+        if (Object.keys(eventIds).length > 0) {
+          return supabase.from('bookings').update(eventIds).eq('id', booking.id);
+        }
+        return null;
+      })
+      .catch((error) => console.error('[Booking] Calendar write-back failed:', error));
+
+    createJobForBooking(bookingPage, booking)
+      .catch((error) => console.error('[Booking] Job mirror failed:', error));
 
     res.status(201).json(booking);
   } catch (error) {
@@ -248,18 +278,36 @@ async function generateDaySlots(bookingPage, dateStr) {
   const windowStart = zonedWallTimeToUtc(cal.year, cal.month, cal.day, 0, 0, timeZone);
   const windowEnd = zonedWallTimeToUtc(nextDay.year, nextDay.month, nextDay.day, 0, 0, timeZone);
 
-  const { data: existingBookings } = await supabase
-    .from('bookings')
-    .select('start_time, end_time')
-    .eq('booking_page_id', bookingPage.id)
-    .in('status', ['confirmed', 'pending'])
-    .gte('start_time', windowStart.toISOString())
-    .lt('start_time', windowEnd.toISOString());
+  // Two busy sources, queried together: this page's own bookings, and the
+  // tradie's real calendars (Google/Apple where connected). Without the second
+  // one, a job booked over the phone and living only in Google Calendar was
+  // invisible here, and the page happily double-booked over it.
+  const [{ data: existingBookings }, calendarBusy] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select('start_time, end_time')
+      .eq('booking_page_id', bookingPage.id)
+      .in('status', ['confirmed', 'pending'])
+      .gte('start_time', windowStart.toISOString())
+      .lt('start_time', windowEnd.toISOString()),
+    busyIntervalsForOrg({
+      orgId: bookingPage.org_id,
+      timeMin: windowStart.toISOString(),
+      timeMax: windowEnd.toISOString(),
+      googleCalendarId: bookingPage.google_calendar_id || 'primary',
+    }).catch((err) => {
+      console.warn('[BookingRoutes] calendar busy lookup failed (bookings-only availability):', err.message);
+      return [];
+    }),
+  ]);
 
-  const busyTimes = (existingBookings || []).map((booking) => ({
-    start: new Date(booking.start_time),
-    end: new Date(booking.end_time),
-  }));
+  const busyTimes = [
+    ...(existingBookings || []).map((booking) => ({
+      start: new Date(booking.start_time),
+      end: new Date(booking.end_time),
+    })),
+    ...calendarBusy,
+  ];
 
   const now = new Date();
   // Both of these were configured on every page and applied by nothing.
@@ -298,73 +346,79 @@ async function generateDaySlots(bookingPage, dateStr) {
 }
 
 /**
- * Helper: Check if a time slot is still available
+ * Helper: Check if a time slot is still available, against both the page's
+ * own bookings and the tradie's connected calendars.
  */
-async function checkSlotAvailability(bookingPageId, startTime, endTime) {
+async function checkSlotAvailability(bookingPage, startTime, endTime) {
   // Two intervals overlap when existing.start < new.end AND existing.end > new.start.
   // This was an `.or(...)` of those two halves, which is true for essentially
   // any row: a booking next month satisfies `end_time > new.start`. The result
   // was a 409 "no longer available" on every booking after the very first one
   // the page ever took. Chained filters are ANDed, which is the real test.
-  const { data: conflictingBookings } = await supabase
-    .from('bookings')
-    .select('id')
-    .eq('booking_page_id', bookingPageId)
-    .in('status', ['confirmed', 'pending'])
-    .lt('start_time', endTime.toISOString())
-    .gt('end_time', startTime.toISOString());
+  const [{ data: conflictingBookings }, calendarBusy] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select('id')
+      .eq('booking_page_id', bookingPage.id)
+      .in('status', ['confirmed', 'pending'])
+      .lt('start_time', endTime.toISOString())
+      .gt('end_time', startTime.toISOString()),
+    busyIntervalsForOrg({
+      orgId: bookingPage.org_id,
+      timeMin: startTime.toISOString(),
+      timeMax: endTime.toISOString(),
+      googleCalendarId: bookingPage.google_calendar_id || 'primary',
+    }).catch(() => []),
+  ]);
 
-  return !conflictingBookings || conflictingBookings.length === 0;
+  if (conflictingBookings && conflictingBookings.length > 0) return false;
+  // busyIntervalsForOrg returns merged {start: Date, end: Date} intervals.
+  return !calendarBusy.some((busy) => startTime < busy.end && busy.start < endTime);
 }
 
 /**
- * Helper: Create calendar events in Google and Apple Calendar
+ * Helper: mirror an online booking into `jobs` so it appears in the app's
+ * Jobs tab next to call-booked work. Before this, an online booking lived
+ * only in `bookings` — a table the app never reads.
  */
-async function createCalendarEvents(orgId, booking, businessName) {
-  // Skip if no calendar services are available
-  if (!CalendarIntegrationService && !AppleCalendarService) {
+async function createJobForBooking(bookingPage, booking) {
+  const { data: owner } = await supabase
+    .from('users')
+    .select('id')
+    .eq('default_org_id', bookingPage.org_id)
+    .limit(1)
+    .maybeSingle();
+  if (!owner?.id) {
+    // jobs.user_id is NOT NULL; an org with no resolvable owner can't take one.
+    console.warn('[Booking] No owner user for org; skipping job mirror.', { orgId: bookingPage.org_id });
     return;
   }
 
-  const eventDetails = {
-    summary: `${businessName} - ${booking.customer_name}`,
-    description: `Appointment with ${booking.customer_name}\nPhone: ${booking.customer_phone}${booking.customer_email ? `\nEmail: ${booking.customer_email}` : ''}${booking.notes ? `\n\nNotes: ${booking.notes}` : ''}`,
-    startTime: booking.start_time,
-    endTime: booking.end_time,
-    attendeeEmail: booking.customer_email,
-    attendeeName: booking.customer_name,
-  };
+  const timeZone = bookingPage.timezone || 'Australia/Sydney';
+  const start = new Date(booking.start_time);
+  const dateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(start);
 
-  // Build promises array only for available services
-  const promises = [];
-  if (CalendarIntegrationService?.createGoogleCalendarEvent) {
-    promises.push(CalendarIntegrationService.createGoogleCalendarEvent(orgId, eventDetails));
-  } else {
-    promises.push(Promise.resolve(null));
-  }
-  if (AppleCalendarService?.createAppleCalendarEvent) {
-    promises.push(AppleCalendarService.createAppleCalendarEvent(orgId, eventDetails));
-  } else {
-    promises.push(Promise.resolve(null));
-  }
-
-  // Try to create events in both calendars (non-blocking)
-  const [googleEventId, appleEventId] = await Promise.allSettled(promises);
-
-  // Update booking with event IDs
-  const updates = {};
-  if (googleEventId.status === 'fulfilled' && googleEventId.value) {
-    updates.google_event_id = googleEventId.value;
-  }
-  if (appleEventId.status === 'fulfilled' && appleEventId.value) {
-    updates.apple_event_id = appleEventId.value;
-  }
-
-  if (Object.keys(updates).length > 0) {
-    await supabase
-      .from('bookings')
-      .update(updates)
-      .eq('id', booking.id);
+  const { error } = await supabase.from('jobs').insert({
+    user_id: owner.id,
+    org_id: bookingPage.org_id,
+    status: 'new',
+    source: 'booking_page',
+    customer_name: booking.customer_name,
+    customer_phone: booking.customer_phone,
+    customer_email: booking.customer_email || null,
+    title: `${booking.customer_name} — booked online`,
+    summary: booking.notes || 'Booked through your booking page',
+    notes: booking.notes || null,
+    scheduled_date: dateStr,
+    scheduled_time: formatSlotLabel(start, timeZone),
+    scheduled_at: booking.start_time,
+    captured_at: new Date().toISOString(),
+    event_payload: { booking_id: booking.id, booking_page_id: bookingPage.id },
+  });
+  if (error) {
+    console.error('[Booking] jobs insert failed:', error.message);
   }
 }
 

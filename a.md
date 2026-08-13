@@ -107,6 +107,17 @@ on ~A$900/mo of Meta spend plus organic.
       config*, not client code. Turn on Project settings → Error tracking → autocapture
       exceptions. Symbolication additionally needs dSYM upload via posthog-cli.
 - [ ] **1.8** Build the funnel dashboard in the PostHog UI.
+- [ ] **1.9** ⚠️ **Needs you, in Google Cloud Console** — the Google OAuth consent screen is (or
+      was) in **Testing** mode: your "this app is not verified" sighting, plus hard proof from
+      prod — the one `google_calendar` connection, still marked *connected*, has a refresh token
+      that returns `invalid_grant` and has been dead since June 9. Testing mode expires refresh
+      tokens after **7 days**, so every calendar connect quietly dies a week later. Publish the
+      consent screen to **Production** (on the project that owns `EXPO_PUBLIC_GOOGLE_CLIENT_ID`),
+      then reconnect Google Calendar once in the app. Verification proper (privacy-policy URL +
+      calendar-scope justification) removes the scary interstitial and the 100-user cap; it can
+      trail the ad test. Code side is handled: `invalid_grant` now flips the connection to
+      `reauth_required` instead of showing green forever, and booking availability fails open to
+      bookings-only when calendars are unreachable.
 
 > Verified: the project key accepts events (`{"status":"Ok"}`), iOS builds clean against
 > PostHog 3.69.5, and the backend logs confirm initialisation in production.

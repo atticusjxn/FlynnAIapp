@@ -89,3 +89,36 @@ describe('slugify', () => {
     expect(slugify(null)).toBe('book');
   });
 });
+
+describe('mergeBusyIntervals', () => {
+  const { mergeBusyIntervals } = require('../services/bookingCalendarSync');
+  const iso = (h) => `2026-08-14T0${h}:00:00.000Z`;
+
+  test('merges overlapping and touching intervals, keeps disjoint ones', () => {
+    const merged = mergeBusyIntervals([
+      { start: iso(3), end: iso(4) },
+      { start: iso(1), end: iso(2) },   // unsorted on purpose
+      { start: iso(2), end: iso(3) },   // touches the first two -> one block
+      { start: iso(6), end: iso(7) },
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged[0].start.toISOString()).toBe(iso(1));
+    expect(merged[0].end.toISOString()).toBe(iso(4));
+    expect(merged[1].start.toISOString()).toBe(iso(6));
+  });
+
+  test('drops garbage rather than corrupting the availability check', () => {
+    const merged = mergeBusyIntervals([
+      { start: 'not-a-date', end: iso(2) },
+      { start: iso(3), end: iso(3) },   // zero-length
+      { start: iso(4), end: iso(5) },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].start.toISOString()).toBe(iso(4));
+  });
+
+  test('tolerates empty and missing input', () => {
+    expect(mergeBusyIntervals([])).toEqual([]);
+    expect(mergeBusyIntervals(undefined)).toEqual([]);
+  });
+});
