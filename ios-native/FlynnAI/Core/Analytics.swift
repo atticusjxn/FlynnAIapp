@@ -35,6 +35,10 @@ enum Analytics {
         case onboardTradeSelected = "onboard_trade_selected"
         case onboardServicesEntered = "onboard_services_entered"
         case onboardCalendarConnected = "onboard_calendar_connected"
+        /// Which step they stepped over. Skips used to abandon the funnel
+        /// entirely and were logged as a paywall dismissal wherever they
+        /// happened, so the funnel couldn't show where people bailed.
+        case onboardingStepSkipped = "onboarding_step_skipped"
 
         // The demo call — the value moment
         case demoCallRequested = "demo_call_requested"

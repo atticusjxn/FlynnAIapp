@@ -126,10 +126,30 @@ struct OnboardingWizard: View {
         model.advance(to: .forwarding)
     }
 
+    /// Skip moves past *this step*, not past the funnel.
+    ///
+    /// It used to call `markComplete()` and drop straight into the app from
+    /// wherever you were, so skipping a failed demo call abandoned the whole
+    /// funnel: no paywall, no number, no forwarding, and an empty Home — the
+    /// exact dead end this wizard was built to remove. The only step where
+    /// skipping legitimately ends the flow is the paywall, because nobody can
+    /// be made to pay, and everything after it depends on having paid.
     private func skip() {
-        Analytics.capture(.paywallDismissed, ["source": "onboarding", "reason": "skipped"])
-        model.markComplete()
-        onFinished()
+        Analytics.capture(.onboardingStepSkipped, ["step": model.step.eventName])
+
+        if model.step == .paywall {
+            Analytics.capture(.paywallDismissed, ["source": "onboarding", "reason": "skipped"])
+            model.markComplete()
+            onFinished()
+            return
+        }
+
+        guard let next = model.step.next else {
+            model.markComplete()
+            onFinished()
+            return
+        }
+        model.advance(to: next)
     }
 }
 
@@ -512,6 +532,20 @@ enum OnboardingStep: Int, Hashable, CaseIterable, Codable {
 
     var next: OnboardingStep? { OnboardingStep(rawValue: rawValue + 1) }
     var previous: OnboardingStep? { rawValue > 0 ? OnboardingStep(rawValue: rawValue - 1) : nil }
+
+    /// Stable snake_case name for analytics properties.
+    var eventName: String {
+        switch self {
+        case .welcome:    return "welcome"
+        case .trade:      return "trade"
+        case .business:   return "business"
+        case .calendar:   return "calendar"
+        case .demoCall:   return "demo_call"
+        case .paywall:    return "paywall"
+        case .forwarding: return "forwarding"
+        case .done:       return "done"
+        }
+    }
 
     var canGoBack: Bool { self != .welcome && self != .done && self != .forwarding }
     // An escape hatch on every step but the last, so no one is ever trapped in

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 enum FlashKind: Equatable {
     case success, error, info
@@ -44,6 +45,13 @@ final class FlashStore {
     func show(_ text: String, kind: FlashKind = .info, duration: Duration = .seconds(3)) {
         dismissTask?.cancel()
         current = FlashMessage(kind: kind, text: text)
+        // This banner is the app's only channel for "invoice sent", "couldn't
+        // save", and every auth failure, and it is purely visual — it appears
+        // for three seconds and goes. Without this a VoiceOver user gets no
+        // signal at all that anything happened. `.announcement` is the right
+        // notification here rather than `.screenChanged`: focus should stay
+        // where the user put it.
+        UIAccessibility.post(notification: .announcement, argument: text)
         dismissTask = Task { [weak self] in
             try? await Task.sleep(for: duration)
             if !Task.isCancelled {

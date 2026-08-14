@@ -66,6 +66,24 @@ struct SubscriptionView: View {
             // Apple rejected build 3.0.3 for. Default to the featured plan (or
             // the first available) the moment products resolve, so the primary
             // action is always live.
+            // Say what the restore did, then clear it so the message can't
+            // reappear the next time this sheet opens.
+            .onChange(of: store.restoreState) { _, state in
+                switch state {
+                case .restored:
+                    flash.success("Your subscription's back.")
+                    store.acknowledgeRestore()
+                    dismiss()
+                case .nothingToRestore:
+                    flash.info("Nothing to restore on this Apple ID.")
+                    store.acknowledgeRestore()
+                case .failed(let message):
+                    flash.error(message)
+                    store.acknowledgeRestore()
+                case .idle, .restoring:
+                    break
+                }
+            }
             .onChange(of: store.products.map(\.product.id)) { _, ids in
                 guard selectedProductId == nil, !ids.isEmpty else { return }
                 selectedProductId = store.products.first(where: { $0.isMostPopular })?.product.id ?? ids.first
@@ -174,11 +192,27 @@ struct SubscriptionView: View {
         return false
     }
 
+    private var isRestoring: Bool { store.restoreState == .restoring }
+
     private var restoreAndLinks: some View {
         HStack {
-            Button("Restore purchases") {
+            // Reviewers press this on every submission, and until now it wrote
+            // `store.restoreState` that nothing on this screen read — so unless
+            // an entitlement happened to appear, tapping it did visibly nothing.
+            // That is the same dead-CTA defect build 3.0.3 was rejected for.
+            Button {
                 Task { await store.restorePurchases() }
+            } label: {
+                if isRestoring {
+                    HStack(spacing: FlynnSpacing.xxs) {
+                        ProgressView().controlSize(.mini)
+                        Text("Restoring…")
+                    }
+                } else {
+                    Text("Restore purchases")
+                }
             }
+            .disabled(isRestoring)
             .flynnType(FlynnTypography.caption)
             .foregroundColor(FlynnColor.primary)
             Spacer()

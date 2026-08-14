@@ -35,6 +35,22 @@ struct SettingsView: View {
                 group("Billing") {
                     linkRow("creditcard.fill", "Subscription") { SubscriptionDetailView() }
                 }
+
+                // Apple requires the privacy policy and terms to be reachable
+                // inside the app, and a reviewer looks under Settings for them.
+                // Both screens already existed; `LegalView(kind: .privacy)` had
+                // no call site at all, and terms was reachable only by deep
+                // link. Account carries the delete-account path (5.1.1(v)),
+                // which was buried in the drawer.
+                group("Account") {
+                    linkRow("person.crop.circle", "Your account") { AccountView() }
+                    rowDivider
+                    linkRow("questionmark.circle", "Help & support") { SupportView() }
+                    rowDivider
+                    linkRow("doc.text", "Terms of Service") { LegalView(kind: .terms) }
+                    rowDivider
+                    linkRow("hand.raised", "Privacy Policy") { LegalView(kind: .privacy) }
+                }
             }
             .padding(.horizontal, FlynnSpacing.lg)
             .padding(.vertical, FlynnSpacing.md)
