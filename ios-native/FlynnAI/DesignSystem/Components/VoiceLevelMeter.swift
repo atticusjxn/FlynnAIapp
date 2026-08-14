@@ -19,6 +19,12 @@ struct VoiceLevelMeter: View {
     var barCount: Int = 5
     var tint: Color = FlynnColor.primary
 
+    /// Under Reduce Motion the idle "breathing" wave is dropped and the bars
+    /// rest flat, but real amplitude still drives them — the meter is the only
+    /// signal that Flynn is hearing you, so muting it entirely would remove
+    /// information rather than just decoration.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private static let minHeight: CGFloat = 4
     private static let maxHeight: CGFloat = 20
     private static let amplitudes: [CGFloat] = [0.5, 0.78, 1.0, 0.78, 0.5]
@@ -27,12 +33,14 @@ struct VoiceLevelMeter: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0 / 15)) { context in
             let speaking = level > 0.04
+            let idleAnimated = !reduceMotion
             let now = context.date.timeIntervalSinceReferenceDate
             HStack(alignment: .center, spacing: 3) {
                 ForEach(0..<barCount, id: \.self) { i in
                     Capsule()
                         .fill(tint)
-                        .frame(width: 3, height: height(index: i, speaking: speaking, now: now))
+                        .frame(width: 3, height: height(index: i, speaking: speaking,
+                                                       now: idleAnimated ? now : 0))
                 }
             }
             .frame(height: Self.maxHeight, alignment: .center)

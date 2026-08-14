@@ -36,7 +36,7 @@ struct InvoicesListView: View {
             InvoiceFormView { _ in Task { await store.load() } }.flynnFlashOverlay()
         }
         .task { await store.load() }
-        .refreshable { await store.load() }
+        .refreshable { await store.load(silently: true) }
     }
 
     private var emptyState: some View {

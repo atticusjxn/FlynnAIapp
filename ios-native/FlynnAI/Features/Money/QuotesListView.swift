@@ -39,7 +39,7 @@ struct QuotesListView: View {
             .flynnFlashOverlay()
         }
         .task { await store.load() }
-        .refreshable { await store.load() }
+        .refreshable { await store.load(silently: true) }
     }
 
     private var emptyState: some View {

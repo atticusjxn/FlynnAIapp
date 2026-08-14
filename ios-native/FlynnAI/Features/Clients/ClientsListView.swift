@@ -48,7 +48,7 @@ struct ClientsListView: View {
             .flynnFlashOverlay()
         }
         .task { await store.load() }
-        .refreshable { await store.load() }
+        .refreshable { await store.load(silently: true) }
     }
 
     private var list: some View {

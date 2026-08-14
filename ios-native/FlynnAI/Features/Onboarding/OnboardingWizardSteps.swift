@@ -497,6 +497,7 @@ struct CalendarStep: View {
 
 struct DemoCallStep: View {
     @Bindable var model: OnboardingModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var status: OnboardingModel.DemoStatus { model.demoStatus }
 
@@ -571,9 +572,15 @@ struct DemoCallStep: View {
             ForEach(0..<3) { i in
                 Circle().stroke(FlynnColor.primary.opacity(0.4), lineWidth: 2)
                     .frame(width: 120 + CGFloat(i) * 44, height: 120 + CGFloat(i) * 44)
-                    .scaleEffect(status == .ringing ? 1.05 : 1)
-                    .opacity(status == .ringing ? 0.2 : 0.6)
-                    .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: true).delay(Double(i) * 0.2), value: status)
+                    // Rings hold still under Reduce Motion — the ringing state
+                    // is carried by the copy above them either way.
+                    .scaleEffect(!reduceMotion && status == .ringing ? 1.05 : 1)
+                    .opacity(status == .ringing ? (reduceMotion ? 0.5 : 0.2) : 0.6)
+                    .animation(
+                        reduceMotion ? .default
+                            : .easeOut(duration: 1.4).repeatForever(autoreverses: true).delay(Double(i) * 0.2),
+                        value: status
+                    )
             }
             Image(systemName: "phone.fill")
                 .font(.system(size: 44, weight: .semibold))

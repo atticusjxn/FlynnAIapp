@@ -32,7 +32,7 @@ struct CallsListView: View {
         .background(FlynnColor.background)
         .navigationTitle("Calls")
         .task { await store.load() }
-        .refreshable { await store.load() }
+        .refreshable { await store.load(silently: true) }
     }
 
     private var list: some View {

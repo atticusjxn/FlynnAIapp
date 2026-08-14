@@ -34,6 +34,7 @@ struct VoiceHoldButton: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Finger is down. Distinct from `didStart`: there's a short guard window
     /// between touch-down and the recogniser actually opening.
@@ -257,13 +258,18 @@ struct VoiceHoldButton: View {
             .overlay(Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
     }
 
+    /// The expanding ring that reads as "I'm live".
+    ///
+    /// Under Reduce Motion the ring holds still at a steady outline instead of
+    /// pulsing forever — the state is still legible, it just isn't animated.
     private var pulseRing: some View {
         Circle()
             .stroke(cancelArmed ? FlynnColor.error : FlynnColor.primary, lineWidth: 2)
-            .scaleEffect(isListening && pulse ? 1.7 : 1.0)
-            .opacity(isListening && pulse ? 0 : 0.5)
+            .scaleEffect(!reduceMotion && isListening && pulse ? 1.7 : 1.0)
+            .opacity(reduceMotion ? (isListening ? 0.5 : 0) : (isListening && pulse ? 0 : 0.5))
             .animation(
-                isListening ? .easeOut(duration: 1.1).repeatForever(autoreverses: false) : .default,
+                reduceMotion ? .default
+                    : (isListening ? .easeOut(duration: 1.1).repeatForever(autoreverses: false) : .default),
                 value: pulse
             )
             .allowsHitTesting(false)

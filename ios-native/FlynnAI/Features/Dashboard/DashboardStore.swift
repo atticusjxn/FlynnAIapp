@@ -99,8 +99,14 @@ final class DashboardStore {
         self.calls = calls
     }
 
-    func load() async {
-        state = .loading
+    /// `silently` reloads without dropping back to `.loading`.
+    ///
+    /// Pull-to-refresh used to call this bare, so the switch in the view fell to
+    /// its `.loading` branch and the list you were holding onto was replaced,
+    /// mid-gesture, by a centred spinner. The data is already on screen during a
+    /// refresh; there is no reason to throw it away to fetch the same rows again.
+    func load(silently: Bool = false) async {
+        if !silently { state = .loading }
         async let eventsTask = repository.list(limit: 10)
         async let profileTask: ProfileInfo = loadProfile()
         async let activityTask = loadActivity()

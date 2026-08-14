@@ -16,8 +16,14 @@ final class CallsListStore {
         self.repository = repository
     }
 
-    func load() async {
-        state = .loading
+    /// `silently` reloads without dropping back to `.loading`.
+    ///
+    /// Pull-to-refresh used to call this bare, so the switch in the view fell to
+    /// its `.loading` branch and the list you were holding onto was replaced,
+    /// mid-gesture, by a centred spinner. The data is already on screen during a
+    /// refresh; there is no reason to throw it away to fetch the same rows again.
+    func load(silently: Bool = false) async {
+        if !silently { state = .loading }
         do {
             calls = try await repository.list(limit: 200)
             state = .loaded

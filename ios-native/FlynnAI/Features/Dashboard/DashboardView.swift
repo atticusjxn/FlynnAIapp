@@ -75,7 +75,7 @@ struct DashboardView: View {
         }
         .sheet(item: $activityDetail) { reply in ActivityDetailSheet(reply: reply) }
         .task { await store.load() }
-        .refreshable { await store.load() }
+        .refreshable { await store.load(silently: true) }
     }
 
     // MARK: – Greeting
