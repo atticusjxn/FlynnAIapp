@@ -4,7 +4,10 @@ import SwiftUI
 @Observable
 final class InvoiceFormStore {
     enum Mode { case create; case fromQuote(QuoteDTO); case edit(InvoiceDTO) }
-    enum State: Equatable { case idle, saving, sendingPDF, done, error(String) }
+    /// `done` means saved and finished — the form closes.
+    /// `sent` means the invoice went out and a PDF is coming back to share, so
+    /// the form must stay up long enough to present the share sheet.
+    enum State: Equatable { case idle, saving, sendingPDF, done, sent, error(String) }
 
     var title: String = ""
     var selectedClient: SelectedClient?
@@ -90,7 +93,7 @@ final class InvoiceFormStore {
         state = .sendingPDF
         do {
             let pdfData = try await repo.sendViaSMS(invoiceId: inv.id, toPhone: phone)
-            state = .done
+            state = .sent
             pdfHandler(pdfData)
         } catch {
             state = .error(error.localizedDescription)
@@ -171,6 +174,14 @@ struct InvoiceFormView: View {
                     onSaved(inv)
                     flash.success("Invoice saved")
                     dismiss()
+                } else if case .sent = newState, let inv = store.createdInvoice {
+                    // Deliberately no dismiss(). The share sheet is presented
+                    // from this view a moment later, and tearing the form down
+                    // first meant it presented from a dead view and never
+                    // appeared. The user closes the form themselves.
+                    onSaved(inv)
+                    flash.success("Invoice sent.")
+                    store.state = .idle
                 } else if case .error(let msg) = newState {
                     flash.error(msg)
                     store.state = .idle

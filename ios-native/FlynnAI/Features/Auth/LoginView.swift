@@ -16,6 +16,7 @@ struct LoginView: View {
     }
 
     @Environment(AuthStore.self) private var auth
+    @Environment(FlashStore.self) private var flash
 
     @State private var mode: Mode = .landing
     @State private var email = ""
@@ -329,7 +330,32 @@ struct LoginView: View {
                 onSubmit: submitSignIn
             )
             .focused($focusedField, equals: .password)
+            // `AuthStore.sendPasswordReset` existed with zero call sites, so
+            // anyone who signed up with a password and forgot it had no way
+            // back into their account from anywhere in the app.
+            HStack {
+                Spacer()
+                Button("Forgot password?", action: submitPasswordReset)
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.primary)
+                    .disabled(auth.isSubmitting)
+            }
             FlynnGlassButton(title: "Log in", action: submitSignIn, isLoading: auth.isSubmitting)
+        }
+    }
+
+    private func submitPasswordReset() {
+        let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard address.contains("@") else {
+            focusedField = .email
+            flash.error("Enter your email address first, then tap it again.")
+            return
+        }
+        Task {
+            await auth.sendPasswordReset(email: address)
+            // Deliberately unconditional: saying "no account with that email"
+            // would let anyone test which addresses are registered.
+            flash.success("If that email's registered, a reset link is on its way.")
         }
     }
 

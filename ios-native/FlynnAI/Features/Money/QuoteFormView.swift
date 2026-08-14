@@ -4,7 +4,10 @@ import SwiftUI
 @Observable
 final class QuoteFormStore {
     enum Mode { case create; case edit(QuoteDTO) }
-    enum State: Equatable { case idle, saving, sendingPDF, done, error(String) }
+    /// `done` means saved and finished — the form closes.
+    /// `sent` means the quote went out and a PDF is coming back to share, so
+    /// the form must stay up long enough to present the share sheet.
+    enum State: Equatable { case idle, saving, sendingPDF, done, sent, error(String) }
 
     var title: String = ""
     var selectedClient: SelectedClient?
@@ -83,7 +86,7 @@ final class QuoteFormStore {
         state = .sendingPDF
         do {
             let pdfData = try await repo.sendViaSMS(quoteId: quote.id, toPhone: phone)
-            state = .done
+            state = .sent
             pdfHandler(pdfData)
         } catch {
             state = .error(error.localizedDescription)
@@ -159,6 +162,14 @@ struct QuoteFormView: View {
                     onSaved(q)
                     flash.success("Quote saved")
                     dismiss()
+                } else if case .sent = newState, let q = store.createdQuote {
+                    // Deliberately no dismiss(). The share sheet is presented
+                    // from this view a moment later, and tearing the form down
+                    // first meant it presented from a dead view and never
+                    // appeared. The user closes the form themselves.
+                    onSaved(q)
+                    flash.success("Quote sent.")
+                    store.state = .idle
                 } else if case .error(let msg) = newState {
                     flash.error(msg)
                     store.state = .idle
