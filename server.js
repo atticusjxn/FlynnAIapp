@@ -69,6 +69,8 @@ const { generateSpeech: generateGeminiSpeech, resolveVoiceName: resolveGeminiVoi
 const reminderScheduler = require('./services/reminderScheduler');
 const PRICING = require('./services/pricing');
 const analytics = require('./services/analytics');
+const nangoService = require('./services/nango');
+const agentLoop = require('./services/agent/agentLoop');
 const { bookingUrlForUser } = require('./services/bookingPage');
 const { Resend } = require('resend');
 
@@ -6012,6 +6014,83 @@ app.get('/api/integrations/google-calendar/callback', async (req, res) => {
       title: 'Connection Failed',
       message: 'Something went wrong connecting Google Calendar. You can close this window and try again.',
     }));
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Xero connect (JWT-authed, for the iOS app) — mints a Nango connect session
+// and hands the app the resulting URL to open.
+//
+// Unlike Google Calendar above, Flynn never owns the Xero OAuth exchange:
+// self-hosted Nango (services/nango.js) runs the whole handshake and lands the
+// user on ITS OWN post-consent page on NANGO_HOST, not a flynnai.app page — so
+// there is no callback route here for the app to redirect through, and no
+// flynnai:// deep link fires when the sheet closes. The connection is instead
+// recorded by POST /webhooks/nango (routes/integrationsNango.js), which is
+// configured (NANGO_WEBHOOK_SECRET is set) and fires independently of whatever
+// the browser sheet is showing. The app polls the status endpoint below after
+// the sheet closes, however it closed, rather than trusting a redirect.
+// ---------------------------------------------------------------------------
+
+app.get('/api/integrations/xero/connect', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  if (!nangoService.isConfigured()) {
+    return res.status(500).json({ error: 'Xero connection is not configured on the server' });
+  }
+
+  try {
+    const { data: user } = await supabaseServiceClient
+      .from('users')
+      .select('id, phone')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!user?.phone) return res.status(400).json({ error: 'No phone on file for this account' });
+
+    const { connectUrl } = await nangoService.createConnectSession({
+      userId: user.id,
+      phone: user.phone,
+      provider: 'xero',
+    });
+    res.json({ authUrl: connectUrl });
+  } catch (error) {
+    console.error('[Xero] Failed to create connect session:', error.message);
+    res.status(500).json({ error: 'Could not start Xero connection' });
+  }
+});
+
+// Whether this user's Xero connection is live. Calls reconcileNangoConnection
+// (the same self-healing check the webhook-free /connected landing page uses)
+// rather than a bare table read, so a webhook that hasn't landed yet — or never
+// will, on a self-hosted install without one — doesn't read as disconnected
+// when Nango already has a working token.
+app.get('/api/integrations/xero/status', authenticateJwt, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+  try {
+    const { data: user } = await supabaseServiceClient
+      .from('users')
+      .select('id, phone, business_brain, preferred_channel')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const { data: existing } = await supabaseServiceClient
+      .from('user_connections')
+      .select('status')
+      .eq('user_id', userId)
+      .eq('provider', 'xero')
+      .maybeSingle();
+    if (existing?.status === 'connected') return res.json({ connected: true });
+
+    const { connected } = await agentLoop.reconcileNangoConnection({
+      supabase: supabaseServiceClient, user, provider: 'xero',
+    });
+    res.json({ connected });
+  } catch (error) {
+    console.error('[Xero] Status check failed:', error.message);
+    res.status(500).json({ error: 'Could not check Xero connection status' });
   }
 });
 

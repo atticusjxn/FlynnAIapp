@@ -10,6 +10,7 @@ final class IntegrationsStore {
     private(set) var loadState: LoadState = .idle
     var appleCalendarConnected: Bool = false
     var googleCalendarConnected: Bool = false
+    var xeroConnected: Bool = false
     var telnyxPhoneNumber: String?
 
     private let client: SupabaseClient
@@ -38,6 +39,11 @@ final class IntegrationsStore {
             googleCalendarConnected = row.google_calendar_connected ?? false
             telnyxPhoneNumber = row.twilio_phone_number
             loadState = .loaded
+
+            // Xero lives in user_connections (Nango), not a column on users —
+            // fetch it separately so a slow status check can't hold up the rest
+            // of the screen from showing.
+            xeroConnected = await NangoProviderConnect.status(provider: "xero", client: client)
         } catch {
             loadState = .error(error.localizedDescription)
         }
@@ -64,12 +70,23 @@ final class IntegrationsStore {
         try await GoogleCalendarConnect.connect(client: client)
         googleCalendarConnected = true
     }
+
+    /// Launch the Xero OAuth flow via Nango. Returns whether it ended up
+    /// connected — see NangoProviderConnect for why this can't throw on a
+    /// bare "user dismissed the sheet" the way Google's flow does.
+    @discardableResult
+    func connectXero() async -> Bool {
+        let connected = (try? await NangoProviderConnect.connect(provider: "xero", client: client)) ?? false
+        xeroConnected = connected
+        return connected
+    }
 }
 
 struct IntegrationsView: View {
     @Environment(FlashStore.self) private var flash
     @State private var store = IntegrationsStore()
     @State private var isConnectingGoogle = false
+    @State private var isConnectingXero = false
 
     var body: some View {
         ScrollView {
@@ -123,6 +140,7 @@ struct IntegrationsView: View {
         )
 
         googleRow
+        xeroRow
     }
 
     private var googleRow: some View {
@@ -171,6 +189,55 @@ struct IntegrationsView: View {
         }
         .buttonStyle(.plain)
         .disabled(store.googleCalendarConnected)
+    }
+
+    private var xeroRow: some View {
+        Button {
+            guard !store.xeroConnected, !isConnectingXero else { return }
+            isConnectingXero = true
+            Task {
+                let connected = await store.connectXero()
+                if connected {
+                    flash.success("Xero connected")
+                }
+                // A sheet that closes without connecting (user backed out, or
+                // just tapped Done on Nango's own page without finishing) is
+                // silent here rather than an error — see NangoProviderConnect,
+                // there is no reliable way to tell "cancelled" from "closed the
+                // success page" at this layer.
+                isConnectingXero = false
+            }
+        } label: {
+            HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+                IntegrationLogoView(brand: .xero)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Xero")
+                        .flynnType(FlynnTypography.h4)
+                        .foregroundColor(FlynnColor.textPrimary)
+                    Text(store.xeroConnected
+                         ? "Connected"
+                         : "Send invoices and file expenses straight to your books")
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textSecondary)
+                }
+                Spacer()
+                if isConnectingXero {
+                    ProgressView()
+                } else {
+                    Image(systemName: store.xeroConnected ? "checkmark.circle.fill" : "chevron.right")
+                        .foregroundColor(store.xeroConnected ? FlynnColor.success : FlynnColor.textTertiary)
+                }
+            }
+            .padding(FlynnSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
+                    .fill(FlynnColor.backgroundSecondary)
+            )
+            .brutalistBorder(cornerRadius: FlynnRadii.md)
+        }
+        .buttonStyle(.plain)
+        .disabled(store.xeroConnected)
     }
 
     private func integrationRow(
