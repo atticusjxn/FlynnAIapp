@@ -24,7 +24,13 @@ struct ClientsListView: View {
                         pose: .wave,
                         title: "No clients yet",
                         message: "Clients you've captured leads or jobs for show up here — Flynn adds them automatically from calls and texts."
-                    )
+                    ) {
+                        // The empty state is where someone lands first and it
+                        // pointed nowhere. MascotEmptyState always took an
+                        // actions builder; this screen just never passed one.
+                        FlynnButton(title: "Add a client", action: { showingAddSheet = true },
+                                    variant: .secondary, size: .small)
+                    }
                 } else {
                     list
                 }

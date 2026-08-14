@@ -24,7 +24,13 @@ struct EventsListView: View {
                         pose: .sleep,
                         title: "No bookings yet",
                         message: "Jobs you book with Flynn — and ones you add — show up here, synced to your calendar."
-                    )
+                    ) {
+                        // The empty state is where someone lands first and it
+                        // pointed nowhere. MascotEmptyState always took an
+                        // actions builder; this screen just never passed one.
+                        FlynnButton(title: "Book a job", action: { showingAddSheet = true },
+                                    variant: .secondary, size: .small)
+                    }
                 } else {
                     list
                 }
