@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import FBSDKCoreKit
 
 @MainActor
 @Observable
@@ -95,6 +96,28 @@ final class AuthStore {
             userId: session.user.id.uuidString,
             properties: ["email": session.user.email ?? ""]
         )
+        logRegistrationOnce(session: session)
+    }
+
+    /// Report "an account now exists" to Meta's app dataset, once per install.
+    ///
+    /// This is a deliberately thin conversion — verifying an OTP is a much
+    /// weaker signal of intent than handing over a card — and it is NOT what the
+    /// campaign should optimise for. It exists so the middle of the funnel is
+    /// measurable: without it, signup→trial and trial→paid can't be separated,
+    /// and a campaign that drives plenty of accounts but no trials looks
+    /// identical to one that drives neither.
+    ///
+    /// `setSignedIn` is the single choke point every auth path runs through —
+    /// phone OTP, email OTP, password, and magic link — so this catches all of
+    /// them without four call sites drifting apart. Keyed on the user id rather
+    /// than a plain flag so a second account on the same device still counts,
+    /// while an ordinary re-login never re-fires it.
+    private func logRegistrationOnce(session: Session) {
+        let key = "ads.registration.logged.\(session.user.id.uuidString)"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        AppEvents.shared.logEvent(.completedRegistration)
     }
 
     /// Confirms the restored session still maps to a live user server-side by
