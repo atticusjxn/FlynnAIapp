@@ -40,7 +40,7 @@ const CATALOG = {
   apple_calendar:  { kind: 'credential', provider: 'apple-calendar', name: 'Apple Calendar', blurb: 'Book into your iCloud calendar', icon: '📆',
                      userLabel: 'iCloud email', passLabel: 'App-specific password',
                      help: 'Make one at appleid.apple.com → Sign-In and Security → App-Specific Passwords.' },
-  xero:            { kind: 'credential', provider: 'xero', name: 'Xero', blurb: 'Send invoices from a text', icon: '💸' },
+  xero:            { kind: 'oauth', nango: 'xero', name: 'Xero', blurb: 'Send invoices & file expenses', icon: '💸' },
   reece:           { kind: 'credential', provider: 'reece', name: 'Reece', blurb: 'Order plumbing supplies', icon: '🔧' },
   bunnings:        { kind: 'credential', provider: 'bunnings', name: 'Bunnings', blurb: 'Order materials', icon: '🪚' },
   tradelink:       { kind: 'credential', provider: 'tradelink', name: 'Tradelink', blurb: 'Order plumbing supplies', icon: '🚰' },

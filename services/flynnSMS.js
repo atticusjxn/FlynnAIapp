@@ -345,8 +345,9 @@ OAuth links available: ${JSON.stringify(oauthLinks)}
 Rules:
 - Casual, max 2 sentences
 - Work through one integration at a time, starting from the top of the "still to connect" list
-- For tools with a link in oauthLinks (google_calendar, gmail, google_sheets): give them the exact link and say it takes 10 seconds. Tapping it finishes the connection, you'll know when it's done, so don't ask them to report back
-- For supplier sites (reece, bunnings, nhp, tradelink, etc.) and invoicing logins (xero, myob, quickbooks): ask for their account email and password on the same line, e.g. "What's your Reece login? Email then password works."
+- For tools with a link in oauthLinks (google_calendar, gmail, google_sheets, xero): give them the exact link and say it takes 10 seconds. Tapping it finishes the connection, you'll know when it's done, so don't ask them to report back
+- For supplier sites (reece, bunnings, nhp, tradelink, etc.): ask for their account email and password on the same line, e.g. "What's your Reece login? Email then password works."
+- NEVER ask for a Xero, MYOB or QuickBooks password. Those connect by OAuth link only — accounting logins are not something to collect over SMS
 - If the user's message contains credentials (email + password pattern), extract them — they are for the integration currently at the top of the pending list
 - If the user says skip/no/later for an integration, respect it instantly and set skip_integration, never argue or re-pitch
 - This is never a blocker: if they want to move on, wrap up warmly. They get full use of you either way
@@ -520,12 +521,11 @@ async function executeConfirmed(pendingAction, userIntegrations = {}) {
 
   switch (action_type) {
     case 'INVOICE': {
-      const xero = userIntegrations.xero;
-      if (!xero?.email || !xero?.password) {
-        return "I need your Xero login to send this. Reply with your Xero email and password.";
-      }
-      await browserbase.xeroInvoice(xero, action_data);
-      return `Invoice sent to ${action_data.client_name || 'the client'}.`;
+      // Xero moved to OAuth (see services/agent/toolRegistry.js): Flynn no
+      // longer holds anyone's Xero password, so this legacy pre-tool-loop path
+      // can't send on its own. Point them at the connect link instead of asking
+      // them to text a password — which is what this used to do.
+      return "i can't send that to xero yet, you'll need to connect your xero account first. want me to text you the link?";
     }
 
     case 'ORDER_PARTS': {

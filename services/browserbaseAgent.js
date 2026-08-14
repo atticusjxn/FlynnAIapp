@@ -2,7 +2,8 @@
  * Browserbase cloud browser sessions.
  *
  * Creates remote Puppeteer sessions on Browserbase for web automation:
- * Xero invoicing, Reece parts ordering, and generic AI-guided tasks.
+ * Reece parts ordering and generic AI-guided tasks. (Xero invoicing moved to
+ * the Xero API over OAuth — see the note below.)
  *
  * Each function is responsible for closing the browser when done.
  * Sessions are billed per minute on Browserbase, so always clean up.
@@ -62,79 +63,15 @@ async function closeSession(browser, sessionId) {
 }
 
 // ---------------------------------------------------------------------------
-// Xero — create and send invoice
+// Xero invoicing used to live here, driving login.xero.com with a stored email
+// and password. It was removed in favour of the Xero API over OAuth
+// (services/agent/toolRegistry.js createXeroSalesInvoice): Xero has mandated
+// MFA on all accounts since 2021 so a scripted password login cannot complete,
+// automated UI access and credential sharing both breach Xero's terms, and
+// holding a customer's accounting password was the largest liability here.
+// Do not reintroduce it.
 // ---------------------------------------------------------------------------
 
-/**
- * credentials: { email, password } — Xero login
- * invoiceData: { clientName, clientEmail, description, amountCents, date }
- */
-async function xeroInvoice(credentials, invoiceData) {
-  const { sessionId, browser, page } = await createSession();
-
-  try {
-    // Log in to Xero
-    await page.goto('https://login.xero.com', { waitUntil: 'networkidle2', timeout: 30000 });
-    await page.type('#email', credentials.email, { delay: 40 });
-    await page.click('#xero-identity-login-button');
-    await page.waitForSelector('#password', { timeout: 10000 });
-    await page.type('#password', credentials.password, { delay: 40 });
-    await page.click('#xero-identity-login-button');
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
-
-    // Navigate to new invoice
-    await page.goto('https://go.xero.com/AccountsReceivable/Edit.aspx', {
-      waitUntil: 'networkidle2',
-      timeout: 30000,
-    });
-
-    // Fill contact
-    const contactInput = await page.waitForSelector('[data-automationid="contact-name-input"]', { timeout: 10000 });
-    await contactInput.type(invoiceData.clientName, { delay: 40 });
-    await page.waitForTimeout(800);
-
-    // Pick first autocomplete suggestion or create new
-    const suggestion = await page.$('[data-automationid="contact-suggestion-0"]');
-    if (suggestion) {
-      await suggestion.click();
-    }
-
-    // Fill line item description
-    const descInput = await page.waitForSelector('[data-automationid="line-item-description-0"]', { timeout: 10000 });
-    await descInput.type(invoiceData.description || 'Services rendered', { delay: 30 });
-
-    // Fill amount
-    const amountInput = await page.$('[data-automationid="line-item-unit-price-0"]');
-    if (amountInput) {
-      await amountInput.click({ clickCount: 3 });
-      await amountInput.type(String((invoiceData.amountCents / 100).toFixed(2)), { delay: 30 });
-    }
-
-    // Approve and send
-    await page.click('[data-automationid="approve-and-email-button"]');
-    await page.waitForSelector('[data-automationid="send-invoice-modal"]', { timeout: 10000 });
-
-    // Fill client email if present in send modal
-    if (invoiceData.clientEmail) {
-      const emailInput = await page.$('[data-automationid="send-to-email-input"]');
-      if (emailInput) {
-        await emailInput.click({ clickCount: 3 });
-        await emailInput.type(invoiceData.clientEmail, { delay: 30 });
-      }
-    }
-
-    await page.click('[data-automationid="send-invoice-submit-button"]');
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {});
-
-    console.log('[Browserbase] Xero invoice sent', { clientName: invoiceData.clientName });
-    return { ok: true };
-  } finally {
-    await closeSession(browser, sessionId);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Reece — add items to cart and check out
 // ---------------------------------------------------------------------------
 
 /**
@@ -319,4 +256,4 @@ async function supplierOrder(slug, credentials, items) {
   return run(loginUrl, goal, credentials, 24);
 }
 
-module.exports = { createSession, xeroInvoice, reeceOrder, supplierOrder, run };
+module.exports = { createSession, reeceOrder, supplierOrder, run };

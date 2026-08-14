@@ -26,7 +26,6 @@ jest.mock('../services/appleCalendar', () => ({
 }));
 jest.mock('../services/browserbaseAgent', () => ({
   createSession: jest.fn(),
-  xeroInvoice: jest.fn(async () => ({ ok: true })),
   reeceOrder: jest.fn(async () => ({ ok: true, cartTotal: '$120.50' })),
   supplierOrder: jest.fn(async () => ({ ok: true, cartTotal: '$80.00' })),
   run: jest.fn(async () => ({ ok: true })),
@@ -102,6 +101,13 @@ const connectedCalendar = () => new Map([[
   { id: 'c1', provider: 'google-calendar', status: 'connected', auth_kind: 'nango_oauth', nango_connection_id: 'nc_1', metadata: {} },
 ]]);
 
+// Xero is OAuth via Nango (it used to be a saved email/password driven through
+// Browserbase — see services/agent/toolRegistry.js for why that was removed).
+const connectedXero = () => new Map([[
+  'xero',
+  { id: 'x1', provider: 'xero', status: 'connected', auth_kind: 'nango_oauth', nango_connection_id: 'nc_x', metadata: { xero_tenant_id: 'tenant-123' } },
+]]);
+
 beforeEach(() => jest.clearAllMocks());
 
 describe('runAgentTurn gating', () => {
@@ -131,17 +137,26 @@ describe('runAgentTurn gating', () => {
       client_name: 'Dave', amount_cents: 30000, description: 'regrout',
     })]);
 
-    const result = await runAgentTurn({
-      phone: PHONE, user: USER, message: 'invoice dave $300 for the regrout',
-      supabase: fakeSupabase(), connections: new Map(),
-      userIntegrations: { xero: { email: 'a@b.co', password: 'pw' } },
-    });
+    // Watch the transport directly: parking must not touch the Xero API at all.
+    const prevFetch = global.fetch;
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock;
 
-    expect(result.intent).toBe('AGENT_CONFIRM');
-    expect(result.reply).toContain('$300');
-    expect(result.pendingAction.status).toBe('awaiting_confirmation');
-    expect(result.pendingAction.tool_name).toBe('xero_send_invoice');
-    expect(browserbase.xeroInvoice).not.toHaveBeenCalled();
+    try {
+      const result = await runAgentTurn({
+        phone: PHONE, user: USER, message: 'invoice dave $300 for the regrout',
+        supabase: fakeSupabase(), connections: connectedXero(),
+        userIntegrations: {},
+      });
+
+      expect(result.intent).toBe('AGENT_CONFIRM');
+      expect(result.reply).toContain('$300');
+      expect(result.pendingAction.status).toBe('awaiting_confirmation');
+      expect(result.pendingAction.tool_name).toBe('xero_send_invoice');
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      global.fetch = prevFetch;
+    }
   });
 
   test('connected reversible tool executes and the model writes the reply', async () => {
@@ -214,17 +229,66 @@ describe('runAgentTurn gating', () => {
 
 describe('executePendingTool (the "yes" path)', () => {
   test('runs the parked tool deterministically', async () => {
-    const reply = await executePendingTool({
-      pendingAction: {
-        tool_name: 'xero_send_invoice',
-        tool_args: { client_name: 'Dave', amount_cents: 30000 },
-      },
-      phone: PHONE, user: USER, supabase: fakeSupabase(),
-      connections: new Map(), userIntegrations: { xero: { email: 'a@b.co', password: 'pw' } },
-    });
+    nango.getToken.mockResolvedValue('xero-access-token');
+    const prevFetch = global.fetch;
+    // POST /Invoices returns the created invoice; POST /Invoices/{id}/Email
+    // answers 204 with an empty body, which must read as success.
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({ Invoices: [{ InvoiceID: 'inv-9', InvoiceNumber: 'INV-0042' }] }),
+        text: async () => JSON.stringify({ Invoices: [{ InvoiceID: 'inv-9', InvoiceNumber: 'INV-0042' }] }),
+      })
+      .mockResolvedValueOnce({ ok: true, status: 204, json: async () => { throw new Error('no body'); }, text: async () => '' });
+    global.fetch = fetchMock;
 
-    expect(browserbase.xeroInvoice).toHaveBeenCalledTimes(1);
-    expect(reply.toLowerCase()).toContain('invoice');
+    try {
+      const reply = await executePendingTool({
+        pendingAction: {
+          tool_name: 'xero_send_invoice',
+          tool_args: { client_name: 'Dave', amount_cents: 30000, client_email: 'dave@example.com' },
+        },
+        phone: PHONE, user: USER, supabase: fakeSupabase(),
+        connections: connectedXero(), userIntegrations: {},
+      });
+
+      const posted = JSON.parse(fetchMock.mock.calls[0][1].body).Invoices[0];
+      expect(posted.Type).toBe('ACCREC'); // a sale, not a bill
+      expect(posted.Status).toBe('AUTHORISED'); // a DRAFT cannot be emailed
+      expect(posted.LineItems[0].UnitAmount).toBe('300.00');
+      expect(posted.Contact.EmailAddress).toBe('dave@example.com');
+      expect(fetchMock.mock.calls[1][0]).toContain('/Invoices/inv-9/Email');
+      expect(reply.toLowerCase()).toContain('invoice');
+    } finally {
+      global.fetch = prevFetch;
+    }
+  });
+
+  test('creates the invoice but does not claim to have sent it with no client email', async () => {
+    nango.getToken.mockResolvedValue('xero-access-token');
+    const prevFetch = global.fetch;
+    const payload = { Invoices: [{ InvoiceID: 'inv-10', InvoiceNumber: 'INV-0043' }] };
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true, status: 200, json: async () => payload, text: async () => JSON.stringify(payload),
+    });
+    global.fetch = fetchMock;
+
+    try {
+      const reply = await executePendingTool({
+        pendingAction: {
+          tool_name: 'xero_send_invoice',
+          tool_args: { client_name: 'Dave', amount_cents: 30000 },
+        },
+        phone: PHONE, user: USER, supabase: fakeSupabase(),
+        connections: connectedXero(), userIntegrations: {},
+      });
+
+      // Only the create call — no email leg without an address to send to.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(reply.toLowerCase()).toContain('email');
+    } finally {
+      global.fetch = prevFetch;
+    }
   });
 
   test('returns null for legacy rows so the caller falls back', async () => {
@@ -373,9 +437,18 @@ describe('tool registry', () => {
 
   test('xero_log_expense posts a draft ACCPAY bill and caches the tenant id', async () => {
     nango.getToken.mockResolvedValue('xero-access-token');
+    // Model a real Response: xeroApi reads .status and .text() so it can treat
+    // the empty 204 from POST /Invoices/{id}/Email as success rather than
+    // failing to parse it as JSON.
+    const jsonResponse = (payload) => ({
+      ok: true,
+      status: 200,
+      json: async () => payload,
+      text: async () => JSON.stringify(payload),
+    });
     const fetchMock = jest.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => [{ tenantId: 'tenant-123' }] }) // GET /connections
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ Invoices: [{ InvoiceID: 'inv-1' }] }) }); // POST /Invoices
+      .mockResolvedValueOnce(jsonResponse([{ tenantId: 'tenant-123' }])) // GET /connections
+      .mockResolvedValueOnce(jsonResponse({ Invoices: [{ InvoiceID: 'inv-1' }] })); // POST /Invoices
     const prevFetch = global.fetch;
     global.fetch = fetchMock;
     const supabase = fakeSupabase();

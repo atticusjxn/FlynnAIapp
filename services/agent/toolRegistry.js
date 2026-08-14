@@ -139,7 +139,39 @@ async function xeroApi(token, url, { method = 'GET', body, tenantId } = {}) {
     err.status = res.status;
     throw err;
   }
-  return res.json();
+  // POST /Invoices/{id}/Email succeeds with 204 and an empty body — parsing
+  // that as JSON throws, which would report a sent invoice as a failure.
+  if (res.status === 204 || res.status === 205) return {};
+  const text = await res.text();
+  return text ? JSON.parse(text) : {};
+}
+
+/**
+ * Which Xero organisation this user's token is scoped to.
+ *
+ * Every Xero call needs the tenant id, and it costs an extra round trip to the
+ * identity endpoint, so it is cached on the connection row after the first
+ * lookup. Shared by the invoice and expense tools — both run against the same
+ * Nango 'xero' connection.
+ */
+async function resolveXeroTenant(ctx, token) {
+  const conn = ctx.connections.get('xero');
+  const cached = conn?.metadata?.xero_tenant_id;
+  if (cached) return cached;
+
+  const orgs = await xeroApi(token, 'https://api.xero.com/connections');
+  const tenantId = Array.isArray(orgs) ? orgs[0]?.tenantId : null;
+  if (!tenantId) throw new ToolArgError('no xero organisation found on this login');
+
+  if (conn && ctx.supabase) {
+    const metadata = { ...(conn.metadata || {}), xero_tenant_id: tenantId };
+    await ctx.supabase
+      .from('user_connections')
+      .update({ metadata, updated_at: new Date().toISOString() })
+      .eq('id', conn.id);
+    conn.metadata = metadata;
+  }
+  return tenantId;
 }
 
 // Receipt category -> Xero chart-of-accounts code. Defaults are the common
@@ -483,26 +515,111 @@ async function logTimesheet(ctx, args) {
 }
 
 // ---------------------------------------------------------------------------
-// Browserbase-backed (Xero invoicing, supplier orders)
+// Browserbase-backed (supplier orders)
 // ---------------------------------------------------------------------------
+
+/**
+ * Create and email an invoice through the Xero API (OAuth via Nango).
+ *
+ * This used to drive login.xero.com with Puppeteer using the user's stored
+ * email and password. That was replaced because it was unsound three ways over:
+ * Xero has mandated MFA on all accounts since 2021 so a scripted password login
+ * hits a challenge it cannot answer; automated UI access and credential sharing
+ * both breach Xero's terms; and holding a customer's accounting password is the
+ * single worst thing in a codebase whose pitch is that it handles their money.
+ * The API does exactly these operations with none of that.
+ *
+ * ACCREC is a sales invoice — money owed TO the user, the opposite of the
+ * ACCPAY bills xeroLogExpense writes. It is created AUTHORISED rather than
+ * DRAFT because a draft cannot be emailed, and the agent has already taken an
+ * explicit confirmation from the user (confirm: true) before getting here.
+ */
+/**
+ * Create a sales invoice in Xero, optionally emailing it to the contact.
+ *
+ * The one place a Xero ACCREC invoice is written — used by the xero_send_invoice
+ * tool and by the photo-invoice mirror, which previously had their own copies.
+ * Returns { invoiceId, number, emailed }.
+ */
+async function createXeroSalesInvoice(ctx, {
+  clientName, clientEmail, description, amountCents, date, dueDate, email = true,
+}) {
+  const token = await nangoToken(ctx, 'xero');
+  const tenantId = await resolveXeroTenant(ctx, token);
+
+  const contact = { Name: clientName };
+  if (clientEmail) contact.EmailAddress = clientEmail;
+
+  const invoiceDate = assertDate(date || new Date().toISOString().slice(0, 10));
+
+  const created = await xeroApi(token, `${XERO_API}/Invoices`, {
+    method: 'POST',
+    tenantId,
+    body: {
+      Invoices: [{
+        Type: 'ACCREC',
+        Contact: contact,
+        Date: invoiceDate,
+        DueDate: dueDate ? assertDate(dueDate) : invoiceDate,
+        LineAmountTypes: 'Inclusive', // the amount the user quoted already includes GST
+        LineItems: [{
+          Description: description || 'Work completed',
+          Quantity: 1,
+          UnitAmount: (amountCents / 100).toFixed(2),
+          AccountCode: process.env.FLYNN_XERO_SALES_ACCOUNT_CODE || '200',
+        }],
+        Status: 'AUTHORISED', // a DRAFT cannot be emailed
+      }],
+    },
+  });
+
+  const invoice = created?.Invoices?.[0];
+  const invoiceId = invoice?.InvoiceID;
+  if (!invoiceId) throw new Error('Xero accepted the invoice but returned no InvoiceID');
+
+  // Xero emails to the contact's address on file, so without one there is
+  // nobody to send to.
+  let emailed = false;
+  if (email && contact.EmailAddress) {
+    await xeroApi(token, `${XERO_API}/Invoices/${invoiceId}/Email`, {
+      method: 'POST',
+      tenantId,
+      body: {},
+    });
+    emailed = true;
+  }
+
+  return { invoiceId, number: invoice?.InvoiceNumber || null, emailed };
+}
 
 async function xeroSendInvoice(ctx, args) {
   const clientName = requireArg(args, 'client_name');
   const amountCents = Number(requireArg(args, 'amount_cents', 'integer cents'));
   if (!Number.isFinite(amountCents) || amountCents <= 0) throw new ToolArgError('amount_cents must be a positive integer');
-  const creds = ctx.userIntegrations.xero;
-  if (!creds?.email || !creds?.password) throw new ToolArgError('no xero login on file — ask for their xero email and password, then call save_login');
 
-  await browserbase.xeroInvoice(creds, {
+  const { invoiceId, number, emailed } = await createXeroSalesInvoice(ctx, {
     clientName,
     clientEmail: args.client_email,
     description: args.description,
     amountCents,
     date: args.date,
+    dueDate: args.due_date,
   });
+
   const amount = money(amountCents, ctx.currency);
+  const ref = number || invoiceId;
+
+  // Report what actually happened. Saying "sent" when no email went out is the
+  // kind of lie the user only discovers when the client never pays.
+  if (!emailed) {
+    return {
+      result: `xero invoice ${ref} for ${amount} created for ${clientName}, not emailed (no client email on file)`,
+      userFacing: `invoice for ${amount} is in xero for ${clientName.toLowerCase()}, but i don't have their email so it hasn't gone out yet. what's their email?`,
+    };
+  }
+
   return {
-    result: `xero invoice for ${amount} sent to ${clientName}`,
+    result: `xero invoice ${ref} for ${amount} emailed to ${clientName}`,
     userFacing: `invoice for ${amount} is away to ${clientName.toLowerCase()}`,
   };
 }
@@ -517,24 +634,7 @@ async function xeroLogExpense(ctx, args) {
   const date = assertDate(args.date || new Date().toISOString().slice(0, 10));
 
   const token = await nangoToken(ctx, 'xero');
-  const conn = ctx.connections.get('xero');
-
-  // Tenant id (which Xero org). Fetched once from the identity endpoint, then
-  // cached on the connection row so later receipts skip the round-trip.
-  let tenantId = conn?.metadata?.xero_tenant_id;
-  if (!tenantId) {
-    const orgs = await xeroApi(token, 'https://api.xero.com/connections');
-    tenantId = Array.isArray(orgs) ? orgs[0]?.tenantId : null;
-    if (!tenantId) throw new ToolArgError('no xero organisation found on this login');
-    if (conn && ctx.supabase) {
-      const metadata = { ...(conn.metadata || {}), xero_tenant_id: tenantId };
-      await ctx.supabase
-        .from('user_connections')
-        .update({ metadata, updated_at: new Date().toISOString() })
-        .eq('id', conn.id);
-      conn.metadata = metadata;
-    }
-  }
+  const tenantId = await resolveXeroTenant(ctx, token);
 
   const gst = Number(args.gst_cents);
   const accountCode = XERO_EXPENSE_ACCOUNTS[String(args.category || '').toLowerCase()]
@@ -995,18 +1095,23 @@ async function createPhotoInvoice(ctx, args) {
   });
 
   // Best-effort mirror to Xero so the books match — non-blocking, never holds
-  // up the link, and only fires if the user has a Xero login on file.
+  // up the link, and only fires if the user has connected Xero.
+  //
+  // `email: false` matters: Flynn already sent this invoice to the client over
+  // SMS. Letting Xero email it too would bill the same person twice for the
+  // same job from two different addresses.
   let xeroNote = '';
-  const xeroCreds = ctx.userIntegrations?.xero;
-  if (xeroCreds?.email && xeroCreds?.password) {
+  if (ctx.connections?.get('xero')?.status === 'connected') {
     xeroNote = ' (logging it to your xero too)';
     const description = args.description || lineItems.map((li) => li.description).join(', ');
-    browserbase.xeroInvoice(xeroCreds, {
+    createXeroSalesInvoice(ctx, {
       clientName,
       clientEmail: args.client_email,
       description,
       amountCents: totalCents,
       date: new Date().toISOString().slice(0, 10),
+      dueDate: args.due_date || null,
+      email: false,
     }).then(
       () => ctx.supabase?.from('invoices').update({ xero_synced: true }).eq('id', invoice.id),
       (e) => console.warn('[photo-invoice] xero mirror failed:', e?.message),
@@ -1517,14 +1622,14 @@ const CAPABILITIES = [
   {
     capability: 'invoicing',
     provider: 'xero',
-    auth_kind: 'credentials_browserbase',
+    auth_kind: 'nango_oauth',
     label: 'Xero',
-    connectBlurb: 'your xero login',
+    connectBlurb: 'your xero account',
     tools: [
       {
         name: 'xero_send_invoice',
         confirm: true,
-        description: 'Create and email an invoice from the user\'s Xero account. Irreversible, so the user is asked to confirm first.',
+        description: "Create and email a sales invoice from the user's Xero account via the Xero API. Include client_email when known — without it the invoice is created but cannot be emailed. Irreversible, so the user is asked to confirm first.",
         parameters: {
           type: 'object',
           properties: {
@@ -1533,6 +1638,7 @@ const CAPABILITIES = [
             description: { type: 'string', description: 'what the invoice is for' },
             amount_cents: { type: 'number', description: 'integer cents' },
             date: { type: 'string', description: 'YYYY-MM-DD' },
+            due_date: { type: 'string', description: 'YYYY-MM-DD, defaults to the invoice date' },
           },
           required: ['client_name', 'amount_cents'],
         },
@@ -1542,10 +1648,10 @@ const CAPABILITIES = [
     ],
   },
   {
-    // Accounting-side expenses via the Xero API (OAuth through Nango). Distinct
-    // from the browserbase `invoicing` capability above, which also uses the
-    // "xero" provider key but reads a saved login from user_integrations — the
-    // two never clash because they read different stores (connections vs creds).
+    // Accounting-side expenses via the Xero API (OAuth through Nango). Shares
+    // the single 'xero' Nango connection with the `invoicing` capability above
+    // — nangoToken keys on the provider, so connecting Xero once lights up both
+    // invoicing and expenses rather than prompting twice.
     capability: 'expenses-accounting',
     provider: 'xero',
     auth_kind: 'nango_oauth',
@@ -1939,7 +2045,7 @@ const CAPABILITIES = [
       {
         name: 'save_login',
         confirm: false,
-        description: "Save a login the user just texted (email + password) for xero, a trade supplier account, or apple-calendar (iCloud email + app-specific password). Call this whenever the user provides credentials.",
+        description: "Save a login the user just texted (email + password) for a trade supplier account, or apple-calendar (iCloud email + app-specific password). Call this whenever the user provides those credentials. NEVER use it for Xero, MYOB or QuickBooks — accounting platforms connect by OAuth link only and their passwords must never be collected or stored.",
         parameters: {
           type: 'object',
           properties: {
@@ -2076,8 +2182,9 @@ function connectionFor(capability, ctx, args) {
       return row;
     }
   }
-  // Credential-based providers (browserbase suppliers/xero, apple-calendar):
-  // a saved login in user_integrations counts as connected.
+  // Credential-based providers (browserbase suppliers, apple-calendar):
+  // a saved login in user_integrations counts as connected. Xero is no longer
+  // one of these — it moved to OAuth.
   if (ak.startsWith('credentials') && ctx.userIntegrations[provider]?.email) {
     return { provider, status: 'connected', auth_kind: ak };
   }
