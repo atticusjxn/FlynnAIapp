@@ -45,6 +45,14 @@ function sha256(value) {
 }
 
 // E.164 -> Meta's expected hashed phone (digits only, no leading +).
+// Meta matches on any of ph/em/fbp/fbc. Email-only signups previously sent
+// none of them, so every conversion from an email account was dropped before it
+// reached Meta — invisible, because the call still "succeeded".
+function hashedEmail(email) {
+  const trimmed = String(email || '').trim().toLowerCase();
+  return trimmed.includes('@') ? sha256(trimmed) : null;
+}
+
 function hashedPhone(phone) {
   const digits = String(phone || '').replace(/[^\d]/g, '');
   return digits ? sha256(digits) : null;
@@ -66,16 +74,18 @@ function hashedPhone(phone) {
 async function track(eventName, opts = {}) {
   if (!isConfigured()) return { skipped: 'not_configured' };
   const {
-    phone, eventId, actionSource = 'website', eventSourceUrl,
+    phone, email, eventId, actionSource = 'website', eventSourceUrl,
     fbp, fbc, fbclid, clientIp, userAgent, customData,
   } = opts;
 
   const ph = hashedPhone(phone);
+  const em = hashedEmail(email);
   // Synthesise fbc from fbclid when the cookie wasn't captured.
   const fbcValue = fbc || (fbclid ? `fb.1.${Math.floor(Date.now() / 1000)}.${fbclid}` : null);
 
   const userData = {};
   if (ph) userData.ph = [ph];
+  if (em) userData.em = [em];
   if (fbp) userData.fbp = fbp;
   if (fbcValue) userData.fbc = fbcValue;
   if (clientIp) userData.client_ip_address = clientIp;
@@ -162,9 +172,10 @@ function trackActivated(phone, bridge = {}, customData) {
 //
 // `action_source: 'app'` is what Meta expects for an in-app purchase.
 
-function trackCompleteRegistration(phone, bridge = {}) {
+function trackCompleteRegistration(phone, bridge = {}, { email } = {}) {
   return track('CompleteRegistration', {
     phone,
+    email,
     actionSource: 'app',
     fbp: bridge.fbp,
     fbc: bridge.fbc,
@@ -172,9 +183,10 @@ function trackCompleteRegistration(phone, bridge = {}) {
   });
 }
 
-function trackStartTrial(phone, { value, currency = 'AUD', predictedLtv } = {}, bridge = {}) {
+function trackStartTrial(phone, { value, currency = 'AUD', predictedLtv, email } = {}, bridge = {}) {
   return track('StartTrial', {
     phone,
+    email,
     actionSource: 'app',
     fbp: bridge.fbp,
     fbc: bridge.fbc,
@@ -187,9 +199,10 @@ function trackStartTrial(phone, { value, currency = 'AUD', predictedLtv } = {}, 
   });
 }
 
-function trackSubscribe(phone, { value, currency = 'AUD' } = {}, bridge = {}) {
+function trackSubscribe(phone, { value, currency = 'AUD', email } = {}, bridge = {}) {
   return track('Subscribe', {
     phone,
+    email,
     actionSource: 'app',
     fbp: bridge.fbp,
     fbc: bridge.fbc,

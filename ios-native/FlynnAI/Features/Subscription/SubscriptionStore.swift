@@ -1,5 +1,6 @@
 import Foundation
 import StoreKit
+import FBSDKCoreKit
 import Observation
 
 /// StoreKit 2 subscription runtime.
@@ -126,6 +127,7 @@ final class SubscriptionStore {
                     "plan": subscriptionProduct.plan.name,
                     "is_paying": true,
                 ], onceOnly: ["first_purchase_at": ISO8601DateFormatter().string(from: Date())])
+                logAdConversion(product: subscriptionProduct, isTrial: isTrial)
                 return true
             case .userCancelled:
                 purchaseState = .idle
@@ -219,6 +221,50 @@ final class SubscriptionStore {
             await refreshEntitlement()
         case .unverified(_, let error):
             FlynnLog.network.error("Unverified transaction: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Report the conversion to Meta's **app** dataset via the Facebook SDK.
+    ///
+    /// This lives here, not in the view, because `isTrial` is only knowable from
+    /// the verified transaction, and the view had no way to see it — so a 7-day
+    /// trial (which charges nothing today) was logged as a full-price `Purchase`.
+    ///
+    /// Why an SDK app event rather than the server CAPI call that already
+    /// exists: Meta attributes an **app-install campaign** through the app
+    /// dataset (SDK / SKAdNetwork / Aggregated Event Measurement). The
+    /// server-side `trackStartTrial` in telephony/subscriptionService.js posts
+    /// to a *web pixel* with `action_source: "website"`, so it lands in the
+    /// wrong dataset to ever line up with app-install ads. The two are
+    /// complementary, not duplicates: the server call stays as the
+    /// Apple-verified record of truth (it can't be lost to the app being
+    /// killed mid-purchase), and this is the one an app campaign can read.
+    ///
+    /// Firing it now — while the campaign still optimises for installs — is
+    /// deliberate. Meta needs roughly 50 conversions a week to leave the
+    /// learning phase, which trial starts won't reach at A$40/day. But an event
+    /// with weeks of history behind it can be switched to as the optimisation
+    /// target the moment volume supports it, instead of starting from cold.
+    private func logAdConversion(product: SubscriptionProduct, isTrial: Bool) {
+        // Renewals arrive through Transaction.updates and must not re-fire the
+        // acquisition event.
+        let key = "ads.conversion.logged.\(product.product.id)"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+
+        let amount = NSDecimalNumber(decimal: product.product.price).doubleValue
+        let currency = product.product.priceFormatStyle.currencyCode
+
+        if isTrial {
+            // Value is the plan price as the *predicted* worth of the trial, not
+            // money taken today — which is what StartTrial means to Meta.
+            AppEvents.shared.logEvent(
+                .startTrial,
+                valueToSum: amount,
+                parameters: [.currency: currency, .contentID: product.product.id]
+            )
+        } else {
+            AppEvents.shared.logPurchase(amount: amount, currency: currency)
         }
     }
 

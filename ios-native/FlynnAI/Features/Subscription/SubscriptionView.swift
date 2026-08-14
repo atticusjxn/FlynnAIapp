@@ -306,15 +306,6 @@ struct SubscriptionView: View {
         Task {
             await store.purchase(product)
             if case .success = store.purchaseState {
-                // Log paid-conversion event for Meta + TikTok ad attribution.
-                // Deduped via UserDefaults so renewals don't fire it again.
-                let key = "ads.purchase.logged.\(product.product.id)"
-                if !UserDefaults.standard.bool(forKey: key) {
-                    let amount = NSDecimalNumber(decimal: product.product.price)
-                    let currency = product.product.priceFormatStyle.currencyCode
-                    AppEvents.shared.logPurchase(amount: amount.doubleValue, currency: currency)
-                    UserDefaults.standard.set(true, forKey: key)
-                }
                 flash.success("Welcome to \(product.plan.displayName)")
                 dismiss()
             } else if case .failed(let message) = store.purchaseState {

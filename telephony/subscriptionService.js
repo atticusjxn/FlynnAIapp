@@ -231,11 +231,15 @@ async function emitConversionAnalytics({ userId, plan, tx, isTrial, isActive }) 
 
   const { data: user } = await supabase
     .from('users')
-    .select('phone, phone_number')
+    .select('phone, phone_number, email')
     .eq('id', userId)
     .maybeSingle();
 
   const phone = user?.phone || user?.phone_number || null;
+  // Email is a valid Meta match key too. Without it, every conversion from an
+  // email-only signup was dropped before it left the server — and silently,
+  // because the guard below simply returned.
+  const email = user?.email || null;
 
   const tier = Object.values(PRICING.TIERS)
     .find((t) => t.appleProductId === tx.productId);
@@ -253,7 +257,7 @@ async function emitConversionAnalytics({ userId, plan, tx, isTrial, isActive }) 
   if (isTrial) analytics.capture(userId, analytics.EVENTS.TRIAL_STARTED, properties);
   if (isActive) analytics.capture(userId, analytics.EVENTS.SUBSCRIPTION_PURCHASED, properties);
 
-  if (!phone || !metaCapi.isConfigured()) return;
+  if ((!phone && !email) || !metaCapi.isConfigured()) return;
 
   const { data: bridge } = await supabase
     .from('capi_click_bridge')
@@ -265,12 +269,12 @@ async function emitConversionAnalytics({ userId, plan, tx, isTrial, isActive }) 
 
   if (isTrial) {
     await metaCapi
-      .trackStartTrial(phone, { value, currency: PRICING.CURRENCY }, bridge || {})
+      .trackStartTrial(phone, { value, currency: PRICING.CURRENCY, email }, bridge || {})
       .catch(() => {});
   }
   if (isActive) {
     await metaCapi
-      .trackSubscribe(phone, { value, currency: PRICING.CURRENCY }, bridge || {})
+      .trackSubscribe(phone, { value, currency: PRICING.CURRENCY, email }, bridge || {})
       .catch(() => {});
   }
 }
