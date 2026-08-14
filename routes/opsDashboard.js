@@ -219,17 +219,37 @@ async function fetchPostHogSummary() {
 let cache = { data: null, fetchedAt: 0 };
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+/**
+ * Number seeding — whether an org's Flynn number is reaching its clients.
+ *
+ * The one metric that decides whether inbound client text is reachable at all:
+ * it cannot be forwarded (no carrier SMS divert in AU, Twilio Hosted SMS is
+ * US/Canada only), so it only arrives on a number Flynn seeded into a client's
+ * phone. See services/smsSeeding.js for why this is a reply rate and not a
+ * "share of texts" — the latter has an unobservable denominator.
+ */
+async function fetchSeeding() {
+  try {
+    const { seedingByCohort, seedingSummary } = require('../services/smsSeeding');
+    const [cohort, summary] = await Promise.all([seedingByCohort({ weeks: 8 }), seedingSummary()]);
+    return { ok: true, cohort, summary };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
 async function loadDashboardData(forceRefresh) {
   if (!forceRefresh && cache.data && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
     return { ...cache.data, cached: true, fetchedAt: cache.fetchedAt };
   }
-  const [twilio, deepgram, openai, posthog] = await Promise.all([
+  const [twilio, deepgram, openai, posthog, seeding] = await Promise.all([
     fetchTwilioBalance(),
     fetchDeepgramBalance(),
     fetchOpenAIStatus(),
     fetchPostHogSummary(),
+    fetchSeeding(),
   ]);
-  const data = { twilio, deepgram, openai, posthog };
+  const data = { twilio, deepgram, openai, posthog, seeding };
   cache = { data, fetchedAt: Date.now() };
   return { ...data, cached: false, fetchedAt: cache.fetchedAt };
 }
@@ -369,6 +389,40 @@ function dashboardPage(data) {
     </div>`;
   }
 
+  // Number seeding. Averaged across orgs by week since each org's number went
+  // live, so a new signup doesn't drag week 8 down — read the curve, not a
+  // single figure. Weeks with no org that old are omitted rather than shown
+  // as zero, which would look like a collapse.
+  let seedingCard;
+  if (!data.seeding?.ok) {
+    seedingCard = providerCard('Number seeding', '#', data.seeding || { ok: false }, () => '');
+  } else {
+    const s = data.seeding.summary || {};
+    const cohort = data.seeding.cohort || [];
+    const byWeek = new Map();
+    for (const r of cohort) {
+      if (!Number(r.seeded_clients)) continue; // org not yet that old / nothing seeded
+      const w = byWeek.get(r.week) || { seeded: 0, replied: 0, orgs: 0 };
+      w.seeded += Number(r.seeded_clients || 0);
+      w.replied += Number(r.replied_clients || 0);
+      w.orgs += 1;
+      byWeek.set(r.week, w);
+    }
+    const weeks = [...byWeek.entries()].sort((a, b) => a[0] - b[0]);
+
+    seedingCard = `<div class="card"><h2>Number seeding <span class="badge ok">Live</span></h2>
+      <div class="amt">${s.seeded_clients ? Math.round((s.seeding_rate || 0) * 100) : 0}%</div>
+      <p class="muted">of seeded clients have replied on the org's own number
+        (${s.replied_clients || 0} of ${s.seeded_clients || 0}, across ${s.orgs_with_number || 0} org${s.orgs_with_number === 1 ? '' : 's'})</p>
+      ${weeks.length
+        ? `<div style="margin-top:10px">` + weeks.map(([w, v]) =>
+            `<div class="row"><span>Week ${w}</span><span class="n">${v.seeded ? Math.round((v.replied / v.seeded) * 100) : 0}% · ${v.replied}/${v.seeded}</span></div>`
+          ).join('') + `</div>`
+        : `<p class="muted" style="margin-top:8px">No clients seeded yet — this fills in once orgs start sending invoices, quotes and booking links from their own numbers.</p>`}
+      <p class="muted" style="margin-top:8px">Reply rate on threads Flynn created. Texts sent to the operator's personal mobile are invisible by construction, so this is deliberately not a share of all inbound.</p>
+    </div>`;
+  }
+
   const ageSeconds = Math.round((Date.now() - data.fetchedAt) / 1000);
 
   return `<!doctype html><html><head><meta charset="utf-8">
@@ -378,6 +432,7 @@ function dashboardPage(data) {
   <h1>Flynn Ops</h1>
   <p class="sub">Updated ${data.cached ? `${ageSeconds}s ago (cached)` : 'just now'} ·
     <a href="/ops?refresh=1">Refresh</a> · <a href="/ops/logout">Log out</a></p>
+  ${seedingCard}
   ${twilioCard}
   ${deepgramCard}
   ${openaiCard}

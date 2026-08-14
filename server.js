@@ -3896,7 +3896,17 @@ const scheduleRetentionSweep = () => {
   }, 0);
 };
 
-const sendConfirmationSms = async ({ to, body }) => {
+/**
+ * Send a client-facing SMS (quote, invoice, job confirmation).
+ *
+ * `userId`/`orgId` decide the sender: these all go to the business's OWN
+ * client, so they must come from that business's Flynn number, not the shared
+ * platform one — that thread is how the org's number reaches the client's
+ * phone, and inbound client SMS can only ever reach Flynn via a number the
+ * client already has (see services/orgSmsSender.js). Omitting both still sends,
+ * from the shared number, but seeds nothing.
+ */
+const sendConfirmationSms = async ({ to, body, userId = null, orgId = null }) => {
   if (!twilioMessagingClient) {
     throw new Error('Twilio messaging client is not configured.');
   }
@@ -3907,7 +3917,14 @@ const sendConfirmationSms = async ({ to, body }) => {
 
   const payload = { to, body };
 
-  if (twilioMessagingServiceSid) {
+  const { resolveSenderNumber } = require('./services/orgSmsSender');
+  const from = await resolveSenderNumber({ userId, orgId });
+
+  if (from) {
+    payload.from = from;
+  } else if (twilioMessagingServiceSid) {
+    // A messaging service picks a number from a pool, so the client can see a
+    // different sender each time — only acceptable when there is no org number.
     payload.messagingServiceSid = twilioMessagingServiceSid;
   } else if (twilioSmsFromNumber) {
     payload.from = twilioSmsFromNumber;
@@ -3916,6 +3933,13 @@ const sendConfirmationSms = async ({ to, body }) => {
   }
 
   const message = await twilioMessagingClient.messages.create(payload);
+
+  // Seeding half of the number metric — only counts when it went out from the
+  // org's own number (services/smsSeeding.js decides that).
+  require('./services/smsSeeding')
+    .recordClientSend({ to, body, fromNumber: payload.from, userId, orgId })
+    .catch(() => {});
+
   return message;
 };
 
@@ -5532,6 +5556,8 @@ app.post('/jobs/:id/confirm', async (req, res) => {
     await sendConfirmationSms({
       to: jobRecord.customer_phone,
       body: smsBody,
+      userId: jobRecord.user_id,
+      orgId: jobRecord.org_id,
     });
 
     console.log('[Jobs] Confirmation SMS queued.', {
@@ -6272,7 +6298,7 @@ app.post('/api/quotes/:id/send', authenticateJwt, async (req, res) => {
     const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('quote', quote, user);
     const businessName = user.business_name || user.full_name || 'Flynn';
     const smsBody = `Hi! Here's your quote ${quote.quote_number} from ${businessName}: ${pdfUrl}`;
-    await sendConfirmationSms({ to: toPhone, body: smsBody });
+    await sendConfirmationSms({ to: toPhone, body: smsBody, userId: user?.id, orgId });
     await supabaseStorageClient.from('quotes').update({
       sent_at: new Date().toISOString(),
       sent_to: toPhone,
@@ -6346,7 +6372,7 @@ app.post('/api/invoices/:id/send', authenticateJwt, async (req, res) => {
     const { pdfBuffer, pdfUrl } = await generatePDFAndUpload('invoice', invoice, user);
     const businessName = user.business_name || user.full_name || 'Flynn';
     const smsBody = `Hi! Here's your invoice ${invoice.invoice_number} from ${businessName}: ${pdfUrl}`;
-    await sendConfirmationSms({ to: toPhone, body: smsBody });
+    await sendConfirmationSms({ to: toPhone, body: smsBody, userId: user?.id, orgId });
     await supabaseStorageClient.from('invoices').update({
       sent_at: new Date().toISOString(),
       sent_to: toPhone,

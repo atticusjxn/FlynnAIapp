@@ -7,6 +7,7 @@ const { sanitiseReply } = require('../services/flynnTone');
 const { ensureAuthUser, generateAppLink } = require('../services/authLink');
 const { provisionDemoAccount, isDemoCode } = require('../services/demoAccount');
 const { isAgentAllowed } = require('../services/agentGate');
+const analytics = require('../services/analytics');
 
 const router = express.Router();
 
@@ -51,12 +52,59 @@ router.post('/inbound', async (req, res) => {
   // Twilio sends urlencoded body
   const from = (req.body?.From || '').trim();
   const body = (req.body?.Body || '').trim();
+  // Which Flynn number this arrived on. The shared platform number means the
+  // operator is texting Flynn; an assigned org number means one of THEIR
+  // clients is texting them — a different conversation with a different owner.
+  const to = (req.body?.To || '').trim();
 
   if (!from || !body) {
     return res.sendStatus(200);
   }
 
-  console.log('[SMSInbound] Received', { from, bodyLength: body.length });
+  const { classifyInbound, recordMessage } = require('../services/smsSeeding');
+  const attribution = await classifyInbound({ from, to, supabase })
+    .catch(() => ({ orgId: null, senderRole: 'unknown', onOrgNumber: false, toNumber: to }));
+
+  console.log('[SMSInbound] Received', {
+    from,
+    to,
+    bodyLength: body.length,
+    senderRole: attribution.senderRole,
+    onOrgNumber: attribution.onOrgNumber,
+  });
+
+  // A client texting the org's own Flynn number. This is the inbound half of
+  // number seeding (services/smsSeeding.js) and the thing the whole strategy
+  // rests on, so it is recorded and counted even though nothing answers it yet.
+  //
+  // It must NOT fall through to the operator agent below: that path treats the
+  // sender as the business owner — creating a user record, running the Business
+  // Brain and replying as if they had signed up. A client asking for a quote
+  // would be onboarded as a Flynn customer.
+  if (attribution.senderRole === 'client') {
+    await recordMessage({
+      supabase,
+      phone: from,
+      body,
+      direction: 'in',
+      toNumber: attribution.toNumber,
+      orgId: attribution.orgId,
+      senderRole: 'client',
+      channel: 'sms',
+    });
+
+    analytics.capture(attribution.orgId || analytics.anonId(from), analytics.EVENTS.CLIENT_SMS_RECEIVED, {
+      org_id: attribution.orgId,
+      to_number: attribution.toNumber,
+      body_length: body.length,
+    });
+
+    console.log('[SMSInbound] Client message recorded (no auto-reply yet).', {
+      orgId: attribution.orgId,
+      to,
+    });
+    return res.sendStatus(200);
+  }
 
   // Reviewer demo code (LATITUDE) over SMS — provision the seeded James persona
   // for Android reviewers, then return. Re-texting resets.
@@ -78,13 +126,16 @@ router.post('/inbound', async (req, res) => {
       reason: gate.reason,
       bodyLength: body.length,
     });
-    if (supabase) {
-      await supabase.from('sms_messages').insert({
-        user_phone: from,
-        direction: 'in',
-        body,
-      }).then(() => {}).catch(() => {});
-    }
+    await recordMessage({
+      supabase,
+      phone: from,
+      body,
+      direction: 'in',
+      toNumber: attribution.toNumber,
+      orgId: attribution.orgId,
+      senderRole: attribution.senderRole,
+      channel: 'sms',
+    });
     return res.sendStatus(200);
   }
 
@@ -197,14 +248,17 @@ router.post('/inbound', async (req, res) => {
       for (const row of (connectionsRes.data || [])) connections.set(row.provider, row);
     }
 
-    // Log inbound message
-    if (supabase) {
-      await supabase.from('sms_messages').insert({
-        user_phone: from,
-        direction: 'in',
-        body,
-      }).then(() => {}).catch(() => {});
-    }
+    // Log inbound message (operator -> Flynn, on the shared platform number).
+    await recordMessage({
+      supabase,
+      phone: from,
+      body,
+      direction: 'in',
+      toNumber: attribution.toNumber,
+      orgId: attribution.orgId,
+      senderRole: attribution.senderRole,
+      channel: 'sms',
+    });
 
     // Process with Flynn brain
     const result = await processMessage({

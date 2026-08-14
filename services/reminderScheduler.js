@@ -319,10 +319,18 @@ class ReminderScheduler {
         reminder.clients
       );
 
-      // Get phone number to send from (job's associated Flynn number)
-      const fromNumber = reminder.jobs.phone_number;
+      // Send from the org's own Flynn number so the client's thread belongs to
+      // the business, not to the platform. `jobs` has no phone_number column —
+      // reading one here threw on every reminder, which is why nothing in
+      // `scheduled_reminders` ever left 'failed'. Resolve from the job's owner.
+      const { resolveSenderNumber } = require('./orgSmsSender');
+      const fromNumber = await resolveSenderNumber({
+        userId: reminder.jobs?.user_id,
+        orgId: reminder.jobs?.org_id,
+        supabase: this.supabase,
+      });
       if (!fromNumber) {
-        throw new Error(`No phone number associated with job ${reminder.job_id}`);
+        throw new Error(`No sender number available for job ${reminder.job_id}`);
       }
 
       // Send SMS via Twilio
@@ -331,6 +339,16 @@ class ReminderScheduler {
         body: message,
         from: fromNumber,
       });
+
+      // Seeding half of the number metric (services/smsSeeding.js).
+      require('./smsSeeding').recordClientSend({
+        supabase: this.supabase,
+        to: reminder.recipient_phone,
+        body: message,
+        fromNumber,
+        orgId: reminder.jobs?.org_id,
+        userId: reminder.jobs?.user_id,
+      }).catch(() => {});
 
       // Update reminder status
       await this.supabase
@@ -467,10 +485,16 @@ class ReminderScheduler {
         throw new Error('Client phone number not found');
       }
 
-      // Get from phone number
-      const fromNumber = job.phone_number;
+      // Send from the org's own Flynn number (see sendReminder above — `jobs`
+      // has no phone_number column, so this path threw on every notification).
+      const { resolveSenderNumber } = require('./orgSmsSender');
+      const fromNumber = await resolveSenderNumber({
+        userId: job.user_id,
+        orgId: job.org_id,
+        supabase: this.supabase,
+      });
       if (!fromNumber) {
-        throw new Error('No phone number associated with job');
+        throw new Error('No sender number available for job');
       }
 
       // Send SMS
@@ -480,6 +504,16 @@ class ReminderScheduler {
         body: message,
         from: fromNumber,
       });
+
+      // Seeding half of the number metric (services/smsSeeding.js).
+      require('./smsSeeding').recordClientSend({
+        supabase: this.supabase,
+        to: clientPhone,
+        body: message,
+        fromNumber,
+        orgId: job.org_id,
+        userId: job.user_id,
+      }).catch(() => {});
 
       // Log to history
       await this.supabase.from('reminder_history').insert({

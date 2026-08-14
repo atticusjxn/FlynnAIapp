@@ -47,13 +47,13 @@ function renderTemplate(template, { businessName, url }) {
     .replace(/\{url\}/g, url || '');
 }
 
+// Delegates to the one shared resolver so this path and the invoice/quote/
+// reminder paths can't drift apart on sender identity (services/orgSmsSender.js
+// explains why the org's own number matters here). Same behaviour as before:
+// users.twilio_phone_number, falling back to TWILIO_FROM_NUMBER.
 async function resolveFromNumber(userId) {
-  const { data: user } = await supabase
-    .from('users')
-    .select('twilio_phone_number')
-    .eq('id', userId)
-    .maybeSingle();
-  return user?.twilio_phone_number || process.env.TWILIO_FROM_NUMBER || null;
+  const { resolveSenderNumber } = require('../services/orgSmsSender');
+  return resolveSenderNumber({ userId, supabase });
 }
 
 const FALLBACK_APOLOGY_PREFIX = "Sorry we just missed you — ";
@@ -129,6 +129,12 @@ async function sendLinkSMS({
         twilio_message_sid: messageId,
       },
     });
+
+    // Seeding half of the number metric. This is the highest-volume seeding
+    // event — every missed call puts the org's number in a caller's phone.
+    require('../services/smsSeeding')
+      .recordClientSend({ supabase, to: toNumber, body: messageBody, fromNumber, userId })
+      .catch(() => {});
 
     return { success: true, messageId };
   } catch (err) {

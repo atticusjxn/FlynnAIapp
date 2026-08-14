@@ -25,7 +25,7 @@ async function sendConfirmationSMS(booking, businessName) {
   const startDate = new Date(booking.start_time);
   const message = formatConfirmationMessage(booking, businessName, startDate);
 
-  return await sendSMS(booking.customer_phone, message);
+  return await sendSMS(booking.customer_phone, message, booking.org_id);
 }
 
 /**
@@ -40,21 +40,31 @@ async function sendReminderSMS(booking, businessName, hoursUntil) {
   const startDate = new Date(booking.start_time);
   const message = formatReminderMessage(booking, businessName, startDate, hoursUntil);
 
-  return await sendSMS(booking.customer_phone, message);
+  return await sendSMS(booking.customer_phone, message, booking.org_id);
 }
 
 /**
- * Internal: Send SMS via Twilio
+ * Internal: Send SMS via Twilio.
+ *
+ * `orgId` picks the sender. These go to the business's own customer, so they
+ * must come from that business's Flynn number — a confirmation the customer
+ * can reply to is how the number gets into their phone, and a reply to a
+ * shared platform number can't be attributed back to an org. See
+ * services/orgSmsSender.js.
  */
-async function sendSMS(to, body) {
+async function sendSMS(to, body, orgId = null) {
   try {
     const messageOptions = {
       to,
       body,
     };
 
-    // Use messaging service SID if available, otherwise use from number
-    if (twilioMessagingServiceSid) {
+    const { resolveSenderNumber } = require('./orgSmsSender');
+    const from = await resolveSenderNumber({ orgId });
+
+    if (from) {
+      messageOptions.from = from;
+    } else if (twilioMessagingServiceSid) {
       messageOptions.messagingServiceSid = twilioMessagingServiceSid;
     } else if (twilioSmsFromNumber) {
       messageOptions.from = twilioSmsFromNumber;
@@ -64,6 +74,12 @@ async function sendSMS(to, body) {
 
     const message = await twilioClient.messages.create(messageOptions);
     console.log('[SMS] Message sent:', message.sid);
+
+    // Seeding half of the number metric (services/smsSeeding.js).
+    require('./smsSeeding')
+      .recordClientSend({ to, body, fromNumber: messageOptions.from, orgId })
+      .catch(() => {});
+
     return message.sid;
   } catch (error) {
     console.error('[SMS] Failed to send message:', error);

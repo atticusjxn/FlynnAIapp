@@ -329,6 +329,28 @@ router.post('/assign-number', authenticateJwt, async (req, res) => {
       return res.status(500).json({ error: 'assignment failed' });
     }
 
+    // Point the number's SMS webhook at the inbound handler. `allocate_pool_number`
+    // is a SQL RPC and sets only the voice URL, so without this the number answers
+    // calls but silently drops every text a client sends it — and a text to the
+    // org's own number is the ONLY way inbound client SMS can reach Flynn (AU
+    // carriers have no SMS divert, Twilio Hosted SMS is US/Canada only). Best
+    // effort: a webhook failure must not cost the user the number they just paid
+    // for. scripts/wire-sms-webhooks.js repairs any that slip through.
+    try {
+      const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      const [incoming] = await twilioClient.incomingPhoneNumbers.list({ phoneNumber, limit: 1 });
+      if (incoming) {
+        await twilioClient.incomingPhoneNumbers(incoming.sid).update({
+          smsUrl: `${process.env.SERVER_URL || 'https://flynnai-telephony.fly.dev'}/webhooks/sms/inbound`,
+          smsMethod: 'POST',
+        });
+      } else {
+        console.warn('[VoiceOnboarding] Number not found in Twilio; SMS webhook not set.', { phoneNumber });
+      }
+    } catch (err) {
+      console.warn('[VoiceOnboarding] Failed to set SMS webhook.', { phoneNumber, error: err.message });
+    }
+
     await supabase
       .from('voice_onboarding_sessions')
       .update({ state: 'receptionist_live', updated_at: new Date().toISOString() })

@@ -87,6 +87,14 @@ const EVENTS = {
   INVOICE_SENT: 'invoice_sent',
   INVOICE_PAID: 'invoice_paid',
   CHASE_SENT: 'chase_sent',
+
+  // Number seeding — a client texting the org's OWN Flynn number. Inbound
+  // client SMS cannot be forwarded into Flynn (no carrier SMS divert in AU,
+  // Twilio Hosted SMS is US/Canada only), so it only ever arrives on a number
+  // Flynn put in that client's phone via an earlier outbound message. This
+  // event firing at all is the proof the strategy works — see
+  // services/smsSeeding.js.
+  CLIENT_SMS_RECEIVED: 'client_sms_received',
 };
 
 /**
