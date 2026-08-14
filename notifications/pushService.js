@@ -1,6 +1,6 @@
 const http2 = require('http2');
 const jwt = require('jsonwebtoken');
-const { listNotificationTokensForUser } = require('../supabaseMcpClient');
+const { listNotificationTokensForUser, getNotificationPrefsForUser } = require('../supabaseMcpClient');
 
 const VALID_RESPONSE_STATUSES = new Set([200, 201, 202]);
 
@@ -281,6 +281,18 @@ const sendPushNotificationsToUser = async ({ userId, title, body, data = {} }) =
 const sendJobCreatedNotification = async ({ userId, job }) => {
   if (!userId || !job) {
     return { attempted: 0, sent: 0 };
+  }
+
+  // Honour the "Calls answered" toggle in Settings.
+  //
+  // That switch writes notification_prefs.new_call, and telephony/pushNotifier.js
+  // checks it — but this notification goes out through a different path
+  // (multi-token FCM+APNs fan-out) that never read prefs at all. So the toggle
+  // was the only user control over the one push the receptionist actually
+  // sends, and turning it off did nothing.
+  const prefs = await getNotificationPrefsForUser({ userId });
+  if (prefs.new_call === false) {
+    return { attempted: 0, sent: 0, skipped: 'user_disabled' };
   }
 
   const title = 'Job captured';

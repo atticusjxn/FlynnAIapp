@@ -157,7 +157,10 @@ final class OnboardingModel {
     private static let stateKey = "flynn.onboardingState"
 
     init() {
-        if let snap = Self.restoreState(), snap.step != .welcome, snap.step != .done {
+        // `.done` restores like any other step: reaching it means the funnel is
+        // finished, and dropping a killed-at-done session back to `.welcome`
+        // used to charge them through a second demo call and a second paywall.
+        if let snap = Self.restoreState(), snap.step != .welcome {
             step = snap.step
             trade = snap.trade
             businessName = snap.businessName
@@ -174,6 +177,13 @@ final class OnboardingModel {
             step = s
         }
         #endif
+
+        // Captured once so the sync markComplete() can record completion
+        // against this account rather than the device.
+        Task { [weak self] in
+            let id = try? await FlynnSupabase.client.auth.session.user.id.uuidString
+            await MainActor.run { self?.currentUserId = id }
+        }
     }
 
     private func persistState() {
@@ -239,6 +249,15 @@ final class OnboardingModel {
     var forwardingDialled = false
     enum ForwardingStatus { case idle, verifying, verified, unconfirmed }
     var forwardingStatus: ForwardingStatus = .idle
+    /// Only true when the server actually rang the number and heard Flynn pick
+    /// up. Deliberately outside the persisted snapshot — a divert can be turned
+    /// off between launches, so a resumed session must re-earn the confident
+    /// copy rather than inherit it.
+    var forwardingVerified = false
+
+    /// Set once the wizard is done or skipped, so work still in flight (the demo
+    /// call poll) knows to stop instead of running on inside the main app.
+    private(set) var finished = false
 
     // Demo call
     enum DemoStatus { case idle, ringing, completed, failed }
@@ -259,11 +278,21 @@ final class OnboardingModel {
     /// appeared, before the user had tapped anything.
     func advance(to next: OnboardingStep) {
         step = next
-        persistState()
+        // Landing on `.done` is the funnel completing — bank it immediately so a
+        // kill on that screen can't send them back through the demo call and the
+        // paywall. RootView only reads the flag when it decides first-run, so
+        // setting it here doesn't yank the screen out from under them.
+        if next == .done {
+            markComplete()
+        } else {
+            persistState()
+        }
     }
 
     func next() { if let n = step.next { advance(to: n) } }
-    func back() { if let p = step.previous { step = p } }
+    // Going back has to persist too, or a resumed session lands further down the
+    // funnel than the user actually was.
+    func back() { if let p = step.previous { advance(to: p) } }
 
     /// Save the business profile, then advance. Shows the button's loading state
     /// while the PATCH is in flight.
@@ -330,6 +359,11 @@ final class OnboardingModel {
         // captures the transcript on hang-up. Poll for ~2 minutes at 2s.
         for _ in 0..<60 {
             try? await Task.sleep(for: .seconds(2))
+            // Skipping or walking on leaves this loop running for two minutes
+            // inside the main app: dozens of authed requests, and a
+            // demo_call_completed landing long after the user left the funnel,
+            // which reads as a conversion that never happened.
+            guard step == .demoCall, !finished else { return }
             guard let status = try? await VoiceOnboardingClient.demoCallStatus(id: id) else { continue }
             switch status.status {
             case "completed":
@@ -368,14 +402,17 @@ final class OnboardingModel {
     }
 
     /// After the user dials the divert code, ask the server to confirm it via a
-    /// test call. When the feature is off (prod default) this just proceeds on
-    /// their confirmation.
+    /// test call. When the server can't check (the feature is off — the prod
+    /// default) we move on but never claim it's confirmed: a carrier divert can
+    /// fail silently, and telling someone Flynn is answering when it isn't costs
+    /// them every call they miss.
     func verifyForwarding() async {
         forwardingStatus = .verifying
         do {
             let start = try await VoiceOnboardingClient.startForwardingVerify()
             guard start.enabled, let id = start.verificationId else {
                 forwardingStatus = .idle
+                forwardingVerified = false
                 advance(to: .done)
                 return
             }
@@ -385,6 +422,7 @@ final class OnboardingModel {
                 switch result.status {
                 case "verified":
                     forwardingStatus = .verified
+                    forwardingVerified = true
                     Analytics.capture(.forwardingVerified)
                     advance(to: .done)
                     return
@@ -402,12 +440,52 @@ final class OnboardingModel {
     }
 
     func markComplete() {
-        UserDefaults.standard.set(true, forKey: OnboardingModel.completeKey)
+        finished = true
+        Self.markComplete(userId: currentUserId)
         Self.clearState()
     }
 
+    /// The signed-in user, captured at init so `markComplete()` — which is
+    /// called from sync UI actions — can record completion against the right
+    /// account without an await.
+    private(set) var currentUserId: String?
+
+    // Onboarding completion is PER ACCOUNT, not per device.
+    //
+    // It used to be a single global bool. Sign out, sign in as someone else on
+    // the same phone, and RootView sent the new account straight to MainTabView:
+    // no wizard, no paywall, no number — permanently, because the flag stayed
+    // set across relaunches. Recording the id of each account that finished
+    // keeps the device's history without leaking it between users.
+    static let completedIdsKey = "flynn.onboardingCompletedUserIds"
+
+    /// Legacy device-wide flag. Still read once, so anyone who completed
+    /// onboarding on a build before this change isn't sent back through it.
     static let completeKey = "flynn.onboardingComplete"
-    static var isComplete: Bool { UserDefaults.standard.bool(forKey: completeKey) }
+
+    static func isComplete(userId: String?) -> Bool {
+        guard let userId else { return false }
+        if completedUserIds().contains(userId) { return true }
+        // One-time migration: a pre-existing global flag counts for whoever is
+        // signed in when we first see it, and is upgraded to the keyed form.
+        if UserDefaults.standard.bool(forKey: completeKey) {
+            markComplete(userId: userId)
+            UserDefaults.standard.removeObject(forKey: completeKey)
+            return true
+        }
+        return false
+    }
+
+    static func markComplete(userId: String?) {
+        guard let userId else { return }
+        var ids = completedUserIds()
+        ids.insert(userId)
+        UserDefaults.standard.set(Array(ids), forKey: completedIdsKey)
+    }
+
+    private static func completedUserIds() -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: completedIdsKey) ?? [])
+    }
 }
 
 // MARK: - Steps enum

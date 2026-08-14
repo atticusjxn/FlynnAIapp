@@ -447,7 +447,10 @@ struct DemoCallStep: View {
     private var subtitle: String {
         switch status {
         case .completed:
-            return "Every call you miss gets answered like that — and the job lands on your Home screen, ready to send."
+            // This was a demo against the user's own phone: no job row is
+            // written and nobody gets texted, so the copy can only describe
+            // what the call itself did.
+            return "That was a test run, so nothing's been saved or sent. Once you're live, calls like that get booked in and the caller gets the link below."
         case .failed:
             return "We couldn't reach your phone just now. Give it another go, or skip and set Flynn live — you can always test it later."
         default:
@@ -475,7 +478,7 @@ struct DemoCallStep: View {
 
     private var payoffCard: some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
-            Label("Job captured", systemImage: "checkmark.seal.fill")
+            Label("What Flynn heard", systemImage: "checkmark.seal.fill")
                 .flynnType(FlynnTypography.overline)
                 .foregroundColor(FlynnColor.success)
             Text(jobTitle)
@@ -488,7 +491,7 @@ struct DemoCallStep: View {
                     .lineLimit(4)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("Flynn took the details, texted the caller back, and left it on your Home screen ready to quote or invoice.")
+                Text("Flynn worked out the job from the call. On a real one it books it into your calendar and texts the caller back.")
                     .flynnType(FlynnTypography.bodyMedium)
                     .foregroundColor(FlynnColor.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -536,6 +539,13 @@ struct PaywallStep: View {
     @Bindable var model: OnboardingModel
     let onStart: () -> Void
 
+    @Environment(SubscriptionStore.self) private var store
+
+    /// Featured tier first, so the card order matches the real paywall sheet.
+    private var tiers: [SubscriptionProduct] {
+        store.products.sorted { $0.isMostPopular && !$1.isMostPopular }
+    }
+
     var body: some View {
         WizardScaffold(
             eyebrow: "Go live",
@@ -543,8 +553,17 @@ struct PaywallStep: View {
             subtitle: "Cancel anytime before it ends and you won't be charged."
         ) {
             VStack(spacing: FlynnSpacing.sm) {
-                tier("Flynn Receptionist", price: "$69", blurb: "Flynn answers your calls, books the job, invoices and chases payment.", featured: true)
-                tier("Flynn Link", price: "$29", blurb: "Missed-call booking link, invoices, quotes and the in-app voice agent.", featured: false)
+                if tiers.isEmpty {
+                    // Prices come from StoreKit and are storefront-specific, so
+                    // there is no safe number to print before they resolve —
+                    // hardcoding one shows a US reviewer AUD pricing that never
+                    // matches the sheet they're about to see.
+                    pendingTiers
+                } else {
+                    ForEach(tiers) { item in
+                        tier(item)
+                    }
+                }
             }
             .padding(.top, FlynnSpacing.sm)
         } footer: {
@@ -556,25 +575,59 @@ struct PaywallStep: View {
             }
         }
         .onAppear { Analytics.capture(.paywallViewed, ["source": "onboarding"]) }
+        // The store is bootstrapped at launch, but a signup that started offline
+        // would otherwise sit on the neutral card for the rest of the funnel.
+        .task { if store.products.isEmpty { await store.load() } }
     }
 
-    private func tier(_ name: String, price: String, blurb: String, featured: Bool) -> some View {
-        VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+    /// Presentational only. Picking a plan happens on the real StoreKit paywall
+    /// that "Start free trial" opens, so a tappable card here would fight it.
+    private func tier(_ item: SubscriptionProduct) -> some View {
+        let featured = item.isMostPopular
+        return VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
             HStack(alignment: .firstTextBaseline) {
-                Text(name).flynnType(FlynnTypography.h3).foregroundColor(FlynnColor.textPrimary)
+                Text(item.plan.displayName)
+                    .flynnType(FlynnTypography.h3)
+                    .foregroundColor(FlynnColor.textPrimary)
                 Spacer()
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text(price).flynnType(FlynnTypography.h2).foregroundColor(featured ? FlynnColor.primary : FlynnColor.textPrimary)
+                    Text(item.displayPrice)
+                        .flynnType(FlynnTypography.h2)
+                        .foregroundColor(featured ? FlynnColor.primary : FlynnColor.textPrimary)
                     Text("/mo").flynnType(FlynnTypography.caption).foregroundColor(FlynnColor.textTertiary)
                 }
             }
-            Text(blurb).flynnType(FlynnTypography.bodyMedium).foregroundColor(FlynnColor.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            ForEach(item.plan.features, id: \.self) { line in
+                Text(line)
+                    .flynnType(FlynnTypography.bodyMedium)
+                    .foregroundColor(FlynnColor.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let intro = item.introOfferDescription {
+                Text(intro)
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.primary)
+            }
         }
         .padding(FlynnSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .flynnCardSurface(featured ? .raised : .quiet,
                           borderColor: featured ? FlynnColor.primary : FlynnColor.border)
+    }
+
+    private var pendingTiers: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+            Text("Two plans")
+                .flynnType(FlynnTypography.h3)
+                .foregroundColor(FlynnColor.textPrimary)
+            Text("Flynn Link gets you the missed-call booking link, invoices and quotes. Flynn Receptionist adds the bit where Flynn answers the call and books the job. Both start with 7 days free, and you'll see the price for your region on the next screen.")
+                .flynnType(FlynnTypography.bodyMedium)
+                .foregroundColor(FlynnColor.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(FlynnSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .flynnCardSurface(.quiet)
     }
 }
 
@@ -744,9 +797,7 @@ struct DoneStep: View {
                 Text("You're all set")
                     .flynnType(FlynnTypography.displayMedium)
                     .foregroundColor(FlynnColor.textPrimary)
-                Text(model.forwardingDialled
-                     ? "Flynn's answering your missed calls now. Snap a photo when a job's done and it'll invoice and chase it for you."
-                     : "Flynn's ready. Divert your calls any time from Settings, and it starts answering.")
+                Text(closingLine)
                     .flynnType(FlynnTypography.bodyLarge)
                     .foregroundColor(FlynnColor.textSecondary)
                     .multilineTextAlignment(.center)
@@ -756,5 +807,19 @@ struct DoneStep: View {
         }
         .padding(.horizontal, FlynnSpacing.lg)
         .padding(.bottom, FlynnSpacing.md)
+    }
+
+    /// Only the server-verified path gets to say Flynn is answering. Most
+    /// signups can't be checked automatically, and a carrier divert that quietly
+    /// didn't take costs them every call they miss, so those get told how to
+    /// check for themselves instead.
+    private var closingLine: String {
+        if model.forwardingVerified {
+            return "Flynn's answering your missed calls now. Hold the mic on Home to raise an invoice, and Flynn chases it until it's paid."
+        }
+        if model.forwardingDialled {
+            return "Your divert's dialled, but we couldn't confirm it from here. Ring your number from another phone and let it go unanswered, and Flynn should pick up."
+        }
+        return "Flynn's ready. Divert your calls any time from Settings, and it starts answering."
     }
 }

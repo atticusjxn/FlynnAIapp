@@ -118,9 +118,14 @@ struct LoginView: View {
                     .foregroundColor(FlynnColor.textSecondary)
             }
 
-            Text("By continuing, you accept our Terms & Privacy Policy.")
+            // Apple checks that the terms a user is being asked to accept are
+            // actually reachable from the screen asserting the consent. This was
+            // plain text. Markdown in a `Text` gives real tappable links without
+            // rebuilding the line out of concatenated views.
+            Text("By continuing, you accept our [Terms](https://flynnai.app/terms) and [Privacy Policy](https://flynnai.app/privacy).")
                 .flynnType(FlynnTypography.caption)
                 .foregroundColor(FlynnColor.textTertiary)
+                .tint(FlynnColor.primary)
                 .multilineTextAlignment(.center)
                 .padding(.top, FlynnSpacing.xs)
         }

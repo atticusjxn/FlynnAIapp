@@ -13,6 +13,9 @@ FlynnAI.xcworkspace/
 
 ## Secrets
 FlynnAI/Config/Secrets.local.xcconfig
+## App Store Connect API key ids for CI uploads (the .p8 itself lives in
+## ~/.appstoreconnect/private_keys/ and is never in the repo)
+FlynnAI/Config/AppStoreConnect.local.env
 
 ## Swift Package Manager caches
 .swiftpm/

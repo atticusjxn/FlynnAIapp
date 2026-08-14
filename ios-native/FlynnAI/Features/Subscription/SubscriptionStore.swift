@@ -16,14 +16,23 @@ import Observation
 final class SubscriptionStore {
     enum LoadState: Equatable { case idle, loading, loaded, error(String) }
     enum PurchaseState: Equatable { case idle, purchasing(productId: String), failed(String), success }
+    /// Outcome of the last "Restore purchases" tap. Reviewers press this button on
+    /// every submission, and silence reads as a broken app, so the result is
+    /// observable state rather than a fire-and-forget task.
+    enum RestoreState: Equatable { case idle, restoring, restored, nothingToRestore, failed(String) }
 
     private(set) var loadState: LoadState = .idle
     private(set) var purchaseState: PurchaseState = .idle
+    private(set) var restoreState: RestoreState = .idle
     private(set) var products: [SubscriptionProduct] = []
     private(set) var currentEntitlement: SubscriptionEntitlement?
 
     private let plansRepository: PlansRepositoryType
     private var plansCatalog: [PlanDTO] = []
+    /// Stand-in plans for verified entitlements the catalog can't name, keyed by
+    /// App Store product id. Cached so `currentEntitlement` stays stable (and
+    /// Equatable-equal) across refreshes instead of churning a fresh UUID each time.
+    private var fallbackPlans: [String: PlanDTO] = [:]
     private var transactionListenerTask: Task<Void, Never>?
 
     init(plansRepository: PlansRepositoryType = PlansRepository()) {
@@ -116,24 +125,43 @@ final class SubscriptionStore {
         }
     }
 
+    /// Restores from the App Store and reports what happened via `restoreState`.
+    ///
+    /// `AppStore.sync()` succeeding does not mean anything was restored, so the
+    /// entitlement is what decides between "restored" and "nothing to restore".
     func restorePurchases() async {
+        restoreState = .restoring
         do {
             try await AppStore.sync()
             await refreshEntitlement()
+            restoreState = currentEntitlement == nil ? .nothingToRestore : .restored
         } catch {
             FlynnLog.network.error("AppStore.sync failed: \(error.localizedDescription, privacy: .public)")
+            restoreState = .failed(error.localizedDescription)
         }
+    }
+
+    /// Clear the restore result once a view has shown it.
+    func acknowledgeRestore() {
+        restoreState = .idle
     }
 
     // MARK: - Entitlement
 
+    /// A verified StoreKit entitlement is the source of truth for "is this user
+    /// paying" — the Supabase `plans` catalog only supplies the label.
+    ///
+    /// This used to require both: if the catalog fetch failed, or the user held a
+    /// grandfathered product id that is no longer `is_active` (and so is filtered
+    /// out of the catalog), a genuinely paying customer was treated as unentitled
+    /// and stranded on the paywall with no way past it. Now the entitlement always
+    /// stands and the plan degrades to a stand-in when we can't name it.
     func refreshEntitlement() async {
         for await result in Transaction.currentEntitlements {
-            if case let .verified(transaction) = result,
-               let plan = plan(forProductID: transaction.productID)
-            {
+            if case let .verified(transaction) = result {
                 currentEntitlement = SubscriptionEntitlement(
-                    plan: plan,
+                    plan: plan(forProductID: transaction.productID)
+                        ?? fallbackPlan(forProductID: transaction.productID),
                     transactionId: transaction.id,
                     originalTransactionId: transaction.originalID,
                     expiresAt: transaction.expirationDate,
@@ -201,6 +229,32 @@ final class SubscriptionStore {
 
     private func plan(forProductID productID: String) -> PlanDTO? {
         plansCatalog.first { $0.appleProductId == productID }
+    }
+
+    /// A minimal plan for an entitlement the catalog can't name.
+    ///
+    /// `SubscriptionEntitlement.plan` is non-optional and read all over the app,
+    /// so a stand-in beats making it optional and half-migrating every caller.
+    /// The name is deliberately generic: we know they're paying, we just don't
+    /// know which tier, and guessing a tier name would be worse than saying so.
+    /// `aiMinutesMonthly` matches the Receptionist allowance (250, see the
+    /// two_tier_plans migration) so an unnamed but verified subscriber is never
+    /// shown less than they've paid for. Metering itself is server-side.
+    private func fallbackPlan(forProductID productID: String) -> PlanDTO {
+        if let cached = fallbackPlans[productID] { return cached }
+        let plan = PlanDTO(
+            id: UUID(),
+            name: "unknown",
+            displayName: "Flynn subscription",
+            appleProductId: productID,
+            priceMonthlyAud: 0,
+            aiMinutesMonthly: 250,
+            includesVoiceClone: false,
+            isActive: true
+        )
+        fallbackPlans[productID] = plan
+        FlynnLog.network.error("Entitled to \(productID, privacy: .public) but no matching plan in the catalog; using a stand-in")
+        return plan
     }
 
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {

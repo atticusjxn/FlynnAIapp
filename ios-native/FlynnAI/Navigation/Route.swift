@@ -72,11 +72,13 @@ enum Route: Hashable, Codable, Sendable {
     case settingsSection(SettingsSection)
 }
 
+/// Settings destinations. Every case must render a real screen — `DeepLinkRouter`
+/// resolves `flynnai://settings/<rawValue>` straight off this enum, so a case with
+/// nothing behind it is a blank screen a reviewer can reach. `bookingPage` and
+/// `businessType` were exactly that and have been removed.
 enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
     case businessProfile
-    case bookingPage
     case billing
-    case businessType
     case integrations
     case notifications
     case appearance
@@ -89,9 +91,7 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
     var title: String {
         switch self {
         case .businessProfile: return "Business Profile"
-        case .bookingPage: return "Booking Page"
         case .billing: return "Billing & Plans"
-        case .businessType: return "Business Type"
         case .integrations: return "Connected Apps"
         case .notifications: return "Notifications"
         case .appearance: return "Appearance"
@@ -106,9 +106,7 @@ enum SettingsSection: String, Hashable, Codable, Sendable, CaseIterable {
     var systemImage: String {
         switch self {
         case .businessProfile: return "building.2"
-        case .bookingPage: return "calendar.badge.plus"
         case .billing: return "creditcard"
-        case .businessType: return "tag"
         case .integrations: return "square.stack.3d.up"
         case .notifications: return "bell"
         case .appearance: return "paintbrush"

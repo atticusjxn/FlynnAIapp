@@ -19,21 +19,27 @@ struct DrawerButton: View {
     }
 }
 
-/// Wispr-style side drawer: profile + plan at the top, then Settings / Account /
-/// Help / Support / referral. Settings and Account are presented as sheets so the
-/// drawer stays decoupled from the per-tab navigation stacks.
+/// Wispr-style side drawer: profile + plan at the top, then Help & support,
+/// Settings and Account. All three are presented as sheets so the drawer stays
+/// decoupled from the per-tab navigation stacks.
 struct DrawerView: View {
-    @Environment(DrawerController.self) private var drawer
     @Environment(FlashStore.self) private var flash
     @Environment(SubscriptionStore.self) private var subscription
-    @Environment(\.openURL) private var openURL
 
     @State private var email: String = ""
     @State private var name: String = ""
     @State private var showingSettings = false
     @State private var showingAccount = false
+    @State private var showingSupport = false
 
-    private var isPro: Bool { subscription.currentEntitlement != nil }
+    /// Badge next to the name. The tiers Flynn actually sells are Flynn Link and
+    /// Flynn Receptionist — there is no "Free" tier and no "Pro", so the badge
+    /// shows the entitlement's own display name, and "Trial" while the intro
+    /// offer is running. No entitlement means no badge rather than a made-up one.
+    private var planBadge: String? {
+        guard let entitlement = subscription.currentEntitlement else { return nil }
+        return entitlement.isInIntroOffer ? "Trial" : entitlement.plan.displayName
+    }
     private var initials: String {
         let source = name.isEmpty ? email : name
         let first = source.first.map { String($0).uppercased() } ?? "F"
@@ -51,13 +57,12 @@ struct DrawerView: View {
                 VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
                     // The "Get a free month" referral row was removed — it was
                     // the top item and did nothing but flash "coming soon".
-                    row(icon: "questionmark.circle", title: "Help center", external: true) {
-                        close()
-                        if let url = URL(string: "https://flynn.so/help") { openURL(url) }
-                    }
-                    row(icon: "bubble.left.and.text.bubble.right", title: "Talk to support") {
-                        close()
-                        if let url = URL(string: "mailto:support@flynn.so") { openURL(url) }
+                    // These two used to open flynn.so — a domain Flynn doesn't own —
+                    // and mailto:support@flynn.so, an address nobody reads. Both are
+                    // links a reviewer taps. They now open the real in-app SupportView,
+                    // which carries the actual support address and help centre.
+                    row(icon: "questionmark.circle", title: "Help & support") {
+                        showingSupport = true
                     }
 
                     Divider().padding(.vertical, FlynnSpacing.xs)
@@ -83,6 +88,19 @@ struct DrawerView: View {
         .sheet(isPresented: $showingAccount) {
             NavigationStack { AccountView() }.flynnFlashOverlay()
         }
+        .sheet(isPresented: $showingSupport) {
+            NavigationStack {
+                // SupportView is normally pushed from Settings, so it carries no
+                // dismiss of its own. Presented as a sheet it needs one.
+                SupportView()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Done") { showingSupport = false }
+                        }
+                    }
+            }
+            .flynnFlashOverlay()
+        }
     }
 
     private var profileHeader: some View {
@@ -97,12 +115,15 @@ struct DrawerView: View {
                     Text(name.isEmpty ? "Flynn" : name)
                         .flynnType(FlynnTypography.h4)
                         .foregroundColor(FlynnColor.textPrimary)
-                    Text(isPro ? "Pro" : "Free")
-                        .flynnType(FlynnTypography.caption)
-                        .foregroundColor(isPro ? .white : FlynnColor.textSecondary)
-                        .padding(.horizontal, FlynnSpacing.xs)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(isPro ? FlynnColor.primary : FlynnColor.backgroundSecondary))
+                    if let planBadge {
+                        Text(planBadge)
+                            .flynnType(FlynnTypography.caption)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                            .padding(.horizontal, FlynnSpacing.xs)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(FlynnColor.primary))
+                    }
                 }
                 if !email.isEmpty {
                     Text(email)
@@ -115,7 +136,9 @@ struct DrawerView: View {
         }
     }
 
-    private func row(icon: String, title: String, external: Bool = false, action: @escaping () -> Void) -> some View {
+    /// Every drawer row now opens something inside the app, so there's no
+    /// external-link affordance left to draw.
+    private func row(icon: String, title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: FlynnSpacing.sm) {
                 Image(systemName: icon)
@@ -126,20 +149,11 @@ struct DrawerView: View {
                     .flynnType(FlynnTypography.bodyMedium)
                     .foregroundColor(FlynnColor.textPrimary)
                 Spacer()
-                if external {
-                    Image(systemName: "arrow.up.right")
-                        .font(.caption)
-                        .foregroundColor(FlynnColor.textTertiary)
-                }
             }
             .padding(.vertical, FlynnSpacing.sm)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    private func close() {
-        drawer.isOpen = false
     }
 
     private func loadProfile() async {

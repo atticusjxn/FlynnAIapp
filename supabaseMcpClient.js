@@ -1150,6 +1150,30 @@ const listNotificationTokensForUser = async ({ userId }) => {
   return Array.isArray(result.rows) ? result.rows : [];
 };
 
+/**
+ * The user's per-category push toggles (`users.notification_prefs`), or {}.
+ *
+ * Absent/unset means opted IN — the app writes an explicit `false` when a
+ * toggle is turned off, so a missing key must not be read as a refusal.
+ */
+const getNotificationPrefsForUser = async ({ userId }) => {
+  if (!userId) return {};
+  const query = `
+    select notification_prefs
+    from public.users
+    where id = ${sqlString(userId)}
+    limit 1;
+  `;
+  try {
+    const result = await executeSql(query);
+    return result.rows?.[0]?.notification_prefs || {};
+  } catch (err) {
+    // Never let a prefs lookup failure swallow a notification the user wants.
+    console.warn('[Push] notification_prefs lookup failed, sending anyway:', err?.message);
+    return {};
+  }
+};
+
 const recordCallEvent = async ({
   orgId,
   numberId,
@@ -1288,6 +1312,7 @@ module.exports = {
   getReceptionistProfileById,
   upsertNotificationToken,
   listNotificationTokensForUser,
+  getNotificationPrefsForUser,
   findExpiredRecordingCalls,
   markCallRecordingExpired,
   updateCallRecordingSignedUrl,

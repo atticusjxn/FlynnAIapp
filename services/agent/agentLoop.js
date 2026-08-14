@@ -260,31 +260,17 @@ function parseArgs(toolCall) {
   }
 }
 
-/**
- * When the agent acts on a tool that matches an open group-chat item, mark that
- * item actioned so it stops being suggested. Matching: same suggested_tool;
- * if several share it, prefer the one whose suggested_args overlaps. Mutates
- * openItems (removes the matched one). Fires on execute, confirm-park, or
- * connect-park alike — once the boss engages an item it shouldn't re-nag.
- */
-async function reconcileActionedItem(openItems, toolName, args, supabase) {
-  if (!openItems.length || !supabase) return;
-  const candidates = openItems.filter((it) => it.suggested_tool === toolName);
-  if (!candidates.length) return;
-
-  let match = candidates[0];
-  if (candidates.length > 1) {
-    const argVals = new Set(Object.values(args || {}).map((v) => String(v).toLowerCase()));
-    match = candidates.find((it) => Object.values(it.suggested_args || {}).some((v) => argVals.has(String(v).toLowerCase()))) || candidates[0];
-  }
-
-  openItems.splice(openItems.indexOf(match), 1);
-  await supabase
-    .from('group_action_items')
-    .update({ status: 'actioned', updated_at: new Date().toISOString() })
-    .eq('id', match.id)
-    .then(() => {}, () => {});
-}
+// REMOVED: reconcileActionedItem()
+//
+// It marked an open group-chat suggestion as actioned once the boss engaged
+// with it. The group-chat note-taker went with the BlueBubbles relay in Gate
+// 5.3 and its `group_action_items` table is dropped by
+// 20260813040000_drop_group_chats.sql. Both producers of `openActionItems` now
+// yield an empty list (routes/dashboard.js passes [], routes/smsInbound.js
+// never passed it at all), so the function was unreachable and its UPDATE
+// would only have been a failing round-trip. `openItemsBlock` below is left in
+// place: it returns '' for an empty list, so it is inert and self-documenting
+// if the concept ever comes back.
 
 // The unfinished task, phrased as a hook for the paywall upsell ("want me to
 // send that invoice?"). Null falls back to a generic line.
@@ -376,10 +362,6 @@ async function runAgentTurn({ phone, user, message, supabase, connections, userI
         respond('tool error: arguments were not valid JSON, try again');
         continue;
       }
-
-      // Acting on a tool that matches an open group item retires it (whether it
-      // executes, parks for confirm, or parks for connect below).
-      await reconcileActionedItem(openItems, entry.tool.name, args, supabase);
 
       // Paywall gate — metered "doing" tools stop past the free budget (chat
       // and read-only tools stay free). No-op unless FLYNN_PAYWALL=1.

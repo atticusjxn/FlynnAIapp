@@ -108,8 +108,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.flynnai.app
-        MARKETING_VERSION: "3.0.3"
-        CURRENT_PROJECT_VERSION: "126"
+        MARKETING_VERSION: "4.0.0"
+        CURRENT_PROJECT_VERSION: "127"
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
         DEVELOPMENT_TEAM: "69T5H7R46N"

@@ -31,6 +31,7 @@
 		3371C0B1B372325415B7C3C1 /* CallDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5395FEB668E1F948BA680091 /* CallDTO.swift */; };
 		35322A42150BF7C820F99A23 /* UsageRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690A992D6B1C2C271410CB44 /* UsageRepository.swift */; };
 		363BB0BFE4B93673F3F11E41 /* DrawerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808796E92F5458FA568F07FE /* DrawerView.swift */; };
+		3C4B16FD1F04DB4D2378D40C /* AppStoreConnect.local.env in Resources */ = {isa = PBXBuildFile; fileRef = 3744CAC02816E49E218D30A1 /* AppStoreConnect.local.env */; };
 		3D70FA356070B8560F81FF28 /* SpaceGrotesk-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5C078DD7E5E6C3554E646290 /* SpaceGrotesk-SemiBold.ttf */; };
 		3E143E4A306E82730B2826DE /* FlynnListSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF79741B26EF1D911C7CC08D /* FlynnListSurface.swift */; };
 		3F58426588B07DA3FB97736F /* CallDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26C53E5CA46F41099460726B /* CallDetailView.swift */; };
@@ -214,6 +215,7 @@
 		3284EEA9F7EA3080348CEA6B /* QuoteStyleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteStyleModels.swift; sourceTree = "<group>"; };
 		355F5E44CAB6D203E0036B66 /* BrainGapNudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainGapNudge.swift; sourceTree = "<group>"; };
 		3642B3195654DB0D3B3A2259 /* CallRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallRow.swift; sourceTree = "<group>"; };
+		3744CAC02816E49E218D30A1 /* AppStoreConnect.local.env */ = {isa = PBXFileReference; path = AppStoreConnect.local.env; sourceTree = "<group>"; };
 		3877C4B8799F263E94966490 /* VoiceOnboardingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceOnboardingClient.swift; sourceTree = "<group>"; };
 		38C1A3B2F65832B51916B550 /* OnboardingWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWizard.swift; sourceTree = "<group>"; };
 		39D87686ACB6D633F1CF99BE /* FlynnAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlynnAIApp.swift; sourceTree = "<group>"; };
@@ -467,6 +469,7 @@
 		38C1550773F9D78125E44C0E /* Config */ = {
 			isa = PBXGroup;
 			children = (
+				3744CAC02816E49E218D30A1 /* AppStoreConnect.local.env */,
 				545C1E1D9D2F3CCA25B34FEA /* Debug.xcconfig */,
 				0CFD85ED27485A69E3CFCA2E /* Info.plist */,
 				8B66E6CBC21D1302A0377272 /* Release.xcconfig */,
@@ -877,6 +880,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3C4B16FD1F04DB4D2378D40C /* AppStoreConnect.local.env in Resources */,
 				5C897390762D58061AD07A1B /* Assets.xcassets in Resources */,
 				32879064D29CECA25A15E73A /* FlynnAI.storekit in Resources */,
 				891174ECB56A17A7BAF78B6A /* Inter-Medium.ttf in Resources */,
@@ -1059,7 +1063,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 126;
+				CURRENT_PROJECT_VERSION = 127;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1069,7 +1073,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0.3;
+				MARKETING_VERSION = 4.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.flynnai.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1083,7 +1087,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 126;
+				CURRENT_PROJECT_VERSION = 127;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1093,7 +1097,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0.3;
+				MARKETING_VERSION = 4.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.flynnai.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";

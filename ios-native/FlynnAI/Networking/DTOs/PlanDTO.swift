@@ -28,7 +28,11 @@ struct PlanDTO: Codable, Identifiable, Hashable, Sendable {
         case "link":
             return [
                 "Missed-call booking link sent automatically",
-                "Invoices & quotes with photos",
+                // Deliberately not "with photos": there is no way to attach a
+                // photo to an invoice from iOS today, and this string is sold
+                // on both the paywall and the onboarding pricing step.
+                "Invoices and quotes, drafted by voice",
+                "Chased automatically until they're paid",
             ]
         default:
             return []

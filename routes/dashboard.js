@@ -54,6 +54,38 @@ function requireDb(res) {
   return true;
 }
 
+/**
+ * Gate a dashboard endpoint on the caller having a mobile number.
+ *
+ * Everything behind these routes is phone-keyed: pending_actions,
+ * user_integrations, user_connections and sms_messages all join on user_phone,
+ * and agentLoop derives the org (resolveOrgContext), the timezone
+ * (timezoneFromPhone) and the currency (currencyFromPhone) from the number
+ * itself. Substituting a synthetic key would resolve no org and silently pick
+ * the wrong currency and timezone, which is worse than declining to answer.
+ *
+ * Phone-OTP is the default signup path so this only bites the email fallback,
+ * but it previously surfaced as a bare 404 "user not found" on every turn —
+ * which reads as the app being broken rather than as something fixable. 409 +
+ * a `phone_required` code lets the client say something useful instead.
+ *
+ * Returns false (and has already responded) when the caller can't proceed.
+ */
+function requirePhone(res, user) {
+  if (!user) {
+    res.status(404).json({ error: 'user not found' });
+    return false;
+  }
+  if (!user.phone) {
+    res.status(409).json({
+      error: 'Add your mobile number to use this',
+      code: 'phone_required',
+    });
+    return false;
+  }
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/dashboard/manifest
 // ---------------------------------------------------------------------------
@@ -61,7 +93,7 @@ router.get('/api/dashboard/manifest', authenticateJwt, async (req, res) => {
   if (!requireDb(res)) return;
   try {
     const user = await resolveUser(req);
-    if (!user?.phone) return res.status(404).json({ error: 'user not found' });
+    if (!requirePhone(res, user)) return;
 
     let current = await generator.getCurrentManifest({ phone: user.phone, supabase });
     if (!current || generator.isManifestStale(current)) {
@@ -92,7 +124,7 @@ router.post('/api/dashboard/regenerate', authenticateJwt, async (req, res) => {
   if (!requireDb(res)) return;
   try {
     const user = await resolveUser(req);
-    if (!user?.phone) return res.status(404).json({ error: 'user not found' });
+    if (!requirePhone(res, user)) return;
     const out = await generator.generateManifest({ phone: user.phone, supabase, force: true });
     return res.json(out);
   } catch (err) {
@@ -108,7 +140,7 @@ router.get('/api/dashboard/widget-data', authenticateJwt, async (req, res) => {
   if (!requireDb(res)) return;
   try {
     const user = await resolveUser(req);
-    if (!user?.phone) return res.status(404).json({ error: 'user not found' });
+    if (!requirePhone(res, user)) return;
     const type = String(req.query.type || '');
     const widget = generator.WIDGETS.find((w) => w.type === type);
     if (!widget) return res.status(400).json({ error: 'unknown widget type' });
@@ -189,7 +221,7 @@ router.post('/api/dashboard/action', authenticateJwt, async (req, res) => {
   if (!requireDb(res)) return;
   try {
     const user = await resolveUser(req);
-    if (!user?.phone) return res.status(404).json({ error: 'user not found' });
+    if (!requirePhone(res, user)) return;
 
     const { tool_name: toolName, args = {}, confirmed = false } = req.body || {};
     const entry = registry.findTool(toolName);
@@ -266,9 +298,9 @@ router.post('/api/dashboard/agent-turn', authenticateJwt, async (req, res) => {
       .select('id, phone, business_brain, onboarding_step, preferred_channel, is_demo')
       .eq('id', req.user.id)
       .maybeSingle();
-    if (!user?.phone) return res.status(404).json({ error: 'user not found' });
+    if (!requirePhone(res, user)) return;
 
-    const [pendingRes, integrationsRes, connectionsRes, openItemsRes] = await Promise.all([
+    const [pendingRes, integrationsRes, connectionsRes] = await Promise.all([
       supabase
         .from('pending_actions')
         .select('*')
@@ -285,17 +317,15 @@ router.post('/api/dashboard/agent-turn', authenticateJwt, async (req, res) => {
         .from('user_connections')
         .select('*')
         .eq('user_phone', user.phone),
-      supabase
-        .from('group_action_items')
-        .select('id, summary, category, suggested_tool, suggested_args, urgency')
-        .eq('owner_phone', user.phone)
-        .in('status', ['new', 'sent'])
-        .order('created_at', { ascending: true })
-        .limit(20),
     ]);
 
     const pendingAction = pendingRes.data || null;
-    const openActionItems = openItemsRes.data || [];
+    // group_action_items belonged to the group-chat note-taker, deleted with the
+    // BlueBubbles relay in Gate 5.3 and dropped by
+    // 20260813040000_drop_group_chats.sql. Querying it here only ever cost a
+    // failing round-trip per agent turn — the error was swallowed by
+    // `openItemsRes.data || []`, so it showed up as latency, not a crash.
+    const openActionItems = [];
     const userIntegrations = {};
     for (const row of integrationsRes.data || []) {
       try { userIntegrations[row.integration_type] = decryptCredentials(row.credentials_encrypted); } catch { /* skip */ }

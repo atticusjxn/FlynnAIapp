@@ -13,6 +13,10 @@ struct AccountView: View {
     @State private var name: String = ""
     @State private var working = false
     @State private var showDeleteConfirat = false
+    /// Shown inline under the Account section as well as via the flash overlay.
+    /// A destructive action that quietly failed is the worst kind of failure, so
+    /// the message stays on screen rather than sliding away after a few seconds.
+    @State private var deleteError: String?
 
     var body: some View {
         ScrollView {
@@ -24,7 +28,7 @@ struct AccountView: View {
                         if let url = URL(string: "https://apps.apple.com/account/subscriptions") { openURL(url) }
                     }
                     actionRow(icon: "arrow.clockwise", title: "Restore purchases") {
-                        Task { await subscription.restorePurchases() }
+                        Task { await restorePurchases() }
                     }
                 }
 
@@ -34,6 +38,18 @@ struct AccountView: View {
                     }
                     actionRow(icon: "trash", title: "Delete account", destructive: true) {
                         showDeleteConfirat = true
+                    }
+                    if let deleteError {
+                        Text(deleteError)
+                            .flynnType(FlynnTypography.bodyMedium)
+                            .foregroundColor(FlynnColor.error)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(FlynnSpacing.sm)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: FlynnRadii.sm, style: .continuous)
+                                    .fill(FlynnColor.errorLight)
+                            )
                     }
                 }
             }
@@ -119,18 +135,61 @@ struct AccountView: View {
         } catch {}
     }
 
+    /// Restore always says what happened. Tapping a button that gives no answer
+    /// either way is the single most common thing a reviewer flags on this screen.
+    private func restorePurchases() async {
+        working = true
+        await subscription.restorePurchases()
+        switch subscription.restoreState {
+        case .restored:
+            flash.success("Your subscription is back on this device.")
+        case .nothingToRestore:
+            flash.info("No subscription found on this Apple Account.")
+        case .failed:
+            flash.error("Couldn't reach the App Store. Try again in a moment.")
+        case .idle, .restoring:
+            break
+        }
+        subscription.acknowledgeRestore()
+        working = false
+    }
+
+    /// Deletes the account server-side, then signs out.
+    ///
+    /// The ORDER and the status check both matter. This previously discarded the
+    /// response and signed out unconditionally, so a 401/403/500 from the backend
+    /// looked exactly like a successful deletion: the user was logged out, their
+    /// account and data were still on the server, and they had no way to tell.
+    /// That is an App Store 5.1.1(v) rejection and a real data-retention problem.
+    /// Only a 2xx counts as deleted; anything else leaves the session intact so
+    /// the user can try again.
     private func deleteAccount() async {
         working = true
+        deleteError = nil
         do {
             let session = try await FlynnSupabase.client.auth.session
             var req = URLRequest(url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent("me/account/delete"))
             req.httpMethod = "POST"
             req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
-            _ = try await URLSession.shared.data(for: req)
+            let (_, response) = try await URLSession.shared.data(for: req)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200..<300).contains(status) else {
+                FlynnLog.network.error("Account delete returned \(status, privacy: .public)")
+                reportDeleteFailure()
+                working = false
+                return
+            }
             await auth.signOut()
         } catch {
-            flash.error("Couldn't delete account — try again")
+            FlynnLog.network.error("Account delete failed: \(error.localizedDescription, privacy: .public)")
+            reportDeleteFailure()
         }
         working = false
+    }
+
+    private func reportDeleteFailure() {
+        let message = "We couldn't delete your account. Nothing has been removed. Try again, or email support@flynnai.app."
+        deleteError = message
+        flash.error(message)
     }
 }

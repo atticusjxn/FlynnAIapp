@@ -14,6 +14,11 @@ struct RootView: View {
         case none
     }
     @State private var firstRun: FirstRun = .undecided
+    /// Which account `firstRun` was decided for. Sign out, sign in as someone
+    /// else on the same phone, and the old decision must not carry over — that
+    /// sent the new account straight past the wizard, the paywall and number
+    /// assignment, permanently.
+    @State private var decidedForUserId: String?
 
     var body: some View {
         ZStack {
@@ -21,6 +26,17 @@ struct RootView: View {
             FlashBanner()
                 .zIndex(50)
         }
+        .onChange(of: signedInUserId) { _, newId in
+            guard newId != decidedForUserId else { return }
+            firstRun = .undecided
+            decidedForUserId = nil
+        }
+    }
+
+    /// The signed-in account's id, or nil when signed out.
+    private var signedInUserId: String? {
+        if case .signedIn(let userID, _) = auth.state { return userID.uuidString }
+        return nil
     }
 
     @ViewBuilder
@@ -62,7 +78,8 @@ struct RootView: View {
             return
         }
         #endif
-        if FlynnDemo.isOn || OnboardingModel.isComplete {
+        decidedForUserId = signedInUserId
+        if FlynnDemo.isOn || OnboardingModel.isComplete(userId: signedInUserId) {
             firstRun = .none
             return
         }
@@ -74,7 +91,7 @@ struct RootView: View {
     }
 
     private func completeFirstRun() {
-        UserDefaults.standard.set(true, forKey: OnboardingModel.completeKey)
+        OnboardingModel.markComplete(userId: signedInUserId)
         firstRun = .none
     }
 }

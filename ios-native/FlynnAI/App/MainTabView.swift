@@ -122,8 +122,6 @@ struct MainTabView: View {
             LegalView(kind: .terms)
         case .account:
             AccountView()
-        case .bookingPage, .businessType:
-            PlaceholderDetailView(title: section.title, id: nil)
         }
     }
 
@@ -158,22 +156,7 @@ struct MainTabView: View {
         }
     }
 }
-
-struct PlaceholderDetailView: View {
-    let title: String
-    let id: UUID?
-
-    var body: some View {
-        VStack(spacing: FlynnSpacing.sm) {
-            Text(title).flynnType(FlynnTypography.h2)
-            if let id {
-                Text(id.uuidString)
-                    .flynnType(FlynnTypography.bodySmall)
-                    .foregroundColor(FlynnColor.textSecondary)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(FlynnColor.background)
-        .navigationTitle(title)
-    }
-}
+// PlaceholderDetailView is gone with the last two sections that used it
+// (`bookingPage`, `businessType`). It drew a title and nothing else, and both
+// sections were reachable in Release by deep link, so a reviewer following
+// flynnai://settings/bookingPage landed on a blank titled screen.

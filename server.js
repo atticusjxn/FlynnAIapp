@@ -2476,18 +2476,27 @@ app.post('/api/scrape-website', authenticateJwt, async (req, res) => {
   console.log('[API] Scraping website and generating config:', { url, userId, applyConfig });
 
   try {
-    // Check 24-hour scrape cache in business_profiles
-    if (supabaseStorageClient) {
+    // Check the 24-hour scrape cache.
+    //
+    // This never once hit. It selected `scraped_context`, a column that does
+    // not exist on business_profiles (the write path stores
+    // `website_scrape_data`), so Postgrest errored and `cached` came back
+    // null every time — and it keyed on user_id, which is NULL for 103 of the
+    // 130 production rows, so it would have missed anyway. Net effect: every
+    // "re-scan" in Brain paid for a fresh Gemini URL-context scrape and made
+    // the user wait up to two minutes, even seconds after the last one.
+    const cacheOrgId = await defaultOrgIdForUser(userId);
+    if (supabaseStorageClient && cacheOrgId) {
       const { data: cached } = await supabaseStorageClient
         .from('business_profiles')
-        .select('scraped_context, updated_at')
-        .eq('user_id', userId)
+        .select('website_scrape_data, updated_at')
+        .eq('org_id', cacheOrgId)
         .maybeSingle();
-      if (cached?.scraped_context && cached?.updated_at) {
+      if (cached?.website_scrape_data && cached?.updated_at) {
         const ageMs = Date.now() - new Date(cached.updated_at).getTime();
         if (ageMs < 86400000) {
           console.log('[API] Returning cached scrape for user:', userId);
-          const sc = cached.scraped_context;
+          const sc = cached.website_scrape_data;
           return res.status(200).json({
             success: true,
             url,
@@ -2677,6 +2686,24 @@ app.post('/api/demo/start-voice-session', authenticateJwt, (req, res) => {
  * Keying on org_id instead hits the row that actually exists, and stamps
  * user_id on the way past so the column backfills as people save.
  */
+/**
+ * The caller's `users.default_org_id`, or null.
+ *
+ * Deliberately distinct from the imported `resolveOrgIdForUser`, which resolves
+ * through org_members by role priority. business_profiles rows are created by
+ * the signup trigger against default_org_id, so anything reading or writing
+ * that table has to key on the same column or it silently misses.
+ */
+async function defaultOrgIdForUser(userId) {
+  if (!supabaseStorageClient || !userId) return null;
+  const { data } = await supabaseStorageClient
+    .from('users')
+    .select('default_org_id')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.default_org_id || null;
+}
+
 async function writeBusinessProfile(userId, updates) {
   const { data: userRow, error: userErr } = await supabaseStorageClient
     .from('users')
@@ -2835,39 +2862,18 @@ app.post('/api/receptionist/apply-config', authenticateJwt, async (req, res) => 
   }
 });
 
-/**
- * Get business profile for organization (called by AI during calls)
- */
-app.get('/api/business-profile/:orgId', async (req, res) => {
-  const { orgId } = req.params;
-
-  if (!orgId) {
-    return res.status(400).json({ error: 'Organization ID required' });
-  }
-
-  try {
-    console.log('[Business Profile] Fetching profile for org:', orgId);
-
-    // Use the Supabase function to get business context
-    const { data, error } = await supabaseAdmin.rpc('get_business_context_for_org', {
-      p_org_id: orgId,
-    });
-
-    if (error) {
-      console.error('[Business Profile] Database error:', error);
-      throw new Error(error.message);
-    }
-
-    if (!data) {
-      return res.status(404).json({ error: 'Business profile not found' });
-    }
-
-    res.status(200).json(data);
-  } catch (error) {
-    console.error('[Business Profile] Error:', error);
-    res.status(500).json({ error: 'Failed to get business profile' });
-  }
-});
+// REMOVED: GET /api/business-profile/:orgId
+//
+// Unauthenticated, and an org UUID was the only thing standing between a
+// stranger and another business's name, pricing notes, AI instructions and
+// service areas — via a service-role RPC that bypasses RLS. Org ids are not
+// secret; one leaks through the Google Calendar OAuth `state` parameter alone.
+//
+// Its doc comment claimed it was "called by AI during calls", but nothing
+// called it: no iOS call site, no landing-page call site, and the telephony
+// path invokes get_business_context_for_org directly in-process
+// (supabaseMcpClient.js). It was an unauthenticated read of tenant data with
+// no consumer, so it's deleted rather than gated.
 
 const FREE_DRAFTS_PER_DAY = parseIntegerEnv(process.env.FREE_DRAFTS_PER_DAY, 10);
 
