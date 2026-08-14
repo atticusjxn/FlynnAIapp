@@ -1,0 +1,78 @@
+<!--
+  Supabase Auth → Email Templates → "Confirm signup".
+
+  Paste the body below into the dashboard. Supabase substitutes {{ .ConfirmationURL }}.
+  Subject: Confirm your email
+
+  Written as table-layout with inline styles on purpose: Outlook and the Gmail
+  web client strip <style> blocks and ignore flex/grid, and this is the first
+  thing a paying customer ever sees from Flynn.
+
+  Colours are the Flynn tokens verbatim — cream #F4E6CE ground, ink #2C2018,
+  one orange #FB5B1E on the button and nowhere else, 3px ink outline.
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F4E6CE;margin:0;padding:32px 12px;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background-color:#FFFBF4;border:3px solid #2C2018;border-radius:16px;">
+        <tr>
+          <td style="padding:32px 32px 0 32px;">
+            <div style="font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;font-weight:700;color:#FB5B1E;letter-spacing:-0.5px;line-height:1;">
+              Flynn
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px 0 32px;">
+            <h1 style="margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:28px;line-height:34px;font-weight:700;color:#2C2018;">
+              Confirm your email
+            </h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 32px 0 32px;">
+            <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#5A4A3C;">
+              Tap the button and Flynn's ready to start answering the calls you can't get to.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px 0 32px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="background-color:#FB5B1E;border:3px solid #2C2018;border-radius:30px;">
+                  <a href="{{ .ConfirmationURL }}"
+                     style="display:inline-block;padding:14px 32px;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:17px;font-weight:700;color:#FFFBF4;text-decoration:none;">
+                    Confirm email
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px 0 32px;">
+            <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#8C7B6A;">
+              Button not working? Paste this into your browser:
+            </p>
+            <p style="margin:6px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#FB5B1E;word-break:break-all;">
+              {{ .ConfirmationURL }}
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px 32px 32px;">
+            <div style="border-top:1px solid #DCCDB2;padding-top:16px;">
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#8C7B6A;">
+                Didn't sign up for Flynn? Ignore this and nothing happens.
+              </p>
+            </div>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:16px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#8C7B6A;">
+        Flynn &middot; Never miss a job. Never chase a payment.
+      </p>
+    </td>
+  </tr>
+</table>
