@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import UserNotifications
 import Supabase
 
 /// Mirror of `users.notification_prefs` jsonb column. Keys are stable strings
@@ -19,6 +21,15 @@ final class NotificationsSettingsStore {
 
     private(set) var loadState: LoadState = .idle
     var prefs: NotificationPrefs = .default
+
+    /// Whether iOS itself will deliver anything.
+    ///
+    /// These toggles only ever read `users.notification_prefs`, so someone who
+    /// tapped "Don't Allow" saw three switches sitting proudly on while the OS
+    /// dropped every push on the floor. The screen has to say that, and it has
+    /// to offer the only route that fixes it, because notification permission
+    /// can't be asked for twice.
+    private(set) var systemAuthorized = true
 
     private let client: SupabaseClient
 
@@ -45,7 +56,23 @@ final class NotificationsSettingsStore {
         }
     }
 
-    func save() async {
+    func refreshSystemAuthorization() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            systemAuthorized = true
+        case .denied, .notDetermined:
+            systemAuthorized = false
+        @unknown default:
+            systemAuthorized = true
+        }
+    }
+
+    /// Returns whether the write actually landed. It used to log the failure and
+    /// return, leaving the switch flipped over a value that was never saved —
+    /// the setting would silently revert the next time the screen loaded.
+    @discardableResult
+    func save() async -> Bool {
         struct Patch: Encodable { let notification_prefs: NotificationPrefs }
         do {
             let session = try await client.auth.session
@@ -54,14 +81,17 @@ final class NotificationsSettingsStore {
                 .update(Patch(notification_prefs: prefs))
                 .eq("id", value: session.user.id.uuidString)
                 .execute()
+            return true
         } catch {
             FlynnLog.network.error("saveNotificationPrefs failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 }
 
 struct NotificationsSettingsView: View {
     @Environment(FlashStore.self) private var flash
+    @Environment(\.scenePhase) private var scenePhase
     @State private var store = NotificationsSettingsStore()
 
     var body: some View {
@@ -78,7 +108,10 @@ struct NotificationsSettingsView: View {
                         .flynnType(FlynnTypography.bodyMedium)
                         .foregroundColor(FlynnColor.error)
                 case .loaded:
+                    if !store.systemAuthorized { systemDeniedBanner }
                     togglesSection
+                        .disabled(!store.systemAuthorized)
+                        .opacity(store.systemAuthorized ? 1 : 0.5)
                 }
             }
             .padding(FlynnSpacing.lg)
@@ -86,7 +119,48 @@ struct NotificationsSettingsView: View {
         .background(FlynnColor.background)
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.large)
-        .task { await store.load() }
+        .task {
+            await store.load()
+            await store.refreshSystemAuthorization()
+        }
+        // They may have just come back from the Settings app having turned it on.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await store.refreshSystemAuthorization() }
+        }
+    }
+
+    private var systemDeniedBanner: some View {
+        VStack(alignment: .leading, spacing: FlynnSpacing.xs) {
+            Text("Notifications are off for Flynn")
+                .flynnType(FlynnTypography.h4)
+                .foregroundColor(FlynnColor.textPrimary)
+            Text("iOS is blocking these, so none of them arrive no matter what's switched on here. Turn them back on in Settings.")
+                .flynnType(FlynnTypography.bodyMedium)
+                .foregroundColor(FlynnColor.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            FlynnButton(title: "Open Settings", action: openSystemSettings, variant: .secondary)
+        }
+        .padding(FlynnSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .flynnCardSurface(.quiet)
+    }
+
+    private func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+    }
+
+    /// Flip optimistically, then put it back if the write didn't land.
+    private func setPref(_ keyPath: WritableKeyPath<NotificationPrefs, Bool>, _ newValue: Bool) {
+        let previous = store.prefs[keyPath: keyPath]
+        store.prefs[keyPath: keyPath] = newValue
+        Task {
+            if await store.save() == false {
+                store.prefs[keyPath: keyPath] = previous
+                flash.error("Couldn't save that. Check your connection and try again.")
+            }
+        }
     }
 
     private var header: some View {
@@ -108,7 +182,7 @@ struct NotificationsSettingsView: View {
                 subtitle: "When Flynn answers a call and captures a job for you.",
                 isOn: Binding(
                     get: { store.prefs.new_call },
-                    set: { v in store.prefs.new_call = v; Task { await store.save() } }
+                    set: { v in setPref(\.new_call, v) }
                 )
             )
             toggleRow(
@@ -117,7 +191,7 @@ struct NotificationsSettingsView: View {
                 subtitle: "A heads-up before you reach your plan's limit.",
                 isOn: Binding(
                     get: { store.prefs.usage_warning },
-                    set: { v in store.prefs.usage_warning = v; Task { await store.save() } }
+                    set: { v in setPref(\.usage_warning, v) }
                 )
             )
             toggleRow(
@@ -126,7 +200,7 @@ struct NotificationsSettingsView: View {
                 subtitle: "A reminder before your trial converts to paid.",
                 isOn: Binding(
                     get: { store.prefs.trial_ending },
-                    set: { v in store.prefs.trial_ending = v; Task { await store.save() } }
+                    set: { v in setPref(\.trial_ending, v) }
                 )
             )
         }

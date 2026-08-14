@@ -434,13 +434,7 @@ struct InvoiceDetailView: View {
     }
 
     private func markPaid() async {
-        // Accept "1,452.00", "$1452" and "1452" — this gets typed one-handed in
-        // a ute, not into a finance package.
-        let cleaned = paidAmountText
-            .replacingOccurrences(of: "$", with: "")
-            .replacingOccurrences(of: ",", with: "")
-            .trimmingCharacters(in: .whitespaces)
-        guard let amount = Double(cleaned), amount > 0 else {
+        guard let amount = FlynnFormatter.parseAmount(paidAmountText), amount > 0 else {
             flash.error("Enter an amount")
             return
         }

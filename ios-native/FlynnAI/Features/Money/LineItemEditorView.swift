@@ -29,7 +29,12 @@ struct LineItemEditorView: View {
                         Text("Unit price")
                             .foregroundColor(FlynnColor.textSecondary)
                         Spacer()
-                        TextField("0.00", value: $draft.unitPrice, format: .currency(code: "AUD"))
+                        // The only hardcoded currency literal left in the app.
+                        // It read "AUD" on a New Zealand operator's line items
+                        // while every other money string on the screen came
+                        // through FlynnFormatter's code.
+                        TextField("0.00", value: $draft.unitPrice,
+                                  format: .currency(code: FlynnFormatter.defaultCurrencyCode))
                             .multilineTextAlignment(.trailing)
                             .keyboardType(.decimalPad)
                             .frame(width: 120)

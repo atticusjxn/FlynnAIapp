@@ -26,6 +26,45 @@ enum FlynnFormatter {
         currency(Decimal(value), code: code)
     }
 
+    /// Parses a hand-typed money amount into a number.
+    ///
+    /// This gets typed one-handed in a ute, so it has to accept "$1,452.00",
+    /// "1452", "1452.5" and — on a phone set to a European locale, where the
+    /// decimal pad's separator key is a comma — "1234,50".
+    ///
+    /// The old rule stripped every comma before calling `Double.init`, which
+    /// turned that last one into 123450: a hundredfold overcharge written
+    /// straight onto a financial record. `NumberFormatter` isn't the fix either,
+    /// because it only accepts its own locale's separators and would then reject
+    /// the "1452.00" an Australian phone produces.
+    ///
+    /// So the rule here is locale-independent and decided by shape: the LAST
+    /// `.` or `,` is the decimal separator when one or two digits follow it;
+    /// every other separator is grouping and is dropped. That reads "1,452.00"
+    /// and "1.452,50" both as 1452.5, and "1,452" as 1452, without ever needing
+    /// to know which country the phone thinks it's in.
+    static func parseAmount(_ raw: String) -> Double? {
+        let allowed = raw.filter { $0.isNumber || $0 == "." || $0 == "," }
+        guard !allowed.isEmpty else { return nil }
+
+        let lastSeparator = allowed.lastIndex(where: { $0 == "." || $0 == "," })
+        var whole = allowed
+        var fraction = ""
+
+        if let lastSeparator {
+            let after = allowed[allowed.index(after: lastSeparator)...]
+            if after.count == 1 || after.count == 2 {
+                whole = String(allowed[..<lastSeparator])
+                fraction = String(after)
+            }
+        }
+
+        let digits = whole.filter(\.isNumber)
+        let normalised = fraction.isEmpty ? digits : "\(digits).\(fraction)"
+        guard !normalised.isEmpty, normalised != "." else { return nil }
+        return Double(normalised)
+    }
+
     // MARK: Phone
 
     /// Light pretty-print for phone numbers.
