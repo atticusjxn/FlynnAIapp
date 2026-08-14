@@ -23,6 +23,16 @@ final class PaywallPresentation {
         isPresented = true
         presentedAt = Date()
         Analytics.capture(.paywallViewed, ["reason": reason.analyticsValue])
+        // Flush immediately rather than waiting for the batch timer.
+        //
+        // A tester hit a crash on this screen and we could not tell from the
+        // data whether they had even reached it: posthog-ios batches events and
+        // holds them on disk, and deleting the app — which is what a frustrated
+        // user does after a crash — takes the unsent queue with it. Twenty
+        // minutes of their session simply never existed. Anything that gets to
+        // the paywall is both rare and expensive, so it is worth a round-trip to
+        // know it happened before whatever comes next.
+        Analytics.flush()
     }
 
     /// Call when the sheet closes. Paired with `paywall_viewed`, the gap between

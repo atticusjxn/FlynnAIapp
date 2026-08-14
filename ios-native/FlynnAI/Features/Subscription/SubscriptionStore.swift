@@ -128,6 +128,9 @@ final class SubscriptionStore {
                     "is_paying": true,
                 ], onceOnly: ["first_purchase_at": ISO8601DateFormatter().string(from: Date())])
                 logAdConversion(product: subscriptionProduct, isTrial: isTrial)
+                // The single most valuable event in the app. Don't leave it
+                // sitting in a batch queue waiting on a timer.
+                Analytics.flush()
                 return true
             case .userCancelled:
                 purchaseState = .idle
