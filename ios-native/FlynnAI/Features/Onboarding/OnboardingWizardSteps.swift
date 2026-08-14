@@ -617,6 +617,26 @@ struct ForwardingStep: View {
                     .frame(maxWidth: .infinity)
                     .padding(FlynnSpacing.lg)
                     .flynnCardSurface(.quiet)
+                } else if let numberError = model.numberError {
+                    // Any other assign-number failure (402, 409, 500, offline).
+                    // `numberError` was written by assignNumber() but read by
+                    // nothing, so this state used to render an empty step whose
+                    // primary button silently jumped to "You're all set" —
+                    // leaving a paying user with no number and no idea.
+                    VStack(spacing: FlynnSpacing.xs) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(FlynnColor.error)
+                        Text("Couldn't set your number up")
+                            .flynnType(FlynnTypography.h4).foregroundColor(FlynnColor.textPrimary)
+                        Text(numberError)
+                            .flynnType(FlynnTypography.caption).foregroundColor(FlynnColor.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(FlynnSpacing.lg)
+                    .flynnCardSurface(.quiet)
                 }
 
                 stepRow(1, "Tap ‘Divert my calls’ — it dials a short code")
@@ -632,7 +652,7 @@ struct ForwardingStep: View {
                         Text("Checking your divert…").flynnType(FlynnTypography.label).foregroundColor(FlynnColor.textSecondary)
                     }
                     .frame(maxWidth: .infinity, minHeight: 56)
-                } else if model.poolEmpty {
+                } else if model.poolEmpty || model.numberError != nil {
                     FlynnGlassButton(title: "Try again",
                                      action: { Task { await model.assignNumber() } },
                                      icon: Image(systemName: "arrow.clockwise"))
@@ -682,7 +702,11 @@ struct ForwardingStep: View {
 
     private func dialForwarding() {
         guard let number = model.assignedNumber, !number.isEmpty else {
-            model.advance(to: .done); return
+            // Never jump to "You're all set" with no number — that told a paying
+            // user they were live when nothing had been provisioned. Surface it
+            // and let the error branch offer a retry instead.
+            model.numberError = "We haven't got your number yet. Tap Try again."
+            return
         }
         // Conditional-forward on no-answer: **61*<number># . Reuses the same
         // MMI approach as CallForwardingView. `#` must be percent-escaped.

@@ -81,11 +81,21 @@ final class SubscriptionStore {
     func purchase(_ subscriptionProduct: SubscriptionProduct) async -> Bool {
         purchaseState = .purchasing(productId: subscriptionProduct.product.id)
         do {
-            let result = try await subscriptionProduct.product.purchase()
+            // Stamp the Supabase user id as the appAccountToken. The backend's
+            // userIdForTransaction() reads exactly this to map an App Store
+            // Server Notification back to a Flynn user; without it the only
+            // fallback is a `subscriptions` row lookup, and that row is written
+            // by the very verify call this token is needed for — so a purchase
+            // could never be attributed by either route.
+            var options: Set<Product.PurchaseOption> = []
+            if let session = try? await FlynnSupabase.client.auth.session {
+                options.insert(.appAccountToken(session.user.id))
+            }
+            let result = try await subscriptionProduct.product.purchase(options: options)
             switch result {
             case .success(let verification):
                 let transaction = try checkVerified(verification)
-                await handleTransactionResult(.verified(transaction), source: .purchase)
+                await handleTransactionResult(verification, source: .purchase)
                 await transaction.finish()
                 purchaseState = .success
                 return true
@@ -142,7 +152,8 @@ final class SubscriptionStore {
     private func handleTransactionResult(_ result: VerificationResult<Transaction>, source: TransactionSource) async {
         switch result {
         case .verified(let transaction):
-            await forwardToBackend(transaction: transaction)
+            // Pass the ORIGINAL signed JWS through — see forwardToBackend.
+            await forwardToBackend(transaction: transaction, jws: result.jwsRepresentation)
             if source == .update {
                 await transaction.finish()
             }
@@ -152,7 +163,18 @@ final class SubscriptionStore {
         }
     }
 
-    private func forwardToBackend(transaction: Transaction) async {
+    /// Post the purchase to the backend so it can write the `subscriptions`
+    /// row that gates number assignment.
+    ///
+    /// `jws` must be the SIGNED representation. This previously sent
+    /// `transaction.jsonRepresentation` — the already-DECODED payload — which
+    /// the server rejected outright (`verifyAndDecodeJWS` needs three
+    /// dot-separated parts and a verifiable x5c chain), so every purchase
+    /// 400'd, no subscription row was ever written, and the next onboarding
+    /// step then refused to allocate a number to a user who had just paid.
+    /// `VerificationResult.jwsRepresentation` is the signed form; it contains
+    /// dots, so the server takes it as-is with no base64 wrapping.
+    private func forwardToBackend(transaction: Transaction, jws: String) async {
         var request = URLRequest(url: FlynnEnv.flynnAPIBaseURL.appendingPathComponent("webhooks/appstore/verify"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -162,7 +184,7 @@ final class SubscriptionStore {
             request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
 
             let payload: [String: String] = [
-                "signedTransactionInfo": transaction.jsonRepresentation.base64EncodedString(),
+                "signedTransactionInfo": jws,
                 "originalTransactionId": String(transaction.originalID)
             ]
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
