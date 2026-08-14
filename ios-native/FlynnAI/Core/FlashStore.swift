@@ -85,11 +85,20 @@ extension View {
 }
 
 struct FlashBanner: View {
-    @Environment(FlashStore.self) private var store
+    /// Deliberately optional.
+    ///
+    /// `@Environment(FlashStore.self)` with a non-optional type is a hard
+    /// `fatalError` when the object isn't in scope, and this view gets attached
+    /// as an overlay from a dozen places — including sheets, which don't inherit
+    /// the scene environment. One wrong modifier order killed the app on the
+    /// paywall, which is the single most expensive screen to lose. A banner is
+    /// decorative; it has no business being able to crash anything, so a missing
+    /// store now renders nothing instead of taking the process with it.
+    @Environment(FlashStore.self) private var store: FlashStore?
 
     var body: some View {
         VStack {
-            if let msg = store.current {
+            if let msg = store?.current {
                 HStack(spacing: FlynnSpacing.sm) {
                     Image(systemName: msg.kind.systemImage)
                         .foregroundColor(msg.kind.tint)
@@ -110,11 +119,11 @@ struct FlashBanner: View {
                 .padding(.horizontal, FlynnSpacing.md)
                 .padding(.top, FlynnSpacing.sm)
                 .transition(.move(edge: .top).combined(with: .opacity))
-                .onTapGesture { store.dismiss() }
+                .onTapGesture { store?.dismiss() }
             }
             Spacer()
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: store.current)
-        .allowsHitTesting(store.current != nil)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: store?.current)
+        .allowsHitTesting(store?.current != nil)
     }
 }

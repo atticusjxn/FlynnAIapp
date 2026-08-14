@@ -50,11 +50,20 @@ struct FlynnAIApp: App {
                         }
                     }
                 )) {
+                    // Order is load-bearing. `.flynnFlashOverlay()` adds a
+                    // FlashBanner, which resolves `FlashStore` out of the
+                    // environment; a sheet presented from the WindowGroup root
+                    // does NOT inherit the scene's environment, which is why the
+                    // injections below exist at all. With the overlay applied
+                    // last it sat *outside* them, so the banner looked for a
+                    // store that wasn't there and took the process down the
+                    // instant the paywall opened. Overlay first, environment
+                    // after, so both the screen and its banner are inside scope.
                     SubscriptionView()
+                        .flynnFlashOverlay()
                         .environment(flash)
                         .environment(subscription)
                         .preferredColorScheme(colorScheme)
-                        .flynnFlashOverlay()
                 }
                 .onOpenURL { url in
                     // Auth callback (email confirmation / magic link) takes priority —

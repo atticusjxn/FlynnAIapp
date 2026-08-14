@@ -67,6 +67,7 @@
 		60FF9CB2AA1547798A6CCC15 /* EventsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFD6A2A8D7571AC1BEFB4AF1 /* EventsRepository.swift */; };
 		61078AEAAB55B8808B011011 /* ClientRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B5682766FA50AA8B174C31 /* ClientRow.swift */; };
 		6273ED6DD7F14DEC6AC7712D /* ClientPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBE2BDFE38039E1174A2028B /* ClientPickerSheet.swift */; };
+		6360C19EF1E4AE88A1DA51A7 /* NangoProviderConnect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C787CB77E853875A5E7E0AC /* NangoProviderConnect.swift */; };
 		63C1A2856B22C9D68039449B /* ClientsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6947106A91B0B5B184CF75 /* ClientsListView.swift */; };
 		64F11F132E0C77D46F755498 /* FlynnGlassButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55054A58264A1F32D51D8D44 /* FlynnGlassButton.swift */; };
 		675C304A45A248BFF2A61E07 /* PlanDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = B21C19CE5158405CB7902797 /* PlanDTO.swift */; };
@@ -274,6 +275,7 @@
 		8ACCAC70FAFA68E625AB5916 /* Environment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Environment.swift; sourceTree = "<group>"; };
 		8B66E6CBC21D1302A0377272 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		8BF2E5F01979E1BB6718CA1B /* Inter-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Regular.ttf"; sourceTree = "<group>"; };
+		8C787CB77E853875A5E7E0AC /* NangoProviderConnect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NangoProviderConnect.swift; sourceTree = "<group>"; };
 		8E0D7F6949CC3D61E4294F32 /* SubscriptionProduct.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionProduct.swift; sourceTree = "<group>"; };
 		8E7C8B652252856727D3CA92 /* ABNLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ABNLookup.swift; sourceTree = "<group>"; };
 		8F197874FD32DAC0770675EF /* MemoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryRepository.swift; sourceTree = "<group>"; };
@@ -504,6 +506,7 @@
 				F90F566344E9F0DA7753F02C /* Keychain.swift */,
 				574E41EC201E9D3A3E6B9B61 /* LocalNotifier.swift */,
 				D344EBBADA2984B3CB5CD4BB /* Logger.swift */,
+				8C787CB77E853875A5E7E0AC /* NangoProviderConnect.swift */,
 				2731196ADB9511B9939E6DDE /* PushTokenSync.swift */,
 				054AADFF941257A29E658561 /* VoiceCaptureManager.swift */,
 			);
@@ -998,6 +1001,7 @@
 				DE3EDD1DA4DE2A766038C3CC /* MemoryStore.swift in Sources */,
 				7F6462045FDBA19FB5B11C39 /* MidCentury.swift in Sources */,
 				47AB31464E5DB2F12872FB45 /* MoneyView.swift in Sources */,
+				6360C19EF1E4AE88A1DA51A7 /* NangoProviderConnect.swift in Sources */,
 				4AB5BE160AEC3300107B3182 /* NotificationsSettingsView.swift in Sources */,
 				5BB37A751166D5B95126B0DE /* OnboardingDesign.swift in Sources */,
 				8C3FF864A8E44FD341854A4B /* OnboardingWizard.swift in Sources */,
@@ -1063,7 +1067,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 127;
+				CURRENT_PROJECT_VERSION = 128;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
@@ -1087,7 +1091,7 @@
 				CODE_SIGN_ENTITLEMENTS = FlynnAI/FlynnAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 127;
+				CURRENT_PROJECT_VERSION = 128;
 				DEVELOPMENT_TEAM = 69T5H7R46N;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = FlynnAI/Config/Info.plist;
