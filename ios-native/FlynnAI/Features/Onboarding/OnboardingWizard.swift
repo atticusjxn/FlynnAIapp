@@ -323,7 +323,12 @@ final class OnboardingModel {
     private(set) var finished = false
 
     // Demo call
-    enum DemoStatus { case idle, ringing, completed, failed }
+    /// `needsPhone` is distinct from `failed` on purpose. Signing up by email
+    /// leaves no mobile on the account, so there is nothing for Flynn to ring —
+    /// which is a thing the user can fix, not a thing that went wrong. It used
+    /// to collapse into the generic "Didn't quite connect", which told them to
+    /// retry something that could never work.
+    enum DemoStatus { case idle, ringing, completed, failed, needsPhone }
     var demoStatus: DemoStatus = .idle
     var demoCallId: String?
     var demoTranscript: String?
@@ -411,6 +416,8 @@ final class OnboardingModel {
             demoCallId = id
             Analytics.capture(.demoCallRequested)
             await pollDemoCall(id: id)
+        } catch let VoiceOnboardingClient.VoiceOnboardingError.server(message) where message.contains("no_verified_phone") {
+            demoStatus = .needsPhone
         } catch {
             FlynnLog.network.error("Demo call failed to start: \(error.localizedDescription, privacy: .public)")
             demoStatus = .failed

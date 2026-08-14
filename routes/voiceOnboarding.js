@@ -404,8 +404,14 @@ router.post('/demo-call', authenticateJwt, async (req, res) => {
   try {
     const user = await loadUser(req.user.id);
     if (!user) return res.status(404).json({ error: 'user not found' });
-    if (!user.phone) {
-      // No verified mobile on file — nothing safe to call. (Email-only signup.)
+    // Truthiness is not enough. A stored phone of "+" — which is what an
+    // email-only signup ended up with — sailed past the old `!user.phone`
+    // check and reached Twilio, which answered "The phone number you are
+    // attempting to call, +, is not valid." and the demo call died with a
+    // generic failure the user couldn't act on. Require a real E.164-ish
+    // number: 8-15 digits, matching the same rule the SMS senders use.
+    const demoDigits = String(user.phone || '').replace(/\D/g, '').length;
+    if (demoDigits < 8 || demoDigits > 15) {
       return res.status(400).json({ error: 'no_verified_phone' });
     }
 

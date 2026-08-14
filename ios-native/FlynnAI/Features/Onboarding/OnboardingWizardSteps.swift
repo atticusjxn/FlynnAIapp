@@ -257,7 +257,7 @@ struct BusinessStep: View {
                     voice: voice,
                     onSubmit: { transcript in Task { await parseVoice(transcript) } },
                     onNothingHeard: { flash.show("Didn't catch that. Hold the mic and speak, then let go.", kind: .error) },
-                    onTapTooQuick: { flash.show("Hold the mic while you talk.", kind: .info) }
+                    onTapTooQuick: { }
                 )
             }
         }
@@ -286,13 +286,13 @@ struct BusinessStep: View {
         switch voice.state {
         case .listening:
             let heard = voice.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            return heard.isEmpty ? "Go ahead, say what you do and what you charge." : heard
+            return heard.isEmpty ? "Listening — say what you do and what you charge." : heard
         case .denied:
             return "Microphone and speech access are turned off for Flynn."
         case .error(let message):
             return message
         case .idle:
-            return "Hold and talk instead of typing."
+            return "Tap to start talking, or hold and let go."
         }
     }
 
@@ -398,7 +398,9 @@ struct BusinessStep: View {
 
 struct CalendarStep: View {
     @Bindable var model: OnboardingModel
+    @Environment(FlashStore.self) private var flash
     @State private var connecting: String?
+    @State private var connected: String?
     @State private var errorMessage: String?
 
     var body: some View {
@@ -430,6 +432,19 @@ struct CalendarStep: View {
         }
     }
 
+    /// Say it connected before moving on.
+    ///
+    /// Both providers used to call `model.next()` the instant the handshake
+    /// returned, so the screen just vanished — from the user's side, tapping
+    /// Connect and tapping Skip looked identical, and there was nothing
+    /// anywhere afterwards confirming the calendar was actually linked.
+    private func confirmConnected(_ provider: String) async {
+        connected = provider
+        flash.success("\(provider) connected.")
+        try? await Task.sleep(for: .milliseconds(900))
+        model.next()
+    }
+
     private func connectGoogle() async {
         connecting = "google"
         errorMessage = nil
@@ -437,7 +452,7 @@ struct CalendarStep: View {
             try await GoogleCalendarConnect.connect()
             Analytics.capture(.onboardCalendarConnected, ["provider": "google"])
             connecting = nil
-            model.next()
+            await confirmConnected("Google Calendar")
         } catch GoogleCalendarConnect.ConnectError.cancelled {
             connecting = nil
         } catch {
@@ -459,7 +474,7 @@ struct CalendarStep: View {
             try await setAppleCalendarConnected()
             Analytics.capture(.onboardCalendarConnected, ["provider": "apple"])
             connecting = nil
-            model.next()
+            await confirmConnected("Apple Calendar")
         } catch {
             connecting = nil
             errorMessage = error.localizedDescription
@@ -477,14 +492,20 @@ struct CalendarStep: View {
     }
 
     private func connectRow(_ title: String, _ icon: String, tint: Color, connecting: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        let isConnected = connected == title
+        return Button(action: action) {
             HStack(spacing: FlynnSpacing.md) {
-                Image(systemName: icon).font(.system(size: 20, weight: .semibold)).foregroundColor(tint).frame(width: 28)
-                Text(title).flynnType(FlynnTypography.h4).foregroundColor(FlynnColor.textPrimary)
+                Image(systemName: isConnected ? "checkmark.circle.fill" : icon)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(isConnected ? FlynnColor.success : tint)
+                    .frame(width: 28)
+                Text(isConnected ? "\(title) connected" : title)
+                    .flynnType(FlynnTypography.h4)
+                    .foregroundColor(FlynnColor.textPrimary)
                 Spacer()
                 if connecting {
                     ProgressView()
-                } else {
+                } else if !isConnected {
                     Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundColor(FlynnColor.textTertiary)
                 }
             }
@@ -493,7 +514,8 @@ struct CalendarStep: View {
             .flynnCardSurface(.quiet)
         }
         .buttonStyle(FlynnPressable())
-        .disabled(self.connecting != nil)
+        .disabled(self.connecting != nil || connected != nil)
+        .accessibilityLabel(isConnected ? "\(title), connected" : "Connect \(title)")
     }
 }
 
@@ -517,6 +539,7 @@ struct DemoCallStep: View {
                 case .ringing:   ringingArt
                 case .completed: payoffCard
                 case .failed:    Mascot(.thinking, size: 120, backdrop: .cream)
+                case .needsPhone: Mascot(.phone, size: 120, backdrop: .cream)
                 }
             }
             .padding(.top, FlynnSpacing.lg)
@@ -535,6 +558,13 @@ struct DemoCallStep: View {
                 .frame(maxWidth: .infinity, minHeight: 56)
             case .completed:
                 FlynnGlassButton(title: "Set Flynn live", action: { model.next() })
+            case .needsPhone:
+                // Nothing to retry — they have no mobile on the account, so the
+                // only useful action is to move on and add one later.
+                Button("Skip for now") { model.next() }
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.textTertiary)
+                    .frame(minHeight: 40)
             case .failed:
                 VStack(spacing: FlynnSpacing.xs) {
                     FlynnGlassButton(title: "Try the call again",
@@ -552,6 +582,7 @@ struct DemoCallStep: View {
     private var title: String {
         switch status {
         case .completed: return "That's Flynn."
+        case .needsPhone: return "Flynn needs your mobile"
         case .failed:    return "Didn't quite connect"
         default:         return "Flynn's going to ring you"
         }
@@ -564,6 +595,8 @@ struct DemoCallStep: View {
             // written and nobody gets texted, so the copy can only describe
             // what the call itself did.
             return "That was a test run, so nothing's been saved or sent. Once you're live, calls like that get booked in and the caller gets the link below."
+        case .needsPhone:
+            return "You signed up with your email, so there's no mobile on the account for Flynn to ring. Add one in Settings and you can run this test any time."
         case .failed:
             return "We couldn't reach your phone just now. Give it another go, or skip and set Flynn live — you can always test it later."
         default:

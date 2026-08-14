@@ -47,6 +47,9 @@ struct VoiceHoldButton: View {
     @State private var dragDistance: CGFloat = 0
     /// Bumped each time a recording is scrapped, to fire the release haptic.
     @State private var scrapTick = 0
+    /// Recording continues after the finger lifts — see `latchThreshold`.
+    @State private var latched = false
+    @State private var pressStartedAt: Date?
     /// Bumped on release once we know whether anything was captured. The
     /// release is the moment the user is asking "did that work?", and until now
     /// it was the one beat in the whole interaction with no answer you could
@@ -59,6 +62,17 @@ struct VoiceHoldButton: View {
     /// How long a press must be held before the recogniser opens. Below this
     /// it's a tap, not a hold, and nothing is recorded.
     private let holdGuard: Duration = .milliseconds(160)
+    /// A press shorter than this latches: recording carries on after the finger
+    /// lifts, and the next tap stops it.
+    ///
+    /// Hold-to-talk alone lost the start of what people said. The recogniser
+    /// takes a moment to open, so someone who presses and immediately begins
+    /// talking loses their first word or two — and the natural reaction is to
+    /// press, wait, talk, which is a long time to hold a button while
+    /// describing a whole business. Tapping instead lets them see it listening
+    /// before they start. Holding still works for a quick phrase, so neither
+    /// habit is wrong.
+    private let latchThreshold: TimeInterval = 0.5
 
     var isListening: Bool { voice.state == .listening }
 
@@ -75,7 +89,7 @@ struct VoiceHoldButton: View {
         .accessibilityHint(
             voiceOverEnabled
                 ? (isListening ? "Double tap to stop and use it" : "Double tap to start talking")
-                : "Hold to talk, release when you're done"
+                : (isListening ? "Release or tap again when you're done" : "Tap to start talking, or hold and release")
         )
         .accessibilityAddTraits(.isButton)
         // onEnded never fires if the gesture is interrupted by a call or a
@@ -85,13 +99,15 @@ struct VoiceHoldButton: View {
         // behind the permission alert), and that in-flight start has to be
         // cancelled too or the mic latches on with nobody holding the button.
         .onChange(of: scenePhase) { _, phase in
-            guard phase != .active, isPressing else { return }
+            guard phase != .active, isPressing || latched else { return }
             holdTask?.cancel()
+            latched = false
             reset()
             voice.stopListening()
         }
         .onDisappear {
             holdTask?.cancel()
+            latched = false
             reset()
             voice.stopListening()
         }
@@ -104,12 +120,16 @@ struct VoiceHoldButton: View {
             .onChanged { value in
                 if !isPressing {
                     isPressing = true
+                    // A press while latched means "stop"; handled on release.
+                    guard !latched else { return }
                     didStart = false
                     cancelArmed = false
                     dragDistance = 0
+                    pressStartedAt = Date()
                     scheduleStart()
                     return
                 }
+                guard !latched else { return }
                 // Leftward and upward both count — thumbs arc rather than
                 // sliding in a straight line.
                 let dist = max(0, max(-value.translation.width, -value.translation.height))
@@ -126,15 +146,31 @@ struct VoiceHoldButton: View {
             }
             .onEnded { _ in
                 holdTask?.cancel()
-                let started = didStart
                 isPressing = false
-                if !started {
-                    // Too quick to be a hold — never opened the recogniser.
-                    reset()
-                    onTapTooQuick()
+
+                // Second tap on a latched recording: stop and submit.
+                if latched {
+                    latched = false
+                    finish()
                     return
                 }
-                if cancelArmed { cancel() } else { finish() }
+
+                if cancelArmed { cancel(); return }
+
+                let heldFor = pressStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+                if !didStart {
+                    // Released before the recogniser opened. Rather than
+                    // discarding it as a stray tap, treat it as "start
+                    // listening" and keep going until they tap again.
+                    beginNow()
+                    latched = true
+                    return
+                }
+                if heldFor < latchThreshold {
+                    latched = true
+                    return
+                }
+                finish()
             }
     }
 
