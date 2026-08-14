@@ -117,6 +117,10 @@ struct TradeStep: View {
             FlynnGlassButton(title: "Continue", action: {
                 if let trade = model.trade {
                     Analytics.capture(.onboardTradeSelected, ["trade": trade])
+                    // On the person, not just the event — "how do plumbers
+                    // convert vs cleaners" is a breakdown, and breakdowns need
+                    // the attribute to be durable.
+                    Analytics.setPersonProperties(["trade": trade])
                 }
                 model.next()
             }, isDisabled: model.trade == nil)

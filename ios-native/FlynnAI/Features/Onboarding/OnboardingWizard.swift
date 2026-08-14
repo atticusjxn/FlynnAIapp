@@ -24,6 +24,13 @@ struct OnboardingWizard: View {
     @Environment(SubscriptionStore.self) private var subscription
     @Environment(PaywallPresentation.self) private var paywall
 
+    /// When the current step appeared, for the dwell time on
+    /// `onboarding_step_completed`. See `OnboardingStep.eventName`.
+    @State private var stepShownAt = Date()
+    /// How they left the step being measured. Set by `skip()`/`back()` just
+    /// before the transition; anything else is a forward move.
+    @State private var pendingExit = "next"
+
     var body: some View {
         ZStack {
             FlynnColor.background.ignoresSafeArea()
@@ -45,7 +52,20 @@ struct OnboardingWizard: View {
             // resumed session (app killed mid-flow, relaunched) starts past
             // .welcome and would otherwise double-count the same signup.
             if model.step == .welcome { Analytics.capture(.signupCompleted) }
+            trackStepViewed(model.step)
             Task { await model.rehydrateIfResumed() }
+        }
+        // One place to measure every step, rather than three hand-placed
+        // success events that could never show a drop-off.
+        .onChange(of: model.step) { previous, current in
+            Analytics.capture(.onboardingStepCompleted, [
+                "step": previous.eventName,
+                "step_index": previous.index,
+                "exit": pendingExit,
+                "seconds_on_step": Int(Date().timeIntervalSince(stepShownAt)),
+            ])
+            pendingExit = "next"
+            trackStepViewed(current)
         }
         // The paywall lives on the WindowGroup above everything; presenting it
         // just flips a flag. Resume number assignment when it closes.
@@ -60,7 +80,7 @@ struct OnboardingWizard: View {
     private var header: some View {
         HStack(spacing: FlynnSpacing.xs) {
             if model.step.canGoBack {
-                Button { model.back() } label: {
+                Button { pendingExit = "back"; model.back() } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(FlynnColor.textSecondary)
@@ -105,7 +125,7 @@ struct OnboardingWizard: View {
         case .demoCall:   DemoCallStep(model: model)
         case .paywall:    PaywallStep(model: model, onStart: startTrial)
         case .forwarding: ForwardingStep(model: model)
-        case .done:       DoneStep(model: model, onFinish: onFinished)
+        case .done:       DoneStep(model: model, onFinish: { finish(reason: "completed") })
         }
     }
 
@@ -126,6 +146,30 @@ struct OnboardingWizard: View {
         model.advance(to: .forwarding)
     }
 
+    /// The one exit from the wizard. `furthest_step` is what makes "installed
+    /// but never activated" countable against installs.
+    private func finish(reason: String) {
+        Analytics.capture(.onboardingFinished, [
+            "reason": reason,
+            "furthest_step": model.step.eventName,
+            "furthest_step_index": model.step.index,
+        ])
+        model.markComplete()
+        onFinished()
+    }
+
+    private func trackStepViewed(_ step: OnboardingStep) {
+        stepShownAt = Date()
+        Analytics.capture(.onboardingStepViewed, [
+            "step": step.eventName,
+            "step_index": step.index,
+            "step_count": OnboardingStep.tracked.count,
+        ])
+        // Furthest step reached lives on the person so "installed, never got
+        // past the demo call" is a cohort rather than a funnel query.
+        Analytics.setPersonProperties(["onboarding_furthest_step": step.eventName])
+    }
+
     /// Skip moves past *this step*, not past the funnel.
     ///
     /// It used to call `markComplete()` and drop straight into the app from
@@ -135,18 +179,17 @@ struct OnboardingWizard: View {
     /// skipping legitimately ends the flow is the paywall, because nobody can
     /// be made to pay, and everything after it depends on having paid.
     private func skip() {
+        pendingExit = "skip"
         Analytics.capture(.onboardingStepSkipped, ["step": model.step.eventName])
 
         if model.step == .paywall {
             Analytics.capture(.paywallDismissed, ["source": "onboarding", "reason": "skipped"])
-            model.markComplete()
-            onFinished()
+            finish(reason: "skipped_paywall")
             return
         }
 
         guard let next = model.step.next else {
-            model.markComplete()
-            onFinished()
+            finish(reason: "skipped_last")
             return
         }
         model.advance(to: next)
@@ -412,6 +455,7 @@ final class OnboardingModel {
             let assigned = try await VoiceOnboardingClient.assignNumber()
             assignedNumber = assigned.phoneNumber
             Analytics.capture(.numberAssigned, ["source": "onboarding"])
+            Analytics.setPersonProperties(["has_number": true])
         } catch VoiceOnboardingClient.VoiceOnboardingError.poolEmpty {
             assignedNumber = ""
             poolEmpty = true
@@ -444,6 +488,9 @@ final class OnboardingModel {
                     forwardingStatus = .verified
                     forwardingVerified = true
                     Analytics.capture(.forwardingVerified)
+                    // Activation, in one property. Everything Flynn does for a
+                    // customer is downstream of the divert actually being set.
+                    Analytics.setPersonProperties(["forwarding_verified": true])
                     advance(to: .done)
                     return
                 case "not_forwarded", "expired":

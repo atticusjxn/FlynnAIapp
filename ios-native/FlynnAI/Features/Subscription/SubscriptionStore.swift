@@ -111,12 +111,34 @@ final class SubscriptionStore {
                 await handleTransactionResult(verification, source: .purchase)
                 await transaction.finish()
                 purchaseState = .success
+                // `subscription_purchased` was declared and never fired, so the
+                // funnel had no paid step at all — trial_started was the last
+                // thing it could see.
+                let isTrial = transaction.offerType == .introductory
+                Analytics.capture(.subscriptionPurchased, [
+                    "product_id": subscriptionProduct.product.id,
+                    "plan": subscriptionProduct.plan.name,
+                    "price": NSDecimalNumber(decimal: subscriptionProduct.product.price).doubleValue,
+                    "currency": subscriptionProduct.product.priceFormatStyle.currencyCode,
+                    "is_trial": isTrial,
+                ])
+                Analytics.setPersonProperties([
+                    "plan": subscriptionProduct.plan.name,
+                    "is_paying": true,
+                ], onceOnly: ["first_purchase_at": ISO8601DateFormatter().string(from: Date())])
                 return true
             case .userCancelled:
                 purchaseState = .idle
+                // Abandoning at the Apple sheet is a different failure from
+                // never tapping the CTA, and only this tells them apart.
+                Analytics.capture(.purchaseCancelled, ["product_id": subscriptionProduct.product.id])
                 return false
             case .pending:
                 purchaseState = .idle
+                Analytics.capture(.purchaseFailed, [
+                    "product_id": subscriptionProduct.product.id,
+                    "reason": "pending_approval",
+                ])
                 return false
             @unknown default:
                 purchaseState = .idle
@@ -124,6 +146,10 @@ final class SubscriptionStore {
             }
         } catch {
             purchaseState = .failed(error.localizedDescription)
+            Analytics.capture(.purchaseFailed, [
+                "product_id": subscriptionProduct.product.id,
+                "reason": error.localizedDescription,
+            ])
             FlynnLog.network.error("Purchase failed: \(error.localizedDescription, privacy: .public)")
             return false
         }
@@ -188,11 +214,63 @@ final class SubscriptionStore {
             await forwardToBackend(transaction: transaction, jws: result.jwsRepresentation)
             if source == .update {
                 await transaction.finish()
+                reportLifecycle(transaction)
             }
             await refreshEntitlement()
         case .unverified(_, let error):
             FlynnLog.network.error("Unverified transaction: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Turn a `Transaction.updates` delivery into a churn-side event.
+    ///
+    /// Everything after "paid" was invisible: the funnel ended at purchase and
+    /// nothing recorded a renewal, an expiry, or a refund, which makes week-4
+    /// retention — the north-star metric — unanswerable from the client.
+    ///
+    /// StoreKit doesn't hand over a typed reason, so these are inferred from the
+    /// transaction itself, and the inference is deliberately conservative:
+    ///
+    /// - `revocationDate` set → Apple took the money back. Refund, not churn.
+    /// - expiry in the past → the subscription lapsed.
+    /// - an introductory-offer transaction being replaced by a standard one →
+    ///   the trial converted, which is the single most important number in the
+    ///   plan and is otherwise indistinguishable from an ordinary renewal.
+    /// - anything else with a future expiry → a renewal.
+    ///
+    /// Apple's Server Notifications remain the authority for billing; this is
+    /// the product-analytics view, and the two can disagree at the margins
+    /// (a device offline through an expiry reports it late).
+    private func reportLifecycle(_ transaction: Transaction) {
+        var props: [String: Any] = [
+            "product_id": transaction.productID,
+            "original_transaction_id": String(transaction.originalID),
+        ]
+
+        if transaction.revocationDate != nil {
+            Analytics.capture(.subscriptionRefunded, props)
+            Analytics.setPersonProperties(["is_paying": false, "churn_reason": "refunded"])
+            return
+        }
+
+        if let expiry = transaction.expirationDate, expiry <= Date() {
+            props["expired_at"] = ISO8601DateFormatter().string(from: expiry)
+            Analytics.capture(.subscriptionExpired, props)
+            Analytics.setPersonProperties(["is_paying": false, "churn_reason": "expired"])
+            return
+        }
+
+        // A renewal that is NOT on the intro offer, for someone who was on it,
+        // is the trial converting to paid.
+        let wasOnTrial = currentEntitlement?.isInIntroOffer ?? false
+        if wasOnTrial && transaction.offerType != .introductory {
+            Analytics.capture(.trialConverted, props)
+            Analytics.setPersonProperties(["is_paying": true, "converted_from_trial": true])
+            return
+        }
+
+        Analytics.capture(.subscriptionRenewed, props)
+        Analytics.setPersonProperties(["is_paying": true])
     }
 
     /// Post the purchase to the backend so it can write the `subscriptions`

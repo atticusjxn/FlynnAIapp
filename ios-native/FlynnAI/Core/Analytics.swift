@@ -32,6 +32,18 @@ enum Analytics {
         case signupCompleted = "signup_completed"
 
         // Onboarding
+        //
+        // `onboardingStepViewed` is the backbone of the drop-off funnel. The
+        // named per-step events below only fire on *success*, and only three
+        // steps had one at all, so there was no way to ask "how many people saw
+        // the demo call screen and how many got past it" — the two numbers a
+        // funnel is made of. Every step emits this on entry with its index, so
+        // one PostHog funnel broken down by `step` shows the whole shape.
+        case onboardingStepViewed = "onboarding_step_viewed"
+        /// Emitted on leaving a step, carrying how long they were on it and how
+        /// they left (`next`, `skip`, `back`). Dwell time is where the friction
+        /// shows up before the drop-off does.
+        case onboardingStepCompleted = "onboarding_step_completed"
         case onboardTradeSelected = "onboard_trade_selected"
         case onboardServicesEntered = "onboard_services_entered"
         case onboardCalendarConnected = "onboard_calendar_connected"
@@ -39,6 +51,9 @@ enum Analytics {
         /// entirely and were logged as a paywall dismissal wherever they
         /// happened, so the funnel couldn't show where people bailed.
         case onboardingStepSkipped = "onboarding_step_skipped"
+        /// The wizard finished or was abandoned — carries the furthest step
+        /// reached, so "installed but never activated" is countable.
+        case onboardingFinished = "onboarding_finished"
 
         // The demo call — the value moment
         case demoCallRequested = "demo_call_requested"
@@ -48,9 +63,24 @@ enum Analytics {
 
         // Money
         case paywallViewed = "paywall_viewed"
+        /// Carries `seconds_on_screen`. Someone who bounces in two seconds is a
+        /// different problem from someone who reads the whole thing and still
+        /// says no: the first is a targeting or expectation miss, the second is
+        /// price. Without the duration those are the same number.
         case paywallDismissed = "paywall_dismissed"
+        case paywallPlanSelected = "paywall_plan_selected"
         case trialStarted = "trial_started"
         case subscriptionPurchased = "subscription_purchased"
+        case purchaseFailed = "purchase_failed"
+        case purchaseCancelled = "purchase_cancelled"
+
+        // Subscription lifecycle — the churn side of the ledger. StoreKit is
+        // the only place these are observable client-side; without them the
+        // funnel stops at "paid" and week-4 retention is unanswerable.
+        case subscriptionRenewed = "subscription_renewed"
+        case subscriptionExpired = "subscription_expired"
+        case subscriptionRefunded = "subscription_refunded"
+        case trialConverted = "trial_converted"
 
         // Activation
         case numberAssigned = "number_assigned"
@@ -132,6 +162,23 @@ enum Analytics {
     static func capture(_ event: Event, _ properties: [String: Any] = [:]) {
         guard isEnabled else { return }
         PostHogSDK.shared.capture(event.rawValue, properties: properties)
+    }
+
+    /// Set durable attributes on the person, not the event.
+    ///
+    /// Events answer "what happened"; these answer "who is this", which is what
+    /// every retention and churn question needs to break down by. Trade, plan
+    /// and activation state have to live on the person or a cohort like "paid
+    /// plumbers who verified forwarding" can't be expressed at all.
+    ///
+    /// `$set_once` is used for acquisition facts that must never be overwritten
+    /// by a later session — first-seen trade, signup date.
+    static func setPersonProperties(_ properties: [String: Any], onceOnly: [String: Any] = [:]) {
+        guard isEnabled else { return }
+        PostHogSDK.shared.capture("$set", properties: [
+            "$set": properties,
+            "$set_once": onceOnly,
+        ])
     }
 
     /// For the handful of one-off diagnostics that do not belong in the funnel

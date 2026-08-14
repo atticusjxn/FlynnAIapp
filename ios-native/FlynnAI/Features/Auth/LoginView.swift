@@ -484,6 +484,7 @@ struct LoginView: View {
 
     private func submitSendPhoneCode() {
         focusedField = nil
+        Analytics.capture(.signupStarted, ["method": "phone_otp"])
         Task {
             await auth.signInWithPhone(phone: e164Phone)
             if auth.errorMessage == nil {
@@ -513,11 +514,16 @@ struct LoginView: View {
 
     private func submitSignUp() {
         focusedField = nil
+        // signup_started was declared and never fired, so the gap between
+        // "opened the app" and "got an account" — the first place an ad install
+        // can leak — was invisible.
+        Analytics.capture(.signupStarted, ["method": "email_password"])
         Task { await auth.signUp(email: email, password: password, businessName: businessName) }
     }
 
     private func submitSendEmailCode() {
         focusedField = nil
+        Analytics.capture(.signupStarted, ["method": "email_code"])
         Task {
             await auth.signInWithOTP(email: email)
             if auth.errorMessage == nil { codeSent = true }

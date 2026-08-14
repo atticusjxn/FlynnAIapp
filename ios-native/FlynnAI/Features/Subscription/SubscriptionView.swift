@@ -116,7 +116,15 @@ struct SubscriptionView: View {
 
     private func planCard(_ item: SubscriptionProduct) -> some View {
         let isSelected = selectedProductId == item.product.id
-        return Button(action: { selectedProductId = item.product.id }) {
+        return Button(action: {
+            selectedProductId = item.product.id
+            // Which tier they touch first, and how often they switch, is the
+            // read on whether the A$29/A$69 split is landing.
+            Analytics.capture(.paywallPlanSelected, [
+                "product_id": item.product.id,
+                "plan": item.plan.name,
+            ])
+        }) {
             VStack(alignment: .leading, spacing: FlynnSpacing.sm) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(item.plan.displayName)

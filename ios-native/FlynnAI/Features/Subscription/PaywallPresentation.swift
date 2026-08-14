@@ -15,19 +15,30 @@ final class PaywallPresentation {
         case featureGate(String) // tried to use a paid feature
     }
 
+    /// When the sheet opened, for the dwell time reported on close.
+    private var presentedAt: Date?
+
     func present(reason: Reason = .manual) {
         self.reason = reason
         isPresented = true
+        presentedAt = Date()
         Analytics.capture(.paywallViewed, ["reason": reason.analyticsValue])
     }
 
-    /// Call when the sheet closes without a purchase. Paired with
-    /// `paywall_viewed`, the gap between the two is the single number that says
-    /// whether the price or the pitch is wrong.
+    /// Call when the sheet closes. Paired with `paywall_viewed`, the gap between
+    /// the two is the single number that says whether the price or the pitch is
+    /// wrong — and `seconds_on_screen` is what separates those two answers. A
+    /// two-second bounce is a targeting or expectation miss; someone who reads
+    /// the whole thing and still says no is telling you about price. Without the
+    /// duration both arrive as one undifferentiated "dismissed".
     func dismissed(purchased: Bool) {
         isPresented = false
+        let seconds = presentedAt.map { Int(Date().timeIntervalSince($0)) }
+        presentedAt = nil
         guard !purchased else { return }
-        Analytics.capture(.paywallDismissed, ["reason": reason.analyticsValue])
+        var props: [String: Any] = ["reason": reason.analyticsValue]
+        if let seconds { props["seconds_on_screen"] = seconds }
+        Analytics.capture(.paywallDismissed, props)
     }
 }
 
