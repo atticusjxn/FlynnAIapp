@@ -10,6 +10,7 @@ struct InvoiceDetailView: View {
     @State private var pdfShareItems: [Any] = []
     @State private var showingShareSheet = false
     @State private var showingEditSheet = false
+    @State private var showingDeleteAlert = false
     @State private var showingSendPrompt = false
     @State private var sendToPhone = ""
     @State private var showingPaidPrompt = false
@@ -61,6 +62,15 @@ struct InvoiceDetailView: View {
         }
         .navigationTitle("Invoice")
         .navigationBarTitleDisplayMode(.inline)
+        // Deleting an invoice is irreversible and there is no undo, so it gets
+        // the same confirmation clients and jobs already had. It sat one tap
+        // away, the same size and shape as Edit, right beside it.
+        .alert("Delete this invoice?", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) { Task { await deleteInvoice() } }
+        } message: {
+            Text("This removes the invoice and its line items for good. If it's already been sent, your client's copy stops working.")
+        }
         .task { await load() }
         .sheet(isPresented: $showingShareSheet) { ShareSheet(items: pdfShareItems) }
         .sheet(isPresented: $showingEditSheet) {
@@ -181,7 +191,7 @@ struct InvoiceDetailView: View {
                     )
                     FlynnButton(
                         title: "Delete",
-                        action: { Task { await deleteInvoice() } },
+                        action: { showingDeleteAlert = true },
                         variant: .danger,
                         fullWidth: true
                     )

@@ -110,6 +110,9 @@ final class VoiceCaptureManager {
                 },
                 onEnd: { [weak self] in
                     Task { @MainActor in self?.finish() }
+                },
+                onFailure: { [weak self] message in
+                    Task { @MainActor in self?.fail(message) }
                 }
             )
         } catch {
@@ -136,6 +139,18 @@ final class VoiceCaptureManager {
     func stopListening() {
         if isStarting { stopRequested = true }
         finish()
+    }
+
+    /// The recogniser died without hearing anything. Distinct from `finish()`:
+    /// the caller must be able to tell "the mic broke" from "you didn't speak",
+    /// because those need different words on screen and only one of them is the
+    /// user's fault.
+    private func fail(_ message: String) {
+        pipeline?.stop()
+        pipeline = nil
+        if Self.activeManager === self { Self.activeManager = nil }
+        level = 0
+        state = .error(message)
     }
 
     private func finish() {
@@ -180,26 +195,45 @@ final class VoiceCaptureManager {
 final class VoiceAudioPipeline: @unchecked Sendable {
     private let recognizer: SFSpeechRecognizer?
     private var engine: AVAudioEngine?
-    private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     /// Only ever touched from inside the tap closure, which the audio engine
     /// calls serially on its own realtime thread — no concurrent writers, so
     /// this doesn't need locking despite the class being `@unchecked Sendable`.
     private var smoothedLevel: Float = 0
 
-    /// Written once by `stop()` on the main actor, read on the realtime audio
-    /// thread by the tap.
+    /// State shared between the main actor, the realtime audio thread and the
+    /// Speech framework's own queue.
     ///
-    /// `SFSpeechAudioBufferRecognitionRequest.append` after `endAudio` is
-    /// invalid and raises an ObjC exception — thrown from the audio render
-    /// thread, where Swift cannot catch it, so it takes the process down. The
-    /// old teardown called `endAudio()` first and only then stopped the engine
-    /// and removed the tap, leaving a window of a buffer or two (~21ms each at
-    /// 48kHz) in which exactly that could happen. Ordering the teardown
-    /// correctly closes most of it; this flag closes the rest, since
-    /// `removeTap` does not promise that a callback already in flight won't
-    /// still land. Uncontended `withLock` is a single atomic op.
-    private let stopped = OSAllocatedUnfairLock(initialState: false)
+    /// `stopped` is the important one. `SFSpeechAudioBufferRecognitionRequest.
+    /// append` after `endAudio` is invalid and raises an ObjC exception — thrown
+    /// from the audio render thread, where Swift cannot catch it, so it takes
+    /// the process down. The old teardown called `endAudio()` first and only
+    /// then stopped the engine and removed the tap, leaving a window of a buffer
+    /// or two (~21ms each at 48kHz) in which exactly that could happen. Ordering
+    /// the teardown correctly closes most of it; this flag closes the rest,
+    /// since `removeTap` does not promise that a callback already in flight
+    /// won't still land. Uncontended `withLock` is a single atomic op.
+    ///
+    /// `request` lives here too because the recogniser can be reopened mid-hold
+    /// (see `openTask`) and the tap has to start feeding the replacement without
+    /// the audio engine ever stopping.
+    /// `SFSpeechAudioBufferRecognitionRequest` predates `Sendable` and isn't
+    /// annotated, so it can't cross an isolation boundary on its own. Every
+    /// touch of the instance in this type happens under `live`'s lock — the
+    /// tap's `append`, `openTask`'s handover, `stop`'s `endAudio` — which the
+    /// compiler has no way to see. The box states that.
+    private struct RequestBox: @unchecked Sendable {
+        let request: SFSpeechAudioBufferRecognitionRequest
+    }
+
+    private struct Live {
+        var stopped = false
+        var request: RequestBox?
+        /// Whether this hold has produced a single word yet. Decides whether a
+        /// recogniser error is a real failure or just the tail of a normal stop.
+        var heardSpeech = false
+    }
+    private let live = OSAllocatedUnfairLock(initialState: Live())
 
     init() {
         recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-AU")) ?? SFSpeechRecognizer()
@@ -212,22 +246,29 @@ final class VoiceAudioPipeline: @unchecked Sendable {
     func start(
         onTranscript: @escaping @Sendable (String) -> Void,
         onLevel: @escaping @Sendable (Float) -> Void,
-        onEnd: @escaping @Sendable () -> Void
+        onEnd: @escaping @Sendable () -> Void,
+        onFailure: @escaping @Sendable (String) -> Void
     ) throws {
         guard let recognizer else { throw Unavailable() }
 
+        live.withLock { $0 = Live() }
+
         let session = AVAudioSession.sharedInstance()
         // No .duckOthers: it only applies to categories that play audio.
-        try session.setCategory(.record, mode: .measurement)
+        //
+        // Mode is `.default`, NOT `.measurement`. Apple's own dictation samples
+        // use `.measurement`, and it is the right choice when you want raw
+        // uncalibrated input for analysis — which is exactly the problem here.
+        // It disables the input processing chain, automatic gain control
+        // included, so speech at arm's length off a handset held at chest height
+        // lands far quieter than the -50..-12 dBFS window the meter maps onto.
+        // The simulator hides this completely: there is no hardware processing
+        // there to switch off, so the meter looks perfect on a Mac and reads as
+        // dead silence on a phone.
+        try session.setCategory(.record, mode: .default)
         try session.setActive(true, options: .notifyOthersOnDeactivation)
 
         let engine = AVAudioEngine()
-        let req = SFSpeechAudioBufferRecognitionRequest()
-        req.shouldReportPartialResults = true
-        if recognizer.supportsOnDeviceRecognition {
-            req.requiresOnDeviceRecognition = true
-        }
-
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         // A zero-rate/zero-channel format means the input route isn't ready
@@ -242,8 +283,17 @@ final class VoiceAudioPipeline: @unchecked Sendable {
         // exception Swift can't catch.
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            guard let self, !self.stopped.withLock({ $0 }) else { return }
-            req.append(buffer)
+            guard let self else { return }
+            // Feed the recogniser and read the meter under one lock acquisition.
+            // `append` has to happen inside it: the whole point of `stopped` is
+            // that a buffer already in flight must not reach a request that has
+            // had `endAudio` called on it.
+            let running = self.live.withLock { state -> Bool in
+                guard !state.stopped else { return false }
+                state.request?.request.append(buffer)
+                return true
+            }
+            guard running else { return }
             let raw = Self.rmsLevel(of: buffer)
             // Fast attack / slower release: the meter should snap to a loud
             // word instantly but not flicker back to zero between syllables,
@@ -265,14 +315,77 @@ final class VoiceAudioPipeline: @unchecked Sendable {
         }
 
         self.engine = engine
-        self.request = req
-        self.task = recognizer.recognitionTask(with: req) { result, error in
+        // On-device first where the locale's assets are installed: free, private
+        // and no network round-trip. `openTask` falls back to the server
+        // recogniser by itself if that turns out not to work on this handset.
+        openTask(
+            recognizer: recognizer,
+            onDevice: recognizer.supportsOnDeviceRecognition,
+            onTranscript: onTranscript,
+            onEnd: onEnd,
+            onFailure: onFailure
+        )
+    }
+
+    /// Opens a recognition task and points the tap at its request.
+    ///
+    /// Recalled with `onDevice: false` if the on-device recogniser dies before
+    /// producing a single word. That case matters because it is invisible in the
+    /// simulator and silent in production: the old code discarded the error
+    /// entirely and called the same `onEnd` a normal finish uses, which tore the
+    /// engine down within milliseconds of the press. The meter fell to its idle
+    /// animation, no transcript ever arrived, and the release reported "didn't
+    /// quite catch that" — a recogniser failure wearing the costume of a silent
+    /// user. The audio engine is deliberately left running across the swap, so
+    /// the meter never stutters and the rest of the hold still transcribes.
+    private func openTask(
+        recognizer: SFSpeechRecognizer,
+        onDevice: Bool,
+        onTranscript: @escaping @Sendable (String) -> Void,
+        onEnd: @escaping @Sendable () -> Void,
+        onFailure: @escaping @Sendable (String) -> Void
+    ) {
+        let req = SFSpeechAudioBufferRecognitionRequest()
+        req.shouldReportPartialResults = true
+        req.requiresOnDeviceRecognition = onDevice
+        let box = RequestBox(request: req)
+        live.withLock { $0.request = box }
+
+        task = recognizer.recognitionTask(with: req) { [weak self] result, error in
+            guard let self else { return }
+
             if let result {
-                onTranscript(result.bestTranscription.formattedString)
+                let text = result.bestTranscription.formattedString
+                if !text.isEmpty { self.live.withLock { $0.heardSpeech = true } }
+                onTranscript(text)
             }
-            if error != nil || result?.isFinal == true {
-                onEnd()
+
+            guard let error else {
+                if result?.isFinal == true { onEnd() }
+                return
             }
+
+            let (stopped, heard) = self.live.withLock { ($0.stopped, $0.heardSpeech) }
+            // A cancelled task always reports an error; that's just teardown.
+            // So is an error that lands after the user has already been heard.
+            guard !stopped, !heard else { return onEnd() }
+
+            let mode = onDevice ? "on-device" : "server"
+            FlynnLog.app.error(
+                "Speech recognition failed (\(mode, privacy: .public)): \(error.localizedDescription, privacy: .public)"
+            )
+
+            if onDevice {
+                self.openTask(
+                    recognizer: recognizer,
+                    onDevice: false,
+                    onTranscript: onTranscript,
+                    onEnd: onEnd,
+                    onFailure: onFailure
+                )
+                return
+            }
+            onFailure(error.localizedDescription)
         }
     }
 
@@ -282,14 +395,17 @@ final class VoiceAudioPipeline: @unchecked Sendable {
         // Order matters. Silence the tap, tear down the engine, and only then
         // tell the request no more audio is coming: `append` after `endAudio`
         // is what kills the process. See `stopped`.
-        stopped.withLock { $0 = true }
+        let box = live.withLock { state -> RequestBox? in
+            state.stopped = true
+            defer { state.request = nil }
+            return state.request
+        }
         if let engine {
             engine.stop()
             engine.inputNode.removeTap(onBus: 0)
         }
         engine = nil
-        request?.endAudio()
-        request = nil
+        box?.request.endAudio()
         task?.cancel()
         task = nil
         smoothedLevel = 0

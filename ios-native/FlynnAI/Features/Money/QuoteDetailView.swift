@@ -10,6 +10,7 @@ struct QuoteDetailView: View {
     @State private var pdfShareItems: [Any] = []
     @State private var showingShareSheet = false
     @State private var showingEditSheet = false
+    @State private var showingDeleteAlert = false
     @State private var showingConvertSheet = false
     @State private var showingSendPrompt = false
     @State private var sendToPhone = ""
@@ -60,6 +61,14 @@ struct QuoteDetailView: View {
         }
         .navigationTitle("Quote")
         .navigationBarTitleDisplayMode(.inline)
+        // Same reasoning as the invoice: irreversible, no undo, and it sat one
+        // tap away right beside Edit at the same size.
+        .alert("Delete this quote?", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) { Task { await deleteQuote() } }
+        } message: {
+            Text("This removes the quote and its line items for good. If you've already sent it, your client's copy stops working.")
+        }
         .task { await load() }
         .sheet(isPresented: $showingShareSheet) { ShareSheet(items: pdfShareItems) }
         .sheet(isPresented: $showingEditSheet) {
@@ -137,7 +146,7 @@ struct QuoteDetailView: View {
                     )
                     FlynnButton(
                         title: "Delete",
-                        action: { Task { await deleteQuote() } },
+                        action: { showingDeleteAlert = true },
                         variant: .danger,
                         fullWidth: true
                     )

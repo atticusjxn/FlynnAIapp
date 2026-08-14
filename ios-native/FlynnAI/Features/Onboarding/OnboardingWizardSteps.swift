@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // The individual screens of the onboarding wizard. Each uses WizardScaffold
 // so they share one layout: an optional eyebrow, a big title, a subtitle, the
@@ -183,6 +184,29 @@ struct BusinessStep: View {
             FlynnGlassButton(title: "Continue", action: { model.saveThenNext() },
                              isLoading: model.working)
         }
+        // The two multi-line fields take Return as a newline, so without this
+        // there is no way off the keyboard except guessing where a safe tap is.
+        // Prev/Next also mean the four fields can be filled without ever
+        // reaching around the keyboard to aim at the next one.
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Button { focus = previousField(from: focus) } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .disabled(previousField(from: focus) == nil)
+                .accessibilityLabel("Previous field")
+
+                Button { focus = nextField(from: focus) } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .disabled(nextField(from: focus) == nil)
+                .accessibilityLabel("Next field")
+
+                Spacer()
+                Button("Done") { focus = nil }
+                    .fontWeight(.semibold)
+            }
+        }
         .sheet(item: $voicePayload) { payload in
             BrainVoiceSheet(transcript: payload.transcript, proposals: payload.proposals, onApply: applyVoiceProposals)
         }
@@ -193,26 +217,79 @@ struct BusinessStep: View {
     /// same "confirm before writing" sheet, since a misheard price here is
     /// just as costly as one misheard in the Brain proper.
     private var voiceRow: some View {
-        HStack(spacing: FlynnSpacing.sm) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Or just say it")
+        HStack(alignment: .top, spacing: FlynnSpacing.sm) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(voiceTitle)
                     .flynnType(FlynnTypography.label)
-                    .foregroundColor(FlynnColor.textPrimary)
-                Text("Hold and talk instead of typing")
+                    .foregroundColor(voiceIsBroken ? FlynnColor.error : FlynnColor.textPrimary)
+                // Holding the mic used to show nothing at all until the sheet
+                // appeared, so there was no way to tell a working recogniser
+                // from a dead one until it was over. Echoing the partials back
+                // is the whole feedback loop: words appearing as you speak is
+                // proof it heard you, and the meter alone never was.
+                Text(voiceDetail)
                     .flynnType(FlynnTypography.caption)
-                    .foregroundColor(FlynnColor.textTertiary)
+                    .foregroundColor(voiceIsBroken ? FlynnColor.error : FlynnColor.textTertiary)
+                    .lineLimit(3)
+                    .animation(.easeOut(duration: 0.12), value: voiceDetail)
+                if voice.state == .denied {
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .flynnType(FlynnTypography.caption)
+                    .foregroundColor(FlynnColor.primary)
+                    .padding(.top, 2)
+                }
             }
-            Spacer(minLength: 0)
-            VoiceHoldButton(
-                voice: voice,
-                onSubmit: { transcript in Task { await parseVoice(transcript) } },
-                onNothingHeard: { flash.show("Didn't catch that.", kind: .error) }
-            )
-            .disabled(parsingVoice)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+
+            if parsingVoice {
+                ProgressView().frame(width: 60, height: 60)
+            } else {
+                VoiceHoldButton(
+                    voice: voice,
+                    onSubmit: { transcript in Task { await parseVoice(transcript) } },
+                    onNothingHeard: { flash.show("Didn't catch that. Hold the mic and speak, then let go.", kind: .error) },
+                    onTapTooQuick: { flash.show("Hold the mic while you talk.", kind: .info) }
+                )
+            }
         }
         .padding(FlynnSpacing.md)
         .frame(maxWidth: .infinity)
         .flynnCardSurface(.quiet)
+    }
+
+    private var voiceIsBroken: Bool {
+        if case .error = voice.state { return true }
+        return voice.state == .denied
+    }
+
+    private var voiceTitle: String {
+        if parsingVoice { return "Working out what you said" }
+        switch voice.state {
+        case .listening: return "Listening"
+        case .denied: return "Flynn can't hear you"
+        case .error: return "The mic didn't work"
+        case .idle: return "Or just say it"
+        }
+    }
+
+    private var voiceDetail: String {
+        if parsingVoice { return "One sec." }
+        switch voice.state {
+        case .listening:
+            let heard = voice.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+            return heard.isEmpty ? "Go ahead, say what you do and what you charge." : heard
+        case .denied:
+            return "Microphone and speech access are turned off for Flynn."
+        case .error(let message):
+            return message
+        case .idle:
+            return "Hold and talk instead of typing."
+        }
     }
 
     private func parseVoice(_ transcript: String) async {
@@ -254,12 +331,40 @@ struct BusinessStep: View {
         return trimmed.isEmpty ? addition : "\(trimmed), \(addition)"
     }
 
+    // MARK: - Focus order
+
+    private static let fieldOrder: [Field] = [.name, .services, .pricing, .area]
+
+    private func nextField(from current: Field?) -> Field? {
+        guard let current, let i = Self.fieldOrder.firstIndex(of: current),
+              i + 1 < Self.fieldOrder.count else { return nil }
+        return Self.fieldOrder[i + 1]
+    }
+
+    private func previousField(from current: Field?) -> Field? {
+        guard let current, let i = Self.fieldOrder.firstIndex(of: current), i > 0 else { return nil }
+        return Self.fieldOrder[i - 1]
+    }
+
+    /// Return on a single-line field moves on; from the last one it just closes
+    /// the keyboard so the Continue button is reachable.
+    private func advance(from current: Field) {
+        focus = nextField(from: current)
+    }
+
     private func field(_ label: String, text: Binding<String>, placeholder: String, focused: Field) -> some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
             Text(label).flynnType(FlynnTypography.label).foregroundColor(FlynnColor.textSecondary)
             TextField(placeholder, text: text)
                 .flynnType(FlynnTypography.bodyLarge)
                 .focused($focus, equals: focused)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled(focused == .name)
+                .textContentType(focused == .name ? .organizationName : nil)
+                // Single-line fields advance; the last one closes the keyboard
+                // rather than leaving the user hunting for somewhere to tap.
+                .submitLabel(focused == .area ? .done : .next)
+                .onSubmit { advance(from: focused) }
                 .padding(FlynnSpacing.md)
                 .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
                 .overlay(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)
@@ -270,10 +375,13 @@ struct BusinessStep: View {
     private func multiField(_ label: String, text: Binding<String>, placeholder: String, focused: Field) -> some View {
         VStack(alignment: .leading, spacing: FlynnSpacing.xxs) {
             Text(label).flynnType(FlynnTypography.label).foregroundColor(FlynnColor.textSecondary)
+            // Vertical-axis TextFields take Return as a newline, so they get no
+            // submitLabel — the keyboard toolbar's Done is their way out.
             TextField(placeholder, text: text, axis: .vertical)
                 .lineLimit(2...5)
                 .flynnType(FlynnTypography.bodyLarge)
                 .focused($focus, equals: focused)
+                .textInputAutocapitalization(.sentences)
                 .padding(FlynnSpacing.md)
                 .background(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous).fill(FlynnColor.backgroundSecondary))
                 .overlay(RoundedRectangle(cornerRadius: FlynnRadii.md, style: .continuous)

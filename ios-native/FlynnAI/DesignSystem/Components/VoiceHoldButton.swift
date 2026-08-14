@@ -46,6 +46,12 @@ struct VoiceHoldButton: View {
     @State private var dragDistance: CGFloat = 0
     /// Bumped each time a recording is scrapped, to fire the release haptic.
     @State private var scrapTick = 0
+    /// Bumped on release once we know whether anything was captured. The
+    /// release is the moment the user is asking "did that work?", and until now
+    /// it was the one beat in the whole interaction with no answer you could
+    /// feel — start thumped, cancel ticked, and a good release said nothing.
+    @State private var submitTick = 0
+    @State private var emptyTick = 0
 
     /// How far the finger travels before releasing cancels instead of submits.
     private let cancelThreshold: CGFloat = 90
@@ -192,7 +198,13 @@ struct VoiceHoldButton: View {
         Task {
             try? await Task.sleep(for: .milliseconds(400))
             let text = voice.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            if text.isEmpty { onNothingHeard() } else { onSubmit(text) }
+            if text.isEmpty {
+                emptyTick &+= 1
+                onNothingHeard()
+            } else {
+                submitTick &+= 1
+                onSubmit(text)
+            }
         }
     }
 
@@ -273,11 +285,17 @@ struct VoiceHoldButton: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isListening)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: cancelArmed)
             .animation(.spring(response: 0.14, dampingFraction: 0.75), value: levelBoost)
-            // Three beats you can feel without looking: a firm thump on start, a
-            // sharp tick the instant cancel arms, a light tap when it's scrapped.
+            // Five beats you can feel without looking: a firm thump on start, a
+            // sharp tick the instant cancel arms, a light tap when it's
+            // scrapped, and — the two that were missing — a success bump when
+            // the release actually captured something, or a warning buzz when it
+            // didn't. Release is where the user asks "did that work?", and it
+            // was the one beat in the interaction that answered with silence.
             .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: isListening) { _, now in now }
             .sensoryFeedback(.impact(flexibility: .rigid, intensity: 1.0), trigger: cancelArmed) { _, now in now }
             .sensoryFeedback(.impact(weight: .light, intensity: 0.7), trigger: scrapTick)
+            .sensoryFeedback(.success, trigger: submitTick)
+            .sensoryFeedback(.warning, trigger: emptyTick)
             .onAppear { pulse = true }
     }
 }

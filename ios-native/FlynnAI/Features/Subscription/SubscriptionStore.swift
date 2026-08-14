@@ -68,7 +68,11 @@ final class SubscriptionStore {
             }
 
             let storeKitProducts = try await Product.products(for: productIds)
-            let byId = Dictionary(uniqueKeysWithValues: storeKitProducts.map { ($0.id, $0) })
+            // `Dictionary(uniqueKeysWithValues:)` TRAPS on a duplicate key, and
+            // this runs on paywall appear — a duplicate apple_product_id in the
+            // plans table would take the whole app down at the exact moment the
+            // user tries to pay. Last-one-wins instead.
+            let byId = Dictionary(storeKitProducts.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
 
             products = plansCatalog.compactMap { plan in
                 guard
