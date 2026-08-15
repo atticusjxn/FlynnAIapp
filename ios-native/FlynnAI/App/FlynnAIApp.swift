@@ -63,6 +63,7 @@ struct FlynnAIApp: App {
                         .flynnFlashOverlay()
                         .environment(flash)
                         .environment(subscription)
+                        .environment(paywall)
                         .preferredColorScheme(colorScheme)
                 }
                 .onOpenURL { url in

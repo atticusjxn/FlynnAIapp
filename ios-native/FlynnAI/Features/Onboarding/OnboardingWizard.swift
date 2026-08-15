@@ -131,11 +131,11 @@ struct OnboardingWizard: View {
 
     // MARK: - Paywall / number
 
-    private func startTrial() {
+    private func startTrial(preselecting productId: String? = nil) {
         if subscription.currentEntitlement != nil {
             Task { await assignNumberOrPaywall() }
         } else {
-            paywall.present(reason: .featureGate("your receptionist"))
+            paywall.present(reason: .featureGate("your receptionist"), preselecting: productId)
         }
     }
 

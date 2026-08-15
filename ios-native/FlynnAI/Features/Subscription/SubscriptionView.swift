@@ -9,6 +9,7 @@ struct SubscriptionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(FlashStore.self) private var flash
     @Environment(SubscriptionStore.self) private var store
+    @Environment(PaywallPresentation.self) private var paywall
 
     @State private var selectedProductId: String?
     /// Purchase failures shown inline, not only as a flash. This screen is
@@ -86,6 +87,12 @@ struct SubscriptionView: View {
             }
             .onChange(of: store.products.map(\.product.id)) { _, ids in
                 guard selectedProductId == nil, !ids.isEmpty else { return }
+                // Honour a plan the user already picked before this sheet
+                // opened, so they aren't asked to choose the same thing twice.
+                if let preselected = paywall.preselectedProductId, ids.contains(preselected) {
+                    selectedProductId = preselected
+                    return
+                }
                 selectedProductId = store.products.first(where: { $0.isMostPopular })?.product.id ?? ids.first
             }
         }

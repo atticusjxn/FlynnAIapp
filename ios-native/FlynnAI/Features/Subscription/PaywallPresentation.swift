@@ -8,6 +8,9 @@ import Observation
 final class PaywallPresentation {
     var isPresented: Bool = false
     var reason: Reason = .manual
+    /// Plan the user already chose before the sheet opened, so the sheet can
+    /// arrive with it selected instead of asking the same question twice.
+    var preselectedProductId: String?
 
     enum Reason: Equatable {
         case manual              // user tapped "Upgrade"
@@ -18,8 +21,9 @@ final class PaywallPresentation {
     /// When the sheet opened, for the dwell time reported on close.
     private var presentedAt: Date?
 
-    func present(reason: Reason = .manual) {
+    func present(reason: Reason = .manual, preselecting productId: String? = nil) {
         self.reason = reason
+        self.preselectedProductId = productId
         isPresented = true
         presentedAt = Date()
         Analytics.capture(.paywallViewed, ["reason": reason.analyticsValue])

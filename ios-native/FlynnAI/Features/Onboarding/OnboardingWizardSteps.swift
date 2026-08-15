@@ -60,6 +60,9 @@ struct WizardScaffold<Content: View, Footer: View>: View {
 
 struct WelcomeStep: View {
     @Bindable var model: OnboardingModel
+    @Environment(AuthStore.self) private var auth
+    @State private var confirmingSwitch = false
+
     var body: some View {
         VStack(spacing: FlynnSpacing.lg) {
             Spacer()
@@ -76,9 +79,23 @@ struct WelcomeStep: View {
             }
             Spacer()
             FlynnGlassButton(title: "Let's go", action: { model.next() })
+            // Signing in is a one-way door otherwise: the wizard's back button
+            // only walks back through its own steps, so someone who signed up
+            // with the wrong method — or the wrong account — had no route back
+            // to the "email or mobile" choice short of deleting the app.
+            Button("Signed up with the wrong account?") { confirmingSwitch = true }
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.textTertiary)
+                .frame(minHeight: 44)
         }
         .padding(.horizontal, FlynnSpacing.lg)
         .padding(.bottom, FlynnSpacing.md)
+        .alert("Start again?", isPresented: $confirmingSwitch) {
+            Button("Cancel", role: .cancel) { }
+            Button("Sign out", role: .destructive) { Task { await auth.signOut() } }
+        } message: {
+            Text("You'll go back to the sign-in screen and can start with your mobile or a different email. Nothing you've entered so far is kept.")
+        }
     }
 }
 
@@ -524,6 +541,13 @@ struct CalendarStep: View {
 struct DemoCallStep: View {
     @Bindable var model: OnboardingModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AuthStore.self) private var auth
+    @Environment(FlashStore.self) private var flash
+
+    @FocusState private var phoneFieldFocused: Bool
+    @State private var phone = ""
+    @State private var smsCode = ""
+    @State private var codeSent = false
 
     private var status: OnboardingModel.DemoStatus { model.demoStatus }
 
@@ -539,7 +563,7 @@ struct DemoCallStep: View {
                 case .ringing:   ringingArt
                 case .completed: payoffCard
                 case .failed:    Mascot(.thinking, size: 120, backdrop: .cream)
-                case .needsPhone: Mascot(.phone, size: 120, backdrop: .cream)
+                case .needsPhone: phoneEntry
                 }
             }
             .padding(.top, FlynnSpacing.lg)
@@ -559,12 +583,18 @@ struct DemoCallStep: View {
             case .completed:
                 FlynnGlassButton(title: "Set Flynn live", action: { model.next() })
             case .needsPhone:
-                // Nothing to retry — they have no mobile on the account, so the
-                // only useful action is to move on and add one later.
-                Button("Skip for now") { model.next() }
-                    .flynnType(FlynnTypography.caption)
-                    .foregroundColor(FlynnColor.textTertiary)
-                    .frame(minHeight: 40)
+                VStack(spacing: FlynnSpacing.xs) {
+                    FlynnGlassButton(
+                        title: codeSent ? "Verify and call me" : "Text me a code",
+                        action: { Task { await submitPhoneStep() } },
+                        isLoading: auth.isSubmitting,
+                        isDisabled: codeSent ? smsCode.count < 6 : e164Phone.count < 9
+                    )
+                    Button("Skip for now") { model.next() }
+                        .flynnType(FlynnTypography.caption)
+                        .foregroundColor(FlynnColor.textTertiary)
+                        .frame(minHeight: 44)
+                }
             case .failed:
                 VStack(spacing: FlynnSpacing.xs) {
                     FlynnGlassButton(title: "Try the call again",
@@ -582,7 +612,7 @@ struct DemoCallStep: View {
     private var title: String {
         switch status {
         case .completed: return "That's Flynn."
-        case .needsPhone: return "Flynn needs your mobile"
+        case .needsPhone: return codeSent ? "Check your texts" : "What's your mobile?"
         case .failed:    return "Didn't quite connect"
         default:         return "Flynn's going to ring you"
         }
@@ -596,12 +626,84 @@ struct DemoCallStep: View {
             // what the call itself did.
             return "That was a test run, so nothing's been saved or sent. Once you're live, calls like that get booked in and the caller gets the link below."
         case .needsPhone:
-            return "You signed up with your email, so there's no mobile on the account for Flynn to ring. Add one in Settings and you can run this test any time."
+            return codeSent
+                ? "Pop in the code and Flynn will ring you straight away."
+                : "You signed up with your email, so Flynn doesn't have a number to call yet. Add it here and you'll get the test call — it's the same number your missed calls will divert from."
         case .failed:
             return "We couldn't reach your phone just now. Give it another go, or skip and set Flynn live — you can always test it later."
         default:
             return "Pick up and talk like a customer — ask about a job, a price, when you could come out. Flynn uses what you just told it."
         }
+    }
+
+    /// Ask for the mobile right here rather than sending them to Settings.
+    private var phoneEntry: some View {
+        VStack(spacing: FlynnSpacing.md) {
+            Mascot(.phone, size: 96, backdrop: .cream)
+            FlynnTextField(
+                label: "Your mobile",
+                text: $phone,
+                placeholder: "0412 345 678",
+                keyboardType: .phonePad,
+                textContentType: .telephoneNumber,
+                submitLabel: .done
+            )
+            .focused($phoneFieldFocused)
+            .disabled(codeSent)
+            if codeSent {
+                FlynnTextField(
+                    label: "6-digit code",
+                    text: $smsCode,
+                    placeholder: "000000",
+                    keyboardType: .numberPad,
+                    textContentType: .oneTimeCode,
+                    submitLabel: .done,
+                    helperText: "Sent to \(e164Phone)."
+                )
+                Button("Use a different number") {
+                    codeSent = false
+                    smsCode = ""
+                }
+                .flynnType(FlynnTypography.caption)
+                .foregroundColor(FlynnColor.primary)
+                .frame(minHeight: 44)
+            }
+        }
+        .onAppear { if phone.isEmpty { phoneFieldFocused = true } }
+    }
+
+    /// Same normalisation as the login screen: Supabase has to see one
+    /// canonical E.164 string or the code never matches the number.
+    private var e164Phone: String {
+        let raw = phone.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digits = raw.filter(\.isNumber)
+        guard !digits.isEmpty else { return "" }
+        if raw.hasPrefix("+") { return "+" + digits }
+        if digits.hasPrefix("61") && digits.count == 11 { return "+" + digits }
+        if digits.hasPrefix("0") && digits.count == 10 { return "+61" + digits.dropFirst() }
+        if digits.hasPrefix("64") { return "+" + digits }
+        return "+" + digits
+    }
+
+    private func submitPhoneStep() async {
+        if !codeSent {
+            if await auth.addPhone(e164Phone) {
+                codeSent = true
+            } else {
+                flash.error(auth.errorMessage ?? "Couldn't text that number. Check it and try again.")
+            }
+            return
+        }
+        guard await auth.verifyPhoneChange(phone: e164Phone, token: smsCode) else {
+            flash.error(auth.errorMessage ?? "That code didn't work. Try again.")
+            return
+        }
+        flash.success("Number confirmed.")
+        codeSent = false
+        smsCode = ""
+        // The number is on the account now, so the call that was impossible a
+        // moment ago will go through.
+        await model.startDemoCall()
     }
 
     private var ringingArt: some View {
@@ -689,7 +791,9 @@ struct DemoCallStep: View {
 
 struct PaywallStep: View {
     @Bindable var model: OnboardingModel
-    let onStart: () -> Void
+    /// Carries the plan they tapped, so the StoreKit sheet opens with it
+    /// already chosen.
+    let onStart: (String?) -> Void
 
     @Environment(SubscriptionStore.self) private var store
 
@@ -713,14 +817,20 @@ struct PaywallStep: View {
                     pendingTiers
                 } else {
                     ForEach(tiers) { item in
-                        tier(item)
+                        Button { onStart(item.product.id) } label: { tier(item) }
+                            .buttonStyle(FlynnPressable())
+                            .accessibilityLabel("Choose \(item.plan.displayName), \(item.displayPrice) a month")
                     }
                 }
             }
             .padding(.top, FlynnSpacing.sm)
         } footer: {
             VStack(spacing: FlynnSpacing.xs) {
-                FlynnGlassButton(title: "Start free trial", action: onStart, isLoading: model.working)
+                // Falls back to the featured plan when they use the footer CTA
+                // rather than tapping a specific card.
+                FlynnGlassButton(title: "Start free trial",
+                                 action: { onStart(tiers.first(where: { $0.isMostPopular })?.product.id) },
+                                 isLoading: model.working)
                 Text("7 days free, then your plan. Card required.")
                     .flynnType(FlynnTypography.caption)
                     .foregroundColor(FlynnColor.textTertiary)
@@ -732,8 +842,10 @@ struct PaywallStep: View {
         .task { if store.products.isEmpty { await store.load() } }
     }
 
-    /// Presentational only. Picking a plan happens on the real StoreKit paywall
-    /// that "Start free trial" opens, so a tappable card here would fight it.
+    /// Tapping a card opens the StoreKit sheet with that plan already selected.
+    /// These used to be inert, so choosing "Flynn Receptionist" here and then
+    /// being shown the same two plans again with neither selected asked the
+    /// same question twice and lost the answer in between.
     private func tier(_ item: SubscriptionProduct) -> some View {
         let featured = item.isMostPopular
         return VStack(alignment: .leading, spacing: FlynnSpacing.xs) {

@@ -273,6 +273,40 @@ final class AuthStore {
         return ok
     }
 
+    /// Attach a mobile to an account that signed up by email.
+    ///
+    /// Onboarding used to dead-end here: an email signup has no number, so the
+    /// demo call — the whole value moment — just told them it wasn't possible
+    /// and pointed at Settings. Flynn needs a mobile for the receptionist
+    /// anyway (forwarding, booking-link SMS), so this is the natural place to
+    /// ask for it rather than a thing to apologise about.
+    ///
+    /// Supabase texts a 6-digit code; `verifyPhoneChange` completes it, and the
+    /// `on_auth_user_phone_changed` trigger mirrors the number into
+    /// `public.users` where the demo-call endpoint reads it.
+    @discardableResult
+    func addPhone(_ phone: String) async -> Bool {
+        var ok = false
+        await run {
+            try await self.client.auth.update(user: UserAttributes(phone: phone))
+            ok = true
+        }
+        return ok
+    }
+
+    /// Confirm the code texted by `addPhone`. Only on success is the number
+    /// actually attached to the account — an unverified number must never be
+    /// dialled, since that would make the demo call a toll-fraud vector.
+    @discardableResult
+    func verifyPhoneChange(phone: String, token: String) async -> Bool {
+        var ok = false
+        await run {
+            _ = try await self.client.auth.verifyOTP(phone: phone, token: token, type: .phoneChange)
+            ok = true
+        }
+        return ok
+    }
+
     // MARK: - Helper
 
     private func run(_ work: @escaping () async throws -> Void) async {
