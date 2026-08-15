@@ -6244,23 +6244,73 @@ function formatDate(iso) {
 }
 
 let _puppeteerBrowser = null;
-async function htmlToPDFBuffer(html) {
+/// Render an invoice/quote to PDF.
+///
+/// Three separate ways this used to hang forever, all of which produced the
+/// same symptom — "Share PDF" spinning with no error, no timeout, no recovery:
+///
+///  1. The browser handle was cached and never invalidated. Chromium is the
+///     memory hog in a 256MB machine, so when it gets OOM-killed the cached
+///     handle stays behind and every later request talks to a corpse. One
+///     crash bricked PDFs until the next deploy. It's now cleared on any
+///     failure and on unexpected disconnect, so the next call relaunches.
+///  2. `waitUntil: 'networkidle0'` waits for 500ms of network silence with no
+///     deadline. Any external font or image that never resolves parks the
+///     render indefinitely. The document HTML is self-contained, so `domcontentloaded`
+///     is both correct and immediate.
+///  3. Neither setContent nor pdf() had a timeout, so nothing bounded the call.
+///
+/// Failing loudly after ~20s is strictly better than a spinner that never
+/// stops: the caller can show an error and the user can retry.
+const PDF_RENDER_TIMEOUT_MS = 20000;
+
+async function launchPuppeteer() {
   const puppeteer = require('puppeteer');
-  if (!_puppeteerBrowser) {
-    // PUPPETEER_EXECUTABLE_PATH is set in Dockerfile to /usr/bin/chromium.
-    // Locally, puppeteer falls back to its bundled Chromium.
-    _puppeteerBrowser = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
+  const browser = await puppeteer.launch({
+    headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      // Trim what Chromium allocates up front — this box has 256MB total.
+      '--disable-gpu',
+      '--no-zygote',
+      '--single-process',
+      '--disable-extensions',
+    ],
+  });
+  // If Chromium dies on its own (OOM), drop the handle so the next request
+  // relaunches instead of hanging on a dead pipe.
+  browser.on('disconnected', () => {
+    if (_puppeteerBrowser === browser) _puppeteerBrowser = null;
+  });
+  return browser;
+}
+
+async function htmlToPDFBuffer(html) {
+  if (!_puppeteerBrowser || !_puppeteerBrowser.connected) {
+    _puppeteerBrowser = await launchPuppeteer();
   }
-  const page = await _puppeteerBrowser.newPage();
+  let page;
   try {
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    return await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' } });
+    page = await _puppeteerBrowser.newPage();
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: PDF_RENDER_TIMEOUT_MS });
+    return await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' },
+      timeout: PDF_RENDER_TIMEOUT_MS,
+    });
+  } catch (err) {
+    // A failure here usually means the browser is gone. Bin it rather than
+    // hand the same broken handle to the next caller.
+    try { await _puppeteerBrowser?.close(); } catch { /* already dead */ }
+    _puppeteerBrowser = null;
+    console.error('[PDF] Render failed:', err?.message);
+    throw err;
   } finally {
-    await page.close();
+    if (page) { try { await page.close(); } catch { /* browser already gone */ } }
   }
 }
 

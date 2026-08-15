@@ -76,7 +76,29 @@ final class ClientsRepository: ClientsRepositoryType {
     }
 
     func update(id: UUID, _ input: ClientInput) async throws -> ClientDTO {
-        try await client
+        #if DEBUG
+        // Demo fixtures have no row behind them, so this update matched nothing
+        // and PostgREST answered "Cannot coerce the result to a single JSON
+        // object" — a real-looking database error from a screen showing fake
+        // data. Reads were guarded and writes weren't. Echo the edit back so
+        // the demo behaves like the app it's standing in for.
+        if FlynnDemo.isOn {
+            guard let seed = FlynnDemo.clients.first(where: { $0.id == id }) else {
+                throw FlynnDemoError.notFound
+            }
+            return ClientDTO(
+                id: seed.id, userId: seed.userId, orgId: seed.orgId,
+                name: input.name, phone: input.phone, email: input.email,
+                address: input.address, notes: input.notes,
+                businessType: input.businessType,
+                preferredContactMethod: input.preferredContactMethod,
+                totalJobs: seed.totalJobs, lastJobDate: seed.lastJobDate,
+                lastJobType: seed.lastJobType, createdAt: seed.createdAt,
+                updatedAt: seed.updatedAt
+            )
+        }
+        #endif
+        return try await client
             .from("clients")
             .update(input, returning: .representation)
             .eq("id", value: id.uuidString)

@@ -153,6 +153,9 @@ final class QuotesRepository: QuotesRepositoryType {
         req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(body)
+        // Same reasoning as InvoicesRepository: an unbounded PDF request meant
+        // a stuck renderer showed as a spinner that never resolved.
+        req.timeoutInterval = 30
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw URLError(.badServerResponse)

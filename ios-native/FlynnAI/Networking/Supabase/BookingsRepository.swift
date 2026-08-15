@@ -71,7 +71,7 @@ final class BookingsRepository: BookingsRepositoryType {
         let jobInput = EventInput(
             clientName: booking.callerName,
             serviceType: booking.serviceType,
-            status: "pending",
+            status: "new",
             scheduledDate: booking.requestedDate,
             scheduledTime: booking.requestedTime,
             location: booking.location,

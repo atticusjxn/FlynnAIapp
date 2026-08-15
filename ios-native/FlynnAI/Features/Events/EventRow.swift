@@ -44,9 +44,14 @@ struct EventRow: View {
     private func label(for status: String) -> String {
         switch status.lowercased() {
         case "new": return "New"
-        case "pending": return "Pending"
+        case "new", "pending": return "New"
+        case "lead": return "Lead"
+        case "quoted": return "Quoted"
+        case "scheduled": return "Booked in"
         case "in-progress", "in_progress": return "In Progress"
-        case "complete", "completed": return "Complete"
+        case "complete", "completed": return "Done"
+        case "invoiced": return "Invoiced"
+        case "paid": return "Paid"
         case "failed": return "Failed"
         case "cancelled", "canceled": return "Cancelled"
         default: return status.replacingOccurrences(of: "_", with: " ").capitalized

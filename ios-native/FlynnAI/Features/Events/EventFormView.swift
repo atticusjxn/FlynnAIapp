@@ -49,7 +49,7 @@ struct EventFormView: View {
         switch mode {
         case .create:
             _input = State(initialValue: .newDraft)
-            _selectedStatus = State(initialValue: .pending)
+            _selectedStatus = State(initialValue: .new)
             _selectedDate = State(initialValue: Date())
             _hasDate = State(initialValue: false)
             _selectedTime = State(initialValue: Date())
@@ -57,7 +57,7 @@ struct EventFormView: View {
         case .edit(let dto):
             var seeded = EventInput(from: dto)
             _input = State(initialValue: seeded)
-            _selectedStatus = State(initialValue: EventStatus(rawValue: seeded.status) ?? .pending)
+            _selectedStatus = State(initialValue: EventStatus(rawValue: seeded.status) ?? .new)
             _selectedDate = State(initialValue: seeded.scheduledDate ?? Date())
             _hasDate = State(initialValue: seeded.scheduledDate != nil)
             _selectedTime = State(initialValue: Self.parseTime(seeded.scheduledTime) ?? Date())

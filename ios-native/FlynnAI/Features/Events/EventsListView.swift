@@ -103,7 +103,7 @@ final class EventsListStore {
     var past: [EventDTO] { events.filter { !isUpcoming($0) } }
 
     private func isUpcoming(_ e: EventDTO) -> Bool {
-        if e.status == "complete" { return false }
+        if e.status == "completed" || e.status == "paid" { return false }
         if let d = e.scheduledDate { return d >= Calendar.current.startOfDay(for: Date()) }
         return true
     }

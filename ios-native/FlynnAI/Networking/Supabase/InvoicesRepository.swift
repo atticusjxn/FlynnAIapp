@@ -187,6 +187,12 @@ final class InvoicesRepository: InvoicesRepositoryType {
         req.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(body)
+        // Bounded on purpose. PDF rendering runs headless Chromium server-side,
+        // and when that fell over the request never returned — "Share PDF" span
+        // forever with no error and no way out. URLSession's 60s default is far
+        // too long to leave someone staring at a spinner; the server now caps
+        // its own render at 20s, so anything past 30 here is genuinely stuck.
+        req.timeoutInterval = 30
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
