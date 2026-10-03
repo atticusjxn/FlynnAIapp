@@ -23,7 +23,7 @@ cd "$REPO" && fly deploy -a "$APP"
 echo "4/4 Deploy website (Cloudflare)…"
 cd "$REPO/flynn-ai-new-landingpage"
 npx wrangler whoami >/dev/null 2>&1 || npx wrangler login
-npx wrangler deploy
+npm run cf:deploy   # vite build, then wrangler deploy
 
 curl -s -o /dev/null -w "flynnai.app/start/bradley → %{http_code}\n" https://flynnai.app/start/bradley
 echo "Done. Send Bradley: https://flynnai.app/start/bradley"
