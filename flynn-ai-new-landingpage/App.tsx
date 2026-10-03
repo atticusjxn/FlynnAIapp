@@ -11,6 +11,8 @@ import { IndustriesList, IndustryDetail } from './pages/Industries';
 import { BlogList, BlogPost } from './pages/Blog';
 import Contact from './pages/Contact';
 import Trial from './pages/Trial';
+import Start from './pages/Start';
+import StartDone from './pages/StartDone';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Integrations from './pages/Integrations';
@@ -59,6 +61,9 @@ function App() {
           </Route>
 
           <Route path="/login" element={<Login />} />
+          <Route path="/start/done" element={<StartDone />} />
+          <Route path="/start/:ref" element={<Start />} />
+          <Route path="/start" element={<Start />} />
           <Route path="/instagram-ad" element={<InstagramAd />} />
 
           {/* Founder content-sprint checklist — standalone, mobile, add-to-homescreen */}
