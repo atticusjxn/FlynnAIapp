@@ -90,7 +90,18 @@ const thinkProviderReady = () => {
     || process.env.DASHSCOPE_API_KEY);
 };
 
-const buildSpeakConfig = (businessContext) => {
+/**
+ * Gender from the owner's users.receptionist_voice when no voice_profile is
+ * present. Only the explicit values the web signup writes ('male'/'female') are
+ * mapped, so existing receptionists on named voice options keep the voice they
+ * have today.
+ */
+const genderFromVoiceOption = (voiceOption) => {
+  const v = String(voiceOption || '').toLowerCase();
+  return v === 'male' || v === 'female' ? v : null;
+};
+
+const buildSpeakConfig = (businessContext, voiceOption = null) => {
   // Provider is env-switchable so AU voice auditions are a secrets flip, not a
   // deploy: FLYNN_TTS_PROVIDER = cartesia | eleven_labs | deepgram.
   // Non-Deepgram providers REQUIRE speak.endpoint with the API key in headers
@@ -110,7 +121,7 @@ const buildSpeakConfig = (businessContext) => {
   // voice_profile may be shaped like { provider_voice_id, gender } if the caller
   // pre-resolved it; otherwise gender picks between the AU male/female envs.
   const vp = businessContext?.voice_profile || null;
-  const gender = (vp?.gender || 'female').toLowerCase();
+  const gender = (vp?.gender || genderFromVoiceOption(voiceOption) || 'female').toLowerCase();
 
   if (provider === 'cartesia' && hasCartesia) {
     // Fall back to the other gender's AU voice before giving up on Cartesia.
@@ -603,7 +614,7 @@ class DeepgramVoiceAgentHandler extends EventEmitter {
             },
           },
           think: buildThinkConfig(this.systemPrompt, this.getFunctionSchema()),
-          speak: buildSpeakConfig(this.businessContext),
+          speak: buildSpeakConfig(this.businessContext, this.session?.voiceOption),
           greeting: this.buildGreeting(),
         },
       });
@@ -907,6 +918,7 @@ module.exports = (options) => new DeepgramVoiceAgentHandler(options);
 module.exports.buildSystemPrompt = buildSystemPrompt;
 module.exports.thinkProviderReady = thinkProviderReady;
 module.exports.buildThinkConfig = buildThinkConfig;
+module.exports.buildSpeakConfig = buildSpeakConfig;
 module.exports.getFunctionSchema = function() {
   // Create a temporary instance to access the method
   const tempHandler = new DeepgramVoiceAgentHandler({});

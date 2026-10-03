@@ -302,6 +302,11 @@ if (stripeBasicPriceId) {
 if (stripeGrowthPriceId) {
   planPriceMapping[stripeGrowthPriceId] = 'growth';
 }
+// Web signup receptionist price (routes/webSignup.js) maps to the starter tier so
+// trial->active, past_due and cancellation events update the org like any plan.
+if (process.env.STRIPE_PRICE_RECEPTIONIST_MONTHLY) {
+  planPriceMapping[process.env.STRIPE_PRICE_RECEPTIONIST_MONTHLY] = 'starter';
+}
 
 const knownPlanIds = new Set(['trial', 'starter', 'growth', 'enterprise']);
 
@@ -447,6 +452,13 @@ const resolvePlanFromCheckoutSession = async (session) => {
 };
 
 const handleCheckoutSessionCompleted = async (session) => {
+  // flynnai.app/start web signups provision their own account, org, number and
+  // entitlement (routes/webSignup.js); the generic org/plan mapping below needs
+  // an existing org id and would only log a miss for them.
+  if (session?.metadata?.flynn_signup === 'web_v1') {
+    await require('./routes/webSignup').provisionFromCheckoutSession(session);
+    return;
+  }
   const planId = await resolvePlanFromCheckoutSession(session);
   if (!planId) {
     console.warn('[Billing] Checkout completed without recognised plan', { sessionId: session?.id });

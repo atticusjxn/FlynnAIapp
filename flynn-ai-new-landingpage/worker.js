@@ -10,6 +10,7 @@
  *   /ops*   the private ops dashboard (balances + funnel), passphrase-gated
  *           server-side — the Worker just proxies it, it doesn't gate anything
  *   /api/integrations/*  OAuth connect + callback endpoints
+ *   /api/signup/*        web signup checkout + provisioning status (flynnai.app/start)
  *
  * Without this, flynnai.app/i/<token> silently returns the marketing page —
  * which is what was happening — so every invoice link Flynn sent had to use the
@@ -27,7 +28,7 @@
  */
 
 const BACKEND = 'https://flynnai-telephony.fly.dev';
-const PROXY_PREFIXES = ['/i/', '/p/', '/ops', '/api/integrations/'];
+const PROXY_PREFIXES = ['/i/', '/p/', '/ops', '/api/integrations/', '/api/signup/'];
 
 function isProxied(pathname) {
   return PROXY_PREFIXES.some((p) => pathname === p || pathname.startsWith(p.endsWith('/') ? p : `${p}/`));

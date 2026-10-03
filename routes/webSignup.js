@@ -147,4 +147,219 @@ router.post('/start', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Paid web signup: flynnai.app/start lead form -> embedded Stripe Checkout
+// (7-day trial, then A$79/mo) -> automatic receptionist provisioning.
+// ---------------------------------------------------------------------------
+const { z } = require('zod');
+const rateLimit = require('express-rate-limit');
+const { normalizePhone } = require('../services/authLink');
+const { createProvisioner, forwardingCodesFor } = require('../services/webSignupProvision');
+
+const RECEPTIONIST_MONTHLY_CENTS = Number(process.env.FLYNN_RECEPTIONIST_MONTHLY_CENTS || 7900);
+const TRIAL_DAYS = 7;
+const RETURN_URL = process.env.FLYNN_SIGNUP_RETURN_URL
+  || 'https://flynnai.app/start/done?session_id={CHECKOUT_SESSION_ID}';
+
+let stripeClient = null;
+function stripe() {
+  if (stripeClient) return stripeClient;
+  if (!process.env.STRIPE_SECRET_KEY) return null;
+  stripeClient = require('stripe')(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
+  return stripeClient;
+}
+
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const answersSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  email: z.string().trim().toLowerCase().email().max(160),
+  mobile: z.string().trim().min(8).max(20),
+  businessName: z.string().trim().min(1).max(120),
+  businessType: z.string().trim().min(1).max(120),
+  onMissedCall: z.array(z.enum(['take_message', 'text_summary', 'book_appointment'])).min(1).max(3),
+  coverage: z.enum(['missed_calls', 'after_hours', 'always']),
+  hours: z.object({
+    days: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).min(1).max(7),
+    start: hhmm,
+    end: hhmm,
+  }).strict().optional(),
+  voice: z.enum(['male', 'female']),
+  notes: z.string().trim().max(1000).optional(),
+}).strict();
+const checkoutSchema = z.object({
+  answers: answersSchema,
+  ref: z.string().trim().max(60).optional(),
+}).strict();
+
+// Requests arrive via the flynnai.app Cloudflare worker; key on the visitor's IP
+// it forwards, not the shared edge address.
+const clientKey = (req) => String(req.headers['cf-connecting-ip'] || req.ip || 'unknown');
+const signupLimiter = rateLimit({
+  keyGenerator: clientKey,
+  validate: false,
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Try again in a few minutes.' },
+});
+const statusLimiter = rateLimit({ keyGenerator: clientKey, validate: false, windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
+
+function lineItem() {
+  if (process.env.STRIPE_PRICE_RECEPTIONIST_MONTHLY) {
+    return { price: process.env.STRIPE_PRICE_RECEPTIONIST_MONTHLY, quantity: 1 };
+  }
+  const recurring = { interval: 'month' };
+  const priceData = process.env.STRIPE_PRODUCT_RECEPTIONIST
+    ? { currency: 'aud', unit_amount: RECEPTIONIST_MONTHLY_CENTS, recurring, product: process.env.STRIPE_PRODUCT_RECEPTIONIST }
+    : { currency: 'aud', unit_amount: RECEPTIONIST_MONTHLY_CENTS, recurring, product_data: { name: 'Flynn AI Receptionist' } };
+  return { price_data: priceData, quantity: 1 };
+}
+
+async function notifyFounder({ subject, row, answers, phoneNumber }) {
+  if (!process.env.RESEND_API_KEY) return;
+  const { Resend } = require('resend');
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const text = [
+    `${answers.name} <${row.email}> ${row.mobile}`,
+    `Business: ${answers.businessName} (${answers.businessType})`,
+    `Coverage: ${answers.coverage}${answers.hours ? ` ${answers.hours.days.join(',')} ${answers.hours.start}-${answers.hours.end}` : ''}`,
+    `On missed call: ${answers.onMissedCall.join(', ')}`,
+    `Voice: ${answers.voice}`,
+    `Flynn number: ${phoneNumber || 'NOT ASSIGNED'}`,
+    `Ref: ${row.ref || '-'}`,
+    answers.notes ? `Notes: ${answers.notes}` : '',
+  ].filter(Boolean).join('\n');
+  await resend.emails.send({
+    from: process.env.FLYNN_NOTIFY_FROM || 'Flynn <hello@flynnai.app>',
+    to: process.env.FLYNN_FOUNDER_EMAIL || 'atticusjxn@gmail.com',
+    subject,
+    text,
+  });
+}
+
+let provisioner = null;
+function getProvisioner() {
+  if (provisioner) return provisioner;
+  const { ensureBookingPage } = require('../services/bookingPage');
+  const nango = require('../services/nango');
+  provisioner = createProvisioner({
+    supabase,
+    twilioClient,
+    ensureAuthUser,
+    ensureBookingPage,
+    createSetupLink: nango.createSetupLink,
+    notifyFounder,
+  });
+  return provisioner;
+}
+
+// Exposed for the Stripe webhook in server.js and for tests.
+async function provisionFromCheckoutSession(session) {
+  const signupId = session?.metadata?.flynn_signup_id;
+  if (!signupId || session?.metadata?.flynn_signup !== 'web_v1' || !supabase) return null;
+  return getProvisioner().provision(signupId, {
+    customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+    subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
+  });
+}
+
+function publicStatus(row) {
+  if (!row) return { state: 'pending' };
+  const answers = row.answers || {};
+  const out = { state: row.status, voice: answers.voice, coverage: answers.coverage };
+  if (row.status === 'live' && row.phone_number) {
+    out.phoneNumber = row.phone_number;
+    out.forwardingCodes = forwardingCodesFor(row.phone_number);
+    if (row.calendar_connect_url) out.calendarConnectUrl = row.calendar_connect_url;
+  }
+  if (row.status === 'failed') out.error = row.error === 'pool_empty' ? 'pool_empty' : 'provisioning_failed';
+  return out;
+}
+
+// POST /api/signup/checkout
+router.post('/checkout', signupLimiter, async (req, res) => {
+  const parsed = checkoutSchema.safeParse(req.body || {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_input', fields: parsed.error.issues.map((i) => i.path.join('.')) });
+  }
+  const { answers, ref } = parsed.data;
+  if (answers.coverage === 'after_hours' && !answers.hours) {
+    return res.status(400).json({ error: 'invalid_input', fields: ['answers.hours'] });
+  }
+  const mobile = normalizePhone(answers.mobile);
+  if (!mobile || !/^\+61[45]\d{8}$/.test(mobile)) {
+    return res.status(400).json({ error: 'invalid_input', fields: ['answers.mobile'] });
+  }
+  const s = stripe();
+  if (!s || !supabase || !process.env.STRIPE_PUBLISHABLE_KEY) {
+    return res.status(503).json({ error: 'signup_unavailable' });
+  }
+
+  try {
+    const { data: inserted, error: insErr } = await supabase
+      .from('web_signups')
+      .insert({ email: answers.email, mobile, answers: { ...answers, mobile }, ref: ref || null })
+      .select('id')
+      .single();
+    if (insErr || !inserted?.id) {
+      console.error('[WebSignup] could not store signup', insErr?.message);
+      return res.status(503).json({ error: 'signup_unavailable' });
+    }
+    const metadata = { flynn_signup: 'web_v1', flynn_signup_id: inserted.id };
+
+    const session = await s.checkout.sessions.create({
+      ui_mode: 'embedded',
+      mode: 'subscription',
+      line_items: [lineItem()],
+      customer_email: answers.email,
+      payment_method_collection: 'always',
+      subscription_data: { trial_period_days: TRIAL_DAYS, metadata },
+      metadata,
+      client_reference_id: inserted.id,
+      return_url: RETURN_URL,
+    }, { idempotencyKey: `web-signup-${inserted.id}` });
+
+    await supabase.from('web_signups').update({ stripe_session_id: session.id }).eq('id', inserted.id);
+    return res.json({
+      clientSecret: session.client_secret,
+      sessionId: session.id,
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
+    });
+  } catch (err) {
+    console.error('[WebSignup] checkout create failed', err?.message);
+    return res.status(502).json({ error: 'checkout_failed' });
+  }
+});
+
+// GET /api/signup/status?session_id=cs_...
+router.get('/status', statusLimiter, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const sessionId = String(req.query.session_id || '');
+  if (!/^cs_(test|live)_[A-Za-z0-9]+$/.test(sessionId) || !supabase) {
+    return res.status(400).json({ error: 'invalid_session' });
+  }
+  try {
+    const { data: row } = await supabase.from('web_signups').select('*').eq('stripe_session_id', sessionId).maybeSingle();
+    if (!row) return res.status(404).json({ error: 'not_found' });
+    if (row.status !== 'pending') return res.json(publicStatus(row));
+
+    // Webhook may not have landed yet: confirm with Stripe, then provision here.
+    const s = stripe();
+    if (!s) return res.json(publicStatus(row));
+    const session = await s.checkout.sessions.retrieve(sessionId, { expand: ['subscription'] });
+    const subStatus = session.subscription?.status;
+    if (session.status !== 'complete' || !['trialing', 'active'].includes(subStatus)) {
+      return res.json(publicStatus(row));
+    }
+    const after = await provisionFromCheckoutSession(session);
+    return res.json(publicStatus(after || row));
+  } catch (err) {
+    console.error('[WebSignup] status failed', err?.message);
+    return res.status(502).json({ error: 'status_unavailable' });
+  }
+});
+
 module.exports = router;
+module.exports.provisionFromCheckoutSession = provisionFromCheckoutSession;
+module.exports._test = { checkoutSchema, publicStatus, lineItem, setStripeForTest: (s) => { stripeClient = s; } };
