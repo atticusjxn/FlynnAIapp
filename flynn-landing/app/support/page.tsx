@@ -6,7 +6,6 @@ export const metadata = {
 
 const contacts = [
   { label: "Email", value: "admin@mates-rates.app", href: "mailto:admin@mates-rates.app" },
-  { label: "Phone", value: "0497779071", href: "tel:0497779071" },
   { label: "Contact", value: "Atticus Jackson" },
 ];
 

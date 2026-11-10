@@ -84,8 +84,7 @@ We may update this Privacy Policy from time to time. Material changes will be an
 Atticus Jackson  
 11 Langside Road  
 Hamilton QLD 4007, Australia  
-Email: atticusjxn@gmail.com  
-Phone: +61 497 779 071
+Email: atticusjxn@gmail.com
 
 ---
 Hosting this policy on `https://flynnai.app/privacy` (or an equivalent public URL) satisfies the App Store and Google Play requirement to provide a publicly accessible privacy statement.

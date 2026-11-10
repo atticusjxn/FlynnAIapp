@@ -3,17 +3,24 @@
 <style>
   html, body { height: 100vh; }
   body { display: flex; flex-direction: column; }
-  .frame { flex: 1; display: flex; flex-direction: column; padding: 72px 88px; position: relative; z-index: 2; }
+  .frame { flex: 1; display: flex; flex-direction: column; padding: 72px 84px; position: relative; z-index: 2; }
   .top { display: flex; align-items: center; justify-content: space-between; }
-  .top-spacer { flex: 0.4; }
-  .headline { font-size: 84px; line-height: 1.02; letter-spacing: -1.5px; }
-  .sub { font-size: 38px; line-height: 1.4; color: var(--ink-soft); margin-top: 30px; max-width: 760px; }
-  .mid-spacer { flex: 0.3; }
+  .top-spacer { flex: 0.3; }
+  .headline { font-size: 132px; line-height: 1.0; letter-spacing: -3px; }
+  .headline .o { color: var(--orange); }
+  .mid-spacer { flex: 0.25; }
   .mascot-row { display: flex; justify-content: center; }
-  .mascot { width: 62%; max-width: 520px; height: auto; }
-  .bottom-spacer { flex: 0.35; }
-  .bottom { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
-  .micro { font-size: 28px; color: var(--ink-faint); font-weight: 500; }
+  .mascot { width: 74%; max-width: 640px; height: auto; }
+  .bottom-spacer { flex: 0.3; }
+  .bottom { display: flex; justify-content: flex-start; }
+  /* Square (1:1): scale so headline + mascot + CTA all fit. */
+  @media (min-aspect-ratio: 9/10) {
+    .frame { padding: 56px 84px 64px; }
+    .top-spacer { flex: 0.12; }
+    .mid-spacer, .bottom-spacer { flex: 0.1; }
+    .headline { font-size: 96px; }
+    .mascot { width: 46%; max-width: 420px; }
+  }
 </style></head>
 <body>
   <div class="motif" style="width:420px;height:420px;top:-160px;left:-160px;border-color:var(--teal);opacity:.55;"></div>
@@ -26,16 +33,14 @@
     </div>
     <div class="top-spacer"></div>
 
-    <h1 class="headline display">Give her<br>a call.</h1>
-    <p class="sub">Ring the number, tell her about your business, and she's already answering calls the way you would.</p>
+    <h1 class="headline display">Hear Flynn<br><span class="o">answer.</span></h1>
 
     <div class="mid-spacer"></div>
     <div class="mascot-row"><img class="mascot" src="../assets/mascot-wave.png" alt=""></div>
     <div class="bottom-spacer"></div>
 
     <div class="bottom">
-      <div class="cta-bar">📞&nbsp; Tap to call Flynn</div>
-      <span class="micro">Free to try — no card, no forms.</span>
+      <div class="cta-bar">📞&nbsp; Try Flynn free</div>
     </div>
   </div>
 </body></html>

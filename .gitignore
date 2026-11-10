@@ -81,3 +81,6 @@ ios-native/export/
 
 # Instagram seed content (207MB, regenerable — node_modules + generated media)
 instagram_content/
+
+# kie.ai API key (ad-creative generation)
+.env.kie

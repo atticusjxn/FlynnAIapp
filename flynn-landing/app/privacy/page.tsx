@@ -148,7 +148,6 @@ const sections = [
         <p>
           Email: <Link href="mailto:atticusjxn@gmail.com" className="text-indigo-600 underline">atticusjxn@gmail.com</Link>
         </p>
-        <p>Phone: +61 497 779 071</p>
       </div>
     ),
   },

@@ -3,7 +3,7 @@ import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
-const APP_STORE = 'https://apps.apple.com/au/app/flynnai/id6752254950';
+const WAITLIST = '/start';
 
 const links = [
   { label: 'How it works', href: '/#how' },
@@ -37,9 +37,9 @@ const Navbar: React.FC = () => {
             {links.map(l => (
               <a key={l.href} href={l.href} className="text-[#2C2018] hover:text-[#FB5B1E] transition-colors text-sm font-semibold font-display tracking-wide">{l.label}</a>
             ))}
-            <a href={APP_STORE} target="_blank" rel="noopener noreferrer"
+            <a href={WAITLIST}
               className="flynn-glass flynn-glass--primary flynn-pill text-white px-6 py-3 text-sm font-bold font-display inline-flex items-center">
-              Get the app
+              Join the waitlist
             </a>
           </div>
 
@@ -59,9 +59,9 @@ const Navbar: React.FC = () => {
                 <a key={l.href} href={l.href} onClick={() => setMobileMenuOpen(false)}
                   className="block text-3xl font-display font-bold text-[#2C2018] hover:text-[#FB5B1E]">{l.label}</a>
               ))}
-              <a href={APP_STORE} target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}
+              <a href={WAITLIST} onClick={() => setMobileMenuOpen(false)}
                 className="flynn-glass flynn-glass--primary flynn-pill block text-center mt-6 text-white px-5 py-4 font-bold text-xl font-display">
-                Get the app
+                Join the waitlist
               </a>
             </div>
           </motion.div>

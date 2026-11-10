@@ -50,13 +50,21 @@ private fun AuthenticatedRoot() {
         onboardingDone = try {
             val client = FlynnApp.instance.supabase
             val session = client.auth.currentSessionOrNull() ?: return@LaunchedEffect
-            @Serializable data class Row(val onboarding_completed: Boolean)
+            @Serializable data class Row(
+                val onboarding_completed: Boolean = false,
+                val signup_source: String? = null,
+            )
             val row: Row = withContext(Dispatchers.IO) {
                 client.postgrest.from("users")
                     .select { filter { eq("id", session.user?.id?.toString() ?: "") } }
                     .decodeSingle()
             }
-            row.onboarding_completed
+            // Users who came in via the text funnel already have a brain Flynn built
+            // for them over messages — drop them straight into their account rather
+            // than re-running the wizard. Genuinely-new app signups (no text
+            // signup_source) still onboard.
+            val fromText = row.signup_source in listOf("imessage", "sms", "web", "demo")
+            row.onboarding_completed || fromText
         } catch (_: Exception) { false }
     }
 

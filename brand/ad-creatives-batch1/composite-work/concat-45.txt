@@ -1,0 +1,2 @@
+file 'segA-45.mp4'
+file 'segB-45.mp4'

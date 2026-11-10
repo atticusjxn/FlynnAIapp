@@ -13,8 +13,8 @@ android {
         applicationId = "com.flynnai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 58
-        versionName = "2.1.0"
+        versionCode = 104
+        versionName = "2.1.1"
     }
 
     signingConfigs {

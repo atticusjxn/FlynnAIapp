@@ -4,7 +4,6 @@ Welcome to the FlynnAI support page. If you run into an issue or need help with 
 
 ## Contact
 - Email: admin@mates-rates.app
-- Phone: 0497779071
 - Contact person: Atticus Jackson
 
 ## Common requests

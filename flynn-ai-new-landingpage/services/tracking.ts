@@ -158,6 +158,21 @@ export function trackMessagedFlynn(): string {
   return ref;
 }
 
+/**
+ * Track a "call me back" request — the primary funnel conversion. The phone
+ * number itself is the deterministic attribution key (matched again at
+ * signup), so this is Meta-side reporting/optimisation, not the source of
+ * truth. Fires Lead (the event campaigns should optimise on until enough
+ * volume exists to switch to a deeper custom event).
+ */
+export function trackCallMeBack(): void {
+  window.fbq?.('trackCustom', 'CallMeBackRequested');
+  window.fbq?.('track', 'Lead', { content_name: 'call_me_back' });
+  window.ttq?.track('Contact', { content_id: 'call_me_back' });
+  window.gtag?.('event', 'call_me_back_requested');
+  window.posthog?.capture('call_me_back_requested');
+}
+
 /** Track when a user clicks the App Store / Google Play badge — high-intent event. */
 export function trackStoreBadgeClick(store: 'apple' | 'google'): void {
   const event = store === 'apple' ? 'click_app_store' : 'click_google_play';

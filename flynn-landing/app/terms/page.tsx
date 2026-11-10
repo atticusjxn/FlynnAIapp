@@ -92,7 +92,6 @@ const sections = [
       "11 Langside Road",
       "Hamilton QLD 4007, Australia",
       "Email: atticusjxn@gmail.com",
-      "Phone: +61 497 779 071",
     ],
   },
 ];

@@ -263,6 +263,24 @@ export async function getSubscriptionStatus(): Promise<any> {
   return response.json();
 }
 
+// Landing-page "call me back" funnel — unauthenticated, places an outbound
+// call from Flynn to the visitor within seconds so they can hear the AI
+// receptionist live. The call itself IS the demo and the onboarding interview.
+export async function callMeBack(phone: string): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/call-me-back`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to place call');
+  }
+
+  return response.json();
+}
+
 // Web sign-up — unauthenticated, sends welcome SMS + vCard MMS
 export async function startSignup(phone: string): Promise<{ ok: boolean }> {
   const response = await fetch(`${API_BASE_URL}/api/signup/start`, {

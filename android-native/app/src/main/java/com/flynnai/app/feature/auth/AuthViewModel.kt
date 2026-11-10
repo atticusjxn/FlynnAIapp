@@ -66,16 +66,38 @@ class AuthViewModel : ViewModel() {
     }
 
     fun signInWithPhone(phone: String) = run {
-        client.auth.signInWith(Phone) { this.phone = phone }
+        client.auth.signInWith(Phone) { this.phone = normalizePhone(phone) }
     }
 
     fun verifyPhoneOTP(phone: String, token: String) = run {
-        client.auth.verifyPhoneOtp(type = OtpType.Phone.SMS, phone = phone, token = token)
+        client.auth.verifyPhoneOtp(type = OtpType.Phone.SMS, phone = normalizePhone(phone), token = token)
     }
 
     fun signOut() = run { client.auth.signOut() }
 
     fun clearError() { _errorMessage.value = null }
+
+    companion object {
+        /**
+         * AU/NZ-aware E.164 normaliser — mirrors the backend's `normalizePhone`
+         * (services/authLink.js) so phone OTP matches the SAME auth user that was
+         * created when this number first texted Flynn. Without it, "04…" wouldn't
+         * match the stored "+61…" identity and the user would land on a fresh,
+         * empty account instead of their text-built brain.
+         */
+        fun normalizePhone(raw: String): String {
+            val trimmed = raw.trim()
+            val digits = trimmed.filter { it.isDigit() }
+            if (digits.isEmpty()) return trimmed
+            return when {
+                trimmed.startsWith("+") -> "+$digits"
+                digits.startsWith("61") && digits.length == 11 -> "+$digits"
+                digits.startsWith("0") && digits.length == 10 -> "+61${digits.substring(1)}"
+                digits.startsWith("64") -> "+$digits"
+                else -> "+$digits"
+            }
+        }
+    }
 
     private fun run(block: suspend () -> Unit) {
         viewModelScope.launch {

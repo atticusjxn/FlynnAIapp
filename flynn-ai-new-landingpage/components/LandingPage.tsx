@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import StoreButtons from './StoreButtons';
-import CallMeBackWidget from './CallMeBackWidget';
+import WaitlistForm from './WaitlistForm';
 import AppShowcase from './AppShowcase';
 
 /* ------------------------------------------------------------------ *
@@ -12,10 +12,6 @@ import AppShowcase from './AppShowcase';
  * ------------------------------------------------------------------ */
 
 const INK = '#2C2018';
-
-const FLYNN_NUMBER = '+61480891471';
-const FLYNN_NUMBER_DISPLAY = '+61 480 891 471';
-const FLYNN_SMS_LINK = `sms:${FLYNN_NUMBER}&body=${encodeURIComponent('Hi Flynn')}`;
 
 const Mascot = ({ pose, className = '' }: { pose: string; className?: string }) => (
   <img src={`/mascots/${pose}.png`} alt="" aria-hidden="true"
@@ -225,12 +221,8 @@ export default function LandingPage() {
               When you're on the tools, Flynn picks up — a receptionist that sounds like a real person, books the job, and texts the client back in seconds. Then it does the rest: the invoice with the photos on it, the pay link, and the chasing until the money lands.
             </p>
             <div className="mt-7">
-              <p className="font-display font-bold text-lg mb-3">Hear it for yourself, free:</p>
-              <CallMeBackWidget />
-              <a href="https://apps.apple.com/au/app/flynnai/id6752254950" target="_blank" rel="noopener noreferrer"
-                className="inline-block mt-4 text-sm font-semibold text-[#5A4A3C] hover:text-[#FB5B1E] transition-colors underline decoration-[#5A4A3C]/30">
-                Already sold? Get Flynn free on the App Store →
-              </a>
+              <p className="font-display font-bold text-lg mb-3">Flynn isn't taking new signups right now. Join the waitlist:</p>
+              <WaitlistForm source="hero" />
             </div>
           </Reveal>
 
@@ -255,15 +247,8 @@ export default function LandingPage() {
       {/* ===================== APP STORE CTA (secondary) ===================== */}
       <section className="py-10 border-b-[3px] border-[#2C2018]">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col items-center justify-center gap-4">
-          <span className="text-sm font-medium text-[#8C7B6A]">Download the app to get started</span>
+          <span className="text-sm font-medium text-[#8C7B6A]">Flynn isn't taking new signups right now</span>
           <StoreButtons />
-          <p className="text-sm text-[#8C7B6A]">
-            Prefer to just text?{' '}
-            <a href={FLYNN_SMS_LINK} className="font-semibold text-[#2C2018] hover:text-[#FB5B1E] transition-colors">
-              Message Flynn directly
-            </a>{' '}
-by text at {FLYNN_NUMBER_DISPLAY}.
-          </p>
         </div>
       </section>
 
@@ -522,15 +507,15 @@ by text at {FLYNN_NUMBER_DISPLAY}.
                     <li key={t} className="flex gap-3"><span className="font-bold">✓</span>{t}</li>
                   ))}
                 </ul>
-                <a href="https://apps.apple.com/au/app/flynnai/id6752254950" target="_blank" rel="noopener noreferrer"
+                <a href="/start"
                   className="flynn-glass flynn-glass--light flynn-pill mt-8 flex items-center justify-center px-6 py-3.5 font-display font-bold text-[#2C2018]">
-                  Start the free trial
+                  Join the waitlist
                 </a>
               </div>
             </Reveal>
           </div>
           <p className="text-center text-sm text-[#F4E6CE]/60 mt-8">
-            7 days free on both. Card required to start, cancel any time. Prices in AUD.
+            Flynn isn't taking new signups right now. Prices in AUD.
           </p>
           <div className="flex justify-center mt-12"><StoreButtons /></div>
         </div>

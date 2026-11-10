@@ -1,9 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const APP_STORE = 'https://apps.apple.com/au/app/flynnai/id6752254950';
-const PLAY_STORE = 'https://play.google.com/store/apps/details?id=com.flynnai.app';
-
 const col = (title: string, items: { label: string; href: string; external?: boolean }[]) => (
   <div>
     <h4 className="font-display font-bold uppercase tracking-wider mb-5 text-[#2C2018] text-sm">{title}</h4>
@@ -45,9 +42,8 @@ const Footer: React.FC = () => (
           { label: 'Privacy', href: '/privacy' },
           { label: 'Account deletion', href: '/delete-account' },
         ])}
-        {col('Get the app', [
-          { label: 'iOS · App Store', href: APP_STORE, external: true },
-          { label: 'Android · Google Play', href: PLAY_STORE, external: true },
+        {col('Get Flynn', [
+          { label: 'Join the waitlist', href: '/start' },
         ])}
       </div>
       <div className="border-t-2 border-[#2C2018]/10 pt-6 flex flex-col md:flex-row justify-between items-center gap-3">

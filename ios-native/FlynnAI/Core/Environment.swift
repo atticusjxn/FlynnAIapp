@@ -55,7 +55,7 @@ enum FlynnEnv {
     /// Overridable via Info.plist (FLYNN_CONTACT_NUMBER); defaults to the live number.
     static var flynnContactNumber: String {
         let value = infoString("FLYNN_CONTACT_NUMBER")
-        return (value?.isEmpty ?? true) ? "+61497779071" : value!
+        return (value?.isEmpty ?? true) ? "+61480891471" : value!
     }
 
     /// iOS bundle id registered against the TikTok Business SDK app entry.
